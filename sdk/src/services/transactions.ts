@@ -92,21 +92,16 @@ export default class TransactionsService {
 		return this.createEVMTxn(txn, options)
 	}
 
-	public getContractTxn(
+	public async getContractTxn(
 		contract: ethers.Contract,
 		method: string,
 		args: any[],
 		txnOptions: Partial<ethers.providers.TransactionRequest> = {},
 		options?: { gasLimitBuffer?: number }
 	) {
-		const txn = {
-			to: contract.address,
-			data: contract.interface.encodeFunctionData(method, args),
-			value: BigNumber.from(0),
-			...txnOptions,
-		}
+		const tx1 = await contract.populateTransaction[method](...args);
 
-		return txn
+		return tx1
 	}
 
 	public async createEVMTxn(txn: ethers.providers.TransactionRequest, options?: any) {

@@ -695,7 +695,7 @@ export default class FuturesService {
 		amount: BigNumber = BigNumber.from(ethers.constants.MaxUint256)
 	) {
 		if (!this.sdk.context.contracts.SUSD) throw new Error(UNSUPPORTED_NETWORK)
-		return this.sdk.transactions.getContractTxn(this.sdk.context.contracts.SUSD, 'approve', [
+		return await this.sdk.transactions.getContractTxn(this.sdk.context.contracts.SUSD, 'approve', [
 			crossMarginAddress,
 			amount,
 		])
@@ -707,7 +707,7 @@ export default class FuturesService {
 			this.sdk.context.signer
 		)
 
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			[AccountExecuteFunctions.ACCOUNT_MODIFY_MARGIN],
 			[defaultAbiCoder.encode(['int256'], [amount.toBN()])],
 		])
@@ -723,7 +723,7 @@ export default class FuturesService {
 
 		commands.push(AccountExecuteFunctions.ACCOUNT_MODIFY_MARGIN)
 		inputs.push(defaultAbiCoder.encode(['int256'], [amount.neg().toBN()]))
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			commands,
 			inputs,
 		])
@@ -771,7 +771,7 @@ export default class FuturesService {
 		commands.push(AccountExecuteFunctions.PERPS_V2_MODIFY_MARGIN)
 		inputs.push(encodeModidyMarketMarginParams(marketAddress, marginDelta))
 
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			commands,
 			inputs,
 		])
@@ -809,7 +809,7 @@ export default class FuturesService {
 		commands.push(AccountExecuteFunctions.PERPS_V2_SUBMIT_OFFCHAIN_DELAYED_ORDER)
 		inputs.push(encodeSubmitOffchainOrderParams(market.address, sizeDelta, desiredFillPrice))
 
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			commands,
 			inputs,
 		])
@@ -817,13 +817,13 @@ export default class FuturesService {
 
 	public async depositIsolatedMargin(marketAddress: string, amount: Wei) {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
-		const txn = this.sdk.transactions.getContractTxn(market, 'transferMargin', [amount.toBN()])
+		const txn = await this.sdk.transactions.getContractTxn(market, 'transferMargin', [amount.toBN()])
 		return txn
 	}
 
 	public async withdrawIsolatedMargin(marketAddress: string, amount: Wei) {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
-		const txn = this.sdk.transactions.getContractTxn(market, 'transferMargin', [
+		const txn = await this.sdk.transactions.getContractTxn(market, 'transferMargin', [
 			amount.neg().toBN(),
 		])
 		return txn
@@ -841,7 +841,7 @@ export default class FuturesService {
 	) {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
 
-		return this.sdk.transactions.getContractTxn(
+		return await this.sdk.transactions.getContractTxn(
 			market,
 			'submitOffchainDelayedOrderWithTracking',
 			[sizeDelta.toBN(), priceImpactDelta.toBN(), KWENTA_TRACKING_CODE]
@@ -878,7 +878,7 @@ export default class FuturesService {
 
 	public async createCrossMarginAccount() {
 		if (!this.sdk.context.contracts.SmartMarginAccountFactory) throw new Error(UNSUPPORTED_NETWORK)
-		return this.sdk.transactions.getContractTxn(
+		return await this.sdk.transactions.getContractTxn(
 			this.sdk.context.contracts.SmartMarginAccountFactory,
 			'newAccount',
 			[]
@@ -1030,7 +1030,7 @@ export default class FuturesService {
 			}
 		}
 
-		return this.sdk.transactions.getContractTxn(
+		return await this.sdk.transactions.getContractTxn(
 			crossMarginAccountContract,
 			'execute',
 			[commands, inputs],
@@ -1069,7 +1069,7 @@ export default class FuturesService {
 		commands.push(AccountExecuteFunctions.PERPS_V2_SUBMIT_CLOSE_OFFCHAIN_DELAYED_ORDER)
 		inputs.push(encodeCloseOffchainOrderParams(market.address, desiredFillPrice))
 
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			commands,
 			inputs,
 		])
@@ -1081,7 +1081,7 @@ export default class FuturesService {
 			this.sdk.context.signer
 		)
 
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			[AccountExecuteFunctions.GELATO_CANCEL_CONDITIONAL_ORDER],
 			[defaultAbiCoder.encode(['uint256'], [orderId])],
 		])
@@ -1092,7 +1092,7 @@ export default class FuturesService {
 			crossMarginAddress,
 			this.sdk.context.signer
 		)
-		return this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
+		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			[AccountExecuteFunctions.ACCOUNT_WITHDRAW_ETH],
 			[defaultAbiCoder.encode(['uint256'], [amount.toBN()])],
 		])
@@ -1175,7 +1175,7 @@ export default class FuturesService {
 			}
 		}
 
-		return this.sdk.transactions.getContractTxn(
+		return await this.sdk.transactions.getContractTxn(
 			crossMarginAccountContract,
 			'execute',
 			[commands, inputs],
