@@ -7,6 +7,8 @@ import {
   OrderDirection,
   OrderType,
 } from "../interface";
+import { wei } from "@synthetixio/wei";
+import { FuturesMarket } from "@kwenta/sdk/dist/types";
 
 export default class SynthetixV2Service implements IExchange {
   private nId = 10;
@@ -15,6 +17,12 @@ export default class SynthetixV2Service implements IExchange {
 
   constructor(sdk: KwentaSDK) {
     this.sdk = sdk;
+  }
+
+  async findMarketByKey(marketKey: string): Promise<FuturesMarket | undefined> {
+    // find the market
+    const markets = await this.sdk.futures.getMarkets();
+    return markets.find((m) => m.marketKey == marketKey);
   }
 
   setup(signer: Signer): Promise<void> {
@@ -47,15 +55,15 @@ export default class SynthetixV2Service implements IExchange {
       shortCollateral: this.sUSDAddr,
       indexOrIdentifier: m.marketKey,
       supportedOrderTypes: {
-        LIMIT_INCREASE: false,
-        LIMIT_DECREASE: false,
+        LIMIT_INCREASE: true,
+        LIMIT_DECREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
       },
     }));
   }
 
-  createOrder(
+  async createOrder(
     signer: Signer,
     market: {
       mode: Mode;
@@ -82,7 +90,38 @@ export default class SynthetixV2Service implements IExchange {
         | undefined;
     }
   ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
+    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    await this.sdk.setSigner(signer);
+
+    // transfer margin orders
+    if (order.type == "LIMIT_INCREASE" || order.type == "LIMIT_DECREASE") {
+      let transferAmount = wei(order.inputCollateralAmount);
+      transferAmount =
+        order.type == "LIMIT_INCREASE" ? transferAmount : transferAmount.neg();
+
+      return (await this.sdk.futures.depositIsolatedMargin(
+        targetMarket.market!,
+        transferAmount
+      )) as UnsignedTransaction;
+    }
+
+    // proper orders
+    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
+      let sizeDelta = wei(order.sizeDelta);
+      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
+
+      return (await this.sdk.futures.submitIsolatedMarginOrder(
+        targetMarket.market,
+        sizeDelta,
+        wei(order.trigger?.triggerPrice)
+      )) as UnsignedTransaction;
+    }
+
+    throw new Error("Invalid order type");
   }
 
   updateOrder(
@@ -113,10 +152,10 @@ export default class SynthetixV2Service implements IExchange {
         | undefined;
     }>
   ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
+    throw new Error("Method not Supported.");
   }
 
-  cancelOrder(
+  async cancelOrder(
     signer: Signer,
     market: {
       mode: Mode;
@@ -127,7 +166,16 @@ export default class SynthetixV2Service implements IExchange {
     },
     orderIdentifier: BigNumberish
   ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
+    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    return await this.sdk.futures.cancelDelayedOrder(
+      targetMarket.market,
+      await signer.getAddress(),
+      true
+    );
   }
 
   getOrder(orderIdentifier: BigNumberish): Promise<

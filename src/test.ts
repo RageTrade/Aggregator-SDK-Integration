@@ -1,5 +1,5 @@
 import KwentaSDK from "@kwenta/sdk";
-import { ethers } from "ethers";
+import { BigNumber, ethers, Signer, BigNumberish } from "ethers";
 import { config } from "dotenv";
 import {
   ContractOrderType,
@@ -10,6 +10,7 @@ import {
 } from "@kwenta/sdk/dist/types";
 import Wei, { wei } from "@synthetixio/wei";
 import SynthetixV2Service from "./exchanges/synthetixv2";
+import { Mode, OrderType } from "./interface";
 
 config();
 
@@ -31,7 +32,7 @@ function logObject(title: string, obj: object) {
 
 let provider = new ethers.providers.AlchemyProvider(
   "optimism",
-  ALCHEMY_KEY_OP_MAIN
+  "lkJFL7st7RthipPqOa5rV8qOeKVdlys5"
 );
 
 const signer = new ethers.Wallet(w1pk, provider);
@@ -44,10 +45,108 @@ const sdk = new KwentaSDK({
 async function synService() {
   const ss = new SynthetixV2Service(sdk);
   const supportedNetworks = ss.supportedNetworks();
-  logObject("Supported Networks: ", supportedNetworks);
+  logObject("Supported Networks: ", supportedNetworks[0]);
 
   const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  logObject("Supportted Markets: ", supportedMarkets);
+  logObject("Supportted Markets: ", supportedMarkets[0]);
+
+  await createLongOrder(ss);
+  await createTransferMarginOrder(ss);
+  await cancelDelayedOffChainOrder(ss);
+}
+
+async function cancelDelayedOffChainOrder(ss: SynthetixV2Service) {
+  const cancelOrder = await ss.cancelOrder(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "string",
+      indexOrIdentifier: "sETHPERP",
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    "0"
+  );
+  logObject("Cancel Order: ", cancelOrder);
+}
+
+async function createLongOrder(ss: SynthetixV2Service) {
+  const createOrder = await ss.createOrder(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "",
+      indexOrIdentifier: "sETHPERP",
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    {
+      type: "MARKET_INCREASE",
+      direction: "LONG",
+      inputCollateral: {
+        name: "string",
+        symbol: "string",
+        decimals: "string",
+        address: "string",
+      },
+      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      sizeDelta: ethers.utils.parseEther("0.01"),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: BigNumber.from("2000"),
+        triggerAboveThreshold: true,
+      },
+    }
+  );
+  logObject("Create Order: ", createOrder);
+}
+
+async function createTransferMarginOrder(ss: SynthetixV2Service) {
+  const createOrder = await ss.createOrder(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "",
+      indexOrIdentifier: "sETHPERP",
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    {
+      type: "LIMIT_INCREASE",
+      direction: "LONG",
+      inputCollateral: {
+        name: "string",
+        symbol: "string",
+        decimals: "string",
+        address: "string",
+      },
+      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      sizeDelta: ethers.utils.parseEther("0.01"),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: BigNumber.from("2000"),
+        triggerAboveThreshold: true,
+      },
+    }
+  );
+  logObject("Create Order: ", createOrder);
 }
 
 async function main() {
