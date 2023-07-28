@@ -850,9 +850,18 @@ export default class FuturesService {
 
 	public async cancelDelayedOrder(marketAddress: string, account: string, isOffchain: boolean) {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+
 		return isOffchain
-			? market.cancelOffchainDelayedOrder(account)
-			: market.cancelDelayedOrder(account)
+			? await this.sdk.transactions.getContractTxn(
+				market,
+				'cancelOffchainDelayedOrder',
+				[account]
+			)
+			: await this.sdk.transactions.getContractTxn(
+				market,
+				'cancelDelayedOrder',
+				[account]
+			)
 	}
 
 	public async executeDelayedOrder(marketAddress: string, account: string) {
