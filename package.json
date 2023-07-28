@@ -1,0 +1,20 @@
+{
+  "name": "perp-aggregator-sdk",
+  "devDependencies": {
+    "@typechain/ethers-v5": "^11.0.0",
+    "@types/node": "^20.3.3",
+    "dotenv": "^16.3.1",
+    "prettier": "^2.8.8",
+    "ts-node": "^10.9.1",
+    "typechain": "^8.1.1",
+    "typescript": "^5.1.6"
+  },
+  "dependencies": {
+    "@kwenta/sdk": "./sdk",
+    "@synthetixio/wei": "^2.74.4",
+    "@typechain/ethers-v6": "^0.4.0",
+    "ethers": "5"
+  },
+  "version": "1.0.0",
+  "license": "MIT"
+}
