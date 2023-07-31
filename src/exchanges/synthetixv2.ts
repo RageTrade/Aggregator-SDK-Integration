@@ -1,14 +1,25 @@
 import KwentaSDK from "@kwenta/sdk";
 import { Signer, BigNumber, UnsignedTransaction, BigNumberish } from "ethers";
 import {
+  ExtendedPosition,
   IExchange,
+  Market,
   Mode,
+  Order,
   OrderAction,
   OrderDirection,
   OrderType,
+  Token,
+  MarketIdentifier,
+  CollateralData,
 } from "../interface";
 import { wei } from "@synthetixio/wei";
-import { FuturesMarket } from "@kwenta/sdk/dist/types";
+import {
+  ContractOrderType,
+  FuturesMarket,
+  FuturesMarketKey,
+  PositionSide,
+} from "@kwenta/sdk/dist/types";
 
 export default class SynthetixV2Service implements IExchange {
   private nId = 10;
@@ -177,6 +188,70 @@ export default class SynthetixV2Service implements IExchange {
       await signer.getAddress(),
       true
     );
+  }
+
+  async getIdleMargins(
+    user: string
+  ): Promise<(MarketIdentifier & CollateralData)[]> {
+    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
+    const token: Token = {
+      name: "Synthetix USD",
+      symbol: "sUSD",
+      decimals: "18",
+      address: this.sUSDAddr,
+    };
+
+    return result.marketsWithIdleMargin.map((m) => ({
+      indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
+      inputCollateral: token,
+      inputCollateralAmount: m.position.accessibleMargin.toBN(),
+    }));
+  }
+
+  async getTradePreview(
+    signer: Signer,
+    market: Market,
+    order: Order
+  ): Promise<ExtendedPosition> {
+    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    await this.sdk.setSigner(signer);
+
+    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
+      const tradePreview = await this.sdk.futures.getIsolatedTradePreview(
+        targetMarket.market,
+        targetMarket.marketKey,
+        ContractOrderType.DELAYED_OFFCHAIN,
+        {
+          sizeDelta: wei(order.sizeDelta),
+          price: wei(order.trigger!.triggerPrice),
+          leverageSide:
+            order.type == "MARKET_INCREASE"
+              ? PositionSide.LONG
+              : PositionSide.SHORT,
+        }
+      );
+
+      return {
+        indexOrIdentifier: "",
+        size: tradePreview.size.toBN(),
+        collateral: tradePreview.margin.toBN(),
+        averageEntryPrice: tradePreview.price.toBN(),
+        liqudationPrice: tradePreview.liqPrice.toBN(),
+        otherFees: tradePreview.fee.toBN(),
+        sizeDelta: tradePreview.sizeDelta.toBN(),
+        leverage: tradePreview.leverage.toBN(),
+        status: tradePreview.status,
+        priceImpact: tradePreview.priceImpact.toBN(),
+        exceedsPriceProtection: tradePreview.exceedsPriceProtection,
+        skewAdjustedPrice: tradePreview.skewAdjustedPrice.toBN(),
+      };
+    }
+
+    throw new Error("Invalid order type");
   }
 
   getOrder(orderIdentifier: BigNumberish): Promise<

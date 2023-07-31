@@ -58,16 +58,63 @@ async function synService() {
   //const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
   //logObject("Supportted Markets: ", supportedMarkets[0]);
 
-  const transferMarginTx = await createTransferMarginOrder(ss, "-50");
+  // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // const transferMargin = await signer.sendTransaction(
   //   transferMarginTx as ethers.providers.TransactionRequest
   // );
   // logObject("Transfer Margin: ", transferMargin);
 
+  await getIdleMargins(ss);
+  await getTradePreview(ss);
+
   //await signer.sendTransaction(transferMarginTx);
 
   // const createLongOrderTx = await createLongOrder(ss);
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
+}
+
+async function getTradePreview(ss: SynthetixV2Service) {
+  const tradePreview = await ss.getTradePreview(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "",
+      indexOrIdentifier: "sETHPERP",
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    {
+      type: "MARKET_INCREASE",
+      direction: "LONG",
+      inputCollateral: {
+        name: "string",
+        symbol: "string",
+        decimals: "string",
+        address: "string",
+      },
+      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      sizeDelta: ethers.utils.parseEther("0.01"),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: ethers.utils.parseUnits("0"),
+        triggerAboveThreshold: true,
+      },
+    }
+  );
+  logObject("Trade Preview: ", tradePreview);
+}
+
+async function getIdleMargins(ss: SynthetixV2Service) {
+  const idleMargins = await ss.getIdleMargins(w);
+  idleMargins.forEach((idleMargin) => {
+    logObject("Idle Margin: ", idleMargin);
+  });
 }
 
 async function cancelDelayedOffChainOrder(
