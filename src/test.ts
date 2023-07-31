@@ -14,10 +14,10 @@ import { Mode, OrderType } from "./interface";
 
 config();
 
-const { ALCHEMY_KEY_OP_MAIN } = process.env;
+const { ALCHEMY_KEY_OP_MAIN, PRIVATE_KEY } = process.env;
 
-const w1 = "0xA35e2C021a3AD36f7b9e9Ce1d5bf2Dddc8abD36a";
-const w1pk = "23f3ce7f99af2842fd28c12bd4436e23e60936b900d2881f58708aa462f8a9b6";
+const w1 = "0xd344b73Ac42e34bC8009d522657adE4346B72c9D";
+const w1pk = PRIVATE_KEY!.toString();
 
 function keys<T extends object>(obj: T) {
   return Object.keys(obj) as Array<keyof T>;
@@ -32,7 +32,7 @@ function logObject(title: string, obj: object) {
 
 let provider = new ethers.providers.AlchemyProvider(
   "optimism",
-  "lkJFL7st7RthipPqOa5rV8qOeKVdlys5"
+  ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
 const signer = new ethers.Wallet(w1pk, provider);
@@ -43,6 +43,8 @@ const sdk = new KwentaSDK({
 });
 
 async function synService() {
+  console.log("Private Key: ", PRIVATE_KEY);
+
   const ss = new SynthetixV2Service(sdk);
   const supportedNetworks = ss.supportedNetworks();
   logObject("Supported Networks: ", supportedNetworks[0]);
