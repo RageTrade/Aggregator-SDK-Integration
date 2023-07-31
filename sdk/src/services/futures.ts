@@ -9,7 +9,7 @@ import { orderBy } from 'lodash'
 
 import KwentaSDK from '..'
 import { UNSUPPORTED_NETWORK } from '../common/errors'
-import { KWENTA_TRACKING_CODE, ORDERS_FETCH_SIZE, SL_TP_MAX_SIZE } from '../constants/futures'
+import { RAGE_TRACKING_CODE, ORDERS_FETCH_SIZE, SL_TP_MAX_SIZE } from '../constants/futures'
 import { Period, PERIOD_IN_HOURS, PERIOD_IN_SECONDS } from '../constants/period'
 import { getContractsByNetwork, getPerpsV2MarketMulticall } from '../contracts'
 import PerpsMarketABI from '../contracts/abis/PerpsV2Market.json'
@@ -831,7 +831,7 @@ export default class FuturesService {
 
 	public async closeIsolatedPosition(marketAddress: string, priceImpactDelta: Wei) {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
-		return market.closePositionWithTracking(priceImpactDelta.toBN(), KWENTA_TRACKING_CODE)
+		return market.closePositionWithTracking(priceImpactDelta.toBN(), RAGE_TRACKING_CODE)
 	}
 
 	public async submitIsolatedMarginOrder(
@@ -844,7 +844,7 @@ export default class FuturesService {
 		return await this.sdk.transactions.getContractTxn(
 			market,
 			'submitOffchainDelayedOrderWithTracking',
-			[sizeDelta.toBN(), priceImpactDelta.toBN(), KWENTA_TRACKING_CODE]
+			[sizeDelta.toBN(), priceImpactDelta.toBN(), RAGE_TRACKING_CODE]
 		)
 	}
 

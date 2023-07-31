@@ -6,7 +6,7 @@ import { Contract as MultiCallContract } from 'ethcall'
 import { ethers, Contract } from 'ethers'
 
 import KwentaSDK from '..'
-import { KWENTA_TRACKING_CODE } from '../constants/futures'
+import { RAGE_TRACKING_CODE } from '../constants/futures'
 import { ZERO_WEI, ZERO_BIG_NUM, UNIT_BIG_NUM, UNIT_BN } from '../constants/number'
 import { FuturesMarketKey, PotentialTradeStatus } from '../types/futures'
 import { multiplyDecimal, divideDecimal } from '../utils/number'
@@ -151,7 +151,7 @@ class FuturesMarketInternal {
 			desiredFillPrice: tradePrice,
 			makerFee: makerFee,
 			takerFee: takerFee,
-			trackingCode: KWENTA_TRACKING_CODE,
+			trackingCode: RAGE_TRACKING_CODE,
 		}
 
 		const { newPos, fee, status } = await this._postTradeDetails(position, tradeParams, marginDelta)

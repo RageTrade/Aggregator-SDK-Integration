@@ -26,7 +26,7 @@ import {
 	KWENTA_REFERRAL_ADDRESS,
 	SYNTH_SWAP_OPTIMISM_ADDRESS,
 } from '../constants/exchange'
-import { KWENTA_TRACKING_CODE } from '../constants/futures'
+import { RAGE_TRACKING_CODE } from '../constants/futures'
 import { UNIT_BIG_NUM, ZERO_WEI } from '../constants/number'
 import erc20Abi from '../contracts/abis/ERC20.json'
 import { getSynthsForNetwork, SynthSymbol } from '../data/synths'
@@ -773,7 +773,7 @@ export default class ExchangeService {
 				sourceCurrencyKey,
 				sourceAmountBN,
 				destinationCurrencyKey,
-				KWENTA_TRACKING_CODE,
+				RAGE_TRACKING_CODE,
 				minAmount.toBN(),
 			]
 		} else {
@@ -782,7 +782,7 @@ export default class ExchangeService {
 				sourceAmountBN,
 				destinationCurrencyKey,
 				this.sdk.context.walletAddress,
-				KWENTA_TRACKING_CODE,
+				RAGE_TRACKING_CODE,
 			]
 		}
 	}

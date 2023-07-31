@@ -11,7 +11,7 @@ import {
 } from '../types/futures'
 import { weiFromWei } from '../utils/number'
 
-export const KWENTA_TRACKING_CODE = ethers.utils.formatBytes32String('KWENTA')
+export const RAGE_TRACKING_CODE = ethers.utils.formatBytes32String('RAGE')
 
 // Defaults
 

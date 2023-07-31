@@ -6,7 +6,7 @@ import moment from 'moment'
 import KwentaSDK from '..'
 import * as sdkErrors from '../common/errors'
 import { ETH_COINGECKO_ADDRESS, KWENTA_ADDRESS, OP_ADDRESS } from '../constants/exchange'
-import { AGGREGATE_ASSET_KEY, KWENTA_TRACKING_CODE } from '../constants/futures'
+import { AGGREGATE_ASSET_KEY, RAGE_TRACKING_CODE } from '../constants/futures'
 import { ZERO_WEI } from '../constants/number'
 import { SECONDS_PER_DAY } from '../constants/period'
 import {
@@ -788,7 +788,7 @@ export default class KwentaTokenService {
 					account: account,
 					timestamp_gt: start,
 					timestamp_lt: end,
-					trackingCode: KWENTA_TRACKING_CODE,
+					trackingCode: RAGE_TRACKING_CODE,
 				},
 				orderDirection: 'desc',
 				orderBy: 'timestamp',
