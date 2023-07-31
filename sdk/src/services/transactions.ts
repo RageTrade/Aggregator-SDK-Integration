@@ -100,6 +100,14 @@ export default class TransactionsService {
 		options?: { gasLimitBuffer?: number }
 	) {
 		const tx1 = await contract.populateTransaction[method](...args);
+		tx1.value = BigNumber.from(0);
+
+		if (!tx1.gasLimit) {
+			const newGasLimit = await this.estimateGas(tx1)
+			tx1.gasLimit = wei(newGasLimit ?? 0, 9)
+				.mul(1 + (options?.gasLimitBuffer || DEFAULT_GAS_BUFFER))
+				.toBN()
+		}
 
 		return tx1
 	}
