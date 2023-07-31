@@ -1,5 +1,12 @@
 import KwentaSDK from "@kwenta/sdk";
-import { BigNumber, ethers, Signer, BigNumberish } from "ethers";
+import {
+  BigNumber,
+  ethers,
+  Signer,
+  BigNumberish,
+  UnsignedTransaction,
+  Transaction,
+} from "ethers";
 import { config } from "dotenv";
 import {
   ContractOrderType,
@@ -14,10 +21,11 @@ import { Mode, OrderType } from "./interface";
 
 config();
 
-const { ALCHEMY_KEY_OP_MAIN, PRIVATE_KEY } = process.env;
+const { ALCHEMY_KEY_OP_MAIN, PRIVATE_KEY, W2, PRIVATE_KEY2, W1, PRIVATE_KEY1 } =
+  process.env;
 
-const w1 = "0xd344b73Ac42e34bC8009d522657adE4346B72c9D";
-const w1pk = PRIVATE_KEY!.toString();
+const w = W1!.toString();
+const wpk = PRIVATE_KEY1!.toString();
 
 function keys<T extends object>(obj: T) {
   return Object.keys(obj) as Array<keyof T>;
@@ -35,7 +43,7 @@ let provider = new ethers.providers.AlchemyProvider(
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
-const signer = new ethers.Wallet(w1pk, provider);
+const signer = new ethers.Wallet(wpk, provider);
 
 const sdk = new KwentaSDK({
   networkId: 10,
@@ -43,21 +51,28 @@ const sdk = new KwentaSDK({
 });
 
 async function synService() {
-  console.log("Private Key: ", PRIVATE_KEY);
-
   const ss = new SynthetixV2Service(sdk);
-  const supportedNetworks = ss.supportedNetworks();
-  logObject("Supported Networks: ", supportedNetworks[0]);
+  //const supportedNetworks = ss.supportedNetworks();
+  //logObject("Supported Networks: ", supportedNetworks[0]);
 
-  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  logObject("Supportted Markets: ", supportedMarkets[0]);
+  //const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  //logObject("Supportted Markets: ", supportedMarkets[0]);
 
-  await createLongOrder(ss);
-  await createTransferMarginOrder(ss);
-  await cancelDelayedOffChainOrder(ss);
+  const transferMarginTx = await createTransferMarginOrder(ss, "-50");
+  // const transferMargin = await signer.sendTransaction(
+  //   transferMarginTx as ethers.providers.TransactionRequest
+  // );
+  // logObject("Transfer Margin: ", transferMargin);
+
+  //await signer.sendTransaction(transferMarginTx);
+
+  // const createLongOrderTx = await createLongOrder(ss);
+  // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
 }
 
-async function cancelDelayedOffChainOrder(ss: SynthetixV2Service) {
+async function cancelDelayedOffChainOrder(
+  ss: SynthetixV2Service
+): Promise<UnsignedTransaction> {
   const cancelOrder = await ss.cancelOrder(
     signer,
     {
@@ -75,9 +90,12 @@ async function cancelDelayedOffChainOrder(ss: SynthetixV2Service) {
     "0"
   );
   logObject("Cancel Order: ", cancelOrder);
+  return cancelOrder;
 }
 
-async function createLongOrder(ss: SynthetixV2Service) {
+async function createLongOrder(
+  ss: SynthetixV2Service
+): Promise<UnsignedTransaction> {
   const createOrder = await ss.createOrder(
     signer,
     {
@@ -112,9 +130,13 @@ async function createLongOrder(ss: SynthetixV2Service) {
     }
   );
   logObject("Create Order: ", createOrder);
+  return createOrder;
 }
 
-async function createTransferMarginOrder(ss: SynthetixV2Service) {
+async function createTransferMarginOrder(
+  ss: SynthetixV2Service,
+  amount: string
+): Promise<UnsignedTransaction> {
   const createOrder = await ss.createOrder(
     signer,
     {
@@ -138,7 +160,7 @@ async function createTransferMarginOrder(ss: SynthetixV2Service) {
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      inputCollateralAmount: ethers.utils.parseUnits(amount),
       sizeDelta: ethers.utils.parseEther("0.01"),
       isTriggerOrder: false,
       referralCode: undefined,
@@ -149,6 +171,7 @@ async function createTransferMarginOrder(ss: SynthetixV2Service) {
     }
   );
   logObject("Create Order: ", createOrder);
+  return createOrder;
 }
 
 async function main() {
@@ -218,14 +241,14 @@ async function closePosition(ethMarket: FuturesMarket) {
 async function cancelDelayedOrder(ethMarket: FuturesMarket) {
   const cancelDelayedOrder = await sdk.futures.cancelDelayedOrder(
     ethMarket.market!,
-    w1,
+    w,
     true
   );
   logObject("Cancel delayed order: ", cancelDelayedOrder);
 }
 
 async function getDelayedOrder(ethMarket: FuturesMarket) {
-  const delayedOrder = await sdk.futures.getDelayedOrder(w1, ethMarket.market!);
+  const delayedOrder = await sdk.futures.getDelayedOrder(w, ethMarket.market!);
   logObject("Delayed order: ", delayedOrder);
 }
 
@@ -287,7 +310,7 @@ async function submitOrder(
 async function getFuturePositions(
   ethMarket: FuturesMarket
 ): Promise<FuturesPosition[]> {
-  const futurePositions = await sdk.futures.getFuturesPositions(w1, [
+  const futurePositions = await sdk.futures.getFuturesPositions(w, [
     {
       asset: ethMarket?.asset!,
       marketKey: ethMarket?.marketKey!,
@@ -308,7 +331,7 @@ async function crossMargin() {
   const ethMarket = markets.find((market) => market.asset === "sETH");
   console.log("Eth market key: ", ethMarket?.marketKey);
 
-  const marginAccounts = await sdk.futures.getCrossMarginAccounts(w1);
+  const marginAccounts = await sdk.futures.getCrossMarginAccounts(w);
   console.log("Margin accounts: ", marginAccounts);
 
   const crossMarginbalance = await sdk.futures.getCrossMarginAccountBalance(
@@ -317,7 +340,7 @@ async function crossMargin() {
   console.log("Cross margin balance: ", crossMarginbalance.toString());
 
   const crossMarginbalanceInfo = await sdk.futures.getCrossMarginBalanceInfo(
-    w1,
+    w,
     marginAccounts[0]
   );
   logObject("Cross margin balance info: ", crossMarginbalanceInfo);
@@ -334,7 +357,7 @@ async function crossMargin() {
   // );
   // logObject("Position history: ", positionHistory);
 
-  const idleMargin = await sdk.futures.getIdleMargin(w1, marginAccounts[0]);
+  const idleMargin = await sdk.futures.getIdleMargin(w, marginAccounts[0]);
   logObject("Idle margin: ", idleMargin);
   console.log("Markets with margin: ", idleMargin.marketsWithMargin);
   logObject("Position: ", idleMargin.marketsWithMargin[0].position);
