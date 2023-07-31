@@ -107,10 +107,11 @@ export default class SynthetixV2Service implements IExchange {
         targetMarket.market!,
         transferAmount
       )) as UnsignedTransaction;
-    }
-
-    // proper orders
-    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
+    } else if (
+      order.type == "MARKET_INCREASE" ||
+      order.type == "MARKET_DECREASE"
+    ) {
+      // proper orders
       let sizeDelta = wei(order.sizeDelta);
       sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
 
