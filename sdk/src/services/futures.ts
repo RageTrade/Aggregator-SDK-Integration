@@ -542,7 +542,7 @@ export default class FuturesService {
 		)
 
 		const skewAdjustedPrice = await this.getSkewAdjustedPrice(
-			inputs.price,
+			wei(details.price),
 			marketAddress,
 			marketKey
 		)

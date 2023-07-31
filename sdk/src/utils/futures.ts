@@ -363,6 +363,7 @@ export const formatPotentialTrade = (
 		statusMessage: getTradeStatusMessage(status),
 		priceImpact: priceImpact,
 		exceedsPriceProtection: priceImpact.mul(100).gt(getDefaultPriceImpact('market')),
+		skewAdjustedPrice: skewAdjustedPrice,
 	}
 }
 
