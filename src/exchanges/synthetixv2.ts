@@ -221,12 +221,15 @@ export default class SynthetixV2Service implements IExchange {
     await this.sdk.setSigner(signer);
 
     if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
+      let sizeDelta = wei(order.sizeDelta);
+      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
+
       const tradePreview = await this.sdk.futures.getIsolatedTradePreview(
         targetMarket.market,
         targetMarket.marketKey,
         ContractOrderType.DELAYED_OFFCHAIN,
         {
-          sizeDelta: wei(order.sizeDelta),
+          sizeDelta: sizeDelta,
           price: wei(order.trigger!.triggerPrice),
           leverageSide:
             order.type == "MARKET_INCREASE"
