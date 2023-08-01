@@ -536,7 +536,7 @@ export default class FuturesService {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		const details = await market.postTradeDetails(
 			inputs.sizeDelta.toBN(),
-			inputs.price.toBN(),
+			"0",
 			orderType,
 			this.sdk.context.walletAddress
 		)
@@ -548,6 +548,16 @@ export default class FuturesService {
 		)
 
 		return formatPotentialTrade(details, skewAdjustedPrice, inputs.sizeDelta, inputs.leverageSide)
+	}
+
+	public async getFillPrice(
+		marketAddress: string,
+			sizeDelta: Wei
+	) {
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
+		const details = await market.fillPrice(sizeDelta.toBN())
+		
+		return [details.price, details.invalid]
 	}
 
 	public async getCrossMarginTradePreview(

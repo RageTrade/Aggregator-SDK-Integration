@@ -346,7 +346,7 @@ export const formatPotentialTrade = (
 
 	const notionalValue = wei(size).mul(wei(price))
 	const leverage = margin.gt(0) ? notionalValue.div(wei(margin)) : ZERO_WEI
-	const priceImpact = wei(price).sub(skewAdjustedPrice).div(skewAdjustedPrice).abs()
+	const priceImpact = skewAdjustedPrice.gt(wei(0)) ? wei(price).sub(skewAdjustedPrice).div(skewAdjustedPrice).abs(): wei(0)
 
 	return {
 		fee: wei(fee),
@@ -362,7 +362,7 @@ export const formatPotentialTrade = (
 		showStatus: status > 0, // 0 is success
 		statusMessage: getTradeStatusMessage(status),
 		priceImpact: priceImpact,
-		exceedsPriceProtection: priceImpact.mul(100).gt(getDefaultPriceImpact('market')),
+		exceedsPriceProtection: priceImpact?.mul(100).gt(getDefaultPriceImpact('market')),
 		skewAdjustedPrice: skewAdjustedPrice,
 	}
 }
