@@ -59,13 +59,66 @@ async function synService() {
   //logObject("Supportted Markets: ", supportedMarkets[0]);
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
-  // const transferMargin = await signer.sendTransaction(
-  //   transferMarginTx as ethers.providers.TransactionRequest
-  // );
-  // logObject("Transfer Margin: ", transferMargin);
+  // await fireTx(transferMarginTx);
 
-  await getIdleMargins(ss);
-  await getTradePreview(ss);
+  // const sizeDelta = "0.005";
+  // const direction = "SHORT";
+  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+
+  // const fillPrice = await sdk.futures.getFillPrice(
+  //   marketAddress,
+  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  // );
+  // console.log("Fill Price: ", fillPrice.toString());
+
+  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
+
+  // if (tradePreview.status == 0) {
+  //   const triggerPrice = direction.includes("SHORT")
+  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
+  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
+  //   console.log("Trigger Price: ", triggerPrice.toString());
+
+  //   const createLongOrderTx = await createLongOrder(
+  //     ss,
+  //     sizeDelta,
+  //     direction,
+  //     triggerPrice
+  //   );
+  //   //await fireTx(createLongOrderTx);
+  // } else {
+  //   console.log("Trade Will Fail".toUpperCase());
+  // }
+
+  // const idleMargins = await getIdleMargins(ss);
+  // const withdrawableEthMargin = idleMargins.filter((m) => m.indexOrIdentifier == "sETHPERP")[0].inputCollateralAmount.mul(-1)
+  // console.log("Withdrawable ETH Margin: ", withdrawableEthMargin.toString());
+  // const withdrawEthMarginTx = await createTransferMarginOrder(
+  //   ss,
+  //   withdrawableEthMargin
+  // )
+  // await fireTx(withdrawEthMarginTx)
+
+  // await getTradePreview(ss);
+
+  // const pHistory = await sdk.futures.getPositionHistory(w);
+  // pHistory.forEach((pHistory) => {
+  //   logObject("Position History: ", pHistory);
+  // });
+
+  // const cpHistory = await sdk.futures.getCompletePositionHistory(w);
+  // cpHistory.forEach((cpHistory) => {
+  //   logObject("Complete Position History: ", cpHistory);
+  // });
+
+  // const ethTrades = await sdk.futures.getTradesForMarket(
+  //   FuturesMarketAsset.sETH,
+  //   w,
+  //   "isolated_margin"
+  // );
+  // ethTrades.forEach((ethTrades) => {
+  //   logObject("ETH Trades: ", ethTrades);
+  // });
 
   //await signer.sendTransaction(transferMarginTx);
 
@@ -73,7 +126,19 @@ async function synService() {
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
 }
 
-async function getTradePreview(ss: SynthetixV2Service) {
+async function fireTx(utx: UnsignedTransaction) {
+  const tx = await signer.sendTransaction(
+    utx as ethers.providers.TransactionRequest
+  );
+  console.log("Transaction: ", tx.hash);
+  return tx;
+}
+
+async function getTradePreview(
+  ss: SynthetixV2Service,
+  sizeDelta: string,
+  direction: "LONG" | "SHORT"
+) {
   const tradePreview = await ss.getTradePreview(
     signer,
     {
@@ -89,8 +154,8 @@ async function getTradePreview(ss: SynthetixV2Service) {
       },
     },
     {
-      type: "MARKET_INCREASE",
-      direction: "LONG",
+      type: direction == "LONG" ? "MARKET_INCREASE" : "MARKET_DECREASE",
+      direction: direction,
       inputCollateral: {
         name: "string",
         symbol: "string",
@@ -98,16 +163,60 @@ async function getTradePreview(ss: SynthetixV2Service) {
         address: "string",
       },
       inputCollateralAmount: ethers.utils.parseUnits("10"),
-      sizeDelta: ethers.utils.parseEther("0.01"),
+      sizeDelta: ethers.utils.parseEther(sizeDelta),
       isTriggerOrder: false,
       referralCode: undefined,
       trigger: {
-        triggerPrice: ethers.utils.parseUnits("0"),
+        triggerPrice: ethers.utils.parseUnits("2000"),
         triggerAboveThreshold: true,
       },
     }
   );
   logObject("Trade Preview: ", tradePreview);
+  return tradePreview;
+}
+
+async function createLongOrder(
+  ss: SynthetixV2Service,
+  sizeDelta: string,
+  direction: "LONG" | "SHORT",
+  triggerPrice: BigNumber
+): Promise<UnsignedTransaction> {
+  const createOrder = await ss.createOrder(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "",
+      indexOrIdentifier: "sETHPERP",
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    {
+      type: direction == "LONG" ? "MARKET_INCREASE" : "MARKET_DECREASE",
+      direction: direction,
+      inputCollateral: {
+        name: "string",
+        symbol: "string",
+        decimals: "string",
+        address: "string",
+      },
+      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      sizeDelta: ethers.utils.parseEther(sizeDelta),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: triggerPrice,
+        triggerAboveThreshold: true,
+      },
+    }
+  );
+  logObject("Create Order: ", createOrder);
+  return createOrder;
 }
 
 async function getIdleMargins(ss: SynthetixV2Service) {
@@ -115,6 +224,7 @@ async function getIdleMargins(ss: SynthetixV2Service) {
   idleMargins.forEach((idleMargin) => {
     logObject("Idle Margin: ", idleMargin);
   });
+  return idleMargins;
 }
 
 async function cancelDelayedOffChainOrder(
@@ -140,49 +250,9 @@ async function cancelDelayedOffChainOrder(
   return cancelOrder;
 }
 
-async function createLongOrder(
-  ss: SynthetixV2Service
-): Promise<UnsignedTransaction> {
-  const createOrder = await ss.createOrder(
-    signer,
-    {
-      mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "",
-      indexOrIdentifier: "sETHPERP",
-      supportedOrderTypes: {
-        LIMIT_DECREASE: true,
-        LIMIT_INCREASE: true,
-        MARKET_INCREASE: true,
-        MARKET_DECREASE: true,
-      },
-    },
-    {
-      type: "MARKET_INCREASE",
-      direction: "LONG",
-      inputCollateral: {
-        name: "string",
-        symbol: "string",
-        decimals: "string",
-        address: "string",
-      },
-      inputCollateralAmount: ethers.utils.parseUnits("10"),
-      sizeDelta: ethers.utils.parseEther("0.01"),
-      isTriggerOrder: false,
-      referralCode: undefined,
-      trigger: {
-        triggerPrice: BigNumber.from("2000"),
-        triggerAboveThreshold: true,
-      },
-    }
-  );
-  logObject("Create Order: ", createOrder);
-  return createOrder;
-}
-
 async function createTransferMarginOrder(
   ss: SynthetixV2Service,
-  amount: string
+  amount: BigNumber
 ): Promise<UnsignedTransaction> {
   const createOrder = await ss.createOrder(
     signer,
@@ -207,7 +277,7 @@ async function createTransferMarginOrder(
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits(amount),
+      inputCollateralAmount: amount,
       sizeDelta: ethers.utils.parseEther("0.01"),
       isTriggerOrder: false,
       referralCode: undefined,
