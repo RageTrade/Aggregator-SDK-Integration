@@ -52,6 +52,13 @@ const sdk = new KwentaSDK({
 
 async function synService() {
   const ss = new SynthetixV2Service(sdk);
+
+  const order = await ss.getOrder(w, "sETHPERP");
+  logObject("Order: ", order);
+
+  const allOrders = await ss.getAllOrders(w);
+  allOrders.forEach((o) => logObject("All Orders: ", o));
+
   //const supportedNetworks = ss.supportedNetworks();
   //logObject("Supported Networks: ", supportedNetworks[0]);
 
@@ -119,8 +126,6 @@ async function synService() {
   // ethTrades.forEach((ethTrades) => {
   //   logObject("ETH Trades: ", ethTrades);
   // });
-
-  //await signer.sendTransaction(transferMarginTx);
 
   // const createLongOrderTx = await createLongOrder(ss);
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);

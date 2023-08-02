@@ -12,6 +12,9 @@ import {
   Token,
   MarketIdentifier,
   CollateralData,
+  Position,
+  OrderIdentifier,
+  ExtendedOrder,
 } from "../interface";
 import { wei } from "@synthetixio/wei";
 import {
@@ -25,6 +28,12 @@ export default class SynthetixV2Service implements IExchange {
   private nId = 10;
   private sdk: KwentaSDK;
   private sUSDAddr = "0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9";
+  private token: Token = {
+    name: "Synthetix USD",
+    symbol: "sUSD",
+    decimals: "18",
+    address: this.sUSDAddr,
+  };
 
   constructor(sdk: KwentaSDK) {
     this.sdk = sdk;
@@ -194,16 +203,10 @@ export default class SynthetixV2Service implements IExchange {
     user: string
   ): Promise<(MarketIdentifier & CollateralData)[]> {
     const result = await this.sdk.futures.getIdleMarginInMarkets(user);
-    const token: Token = {
-      name: "Synthetix USD",
-      symbol: "sUSD",
-      decimals: "18",
-      address: this.sUSDAddr,
-    };
 
     return result.marketsWithIdleMargin.map((m) => ({
       indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
-      inputCollateral: token,
+      inputCollateral: this.token,
       inputCollateralAmount: m.position.accessibleMargin.toBN(),
     }));
   }
@@ -257,178 +260,99 @@ export default class SynthetixV2Service implements IExchange {
     throw new Error("Invalid order type");
   }
 
-  getOrder(orderIdentifier: BigNumberish): Promise<
-    ({
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: BigNumber;
-      sizeDelta: BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
-        | undefined;
-    } & OrderAction &
-      BigNumberish)[]
-  > {
-    throw new Error("Method not implemented.");
-  }
-
-  getOrders(user: string): Promise<
-    ({
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: BigNumber;
-      sizeDelta: BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
-        | undefined;
-    } & OrderAction &
-      BigNumberish)[]
-  >;
-
-  getOrders(
+  async getOrder(
     user: string,
-    market: string
-  ): Promise<
-    ({
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: BigNumber;
-      sizeDelta: BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
-        | undefined;
-    } & OrderAction &
-      BigNumberish)[]
-  >;
+    orderIdentifier: OrderIdentifier // serves as market identifier for SNX
+  ): Promise<ExtendedOrder> {
+    const targetMarket = await this.findMarketByKey(orderIdentifier.toString());
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
 
-  getOrders(
-    user: unknown,
-    market?: unknown
-  ): Promise<
-    ({
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: import("ethers").BigNumber;
-      sizeDelta: import("ethers").BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | {
-            triggerPrice: import("ethers").BigNumber;
-            triggerAboveThreshold: Boolean;
-          }
-        | undefined;
-    } & OrderAction &
-      import("ethers").BigNumberish)[]
-  > {
-    throw new Error("Method not implemented.");
+    const orderData = await this.sdk.futures.getDelayedOrder(
+      user,
+      targetMarket.market
+    );
+
+    if (orderData.size.eq(0)) {
+      return {} as ExtendedOrder;
+    }
+
+    const order: Order = {
+      type:
+        orderData.side == PositionSide.LONG
+          ? "MARKET_INCREASE"
+          : "MARKET_DECREASE",
+      direction: orderData.side == PositionSide.LONG ? "LONG" : "SHORT",
+      sizeDelta: orderData.size.toBN(),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: orderData.desiredFillPrice.toBN(),
+        triggerAboveThreshold: true,
+      },
+      inputCollateral: this.token,
+      inputCollateralAmount: orderData.commitDeposit.toBN(),
+    };
+
+    const orderAction: OrderAction = { orderAction: "CREATE" };
+
+    return {
+      ...order,
+      ...orderAction,
+      ...{
+        orderIdentifier: orderIdentifier.toString(),
+      },
+    };
   }
 
-  getPosition(positionIdentifier: string): Promise<{
-    indexOrIdentifier: string;
-    size: BigNumber;
-    collateral: BigNumber;
-    averageEntryPrice: BigNumber;
-    cumulativeFunding: BigNumber;
-    lastUpdatedAtTimestamp: number;
-  }> {
-    throw new Error("Method not implemented.");
+  async getAllOrders(user: string): Promise<Array<ExtendedOrder>> {
+    const markets = (await this.sdk.futures.getMarkets()).filter(
+      (m) => m.isSuspended == false
+    );
+
+    let ordersData: ExtendedOrder[] = [];
+    markets.forEach(async (m) => {
+      let orderData = await this.getOrder(user, m.marketKey);
+      if (orderData.orderIdentifier) {
+        ordersData.push(orderData);
+      }
+    });
+
+    return ordersData;
   }
 
-  getPositions(user: string): Promise<
-    {
-      indexOrIdentifier: string;
-      size: BigNumber;
-      collateral: BigNumber;
-      averageEntryPrice: BigNumber;
-      cumulativeFunding: BigNumber;
-      lastUpdatedAtTimestamp: number;
-    }[]
-  >;
-
-  getPositions(
+  // will work as getOrder for SNX
+  async getMarketOrders(
     user: string,
-    market: string
-  ): Promise<
-    {
-      indexOrIdentifier: string;
-      size: BigNumber;
-      collateral: BigNumber;
-      averageEntryPrice: BigNumber;
-      cumulativeFunding: BigNumber;
-      lastUpdatedAtTimestamp: number;
-    }[]
-  >;
+    market: Market["indexOrIdentifier"]
+  ): Promise<Array<ExtendedOrder>> {
+    let ordersData: ExtendedOrder[] = [];
 
-  getPositions(
-    user: unknown,
-    market?: unknown
-  ): Promise<
-    {
-      indexOrIdentifier: string;
-      size: import("ethers").BigNumber;
-      collateral: import("ethers").BigNumber;
-      averageEntryPrice: import("ethers").BigNumber;
-      cumulativeFunding: import("ethers").BigNumber;
-      lastUpdatedAtTimestamp: number;
-    }[]
-  > {
-    throw new Error("Method not implemented.");
+    ordersData.push(await this.getOrder(user, market.toString()));
+
+    return ordersData;
   }
 
-  getExtendedPositions(
-    positions: {
-      indexOrIdentifier: string;
-      size: BigNumber;
-      collateral: BigNumber;
-      averageEntryPrice: BigNumber;
-      cumulativeFunding: BigNumber;
-      lastUpdatedAtTimestamp: number;
-    }[]
-  ): Promise<
-    ({
-      indexOrIdentifier: string;
-      size: BigNumber;
-      collateral: BigNumber;
-      averageEntryPrice: BigNumber;
-      cumulativeFunding: BigNumber;
-      lastUpdatedAtTimestamp: number;
-    } & {
-      unrealizedPnl: BigNumber;
-      liqudationPrice: BigNumber;
-      otherFees?: BigNumber | undefined;
-    })[]
-  > {
-    throw new Error("Method not implemented.");
+  getPosition(
+    positionIdentifier: Position["indexOrIdentifier"] // serves as market identifier for SNX
+  ): Promise<Position> {
+    throw new Error("Method not Supported.");
+  }
+
+  getAllPositions(user: string): Promise<Position[]> {
+    throw new Error("Method not Supported.");
+  }
+
+  // will work as getPosition for SNX
+  getMarketPositions(
+    user: string,
+    market: Market["indexOrIdentifier"]
+  ): Promise<Position[]> {
+    throw new Error("Method not Supported.");
+  }
+
+  getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
+    throw new Error("Method not Supported.");
   }
 }

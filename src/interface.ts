@@ -3,7 +3,9 @@ import { BigNumber, BigNumberish, Signer, UnsignedTransaction } from "ethers";
 export type Mode = "SYNC" | "ASYNC";
 
 // SNX does not support update order
-export type OrderAction = "CREATE" | "UPDATE" | "CANCEL";
+export type OrderAction = {
+  orderAction: "CREATE" | "UPDATE" | "CANCEL";
+};
 
 export type OrderType =
   | "LIMIT_INCREASE"
@@ -83,7 +85,12 @@ export type Order = {
     | undefined;
 } & CollateralData;
 
-// at any point in time, there is only one delayed order per market
+export type ExtendedOrder = Order &
+  OrderAction & {
+    orderIdentifier: OrderIdentifier;
+  };
+
+// at any point in time, there is only one delayed order per market for SNX
 export type OrderIdentifier = BigNumberish;
 
 export interface IExchange {
@@ -113,31 +120,33 @@ export interface IExchange {
     orderIdentifier: OrderIdentifier
   ): Promise<UnsignedTransaction>;
 
+  // @dev There can be only 1 order per market per user for SNX
   getOrder(
-    orderIdentifier: OrderIdentifier
-  ): Promise<Array<Order & OrderAction & OrderIdentifier>>;
+    user: string,
+    orderIdentifier: OrderIdentifier // serves as market identifier for SNX
+  ): Promise<ExtendedOrder>;
 
-  getOrders(
-    user: string
-  ): Promise<Array<Order & OrderAction & OrderIdentifier>>;
+  getAllOrders(user: string): Promise<Array<ExtendedOrder>>;
 
-  getOrders(
+  // will work as getOrder for SNX
+  getMarketOrders(
     user: string,
     market: Market["indexOrIdentifier"]
-  ): Promise<Array<Order & OrderAction & OrderIdentifier>>;
+  ): Promise<Array<ExtendedOrder>>;
 
   getPosition(
-    positionIdentifier: Position["indexOrIdentifier"]
+    positionIdentifier: Position["indexOrIdentifier"] // serves as market identifier for SNX
   ): Promise<Position>;
 
-  getPositions(user: string): Promise<Position[]>;
+  getAllPositions(user: string): Promise<Position[]>;
 
-  getPositions(
+  // will work as getPosition for SNX
+  getMarketPositions(
     user: string,
     market: Market["indexOrIdentifier"]
   ): Promise<Position[]>;
 
-  getExtendedPositions(positions: Position[]): Promise<ExtendedPosition[]>;
+  getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]>;
 
   getIdleMargins(
     user: string
