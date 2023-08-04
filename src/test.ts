@@ -18,6 +18,9 @@ import {
 import Wei, { wei } from "@synthetixio/wei";
 import SynthetixV2Service from "./exchanges/synthetixv2";
 import { Mode, OrderType } from "./interface";
+import GmxV1Service from "./exchanges/gmxv1";
+import { getTokenBySymbol } from "./configs/gmx/tokens";
+import { ARBITRUM } from "./configs/gmx/chains";
 
 config();
 
@@ -39,7 +42,7 @@ function logObject(title: string, obj: object) {
 }
 
 let provider = new ethers.providers.AlchemyProvider(
-  "optimism",
+  "arbitrum",
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -492,7 +495,48 @@ async function crossMargin() {
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
-synService()
+async function gmxService() {
+  const gs = new GmxV1Service();
+
+  await gs.setup(signer);
+  console.log('Finished Setup'.toUpperCase())
+
+  await gs.createOrderTest(
+    signer,
+    {
+      mode: "ASYNC",
+      longCollateral: "",
+      shortCollateral: "",
+      indexOrIdentifier: getTokenBySymbol(ARBITRUM, "BTC").address,
+      supportedOrderTypes: {
+        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: true,
+        MARKET_INCREASE: true,
+        MARKET_DECREASE: true,
+      },
+    },
+    {
+      type: "MARKET_DECREASE",
+      direction: "LONG",
+      inputCollateral: {
+        name: "string",
+        symbol: "string",
+        decimals: "string",
+        address: getTokenBySymbol(ARBITRUM, "USDC.e").address,
+      },
+      inputCollateralAmount: ethers.utils.parseUnits("4", 30),
+      sizeDelta: ethers.utils.parseUnits("0", 30),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: ethers.utils.parseUnits("1850", 30),
+        triggerAboveThreshold: false,
+      },
+    }
+  );
+}
+
+gmxService()
   .then()
   .catch((error) => {
     console.error(error);

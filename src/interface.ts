@@ -66,6 +66,7 @@ export type ExtendedPosition = Position & {
 export type CollateralData = {
   inputCollateral: Token;
   inputCollateralAmount: BigNumber;
+  shouldWrap?: boolean;
 };
 
 export type Order = {
@@ -80,7 +81,7 @@ export type Order = {
   trigger:
     | {
         triggerPrice: BigNumber;
-        triggerAboveThreshold: Boolean;
+        triggerAboveThreshold:boolean;
       }
     | undefined;
 } & CollateralData;
