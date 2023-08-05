@@ -252,7 +252,7 @@ async function cancelDelayedOffChainOrder(
         MARKET_DECREASE: true,
       },
     },
-    "0"
+    {}
   );
   logObject("Cancel Order: ", cancelOrder);
   return cancelOrder;
@@ -499,7 +499,7 @@ async function gmxService() {
   const gs = new GmxV1Service();
 
   await gs.setup(signer);
-  console.log('Finished Setup'.toUpperCase())
+  console.log("Finished Setup".toUpperCase());
 
   await gs.createOrder(
     signer,

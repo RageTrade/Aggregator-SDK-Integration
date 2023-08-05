@@ -288,21 +288,66 @@ export default class GmxV1Service implements IExchange {
     return createOrderTx!;
   }
 
-  updateOrder(
-    singer: Signer,
-    market: Market,
-    orderIdentifier: BigNumberish,
-    updatedOrder: Partial<Order>
-  ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
-  }
-  cancelOrder(
+  async updateOrder(
     signer: Signer,
     market: Market,
-    orderIdentifier: BigNumberish
+    updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
+    const orderBook = OrderBook__factory.connect(
+      getContract(ARBITRUM, "OrderBook")!,
+      signer
+    );
+
+    let updateOrderTx;
+
+    if (updatedOrder.type! == "LIMIT_INCREASE") {
+      updateOrderTx = await orderBook.populateTransaction.updateIncreaseOrder(
+        updatedOrder.orderIdentifier!,
+        updatedOrder.sizeDelta!,
+        updatedOrder.trigger?.triggerPrice!,
+        updatedOrder.trigger?.triggerAboveThreshold!
+      );
+    } else if (updatedOrder.type! == "LIMIT_DECREASE") {
+      updateOrderTx = await orderBook.populateTransaction.updateIncreaseOrder(
+        updatedOrder.orderIdentifier!,
+        updatedOrder.sizeDelta!,
+        updatedOrder.trigger?.triggerPrice!,
+        updatedOrder.trigger?.triggerAboveThreshold!
+      );
+    } else {
+      throw new Error("Invalid order type");
+    }
+
+    return updateOrderTx;
   }
+
+  async cancelOrder(
+    signer: Signer,
+    market: Market,
+    order: Partial<ExtendedOrder>
+  ): Promise<UnsignedTransaction> {
+    const orderBook = OrderBook__factory.connect(
+      getContract(ARBITRUM, "OrderBook")!,
+      signer
+    );
+
+    let cancelOrderTx;
+
+    if (order.type! == "LIMIT_INCREASE") {
+      cancelOrderTx = await orderBook.populateTransaction.cancelIncreaseOrder(
+        order.orderIdentifier!
+      );
+    } else if (order.type! == "LIMIT_DECREASE") {
+      cancelOrderTx = await orderBook.populateTransaction.cancelDecreaseOrder(
+        order.orderIdentifier!
+      );
+    } else {
+      throw new Error("Invalid order type");
+    }
+
+    return cancelOrderTx;
+  }
+
   getOrder(
     user: string,
     orderIdentifier: BigNumberish

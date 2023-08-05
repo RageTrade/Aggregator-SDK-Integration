@@ -81,7 +81,7 @@ export type Order = {
   trigger:
     | {
         triggerPrice: BigNumber;
-        triggerAboveThreshold:boolean;
+        triggerAboveThreshold: boolean;
       }
     | undefined;
 } & CollateralData;
@@ -109,16 +109,15 @@ export interface IExchange {
   ): Promise<UnsignedTransaction>;
 
   updateOrder(
-    singer: Signer,
+    signer: Signer,
     market: Market,
-    orderIdentifier: OrderIdentifier,
-    updatedOrder: Partial<Order>
+    updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction>;
 
   cancelOrder(
     signer: Signer,
     market: Market,
-    orderIdentifier: OrderIdentifier
+    order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction>;
 
   // @dev There can be only 1 order per market per user for SNX

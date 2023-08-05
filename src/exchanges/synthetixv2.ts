@@ -146,7 +146,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   updateOrder(
-    singer: Signer,
+    signer: Signer,
     market: {
       mode: Mode;
       longCollateral: string;
@@ -154,24 +154,7 @@ export default class SynthetixV2Service implements IExchange {
       indexOrIdentifier: string;
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
-    orderIdentifier: BigNumberish,
-    updatedOrder: Partial<{
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: BigNumber;
-      sizeDelta: BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
-        | undefined;
-    }>
+    updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction> {
     throw new Error("Method not Supported.");
   }
@@ -185,7 +168,7 @@ export default class SynthetixV2Service implements IExchange {
       indexOrIdentifier: string;
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
-    orderIdentifier: BigNumberish
+    order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction> {
     const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
     if (!targetMarket) {
