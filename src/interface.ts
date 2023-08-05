@@ -34,6 +34,7 @@ export type Market = {
   longCollateral: Token["address"];
   shortCollateral: Token["address"];
   supportedOrderTypes: Record<OrderType, Boolean>;
+  supportedOrderActions?: Record<OrderAction["orderAction"], Boolean>;
 } & MarketIdentifier;
 
 export type MarketIdentifier = {

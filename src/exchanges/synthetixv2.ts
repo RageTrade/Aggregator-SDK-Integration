@@ -58,15 +58,10 @@ export default class SynthetixV2Service implements IExchange {
     ];
   }
 
-  async supportedMarkets(network: { name: string; chainId: number }): Promise<
-    readonly {
-      mode: Mode;
-      longCollateral: string;
-      shortCollateral: string;
-      indexOrIdentifier: string;
-      supportedOrderTypes: Record<OrderType, Boolean>;
-    }[]
-  > {
+  async supportedMarkets(network: {
+    name: string;
+    chainId: number;
+  }): Promise<readonly Market[]> {
     const markets = await this.sdk.futures.getMarkets();
 
     return markets.map((m) => ({
@@ -81,6 +76,11 @@ export default class SynthetixV2Service implements IExchange {
         MARKET_DECREASE: true,
         DEPOSIT: true,
         WITHDRAW: true,
+      },
+      supportedOrderActions: {
+        CREATE: true,
+        UPDATE: false,
+        CANCEL: true,
       },
     }));
   }

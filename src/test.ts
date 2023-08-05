@@ -504,7 +504,7 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 async function gmxService() {
-  const gs = new GmxV1Service();
+  const gs = new GmxV1Service(await signer.getAddress());
 
   await gs.setup(signer);
   console.log("Finished Setup".toUpperCase());
