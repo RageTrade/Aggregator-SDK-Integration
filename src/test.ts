@@ -501,7 +501,7 @@ async function gmxService() {
   await gs.setup(signer);
   console.log('Finished Setup'.toUpperCase())
 
-  await gs.createOrderTest(
+  await gs.createOrder(
     signer,
     {
       mode: "ASYNC",

@@ -127,7 +127,11 @@ export default class GmxV1Service implements IExchange {
     );
   }
 
-  async createOrderTest(signer: Signer, market: Market, order: Order) {
+  async createOrder(
+    signer: Signer,
+    market: Market,
+    order: Order
+  ): Promise<UnsignedTransaction> {
     let createOrderTx;
 
     if (order.type == "LIMIT_INCREASE") {
@@ -149,7 +153,7 @@ export default class GmxV1Service implements IExchange {
       const path: string[] = [];
       path.push(order.inputCollateral.address);
 
-      createOrderTx = await orderBook.createIncreaseOrder(
+      createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
         path,
         order.inputCollateralAmount,
         market.indexOrIdentifier,
@@ -188,7 +192,7 @@ export default class GmxV1Service implements IExchange {
       const path: string[] = [];
       path.push(order.inputCollateral.address);
 
-      createOrderTx = await orderBook.createDecreaseOrder(
+      createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
         market.indexOrIdentifier,
         order.sizeDelta,
         order.inputCollateral.address,
@@ -213,38 +217,40 @@ export default class GmxV1Service implements IExchange {
       }
 
       if (order.inputCollateral.address != this.nativeTokenAddress) {
-        createOrderTx = await positionRouter.createIncreasePosition(
-          path,
-          market.indexOrIdentifier,
-          order.inputCollateralAmount,
-          0,
-          order.sizeDelta,
-          order.direction == "LONG" ? true : false,
-          order.trigger?.triggerPrice!,
-          this.EXECUTION_FEE,
-          ethers.constants.HashZero, // Referral code set during setup()
-          ethers.constants.AddressZero,
-          {
-            value: this.EXECUTION_FEE,
-          }
-        );
+        createOrderTx =
+          await positionRouter.populateTransaction.createIncreasePosition(
+            path,
+            market.indexOrIdentifier,
+            order.inputCollateralAmount,
+            0,
+            order.sizeDelta,
+            order.direction == "LONG" ? true : false,
+            order.trigger?.triggerPrice!,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE,
+            }
+          );
       } else {
-        createOrderTx = await positionRouter.createIncreasePositionETH(
-          [order.inputCollateral.address],
-          market.indexOrIdentifier,
-          0,
-          order.sizeDelta,
-          order.direction == "LONG" ? true : false,
-          order.trigger?.triggerPrice!,
-          this.EXECUTION_FEE,
-          this.REFERRAL_CODE,
-          ethers.constants.AddressZero,
-          {
-            value: BigNumber.from(this.EXECUTION_FEE).add(
-              order.inputCollateralAmount
-            ),
-          }
-        );
+        createOrderTx =
+          await positionRouter.populateTransaction.createIncreasePositionETH(
+            [order.inputCollateral.address],
+            market.indexOrIdentifier,
+            0,
+            order.sizeDelta,
+            order.direction == "LONG" ? true : false,
+            order.trigger?.triggerPrice!,
+            this.EXECUTION_FEE,
+            this.REFERRAL_CODE,
+            ethers.constants.AddressZero,
+            {
+              value: BigNumber.from(this.EXECUTION_FEE).add(
+                order.inputCollateralAmount
+              ),
+            }
+          );
       }
     } else if (order.type == "MARKET_DECREASE") {
       const positionRouter = PositionRouter__factory.connect(
@@ -261,32 +267,25 @@ export default class GmxV1Service implements IExchange {
         path.push(order.inputCollateral.address);
       }
 
-      createOrderTx = await positionRouter.createDecreasePosition(
-        path,
-        market.indexOrIdentifier,
-        order.inputCollateralAmount,
-        order.sizeDelta,
-        order.direction == "LONG" ? true : false,
-        await signer.getAddress(),
-        order.trigger?.triggerPrice!,
-        0,
-        this.EXECUTION_FEE,
-        order.inputCollateral.address == ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
-        {
-          value: this.EXECUTION_FEE,
-        }
-      );
+      createOrderTx =
+        await positionRouter.populateTransaction.createDecreasePosition(
+          path,
+          market.indexOrIdentifier,
+          order.inputCollateralAmount,
+          order.sizeDelta,
+          order.direction == "LONG" ? true : false,
+          await signer.getAddress(),
+          order.trigger?.triggerPrice!,
+          0,
+          this.EXECUTION_FEE,
+          order.inputCollateral.address == ethers.constants.AddressZero,
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE,
+          }
+        );
     }
-    this.logObject("createOrderTx", createOrderTx!);
-  }
-
-  async createOrder(
-    signer: Signer,
-    market: Market,
-    order: Order
-  ): Promise<UnsignedTransaction> {
-    throw new Error("Method not implemented.");
+    return createOrderTx!;
   }
 
   updateOrder(
