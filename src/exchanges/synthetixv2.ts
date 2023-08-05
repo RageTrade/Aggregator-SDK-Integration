@@ -75,10 +75,12 @@ export default class SynthetixV2Service implements IExchange {
       shortCollateral: this.sUSDAddr,
       indexOrIdentifier: m.marketKey,
       supportedOrderTypes: {
-        LIMIT_INCREASE: true,
-        LIMIT_DECREASE: true,
+        LIMIT_INCREASE: false,
+        LIMIT_DECREASE: false,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     }));
   }
@@ -118,10 +120,10 @@ export default class SynthetixV2Service implements IExchange {
     await this.sdk.setSigner(signer);
 
     // transfer margin orders
-    if (order.type == "LIMIT_INCREASE" || order.type == "LIMIT_DECREASE") {
+    if (order.type == "DEPOSIT" || order.type == "WITHDRAW") {
       let transferAmount = wei(order.inputCollateralAmount);
       transferAmount =
-        order.type == "LIMIT_INCREASE" ? transferAmount : transferAmount.neg();
+        order.type == "DEPOSIT" ? transferAmount : transferAmount.neg();
 
       return (await this.sdk.futures.depositIsolatedMargin(
         targetMarket.market!,

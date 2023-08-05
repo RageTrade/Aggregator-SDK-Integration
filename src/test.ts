@@ -159,6 +159,8 @@ async function getTradePreview(
         LIMIT_INCREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     },
     {
@@ -202,6 +204,8 @@ async function createLongOrder(
         LIMIT_INCREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     },
     {
@@ -250,6 +254,8 @@ async function cancelDelayedOffChainOrder(
         LIMIT_INCREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     },
     {}
@@ -274,6 +280,8 @@ async function createTransferMarginOrder(
         LIMIT_INCREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     },
     {
@@ -513,6 +521,8 @@ async function gmxService() {
         LIMIT_INCREASE: true,
         MARKET_INCREASE: true,
         MARKET_DECREASE: true,
+        DEPOSIT: true,
+        WITHDRAW: true,
       },
     },
     {

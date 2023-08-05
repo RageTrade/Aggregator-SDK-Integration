@@ -11,7 +11,9 @@ export type OrderType =
   | "LIMIT_INCREASE"
   | "LIMIT_DECREASE"
   | "MARKET_INCREASE"
-  | "MARKET_DECREASE";
+  | "MARKET_DECREASE"
+  | "DEPOSIT"
+  | "WITHDRAW";
 
 export type OrderDirection = "LONG" | "SHORT";
 
