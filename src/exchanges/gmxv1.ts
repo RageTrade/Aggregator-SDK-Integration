@@ -41,6 +41,12 @@ export default class GmxV1Service implements IExchange {
 
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
 
+  private receiver: string;
+
+  constructor(receiver: string) {
+    this.receiver = receiver;
+  }
+
   invariant(condition: any, errorMsg: string | undefined) {
     if (!condition) {
       throw new Error(errorMsg);
@@ -274,7 +280,7 @@ export default class GmxV1Service implements IExchange {
           order.inputCollateralAmount,
           order.sizeDelta,
           order.direction == "LONG" ? true : false,
-          await signer.getAddress(),
+          this.receiver,
           order.trigger?.triggerPrice!,
           0,
           this.EXECUTION_FEE,
