@@ -60,7 +60,7 @@ export default class StatsService {
 			}))
 
 			return stats
-		} catch (e) {
+		} catch (e: any) {
 			this.sdk.context.logError(e)
 			return []
 		}
@@ -119,7 +119,7 @@ export default class StatsService {
 			}
 
 			return { ...stats, all: [...stats.top, ...stats.bottom, ...stats.wallet, ...stats.search] }
-		} catch (e) {
+		} catch (e: any) {
 			this.sdk.context.logError(e)
 			return DEFAULT_LEADERBOARD_DATA
 		}
@@ -163,7 +163,7 @@ export default class StatsService {
 						totalLiquidations: response.futuresCumulativeStat.totalLiquidations,
 				  }
 				: null
-		} catch (e) {
+		} catch (e: any) {
 			this.sdk.context.logError(e)
 			return null
 		}

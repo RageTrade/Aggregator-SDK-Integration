@@ -647,7 +647,7 @@ export default class KwentaTokenService {
 							: index + OP_REWARDS_CUTOFF_EPOCH
 						: index + TRADING_REWARDS_CUTOFF_EPOCH
 					return { ...response.data, period }
-				} catch (err) {
+				} catch (err: any) {
 					this.sdk.context.logError(err)
 					return null
 				}

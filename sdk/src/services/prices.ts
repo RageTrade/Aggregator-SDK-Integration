@@ -78,7 +78,7 @@ export default class PricesService {
 						prices: this.onChainPrices,
 						type: 'on_chain',
 					})
-				} catch (err) {
+				} catch (err: any) {
 					this.sdk.context.logError(err)
 				}
 			}, intervalTime)
@@ -277,7 +277,7 @@ export default class PricesService {
 				type: 'off_chain',
 				source: 'fetch',
 			})
-		} catch (err) {
+		} catch (err: any) {
 			this.sdk.context.logError(err)
 		}
 		this.pyth.subscribePriceFeedUpdates(this.pythIds, (priceFeed) => {
