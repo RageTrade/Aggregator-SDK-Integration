@@ -20,12 +20,13 @@ import {
   IERC20__factory,
   OrderBook__factory,
   PositionRouter__factory,
+  Reader__factory,
   ReferralStorage__factory,
   Router__factory,
 } from "../../gmxV1Typechain";
 import { getContract } from "../configs/gmx/contracts";
 import { ARBITRUM, getConstant } from "../configs/gmx/chains";
-import { getTokenBySymbol } from "../configs/gmx/tokens";
+import { getTokenBySymbol, getTokens } from "../configs/gmx/tokens";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -129,7 +130,7 @@ export default class GmxV1Service implements IExchange {
   logObject(title: string, obj: object) {
     console.log(
       title,
-      this.keys(obj).map((key) => key + ": " + obj[key])
+      this.keys(obj).map((key) => key + ": " + obj[key].toString())
     );
   }
 
@@ -366,12 +367,94 @@ export default class GmxV1Service implements IExchange {
   getMarketOrders(user: string, market: string): Promise<ExtendedOrder[]> {
     throw new Error("Method not implemented.");
   }
+
   getPosition(positionIdentifier: string): Promise<Position> {
     throw new Error("Method not implemented.");
   }
-  getAllPositions(user: string): Promise<Position[]> {
-    throw new Error("Method not implemented.");
+
+  async getAllPositionsTest(user: string, signer: Signer) {}
+
+  async getAllPositions(
+    user: string,
+    signer: Signer
+  ): Promise<ExtendedPosition[]> {
+    const reader = Reader__factory.connect(
+      getContract(ARBITRUM, "Reader")!,
+      signer
+    );
+
+    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
+
+    const indexTokens = getTokens(ARBITRUM)
+      .filter((token) => !token.isStable && !token.isWrapped)
+      .map((token) =>
+        token.address == ethers.constants.AddressZero
+          ? nativeTokenAddress
+          : token.address
+      );
+    // console.log(indexTokens);
+    const shortCollateralToken = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
+    // console.log(shortCollateralToken);
+
+    let collateralTokens: string[] = [];
+    let indexes: string[] = [];
+    let isLongs: boolean[] = [];
+
+    // for longs collateralToken = indexToken
+    indexTokens.forEach((token) => {
+      collateralTokens.push(token);
+      indexes.push(token);
+      isLongs.push(true);
+    });
+    // for shorts collateralToken = USDC.e
+    indexTokens.forEach((token) => {
+      collateralTokens.push(shortCollateralToken);
+      indexes.push(token);
+      isLongs.push(false);
+    });
+
+    // console.log(collateralTokens);
+    // console.log(indexes);
+    // console.log(isLongs);
+
+    const positionData = await reader.getPositions(
+      getContract(ARBITRUM, "Vault")!,
+      user,
+      collateralTokens,
+      indexes,
+      isLongs
+    );
+    // console.log(positionData);
+
+    const propsLength = 9;
+
+    let positions: ExtendedPosition[] = [];
+
+    for (let i = 0; i < indexes.length; i++) {
+      let size = positionData[i * propsLength];
+      if (size.eq(0)) continue;
+
+      const key = this.getPositionKey(
+        user,
+        collateralTokens[i],
+        indexes[i],
+        isLongs[i],
+        nativeTokenAddress
+      );
+
+      let position: ExtendedPosition = {
+        indexOrIdentifier: key,
+        size: size,
+        collateral: positionData[i * propsLength + 1],
+        averageEntryPrice: positionData[i * propsLength + 2],
+        lastUpdatedAtTimestamp: positionData[i * propsLength + 6].toNumber(),
+      };
+      positions.push(position);
+    }
+
+    return positions;
   }
+
   getMarketPositions(user: string, market: string): Promise<Position[]> {
     throw new Error("Method not implemented.");
   }
@@ -387,5 +470,35 @@ export default class GmxV1Service implements IExchange {
     order: Order
   ): Promise<ExtendedPosition> {
     throw new Error("Method not implemented.");
+  }
+
+  getPositionKey(
+    account: string,
+    collateralTokenAddress: string,
+    indexTokenAddress: string,
+    isLong: boolean,
+    nativeTokenAddress?: string
+  ) {
+    const tokenAddress0 =
+      collateralTokenAddress === ethers.constants.AddressZero
+        ? nativeTokenAddress
+        : collateralTokenAddress;
+    const tokenAddress1 =
+      indexTokenAddress === ethers.constants.AddressZero
+        ? nativeTokenAddress
+        : indexTokenAddress;
+    return account + ":" + tokenAddress0 + ":" + tokenAddress1 + ":" + isLong;
+  }
+
+  getPositionContractKey(
+    account: string,
+    collateralToken: string,
+    indexToken: string,
+    isLong: boolean
+  ) {
+    return ethers.utils.solidityKeccak256(
+      ["address", "address", "address", "bool"],
+      [account, collateralToken, indexToken, isLong]
+    );
   }
 }

@@ -30,14 +30,14 @@ const { ALCHEMY_KEY_OP_MAIN, PRIVATE_KEY, W2, PRIVATE_KEY2, W1, PRIVATE_KEY1 } =
 const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
 
-function keys<T extends object>(obj: T) {
-  return Object.keys(obj) as Array<keyof T>;
+function keys(obj: object) {
+  return Object.keys(obj) as Array<keyof Object>;
 }
 
 function logObject(title: string, obj: object) {
   console.log(
     title,
-    keys(obj).map((key) => key + ": " + obj[key])
+    keys(obj).map((key) => key + ": " + obj[key].toString())
   );
 }
 
@@ -506,44 +506,49 @@ const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 async function gmxService() {
   const gs = new GmxV1Service(await signer.getAddress());
 
-  await gs.setup(signer);
-  console.log("Finished Setup".toUpperCase());
+  // await gs.setup(signer);
+  // console.log("Finished Setup".toUpperCase());
 
-  await gs.createOrder(
-    signer,
-    {
-      mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "",
-      indexOrIdentifier: getTokenBySymbol(ARBITRUM, "BTC").address,
-      supportedOrderTypes: {
-        LIMIT_DECREASE: true,
-        LIMIT_INCREASE: true,
-        MARKET_INCREASE: true,
-        MARKET_DECREASE: true,
-        DEPOSIT: true,
-        WITHDRAW: true,
-      },
-    },
-    {
-      type: "MARKET_DECREASE",
-      direction: "LONG",
-      inputCollateral: {
-        name: "string",
-        symbol: "string",
-        decimals: "string",
-        address: getTokenBySymbol(ARBITRUM, "USDC.e").address,
-      },
-      inputCollateralAmount: ethers.utils.parseUnits("4", 30),
-      sizeDelta: ethers.utils.parseUnits("0", 30),
-      isTriggerOrder: false,
-      referralCode: undefined,
-      trigger: {
-        triggerPrice: ethers.utils.parseUnits("1850", 30),
-        triggerAboveThreshold: false,
-      },
-    }
-  );
+  // await gs.createOrder(
+  //   signer,
+  //   {
+  //     mode: "ASYNC",
+  //     longCollateral: "",
+  //     shortCollateral: "",
+  //     indexOrIdentifier: getTokenBySymbol(ARBITRUM, "BTC").address,
+  //     supportedOrderTypes: {
+  //       LIMIT_DECREASE: true,
+  //       LIMIT_INCREASE: true,
+  //       MARKET_INCREASE: true,
+  //       MARKET_DECREASE: true,
+  //       DEPOSIT: true,
+  //       WITHDRAW: true,
+  //     },
+  //   },
+  //   {
+  //     type: "MARKET_DECREASE",
+  //     direction: "LONG",
+  //     inputCollateral: {
+  //       name: "string",
+  //       symbol: "string",
+  //       decimals: "string",
+  //       address: getTokenBySymbol(ARBITRUM, "USDC.e").address,
+  //     },
+  //     inputCollateralAmount: ethers.utils.parseUnits("4", 30),
+  //     sizeDelta: ethers.utils.parseUnits("0", 30),
+  //     isTriggerOrder: false,
+  //     referralCode: undefined,
+  //     trigger: {
+  //       triggerPrice: ethers.utils.parseUnits("1850", 30),
+  //       triggerAboveThreshold: false,
+  //     },
+  //   }
+  // );
+
+  const positions = await gs.getAllPositions(w, signer);
+  positions.forEach((p) => {
+    logObject("Position: ", p);
+  });
 }
 
 gmxService()

@@ -325,7 +325,7 @@ export default class SynthetixV2Service implements IExchange {
     throw new Error("Method not Supported.");
   }
 
-  getAllPositions(user: string): Promise<Position[]> {
+  getAllPositions(user: string, signer: Signer): Promise<ExtendedPosition[]> {
     throw new Error("Method not Supported.");
   }
 

@@ -55,7 +55,7 @@ export type Position = {
 
 export type ExtendedPosition = Position & {
   unrealizedPnl?: BigNumber;
-  liqudationPrice: BigNumber;
+  liqudationPrice?: BigNumber;
   otherFees?: BigNumber;
   fee?: BigNumber;
   leverage?: BigNumber;
@@ -141,7 +141,7 @@ export interface IExchange {
     positionIdentifier: Position["indexOrIdentifier"] // serves as market identifier for SNX
   ): Promise<Position>;
 
-  getAllPositions(user: string): Promise<Position[]>;
+  getAllPositions(user: string, signer: Signer): Promise<ExtendedPosition[]>;
 
   // will work as getPosition for SNX
   getMarketPositions(
