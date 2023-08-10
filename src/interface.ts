@@ -38,7 +38,7 @@ export type Market = {
 } & MarketIdentifier;
 
 export type MarketMetadata = {
-  asset?: string
+  asset?: string;
   price?: BigNumber;
   oiLong?: BigNumber;
   oiShort?: BigNumber;
@@ -138,6 +138,8 @@ export interface IExchange {
     market: Market,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction>;
+
+  getMarketPrice(market: Market): Promise<BigNumber>;
 
   // @dev There can be only 1 order per market per user for SNX
   getOrder(

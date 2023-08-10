@@ -109,6 +109,15 @@ export default class SynthetixV2Service implements IExchange {
     return extendedMarkets;
   }
 
+  async getMarketPrice(market: Market): Promise<BigNumber> {
+    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    return (await this.sdk.futures.getAssetPrice(targetMarket.market)).toBN();
+  }
+
   async createOrder(
     signer: Signer,
     market: {

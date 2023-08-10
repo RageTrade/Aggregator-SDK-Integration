@@ -134,6 +134,10 @@ export default class GmxV1Service implements IExchange {
     );
   }
 
+  getMarketPrice(market: Market): Promise<ethers.BigNumber> {
+    throw new Error("Method not implemented.");
+  }
+
   async createOrder(
     signer: Signer,
     market: Market,
