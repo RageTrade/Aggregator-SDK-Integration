@@ -550,6 +550,12 @@ export default class FuturesService {
 		return formatPotentialTrade(details, skewAdjustedPrice, inputs.sizeDelta, inputs.leverageSide)
 	}
 
+	public async getAssetPrice(marketAddress: string) {
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
+		const price = await market.assetPrice()
+		return wei(price[0])
+	}
+
 	public async getFillPrice(
 		marketAddress: string,
 			sizeDelta: Wei
