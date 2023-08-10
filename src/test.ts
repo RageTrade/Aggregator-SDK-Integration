@@ -21,6 +21,7 @@ import { Mode, OrderType } from "./interface";
 import GmxV1Service from "./exchanges/gmxv1";
 import { getTokenBySymbol } from "./configs/gmx/tokens";
 import { ARBITRUM } from "./configs/gmx/chains";
+import CompositeService from "./common/compositeService";
 
 config();
 
@@ -42,7 +43,7 @@ function logObject(title: string, obj: object) {
 }
 
 let provider = new ethers.providers.AlchemyProvider(
-  "arbitrum",
+  10,
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -56,17 +57,22 @@ const sdk = new KwentaSDK({
 async function synService() {
   const ss = new SynthetixV2Service(sdk);
 
-  const order = await ss.getOrder(w, "sETHPERP");
-  logObject("Order: ", order);
+  // const order = await ss.getOrder(w, "sETHPERP");
+  // logObject("Order: ", order);
 
-  const allOrders = await ss.getAllOrders(w);
-  allOrders.forEach((o) => logObject("All Orders: ", o));
+  // const allOrders = await ss.getAllOrders(w);
+  // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  //const supportedNetworks = ss.supportedNetworks();
-  //logObject("Supported Networks: ", supportedNetworks[0]);
+  // const supportedNetworks = ss.supportedNetworks();
+  // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  //const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  //logObject("Supportted Markets: ", supportedMarkets[0]);
+  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  // supportedMarkets.forEach((market) => logObject("Market: ", market));
+
+  (await sdk.futures.getMarkets()).forEach(async (market) => {
+    let price = await sdk.futures.getAssetPrice(market.market);
+    console.log("Market: ", market.marketKey, "Price: ", price.toString());
+  });
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
@@ -551,7 +557,16 @@ async function gmxService() {
   });
 }
 
-gmxService()
+async function compositeService() {
+  const ss = new SynthetixV2Service(sdk);
+  const gs = new GmxV1Service(await signer.getAddress());
+
+  const cs = new CompositeService(ss, gs);
+
+  await cs.getOpenMarkets();
+}
+
+compositeService()
   .then()
   .catch((error) => {
     console.error(error);

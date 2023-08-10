@@ -37,6 +37,22 @@ export type Market = {
   supportedOrderActions?: Record<OrderAction["orderAction"], Boolean>;
 } & MarketIdentifier;
 
+export type MarketMetadata = {
+  asset?: string
+  price?: BigNumber;
+  oiLong?: BigNumber;
+  oiShort?: BigNumber;
+  oiTotal?: BigNumber;
+  fundingRate?: BigNumber;
+  fundingVelocity?: BigNumber;
+  borrowRate?: BigNumber;
+  makerFee?: BigNumber;
+  takerFee?: BigNumber;
+  maxLeverage?: BigNumber;
+};
+
+export type ExtendedMarket = Market & MarketMetadata;
+
 export type MarketIdentifier = {
   indexOrIdentifier: string;
 };
@@ -103,7 +119,7 @@ export interface IExchange {
 
   supportedNetworks(): readonly Network[];
 
-  supportedMarkets(network: Network): Promise<readonly Market[]>;
+  supportedMarkets(network: Network): Promise<readonly ExtendedMarket[]>;
 
   createOrder(
     signer: Signer,

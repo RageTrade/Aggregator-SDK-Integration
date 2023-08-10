@@ -15,6 +15,8 @@ import {
   Position,
   OrderIdentifier,
   ExtendedOrder,
+  ExtendedMarket,
+  MarketMetadata,
 } from "../interface";
 import { wei } from "@synthetixio/wei";
 import {
@@ -61,28 +63,50 @@ export default class SynthetixV2Service implements IExchange {
   async supportedMarkets(network: {
     name: string;
     chainId: number;
-  }): Promise<readonly Market[]> {
+  }): Promise<readonly ExtendedMarket[]> {
     const markets = await this.sdk.futures.getMarkets();
 
-    return markets.map((m) => ({
-      mode: "ASYNC",
-      longCollateral: this.sUSDAddr,
-      shortCollateral: this.sUSDAddr,
-      indexOrIdentifier: m.marketKey,
-      supportedOrderTypes: {
-        LIMIT_INCREASE: false,
-        LIMIT_DECREASE: false,
-        MARKET_INCREASE: true,
-        MARKET_DECREASE: true,
-        DEPOSIT: true,
-        WITHDRAW: true,
-      },
-      supportedOrderActions: {
-        CREATE: true,
-        UPDATE: false,
-        CANCEL: true,
-      },
-    }));
+    let extendedMarkets: ExtendedMarket[] = [];
+
+    markets.forEach((m) => {
+      let extendedMarket: ExtendedMarket = {
+        mode: "ASYNC",
+        longCollateral: this.sUSDAddr,
+        shortCollateral: this.sUSDAddr,
+        indexOrIdentifier: m.marketKey,
+        supportedOrderTypes: {
+          LIMIT_INCREASE: false,
+          LIMIT_DECREASE: false,
+          MARKET_INCREASE: true,
+          MARKET_DECREASE: true,
+          DEPOSIT: true,
+          WITHDRAW: true,
+        },
+        supportedOrderActions: {
+          CREATE: true,
+          UPDATE: false,
+          CANCEL: true,
+        },
+        asset: m.asset,
+        oiLong: m.openInterest.long.toBN(),
+        oiShort: m.openInterest.short.toBN(),
+        fundingRate: m.currentFundingRate.toBN(),
+        fundingVelocity: m.currentFundingVelocity.toBN(),
+        makerFee: m.feeRates.makerFeeOffchainDelayedOrder.toBN(),
+        takerFee: m.feeRates.takerFeeOffchainDelayedOrder.toBN(),
+        maxLeverage: m.contractMaxLeverage.toBN(),
+      };
+
+      extendedMarkets.push(extendedMarket);
+    });
+
+    for (let i = 0; i < extendedMarkets.length; i++) {
+      let m = extendedMarkets[i];
+      let mm = markets.find((mm) => mm.marketKey == m.indexOrIdentifier);
+      m.price = (await this.sdk.futures.getAssetPrice(mm!.market)).toBN();
+    }
+
+    return extendedMarkets;
   }
 
   async createOrder(
@@ -143,6 +167,9 @@ export default class SynthetixV2Service implements IExchange {
         wei(order.trigger?.triggerPrice)
       )) as UnsignedTransaction;
     }
+
+    // For Market Increase: Array of [withdrawTx's + Deposit Tx + create Order Tx]
+    // For Market Decrease: Array of [create Order TX]
 
     throw new Error("Invalid order type");
   }
