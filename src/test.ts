@@ -468,34 +468,44 @@ async function synService() {
   const direction = "LONG";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
+  // const positions = await ss.getAllPositions(
+  //   "0xd0dF6C42c4DAadB33fbD14930b670Bed4c9577d1",
+  //   signer
+  // );
+  // positions.forEach((p) => logObject("Position: ", p));
+
   const fillPrice = await sdk.futures.getFillPrice(
     marketAddress,
     direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
   );
-  console.log("Fill Price: ", fillPrice.toString());
+  console.log({ fillPrice });
 
-  const tradePreview = await getTradePreview(ss, sizeDelta, direction);
+  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
 
-  if (tradePreview.status == 0) {
-    const triggerPrice = direction.includes("SHORT")
-      ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
-      : tradePreview.skewAdjustedPrice!.mul(101).div(100);
-    console.log("Trigger Price: ", triggerPrice.toString());
+  // if (tradePreview.status == 0) {
+  //   const triggerPrice = direction.includes("SHORT")
+  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
+  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
+  //   console.log("Trigger Price: ", triggerPrice.toString());
 
-    const createLongOrderTxs = await createLongOrder(
-      ss,
-      sizeDelta,
-      direction,
-      triggerPrice,
-      "50"
-    );
-    createLongOrderTxs.forEach((tx) => {
-      logObject("Tx: ", tx);
-    });
-    //await fireTxs(createLongOrderTxs);
-  } else {
-    console.log("Trade Will Fail".toUpperCase());
-  }
+  //   const createLongOrderTxs = await createLongOrder(
+  //     ss,
+  //     sizeDelta,
+  //     direction,
+  //     triggerPrice,
+  //     "50"
+  //   );
+  //   createLongOrderTxs.forEach((tx) => {
+  //     logObject("Tx: ", tx);
+  //   });
+  //   //await fireTxs(createLongOrderTxs);
+  // } else {
+  //   console.log("Trade Will Fail".toUpperCase());
+  // }
+
+  // let ethPrice = await sdk.futures.getAssetPrice(marketAddress);
+  // console.log("ETH Price: ", ethPrice.toBN());
+  // console.log("ETH Price: ", ethPrice.toString());
 
   // const idleMargins = await getIdleMargins(ss);
   // const withdrawableEthMargin = idleMargins.filter((m) => m.indexOrIdentifier == "sETHPERP")[0].inputCollateralAmount.mul(-1)
@@ -530,12 +540,14 @@ async function synService() {
   // const createLongOrderTx = await createLongOrder(ss);
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
 
-  // let result = await sdk.futures.getIdleMarginInMarkets(w);
-  // logObject("Idle Margin in Markets: ", result);
-  // result.marketsWithIdleMargin.forEach((m) => {
-  //   logObject("Market: ", m);
-  //   if (m.position) logObject("Position: ", m.position);
-  // });
+  let result = await sdk.futures.getIdleMarginInMarkets(
+    "0xd0dF6C42c4DAadB33fbD14930b670Bed4c9577d1"
+  );
+  logObject("Idle Margin in Markets: ", result);
+  result.marketsWithIdleMargin.forEach((m) => {
+    logObject("Market: ", m);
+    if (m.position) logObject("Position: ", m.position);
+  });
 }
 
 async function gmxService() {
@@ -596,7 +608,7 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-compositeService()
+synService()
   .then()
   .catch((error) => {
     console.error(error);

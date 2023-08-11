@@ -563,7 +563,10 @@ export default class FuturesService {
 		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		const details = await market.fillPrice(sizeDelta.toBN())
 		
-		return [details.price, details.invalid]
+		return {
+			price: details[0],
+			invalid: details[1],
+		}
 	}
 
 	public async getCrossMarginTradePreview(
