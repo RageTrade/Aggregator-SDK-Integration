@@ -42,7 +42,11 @@ export default class CompositeService {
     const synNetwork = this.synService.supportedNetworks()[0];
     const synMarkets = await this.synService.supportedMarkets(synNetwork);
 
-    let openMarkets: { [index: string]: any } = {};
+    let openMarkets: {
+      [index: string]: Array<
+        ExtendedMarket & Network & { openMarketIdentifier: string }
+      >;
+    } = {};
 
     synMarkets.forEach((m) => {
       let openIdentifier = m.asset!.replace("s", "").concat("/USD");
