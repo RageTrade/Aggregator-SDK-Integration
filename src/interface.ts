@@ -49,6 +49,7 @@ export type MarketMetadata = {
   makerFee?: BigNumber;
   takerFee?: BigNumber;
   maxLeverage?: BigNumber;
+  address?: string;
 };
 
 export type ExtendedMarket = Market & MarketMetadata;
@@ -156,8 +157,9 @@ export interface IExchange {
   ): Promise<Array<ExtendedOrder>>;
 
   getPosition(
-    positionIdentifier: Position["indexOrIdentifier"] // serves as market identifier for SNX
-  ): Promise<Position>;
+    positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
+    user?: string
+  ): Promise<ExtendedPosition>;
 
   getAllPositions(user: string, signer: Signer): Promise<ExtendedPosition[]>;
 

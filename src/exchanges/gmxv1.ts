@@ -42,10 +42,10 @@ export default class GmxV1Service implements IExchange {
 
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
 
-  private receiver: string;
+  private swAddr: string;
 
-  constructor(receiver: string) {
-    this.receiver = receiver;
+  constructor(_swAddr: string) {
+    this.swAddr = _swAddr;
   }
 
   invariant(condition: any, errorMsg: string | undefined) {
@@ -285,7 +285,7 @@ export default class GmxV1Service implements IExchange {
           order.inputCollateralAmount,
           order.sizeDelta,
           order.direction == "LONG" ? true : false,
-          this.receiver,
+          this.swAddr,
           order.trigger?.triggerPrice!,
           0,
           this.EXECUTION_FEE,
@@ -372,7 +372,7 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getPosition(positionIdentifier: string): Promise<Position> {
+  getPosition(positionIdentifier: string, user?: string): Promise<Position> {
     throw new Error("Method not implemented.");
   }
 

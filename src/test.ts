@@ -22,6 +22,8 @@ import GmxV1Service from "./exchanges/gmxv1";
 import { getTokenBySymbol } from "./configs/gmx/tokens";
 import { ARBITRUM } from "./configs/gmx/chains";
 import CompositeService from "./common/compositeService";
+import { FuturesMarketKey } from "@kwenta/sdk/dist/types/futures";
+import { logObject } from "./common/helper";
 
 config();
 
@@ -30,17 +32,6 @@ const { ALCHEMY_KEY_OP_MAIN, PRIVATE_KEY, W2, PRIVATE_KEY2, W1, PRIVATE_KEY1 } =
 
 const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
-
-function keys(obj: object) {
-  return Object.keys(obj) as Array<keyof Object>;
-}
-
-function logObject(title: string, obj: object) {
-  console.log(
-    title,
-    keys(obj).map((key) => key + ": " + obj[key].toString())
-  );
-}
 
 let provider = new ethers.providers.AlchemyProvider(
   10,
@@ -53,92 +44,6 @@ const sdk = new KwentaSDK({
   networkId: 10,
   provider: provider,
 });
-
-async function synService() {
-  const ss = new SynthetixV2Service(sdk);
-
-  // const order = await ss.getOrder(w, "sETHPERP");
-  // logObject("Order: ", order);
-
-  // const allOrders = await ss.getAllOrders(w);
-  // allOrders.forEach((o) => logObject("All Orders: ", o));
-
-  // const supportedNetworks = ss.supportedNetworks();
-  // logObject("Supported Networks: ", supportedNetworks[0]);
-
-  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  // supportedMarkets.forEach((market) => logObject("Market: ", market));
-
-  (await sdk.futures.getMarkets()).forEach(async (market) => {
-    let price = await sdk.futures.getAssetPrice(market.market);
-    console.log("Market: ", market.marketKey, "Price: ", price.toString());
-  });
-
-  // const transferMarginTx = await createTransferMarginOrder(ss, "50");
-  // await fireTx(transferMarginTx);
-
-  // const sizeDelta = "0.005";
-  // const direction = "SHORT";
-  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
-
-  // const fillPrice = await sdk.futures.getFillPrice(
-  //   marketAddress,
-  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  // );
-  // console.log("Fill Price: ", fillPrice.toString());
-
-  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
-
-  // if (tradePreview.status == 0) {
-  //   const triggerPrice = direction.includes("SHORT")
-  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
-  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
-  //   console.log("Trigger Price: ", triggerPrice.toString());
-
-  //   const createLongOrderTx = await createLongOrder(
-  //     ss,
-  //     sizeDelta,
-  //     direction,
-  //     triggerPrice
-  //   );
-  //   //await fireTx(createLongOrderTx);
-  // } else {
-  //   console.log("Trade Will Fail".toUpperCase());
-  // }
-
-  // const idleMargins = await getIdleMargins(ss);
-  // const withdrawableEthMargin = idleMargins.filter((m) => m.indexOrIdentifier == "sETHPERP")[0].inputCollateralAmount.mul(-1)
-  // console.log("Withdrawable ETH Margin: ", withdrawableEthMargin.toString());
-  // const withdrawEthMarginTx = await createTransferMarginOrder(
-  //   ss,
-  //   withdrawableEthMargin
-  // )
-  // await fireTx(withdrawEthMarginTx)
-
-  // await getTradePreview(ss);
-
-  // const pHistory = await sdk.futures.getPositionHistory(w);
-  // pHistory.forEach((pHistory) => {
-  //   logObject("Position History: ", pHistory);
-  // });
-
-  // const cpHistory = await sdk.futures.getCompletePositionHistory(w);
-  // cpHistory.forEach((cpHistory) => {
-  //   logObject("Complete Position History: ", cpHistory);
-  // });
-
-  // const ethTrades = await sdk.futures.getTradesForMarket(
-  //   FuturesMarketAsset.sETH,
-  //   w,
-  //   "isolated_margin"
-  // );
-  // ethTrades.forEach((ethTrades) => {
-  //   logObject("ETH Trades: ", ethTrades);
-  // });
-
-  // const createLongOrderTx = await createLongOrder(ss);
-  // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
-}
 
 async function fireTx(utx: UnsignedTransaction) {
   const tx = await signer.sendTransaction(
@@ -509,6 +414,112 @@ async function crossMargin() {
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
+async function synService() {
+  const ss = new SynthetixV2Service(sdk);
+
+  // const order = await ss.getOrder(w, "sETHPERP");
+  // logObject("Order: ", order);
+
+  // const allOrders = await ss.getAllOrders(w);
+  // allOrders.forEach((o) => logObject("All Orders: ", o));
+
+  // const supportedNetworks = ss.supportedNetworks();
+  // logObject("Supported Networks: ", supportedNetworks[0]);
+
+  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  // supportedMarkets.forEach((market) => logObject("Market: ", market));
+
+  // (await sdk.futures.getMarkets()).forEach(async (market) => {
+  //   let price = await sdk.futures.getAssetPrice(market.market);
+  //   console.log("Market: ", market.marketKey, "Price: ", price.toString());
+  // });
+
+  // let futurePositions = await sdk.futures.getFuturesPositions(w, [
+  //   {
+  //     asset: FuturesMarketAsset.sBTC,
+  //     marketKey: FuturesMarketKey.sBTCPERP,
+  //     address: supportedMarkets.find(
+  //       (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
+  //     )!.address!,
+  //   },
+  // ]);
+  // console.log("Future positions: ", futurePositions.length);
+  // futurePositions.forEach((p) => {
+  //   logObject("Future position: ", p);
+  //   if (p.position) logObject("Inside Position: ", p.position);
+  // });
+
+  let position = await ss.getPosition("sBTCPERP", w);
+  logObject("Position: ", position);
+
+  // await ss.getAllPositions(w, signer);
+
+  // const transferMarginTx = await createTransferMarginOrder(ss, "50");
+  // await fireTx(transferMarginTx);
+
+  // const sizeDelta = "0.005";
+  // const direction = "SHORT";
+  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+
+  // const fillPrice = await sdk.futures.getFillPrice(
+  //   marketAddress,
+  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  // );
+  // console.log("Fill Price: ", fillPrice.toString());
+
+  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
+
+  // if (tradePreview.status == 0) {
+  //   const triggerPrice = direction.includes("SHORT")
+  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
+  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
+  //   console.log("Trigger Price: ", triggerPrice.toString());
+
+  //   const createLongOrderTx = await createLongOrder(
+  //     ss,
+  //     sizeDelta,
+  //     direction,
+  //     triggerPrice
+  //   );
+  //   //await fireTx(createLongOrderTx);
+  // } else {
+  //   console.log("Trade Will Fail".toUpperCase());
+  // }
+
+  // const idleMargins = await getIdleMargins(ss);
+  // const withdrawableEthMargin = idleMargins.filter((m) => m.indexOrIdentifier == "sETHPERP")[0].inputCollateralAmount.mul(-1)
+  // console.log("Withdrawable ETH Margin: ", withdrawableEthMargin.toString());
+  // const withdrawEthMarginTx = await createTransferMarginOrder(
+  //   ss,
+  //   withdrawableEthMargin
+  // )
+  // await fireTx(withdrawEthMarginTx)
+
+  // await getTradePreview(ss);
+
+  // const pHistory = await sdk.futures.getPositionHistory(w);
+  // pHistory.forEach((pHistory) => {
+  //   logObject("Position History: ", pHistory);
+  // });
+
+  // const cpHistory = await sdk.futures.getCompletePositionHistory(w);
+  // cpHistory.forEach((cpHistory) => {
+  //   logObject("Complete Position History: ", cpHistory);
+  // });
+
+  // const ethTrades = await sdk.futures.getTradesForMarket(
+  //   FuturesMarketAsset.sETH,
+  //   w,
+  //   "isolated_margin"
+  // );
+  // ethTrades.forEach((ethTrades) => {
+  //   logObject("ETH Trades: ", ethTrades);
+  // });
+
+  // const createLongOrderTx = await createLongOrder(ss);
+  // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
+}
+
 async function gmxService() {
   const gs = new GmxV1Service(await signer.getAddress());
 
@@ -563,10 +574,13 @@ async function compositeService() {
 
   const cs = new CompositeService(ss, gs);
 
-  await cs.getOpenMarkets();
+  let openMarkets = await cs.getOpenMarkets();
+  openMarkets.forEach((m) => {
+    logObject("Open market: ", m);
+  });
 }
 
-compositeService()
+synService()
   .then()
   .catch((error) => {
     console.error(error);

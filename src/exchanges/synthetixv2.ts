@@ -25,9 +25,18 @@ import {
   FuturesMarketKey,
   PositionSide,
 } from "@kwenta/sdk/dist/types";
+import {
+  FuturesMarketAsset,
+  FuturesPosition,
+} from "@kwenta/sdk/dist/types/futures";
+import {
+  getEnumEntryByValue,
+  getEnumKeyByEnumValue,
+  logObject,
+} from "../common/helper";
 
 export default class SynthetixV2Service implements IExchange {
-  private nId = 10;
+  private opChainId = 10;
   private sdk: KwentaSDK;
   private sUSDAddr = "0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9";
   private token: Token = {
@@ -55,7 +64,7 @@ export default class SynthetixV2Service implements IExchange {
     return [
       {
         name: "optimism",
-        chainId: this.nId,
+        chainId: this.opChainId,
       },
     ];
   }
@@ -88,6 +97,7 @@ export default class SynthetixV2Service implements IExchange {
           CANCEL: true,
         },
         asset: m.asset,
+        address: m.market,
         oiLong: m.openInterest.long.toBN(),
         oiShort: m.openInterest.short.toBN(),
         fundingRate: m.currentFundingRate.toBN(),
@@ -102,8 +112,7 @@ export default class SynthetixV2Service implements IExchange {
 
     for (let i = 0; i < extendedMarkets.length; i++) {
       let m = extendedMarkets[i];
-      let mm = markets.find((mm) => mm.marketKey == m.indexOrIdentifier);
-      m.price = (await this.sdk.futures.getAssetPrice(mm!.market)).toBN();
+      m.price = (await this.sdk.futures.getAssetPrice(m.address!)).toBN();
     }
 
     return extendedMarkets;
@@ -355,14 +364,87 @@ export default class SynthetixV2Service implements IExchange {
     return ordersData;
   }
 
-  getPosition(
-    positionIdentifier: Position["indexOrIdentifier"] // serves as market identifier for SNX
-  ): Promise<Position> {
-    throw new Error("Method not Supported.");
+  async getPosition(
+    positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
+    user?: string
+  ): Promise<ExtendedPosition> {
+    let extendedPosition: ExtendedPosition = {} as ExtendedPosition;
+
+    let targetMarket = await this.findMarketByKey(positionIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    let futureMarkets = [];
+    futureMarkets.push({
+      // asset: FuturesMarketAsset[supportedMarkets[i].asset!],
+      asset: targetMarket.asset,
+      marketKey: targetMarket.marketKey,
+      address: targetMarket.market,
+    });
+
+    let futurePositions = await this.sdk.futures.getFuturesPositions(
+      user!,
+      futureMarkets
+    );
+
+    if (futurePositions.length != 0) {
+      return this.mapFuturePositionToExtendedPosition(futurePositions[0]);
+    }
+
+    return extendedPosition;
   }
 
-  getAllPositions(user: string, signer: Signer): Promise<ExtendedPosition[]> {
-    throw new Error("Method not Supported.");
+  async getAllPositions(
+    user: string,
+    signer: Signer
+  ): Promise<ExtendedPosition[]> {
+    let extendedPositions: ExtendedPosition[] = [];
+
+    let supportedMarkets = await this.supportedMarkets(
+      this.supportedNetworks()[0]
+    );
+
+    let futureMarkets = [];
+
+    for (let i = 0; i < supportedMarkets.length; i++) {
+      futureMarkets.push({
+        // asset: FuturesMarketAsset[supportedMarkets[i].asset!],
+        asset: getEnumEntryByValue(
+          FuturesMarketAsset,
+          supportedMarkets[i].asset!
+        )!,
+        marketKey: getEnumEntryByValue(
+          FuturesMarketKey,
+          supportedMarkets[i].indexOrIdentifier!
+        )!,
+        address: supportedMarkets[i].address!,
+      });
+    }
+
+    let futurePositions = await this.sdk.futures.getFuturesPositions(
+      user,
+      futureMarkets
+    );
+    // console.log("Future positions: ", futurePositions.length);
+    // futurePositions.forEach((p) => {
+    //   logObject("Future position: ", p);
+    //   if (p.position) logObject("Inside Position: ", p.position);
+    // });
+
+    for (let i = 0; i < futurePositions.length; i++) {
+      if (futurePositions[i].position == null) continue;
+
+      extendedPositions.push(
+        this.mapFuturePositionToExtendedPosition(futurePositions[i])
+      );
+    }
+    // console.log("Extended positions: ", extendedPositions.length);
+    // extendedPositions.forEach((p) => {
+    //   logObject("Extended position: ", p);
+    // });
+
+    return extendedPositions;
   }
 
   // will work as getPosition for SNX
@@ -375,5 +457,22 @@ export default class SynthetixV2Service implements IExchange {
 
   getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
     throw new Error("Method not Supported.");
+  }
+
+  //// HELPERS ////
+
+  mapFuturePositionToExtendedPosition(
+    futurePosition: FuturesPosition
+  ): ExtendedPosition {
+    return {
+      indexOrIdentifier: futurePosition.marketKey.toString(),
+      size: futurePosition.position!.size.toBN(),
+      collateral: futurePosition.position!.initialMargin.toBN(),
+      averageEntryPrice: futurePosition.position!.lastPrice.toBN(),
+      cumulativeFunding: futurePosition.position!.accruedFunding.toBN(),
+      unrealizedPnl: futurePosition.position!.pnl.toBN(),
+      liqudationPrice: futurePosition.position!.liquidationPrice.toBN(),
+      leverage: futurePosition.position!.initialLeverage.toBN(),
+    };
   }
 }
