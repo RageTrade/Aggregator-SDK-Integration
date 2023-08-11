@@ -142,7 +142,7 @@ export default class GmxV1Service implements IExchange {
     signer: Signer,
     market: Market,
     order: Order
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     let createOrderTx;
 
     if (order.type == "LIMIT_INCREASE") {
@@ -296,14 +296,14 @@ export default class GmxV1Service implements IExchange {
           }
         );
     }
-    return createOrderTx!;
+    return [createOrderTx!];
   }
 
   async updateOrder(
     signer: Signer,
     market: Market,
     updatedOrder: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
       signer
@@ -329,14 +329,14 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return updateOrderTx;
+    return [updateOrderTx];
   }
 
   async cancelOrder(
     signer: Signer,
     market: Market,
     order: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
       signer
@@ -356,7 +356,7 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return cancelOrderTx;
+    return [cancelOrderTx];
   }
 
   getOrder(

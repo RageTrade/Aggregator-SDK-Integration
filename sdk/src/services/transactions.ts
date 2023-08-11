@@ -99,7 +99,9 @@ export default class TransactionsService {
 		txnOptions: Partial<ethers.providers.TransactionRequest> = {},
 		options?: { gasLimitBuffer?: number }
 	) {
-		const tx1 = await contract.populateTransaction[method](...args);
+		const tx1 = await contract.populateTransaction[method](...args, {
+			gasLimit: 12000000
+		});
 		tx1.value = BigNumber.from(0);
 
 		if (!tx1.gasLimit) {

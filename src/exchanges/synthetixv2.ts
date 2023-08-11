@@ -45,9 +45,11 @@ export default class SynthetixV2Service implements IExchange {
     decimals: "18",
     address: this.sUSDAddr,
   };
+  private swAddr: string;
 
-  constructor(sdk: KwentaSDK) {
+  constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
+    this.swAddr = _swAddr;
   }
 
   async findMarketByKey(marketKey: string): Promise<FuturesMarket | undefined> {
@@ -88,8 +90,8 @@ export default class SynthetixV2Service implements IExchange {
           LIMIT_DECREASE: false,
           MARKET_INCREASE: true,
           MARKET_DECREASE: true,
-          DEPOSIT: true,
-          WITHDRAW: true,
+          DEPOSIT: false,
+          WITHDRAW: false,
         },
         supportedOrderActions: {
           CREATE: true,
@@ -153,7 +155,7 @@ export default class SynthetixV2Service implements IExchange {
         | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
         | undefined;
     }
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
     if (!targetMarket) {
       throw new Error("Market not found");
@@ -161,35 +163,65 @@ export default class SynthetixV2Service implements IExchange {
 
     await this.sdk.setSigner(signer);
 
-    // transfer margin orders
-    if (order.type == "DEPOSIT" || order.type == "WITHDRAW") {
-      let transferAmount = wei(order.inputCollateralAmount);
-      transferAmount =
-        order.type == "DEPOSIT" ? transferAmount : transferAmount.neg();
+    let txs: UnsignedTransaction[] = [];
 
-      return (await this.sdk.futures.depositIsolatedMargin(
-        targetMarket.market!,
-        transferAmount
-      )) as UnsignedTransaction;
-    } else if (
-      order.type == "MARKET_INCREASE" ||
-      order.type == "MARKET_DECREASE"
-    ) {
+    // For Market Decrease: Array of [create Order TX]
+    if (order.type == "MARKET_DECREASE") {
       // proper orders
-      let sizeDelta = wei(order.sizeDelta);
-      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
+      let sizeDelta = wei(order.sizeDelta).neg();
 
-      return (await this.sdk.futures.submitIsolatedMarginOrder(
+      txs.push(
+        (await this.sdk.futures.submitIsolatedMarginOrder(
+          targetMarket.market,
+          sizeDelta,
+          wei(order.trigger?.triggerPrice)
+        )) as UnsignedTransaction
+      );
+    } else if (order.type == "MARKET_INCREASE") {
+      // For Market Increase: Array of [withdrawUnusedCollateralTx's + Deposit Tx + create Order Tx]
+
+      // withdraw unused collateral tx's
+      const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(
+        this.swAddr
+      );
+      if (idleMargins.totalIdleInMarkets.gt(0)) {
+        let idleMarkets = idleMargins.marketsWithIdleMargin;
+
+        for (let i = 0; i < idleMarkets.length; i++) {
+          let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
+          let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
+            idleMarkets[i].marketAddress,
+            withdrawAmount
+          )) as UnsignedTransaction;
+          // logObject("withdrawTx", withdrawTx);
+
+          txs.push(withdrawTx);
+        }
+      }
+
+      // deposit tx
+      let depositAmount = wei(order.inputCollateralAmount);
+      let depositTx = (await this.sdk.futures.depositIsolatedMargin(
+        targetMarket.market!,
+        depositAmount
+      )) as UnsignedTransaction;
+      // logObject("depositTx", depositTx);
+      txs.push(depositTx);
+
+      // create order tx
+      let sizeDelta = wei(order.sizeDelta);
+      let createOrderTx = (await this.sdk.futures.submitIsolatedMarginOrder(
         targetMarket.market,
         sizeDelta,
         wei(order.trigger?.triggerPrice)
       )) as UnsignedTransaction;
+      // logObject("createOrderTx", createOrderTx);
+      txs.push(createOrderTx);
+    } else {
+      throw new Error("Invalid order type");
     }
 
-    // For Market Increase: Array of [withdrawTx's + Deposit Tx + create Order Tx]
-    // For Market Decrease: Array of [create Order TX]
-
-    throw new Error("Invalid order type");
+    return txs;
   }
 
   updateOrder(
@@ -202,7 +234,7 @@ export default class SynthetixV2Service implements IExchange {
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
     updatedOrder: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     throw new Error("Method not Supported.");
   }
 
@@ -216,29 +248,19 @@ export default class SynthetixV2Service implements IExchange {
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
     order: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction> {
+  ): Promise<UnsignedTransaction[]> {
     const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
     if (!targetMarket) {
       throw new Error("Market not found");
     }
 
-    return await this.sdk.futures.cancelDelayedOrder(
-      targetMarket.market,
-      await signer.getAddress(),
-      true
-    );
-  }
-
-  async getIdleMargins(
-    user: string
-  ): Promise<(MarketIdentifier & CollateralData)[]> {
-    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
-
-    return result.marketsWithIdleMargin.map((m) => ({
-      indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
-      inputCollateral: this.token,
-      inputCollateralAmount: m.position.accessibleMargin.toBN(),
-    }));
+    return [
+      await this.sdk.futures.cancelDelayedOrder(
+        targetMarket.market,
+        await signer.getAddress(),
+        true
+      ),
+    ];
   }
 
   async getTradePreview(
@@ -457,6 +479,23 @@ export default class SynthetixV2Service implements IExchange {
 
   getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
     throw new Error("Method not Supported.");
+  }
+
+  async getIdleMargins(
+    user: string
+  ): Promise<(MarketIdentifier & CollateralData)[]> {
+    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
+
+    return result.marketsWithIdleMargin.map((m) => ({
+      indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
+      inputCollateral: this.token,
+      inputCollateralAmount: m.position.accessibleMargin.toBN(),
+    }));
+  }
+
+  async getAvailableSusdBalance(user: string): Promise<BigNumber> {
+    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
+    return result.totalIdleInMarkets.toBN();
   }
 
   //// HELPERS ////

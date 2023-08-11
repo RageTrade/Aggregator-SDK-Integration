@@ -126,19 +126,19 @@ export interface IExchange {
     signer: Signer,
     market: Market,
     order: Order
-  ): Promise<UnsignedTransaction>;
+  ): Promise<UnsignedTransaction[]>;
 
   updateOrder(
     signer: Signer,
     market: Market,
     updatedOrder: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction>;
+  ): Promise<UnsignedTransaction[]>;
 
   cancelOrder(
     signer: Signer,
     market: Market,
     order: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction>;
+  ): Promise<UnsignedTransaction[]>;
 
   getMarketPrice(market: Market): Promise<BigNumber>;
 

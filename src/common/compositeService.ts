@@ -33,6 +33,9 @@ export default class CompositeService {
       openMarkets.push(marketRecode);
     });
 
+    // gmx code
+
     return openMarkets;
   }
+
 }

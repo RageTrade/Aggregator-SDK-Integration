@@ -45,11 +45,17 @@ const sdk = new KwentaSDK({
   provider: provider,
 });
 
+async function fireTxs(utxs: UnsignedTransaction[]) {
+  await Promise.all(utxs.map((utx) => fireTx(utx)));
+}
+
 async function fireTx(utx: UnsignedTransaction) {
   const tx = await signer.sendTransaction(
     utx as ethers.providers.TransactionRequest
   );
+  await tx.wait(1);
   console.log("Transaction: ", tx.hash);
+
   return tx;
 }
 
@@ -101,9 +107,10 @@ async function createLongOrder(
   ss: SynthetixV2Service,
   sizeDelta: string,
   direction: "LONG" | "SHORT",
-  triggerPrice: BigNumber
-): Promise<UnsignedTransaction> {
-  const createOrder = await ss.createOrder(
+  triggerPrice: BigNumber,
+  inputCollateral: string
+): Promise<UnsignedTransaction[]> {
+  const createOrderTxs = await ss.createOrder(
     signer,
     {
       mode: "ASYNC",
@@ -128,7 +135,7 @@ async function createLongOrder(
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      inputCollateralAmount: ethers.utils.parseUnits(inputCollateral),
       sizeDelta: ethers.utils.parseEther(sizeDelta),
       isTriggerOrder: false,
       referralCode: undefined,
@@ -138,8 +145,8 @@ async function createLongOrder(
       },
     }
   );
-  logObject("Create Order: ", createOrder);
-  return createOrder;
+
+  return createOrderTxs;
 }
 
 async function getIdleMargins(ss: SynthetixV2Service) {
@@ -152,7 +159,7 @@ async function getIdleMargins(ss: SynthetixV2Service) {
 
 async function cancelDelayedOffChainOrder(
   ss: SynthetixV2Service
-): Promise<UnsignedTransaction> {
+): Promise<UnsignedTransaction[]> {
   const cancelOrder = await ss.cancelOrder(
     signer,
     {
@@ -178,7 +185,7 @@ async function cancelDelayedOffChainOrder(
 async function createTransferMarginOrder(
   ss: SynthetixV2Service,
   amount: BigNumber
-): Promise<UnsignedTransaction> {
+): Promise<UnsignedTransaction[]> {
   const createOrder = await ss.createOrder(
     signer,
     {
@@ -415,7 +422,7 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 async function synService() {
-  const ss = new SynthetixV2Service(sdk);
+  const ss = new SynthetixV2Service(sdk, await signer.getAddress());
 
   // const order = await ss.getOrder(w, "sETHPERP");
   // logObject("Order: ", order);
@@ -449,42 +456,46 @@ async function synService() {
   //   if (p.position) logObject("Inside Position: ", p.position);
   // });
 
-  let position = await ss.getPosition("sBTCPERP", w);
-  logObject("Position: ", position);
+  // let position = await ss.getPosition("sBTCPERP", w);
+  // logObject("Position: ", position);
 
   // await ss.getAllPositions(w, signer);
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
 
-  // const sizeDelta = "0.005";
-  // const direction = "SHORT";
-  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+  const sizeDelta = "0.005";
+  const direction = "LONG";
+  const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  // const fillPrice = await sdk.futures.getFillPrice(
-  //   marketAddress,
-  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  // );
-  // console.log("Fill Price: ", fillPrice.toString());
+  const fillPrice = await sdk.futures.getFillPrice(
+    marketAddress,
+    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  );
+  console.log("Fill Price: ", fillPrice.toString());
 
-  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
+  const tradePreview = await getTradePreview(ss, sizeDelta, direction);
 
-  // if (tradePreview.status == 0) {
-  //   const triggerPrice = direction.includes("SHORT")
-  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
-  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
-  //   console.log("Trigger Price: ", triggerPrice.toString());
+  if (tradePreview.status == 0) {
+    const triggerPrice = direction.includes("SHORT")
+      ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
+      : tradePreview.skewAdjustedPrice!.mul(101).div(100);
+    console.log("Trigger Price: ", triggerPrice.toString());
 
-  //   const createLongOrderTx = await createLongOrder(
-  //     ss,
-  //     sizeDelta,
-  //     direction,
-  //     triggerPrice
-  //   );
-  //   //await fireTx(createLongOrderTx);
-  // } else {
-  //   console.log("Trade Will Fail".toUpperCase());
-  // }
+    const createLongOrderTxs = await createLongOrder(
+      ss,
+      sizeDelta,
+      direction,
+      triggerPrice,
+      "50"
+    );
+    createLongOrderTxs.forEach((tx) => {
+      logObject("Tx: ", tx);
+    });
+    //await fireTxs(createLongOrderTxs);
+  } else {
+    console.log("Trade Will Fail".toUpperCase());
+  }
 
   // const idleMargins = await getIdleMargins(ss);
   // const withdrawableEthMargin = idleMargins.filter((m) => m.indexOrIdentifier == "sETHPERP")[0].inputCollateralAmount.mul(-1)
@@ -518,6 +529,13 @@ async function synService() {
 
   // const createLongOrderTx = await createLongOrder(ss);
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
+
+  // let result = await sdk.futures.getIdleMarginInMarkets(w);
+  // logObject("Idle Margin in Markets: ", result);
+  // result.marketsWithIdleMargin.forEach((m) => {
+  //   logObject("Market: ", m);
+  //   if (m.position) logObject("Position: ", m.position);
+  // });
 }
 
 async function gmxService() {
@@ -569,14 +587,17 @@ async function gmxService() {
 }
 
 async function compositeService() {
-  const ss = new SynthetixV2Service(sdk);
+  const ss = new SynthetixV2Service(sdk, await signer.getAddress());
   const gs = new GmxV1Service(await signer.getAddress());
 
   const cs = new CompositeService(ss, gs);
 
   let openMarkets = await cs.getOpenMarkets();
+  // openMarkets.forEach((m) => {
+  //   logObject("Open market: ", m);
+  // });
   openMarkets.forEach((m) => {
-    logObject("Open market: ", m);
+    console.dir(m, { depth: 10 });
   });
 }
 
