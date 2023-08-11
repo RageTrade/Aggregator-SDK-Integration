@@ -146,23 +146,7 @@ export default class SynthetixV2Service implements IExchange {
     let txs: UnsignedTransaction[] = [];
 
     // withdraw unused collateral tx's
-    const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(
-      this.swAddr
-    );
-    if (idleMargins.totalIdleInMarkets.gt(0)) {
-      let idleMarkets = idleMargins.marketsWithIdleMargin;
-
-      for (let i = 0; i < idleMarkets.length; i++) {
-        let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
-        let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
-          idleMarkets[i].marketAddress,
-          withdrawAmount
-        )) as UnsignedTransaction;
-        // logObject("withdrawTx", withdrawTx);
-
-        txs.push(withdrawTx);
-      }
-    }
+    txs.push(...(await this.withdrawUnusedCollateral(this.swAddr)));
 
     if (order.inputCollateralAmount.gt(0)) {
       // deposit tx
@@ -531,6 +515,30 @@ export default class SynthetixV2Service implements IExchange {
   async getAvailableSusdBalance(user: string): Promise<BigNumber> {
     const result = await this.sdk.futures.getIdleMarginInMarkets(user);
     return result.totalIdleInMarkets.toBN();
+  }
+
+  async withdrawUnusedCollateral(user: string): Promise<UnsignedTransaction[]> {
+    let txs: UnsignedTransaction[] = [];
+
+    // withdraw unused collateral tx's
+    const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(user);
+
+    if (idleMargins.totalIdleInMarkets.gt(0)) {
+      let idleMarkets = idleMargins.marketsWithIdleMargin;
+
+      for (let i = 0; i < idleMarkets.length; i++) {
+        let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
+        let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
+          idleMarkets[i].marketAddress,
+          withdrawAmount
+        )) as UnsignedTransaction;
+        // logObject("withdrawTx", withdrawTx);
+
+        txs.push(withdrawTx);
+      }
+    }
+
+    return txs;
   }
 
   //// HELPERS ////
