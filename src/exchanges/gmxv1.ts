@@ -33,15 +33,13 @@ export default class GmxV1Service implements IExchange {
     ethers.utils.toUtf8Bytes("RAGE"),
     32
   );
-
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(
     ARBITRUM,
     "DECREASE_ORDER_EXECUTION_GAS_FEE"
   )! as BigNumberish;
-
+  private protocolIdentifier = "GMXv1";
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
-
   private swAddr: string;
 
   constructor(_swAddr: string) {

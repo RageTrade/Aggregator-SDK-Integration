@@ -14,28 +14,47 @@ export default class CompositeService {
   }
 
   // TODO: Complete for gmx
-  async getOpenMarkets(): Promise<OpenMarket[]> {
+  // async getOpenMarketsAlt(): Promise<OpenMarket[]> {
+  //   const synNetwork = this.synService.supportedNetworks()[0];
+  //   const synMarkets = await this.synService.supportedMarkets(synNetwork);
+
+  //   const openMarkets: OpenMarket[] = [];
+
+  //   synMarkets.forEach((m) => {
+  //     let openIdentifier = m.asset!.replace("s", "").concat("/USD");
+  //     let marketRecode = {
+  //       [openIdentifier]: [
+  //         {
+  //           ...m,
+  //           ...synNetwork,
+  //         },
+  //       ],
+  //     };
+  //     openMarkets.push(marketRecode);
+  //   });
+
+  //   // gmx code
+
+  //   return openMarkets;
+  // }
+
+  async getOpenMarkets() {
     const synNetwork = this.synService.supportedNetworks()[0];
     const synMarkets = await this.synService.supportedMarkets(synNetwork);
 
-    const openMarkets: OpenMarket[] = [];
+    let openMarkets: { [index: string]: any } = {};
 
     synMarkets.forEach((m) => {
       let openIdentifier = m.asset!.replace("s", "").concat("/USD");
-      let marketRecode = {
-        [openIdentifier]: [
-          {
-            ...m,
-            ...synNetwork,
-          },
-        ],
+      let marketData = {
+        ...m,
+        ...synNetwork,
+        openMarketIdentifier: openIdentifier,
       };
-      openMarkets.push(marketRecode);
+      openMarkets[openIdentifier] = [marketData];
     });
 
     // gmx code
-
     return openMarkets;
   }
-
 }

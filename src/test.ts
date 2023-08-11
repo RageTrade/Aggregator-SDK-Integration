@@ -68,8 +68,8 @@ async function getTradePreview(
     signer,
     {
       mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "",
+      longCollateral: [],
+      shortCollateral: [],
       indexOrIdentifier: "sETHPERP",
       supportedOrderTypes: {
         LIMIT_DECREASE: true,
@@ -114,8 +114,8 @@ async function createLongOrder(
     signer,
     {
       mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "",
+      longCollateral: [],
+      shortCollateral: [],
       indexOrIdentifier: "sETHPERP",
       supportedOrderTypes: {
         LIMIT_DECREASE: true,
@@ -164,8 +164,8 @@ async function cancelDelayedOffChainOrder(
     signer,
     {
       mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "string",
+      longCollateral: [],
+      shortCollateral: [],
       indexOrIdentifier: "sETHPERP",
       supportedOrderTypes: {
         LIMIT_DECREASE: true,
@@ -190,8 +190,8 @@ async function createTransferMarginOrder(
     signer,
     {
       mode: "ASYNC",
-      longCollateral: "",
-      shortCollateral: "",
+      longCollateral: [],
+      shortCollateral: [],
       indexOrIdentifier: "sETHPERP",
       supportedOrderTypes: {
         LIMIT_DECREASE: true,
@@ -593,15 +593,10 @@ async function compositeService() {
   const cs = new CompositeService(ss, gs);
 
   let openMarkets = await cs.getOpenMarkets();
-  // openMarkets.forEach((m) => {
-  //   logObject("Open market: ", m);
-  // });
-  openMarkets.forEach((m) => {
-    console.dir(m, { depth: 10 });
-  });
+  console.dir(openMarkets, { depth: 10 });
 }
 
-synService()
+compositeService()
   .then()
   .catch((error) => {
     console.error(error);

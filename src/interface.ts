@@ -31,8 +31,8 @@ export type Token = {
 
 export type Market = {
   mode: Mode;
-  longCollateral: Token["address"];
-  shortCollateral: Token["address"];
+  longCollateral: Token[];
+  shortCollateral: Token[];
   supportedOrderTypes: Record<OrderType, Boolean>;
   supportedOrderActions?: Record<OrderAction["orderAction"], Boolean>;
 } & MarketIdentifier;
@@ -52,7 +52,11 @@ export type MarketMetadata = {
   address?: string;
 };
 
-export type ExtendedMarket = Market & MarketMetadata;
+export type ProtocolMetadata = {
+  protocolName?: string;
+};
+
+export type ExtendedMarket = Market & MarketMetadata & ProtocolMetadata;
 
 export type MarketIdentifier = {
   indexOrIdentifier: string;

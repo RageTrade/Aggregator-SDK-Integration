@@ -46,6 +46,7 @@ export default class SynthetixV2Service implements IExchange {
     address: this.sUSDAddr,
   };
   private swAddr: string;
+  private protocolIdentifier = "synthetixV2";
 
   constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
@@ -82,8 +83,8 @@ export default class SynthetixV2Service implements IExchange {
     markets.forEach((m) => {
       let extendedMarket: ExtendedMarket = {
         mode: "ASYNC",
-        longCollateral: this.sUSDAddr,
-        shortCollateral: this.sUSDAddr,
+        longCollateral: [this.token],
+        shortCollateral: [this.token],
         indexOrIdentifier: m.marketKey,
         supportedOrderTypes: {
           LIMIT_INCREASE: false,
@@ -107,15 +108,16 @@ export default class SynthetixV2Service implements IExchange {
         makerFee: m.feeRates.makerFeeOffchainDelayedOrder.toBN(),
         takerFee: m.feeRates.takerFeeOffchainDelayedOrder.toBN(),
         maxLeverage: m.contractMaxLeverage.toBN(),
+        protocolName: this.protocolIdentifier,
       };
 
       extendedMarkets.push(extendedMarket);
     });
 
-    for (let i = 0; i < extendedMarkets.length; i++) {
-      let m = extendedMarkets[i];
-      m.price = (await this.sdk.futures.getAssetPrice(m.address!)).toBN();
-    }
+    // for (let i = 0; i < extendedMarkets.length; i++) {
+    //   let m = extendedMarkets[i];
+    //   m.price = (await this.sdk.futures.getAssetPrice(m.address!)).toBN();
+    // }
 
     return extendedMarkets;
   }
@@ -133,8 +135,8 @@ export default class SynthetixV2Service implements IExchange {
     signer: Signer,
     market: {
       mode: Mode;
-      longCollateral: string;
-      shortCollateral: string;
+      longCollateral: Token[];
+      shortCollateral: Token[];
       indexOrIdentifier: string;
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
@@ -228,8 +230,8 @@ export default class SynthetixV2Service implements IExchange {
     signer: Signer,
     market: {
       mode: Mode;
-      longCollateral: string;
-      shortCollateral: string;
+      longCollateral: [];
+      shortCollateral: [];
       indexOrIdentifier: string;
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
@@ -242,8 +244,8 @@ export default class SynthetixV2Service implements IExchange {
     signer: Signer,
     market: {
       mode: Mode;
-      longCollateral: string;
-      shortCollateral: string;
+      longCollateral: [];
+      shortCollateral: [];
       indexOrIdentifier: string;
       supportedOrderTypes: Record<OrderType, Boolean>;
     },
