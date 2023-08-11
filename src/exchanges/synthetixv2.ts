@@ -18,7 +18,7 @@ import {
   ExtendedMarket,
   MarketMetadata,
 } from "../interface";
-import { wei } from "@synthetixio/wei";
+import Wei, { wei } from "@synthetixio/wei";
 import {
   ContractOrderType,
   FuturesMarket,
@@ -133,30 +133,8 @@ export default class SynthetixV2Service implements IExchange {
 
   async createOrder(
     signer: Signer,
-    market: {
-      mode: Mode;
-      longCollateral: Token[];
-      shortCollateral: Token[];
-      indexOrIdentifier: string;
-      supportedOrderTypes: Record<OrderType, Boolean>;
-    },
-    order: {
-      type: OrderType;
-      direction: OrderDirection;
-      inputCollateral: {
-        name: string;
-        symbol: string;
-        decimals: string;
-        address: string;
-      };
-      inputCollateralAmount: BigNumber;
-      sizeDelta: BigNumber;
-      isTriggerOrder: Boolean;
-      referralCode: string | undefined;
-      trigger:
-        | { triggerPrice: BigNumber; triggerAboveThreshold: Boolean }
-        | undefined;
-    }
+    market: Market,
+    order: Order
   ): Promise<UnsignedTransaction[]> {
     const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
     if (!targetMarket) {
@@ -167,40 +145,26 @@ export default class SynthetixV2Service implements IExchange {
 
     let txs: UnsignedTransaction[] = [];
 
-    // For Market Decrease: Array of [create Order TX]
-    if (order.type == "MARKET_DECREASE") {
-      // proper orders
-      let sizeDelta = wei(order.sizeDelta).neg();
+    // withdraw unused collateral tx's
+    const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(
+      this.swAddr
+    );
+    if (idleMargins.totalIdleInMarkets.gt(0)) {
+      let idleMarkets = idleMargins.marketsWithIdleMargin;
 
-      txs.push(
-        (await this.sdk.futures.submitIsolatedMarginOrder(
-          targetMarket.market,
-          sizeDelta,
-          wei(order.trigger?.triggerPrice)
-        )) as UnsignedTransaction
-      );
-    } else if (order.type == "MARKET_INCREASE") {
-      // For Market Increase: Array of [withdrawUnusedCollateralTx's + Deposit Tx + create Order Tx]
+      for (let i = 0; i < idleMarkets.length; i++) {
+        let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
+        let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
+          idleMarkets[i].marketAddress,
+          withdrawAmount
+        )) as UnsignedTransaction;
+        // logObject("withdrawTx", withdrawTx);
 
-      // withdraw unused collateral tx's
-      const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(
-        this.swAddr
-      );
-      if (idleMargins.totalIdleInMarkets.gt(0)) {
-        let idleMarkets = idleMargins.marketsWithIdleMargin;
-
-        for (let i = 0; i < idleMarkets.length; i++) {
-          let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
-          let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
-            idleMarkets[i].marketAddress,
-            withdrawAmount
-          )) as UnsignedTransaction;
-          // logObject("withdrawTx", withdrawTx);
-
-          txs.push(withdrawTx);
-        }
+        txs.push(withdrawTx);
       }
+    }
 
+    if (order.inputCollateralAmount.gt(0)) {
       // deposit tx
       let depositAmount = wei(order.inputCollateralAmount);
       let depositTx = (await this.sdk.futures.depositIsolatedMargin(
@@ -209,16 +173,22 @@ export default class SynthetixV2Service implements IExchange {
       )) as UnsignedTransaction;
       // logObject("depositTx", depositTx);
       txs.push(depositTx);
+    }
 
-      // create order tx
-      let sizeDelta = wei(order.sizeDelta);
-      let createOrderTx = (await this.sdk.futures.submitIsolatedMarginOrder(
-        targetMarket.market,
-        sizeDelta,
-        wei(order.trigger?.triggerPrice)
-      )) as UnsignedTransaction;
-      // logObject("createOrderTx", createOrderTx);
-      txs.push(createOrderTx);
+    if (order.type == "MARKET_DECREASE" || order.type == "MARKET_INCREASE") {
+      // proper orders
+      let sizeDelta =
+        order.type == "MARKET_DECREASE"
+          ? wei(order.sizeDelta).neg()
+          : wei(order.sizeDelta);
+
+      txs.push(
+        (await this.sdk.futures.submitIsolatedMarginOrder(
+          targetMarket.market,
+          sizeDelta,
+          wei(order.trigger?.triggerPrice)
+        )) as UnsignedTransaction
+      );
     } else {
       throw new Error("Invalid order type");
     }
@@ -228,13 +198,7 @@ export default class SynthetixV2Service implements IExchange {
 
   updateOrder(
     signer: Signer,
-    market: {
-      mode: Mode;
-      longCollateral: [];
-      shortCollateral: [];
-      indexOrIdentifier: string;
-      supportedOrderTypes: Record<OrderType, Boolean>;
-    },
+    market: Market,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     throw new Error("Method not Supported.");
@@ -242,13 +206,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async cancelOrder(
     signer: Signer,
-    market: {
-      mode: Mode;
-      longCollateral: [];
-      shortCollateral: [];
-      indexOrIdentifier: string;
-      supportedOrderTypes: Record<OrderType, Boolean>;
-    },
+    market: Market,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
@@ -265,15 +223,76 @@ export default class SynthetixV2Service implements IExchange {
     ];
   }
 
+  async closePosition(
+    signer: Signer,
+    position: ExtendedPosition
+  ): Promise<UnsignedTransaction[]> {
+    let fillPrice = await this.getFillPriceInternal(
+      position.indexOrIdentifier,
+      position.direction == "LONG"
+        ? wei(position.size).neg()
+        : wei(position.size)
+    );
+
+    fillPrice =
+      position.direction == "LONG"
+        ? fillPrice.mul(99).div(100)
+        : fillPrice.mul(101).div(100);
+
+    return this.createOrder(
+      signer,
+      {
+        mode: "ASYNC",
+        longCollateral: [this.token],
+        shortCollateral: [this.token],
+        indexOrIdentifier: position.indexOrIdentifier,
+        supportedOrderTypes: {
+          LIMIT_DECREASE: false,
+          LIMIT_INCREASE: false,
+          MARKET_INCREASE: true,
+          MARKET_DECREASE: true,
+          DEPOSIT: true,
+          WITHDRAW: true,
+        },
+      },
+      {
+        type:
+          position.direction == "LONG" ? "MARKET_DECREASE" : "MARKET_INCREASE",
+        direction: position.direction == "LONG" ? "SHORT" : "LONG",
+        inputCollateral: {
+          name: "string",
+          symbol: "string",
+          decimals: "string",
+          address: "string",
+        },
+        inputCollateralAmount: BigNumber.from(0),
+        sizeDelta: position.size,
+        isTriggerOrder: false,
+        referralCode: undefined,
+        trigger: {
+          triggerPrice: fillPrice,
+          triggerAboveThreshold: true,
+        },
+      }
+    );
+  }
+
   async getFillPrice(market: Market, order: Order): Promise<BigNumber> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    return this.getFillPriceInternal(
+      market.indexOrIdentifier,
+      wei(order.sizeDelta)
+    );
+  }
+
+  async getFillPriceInternal(marketKey: string, sizeDelta: Wei) {
+    const targetMarket = await this.findMarketByKey(marketKey);
     if (!targetMarket) {
       throw new Error("Market not found");
     }
 
     let fillPrice = await this.sdk.futures.getFillPrice(
       targetMarket.market,
-      wei(order.sizeDelta)
+      sizeDelta
     );
 
     return fillPrice.price;
@@ -528,6 +547,8 @@ export default class SynthetixV2Service implements IExchange {
       unrealizedPnl: futurePosition.position!.pnl.toBN(),
       liqudationPrice: futurePosition.position!.liquidationPrice.toBN(),
       leverage: futurePosition.position!.initialLeverage.toBN(),
+      direction:
+        futurePosition.position!.side == PositionSide.LONG ? "LONG" : "SHORT",
     };
   }
 }

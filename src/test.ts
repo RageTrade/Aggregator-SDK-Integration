@@ -464,21 +464,24 @@ async function synService() {
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
 
-  const sizeDelta = "0.005";
-  const direction = "LONG";
-  const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+  // const sizeDelta = "0.005";
+  // const direction = "LONG";
+  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  // const positions = await ss.getAllPositions(
-  //   "0xd0dF6C42c4DAadB33fbD14930b670Bed4c9577d1",
-  //   signer
+  const positions = await ss.getAllPositions(w, signer);
+  positions.forEach((p) => logObject("Position: ", p));
+
+  const closePositionTxs = await ss.closePosition(signer, positions[0]);
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
+  // await fireTxs(closePositionTxs);
+
+  // const fillPrice = await sdk.futures.getFillPrice(
+  //   marketAddress,
+  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
   // );
-  // positions.forEach((p) => logObject("Position: ", p));
-
-  const fillPrice = await sdk.futures.getFillPrice(
-    marketAddress,
-    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  );
-  console.log({ fillPrice });
+  // console.log({ fillPrice });
 
   // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
 
@@ -540,14 +543,14 @@ async function synService() {
   // const createLongOrderTx = await createLongOrder(ss);
   // const cancelOrderTx = await cancelDelayedOffChainOrder(ss);
 
-  let result = await sdk.futures.getIdleMarginInMarkets(
-    "0xd0dF6C42c4DAadB33fbD14930b670Bed4c9577d1"
-  );
-  logObject("Idle Margin in Markets: ", result);
-  result.marketsWithIdleMargin.forEach((m) => {
-    logObject("Market: ", m);
-    if (m.position) logObject("Position: ", m.position);
-  });
+  // let result = await sdk.futures.getIdleMarginInMarkets(
+  //   "0xd0dF6C42c4DAadB33fbD14930b670Bed4c9577d1"
+  // );
+  // logObject("Idle Margin in Markets: ", result);
+  // result.marketsWithIdleMargin.forEach((m) => {
+  //   logObject("Market: ", m);
+  //   if (m.position) logObject("Position: ", m.position);
+  // });
 }
 
 async function gmxService() {

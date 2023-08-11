@@ -85,6 +85,7 @@ export type ExtendedPosition = Position & {
   exceedsPriceProtection?: boolean;
   sizeDelta?: BigNumber;
   skewAdjustedPrice?: BigNumber;
+  direction?: OrderDirection;
 };
 
 export type CollateralData = {
@@ -142,6 +143,11 @@ export interface IExchange {
     signer: Signer,
     market: Market,
     order: Partial<ExtendedOrder>
+  ): Promise<UnsignedTransaction[]>;
+
+  closePosition(
+    signer: Signer,
+    position: ExtendedPosition
   ): Promise<UnsignedTransaction[]>;
 
   getMarketPrice(market: Market): Promise<BigNumber>;

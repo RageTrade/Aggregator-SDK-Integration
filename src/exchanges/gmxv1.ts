@@ -46,6 +46,13 @@ export default class GmxV1Service implements IExchange {
     this.swAddr = _swAddr;
   }
 
+  closePosition(
+    signer: Signer,
+    position: ExtendedPosition
+  ): Promise<UnsignedTransaction[]> {
+    throw new Error("Method not implemented.");
+  }
+
   invariant(condition: any, errorMsg: string | undefined) {
     if (!condition) {
       throw new Error(errorMsg);

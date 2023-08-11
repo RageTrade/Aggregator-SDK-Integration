@@ -100,7 +100,7 @@ export default class TransactionsService {
 		options?: { gasLimitBuffer?: number }
 	) {
 		const tx1 = await contract.populateTransaction[method](...args, {
-			gasLimit: 12000000
+			gasLimit: 2000000
 		});
 		tx1.value = BigNumber.from(0);
 
