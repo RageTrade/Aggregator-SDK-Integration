@@ -282,7 +282,7 @@ export default class SynthetixV2Service implements IExchange {
     return fillPrice.price;
   }
 
-  async getTradePreview(
+  async getTradePreviewSync(
     signer: Signer,
     market: Market,
     order: Order
@@ -325,6 +325,50 @@ export default class SynthetixV2Service implements IExchange {
         priceImpact: tradePreview.priceImpact.toBN(),
         exceedsPriceProtection: tradePreview.exceedsPriceProtection,
         skewAdjustedPrice: tradePreview.skewAdjustedPrice.toBN(),
+      };
+    }
+
+    throw new Error("Invalid order type");
+  }
+
+  async getTradePreview(
+    user: string,
+    signer: Signer,
+    market: Market,
+    order: Order
+  ): Promise<ExtendedPosition> {
+    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+    if (!targetMarket) {
+      throw new Error("Market not found");
+    }
+
+    await this.sdk.setSigner(signer);
+
+    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
+      let sizeDelta = wei(order.sizeDelta);
+      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
+
+      const tradePreview =
+        await this.sdk.futures.getSimulatedIsolatedTradePreview(
+          user,
+          targetMarket.marketKey,
+          targetMarket.market,
+          {
+            sizeDelta: sizeDelta,
+            marginDelta: wei(order.inputCollateralAmount),
+            orderPrice: wei(order.trigger!.triggerPrice),
+          }
+        );
+
+      return {
+        indexOrIdentifier: "",
+        size: tradePreview.size,
+        collateral: tradePreview.margin,
+        averageEntryPrice: tradePreview.price,
+        liqudationPrice: tradePreview.liqPrice,
+        otherFees: tradePreview.fee,
+        status: tradePreview.status,
+        fee: tradePreview.fee,
       };
     }
 

@@ -60,11 +60,14 @@ async function fireTx(utx: UnsignedTransaction) {
 }
 
 async function getTradePreview(
+  user: string,
   ss: SynthetixV2Service,
   sizeDelta: string,
-  direction: "LONG" | "SHORT"
+  direction: "LONG" | "SHORT",
+  triggerPrice: BigNumber
 ) {
   const tradePreview = await ss.getTradePreview(
+    user,
     signer,
     {
       mode: "ASYNC",
@@ -89,12 +92,12 @@ async function getTradePreview(
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits("10"),
+      inputCollateralAmount: ethers.utils.parseUnits("60"),
       sizeDelta: ethers.utils.parseEther(sizeDelta),
       isTriggerOrder: false,
       referralCode: undefined,
       trigger: {
-        triggerPrice: ethers.utils.parseUnits("2000"),
+        triggerPrice: triggerPrice,
         triggerAboveThreshold: true,
       },
     }
@@ -464,26 +467,36 @@ async function synService() {
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
 
-  // const sizeDelta = "0.005";
-  // const direction = "LONG";
-  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+  const sizeDelta = "0.01";
+  const direction = "SHORT";
+  const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  const positions = await ss.getAllPositions(w, signer);
-  positions.forEach((p) => logObject("Position: ", p));
+  // const positions = await ss.getAllPositions(w, signer);
+  // positions.forEach((p) => logObject("Position: ", p));
 
-  const closePositionTxs = await ss.closePosition(signer, positions[0]);
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
-  });
+  // const closePositionTxs = await ss.closePosition(signer, positions[0]);
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
   // await fireTxs(closePositionTxs);
 
-  // const fillPrice = await sdk.futures.getFillPrice(
-  //   marketAddress,
-  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  // );
-  // console.log({ fillPrice });
+  const fillPrice = await sdk.futures.getFillPrice(
+    marketAddress,
+    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  );
 
-  // const tradePreview = await getTradePreview(ss, sizeDelta, direction);
+  const fillPriceBn = direction.includes("SHORT")
+    ? fillPrice.price.mul(99).div(100)
+    : fillPrice.price.mul(101).div(100);
+  console.log("Fill Price: ", fillPriceBn.toString());
+
+  const tradePreview = await getTradePreview(
+    w,
+    ss,
+    sizeDelta,
+    direction,
+    fillPriceBn
+  );
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")

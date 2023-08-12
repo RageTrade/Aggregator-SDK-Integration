@@ -186,6 +186,7 @@ export interface IExchange {
   ): Promise<Array<MarketIdentifier & CollateralData>>;
 
   getTradePreview(
+    user: string,
     signer: Signer,
     market: Market,
     order: Order

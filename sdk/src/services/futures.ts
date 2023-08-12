@@ -603,6 +603,26 @@ export default class FuturesService {
 		)
 	}
 
+	public async getSimulatedIsolatedTradePreview(
+		user: string,
+		marketKey: FuturesMarketKey,
+		marketAddress: string,
+		tradeParams: {
+			sizeDelta: Wei
+			marginDelta: Wei
+			orderPrice: Wei
+		}
+	) {
+		const marketInternal = this.getInternalFuturesMarket(marketAddress, marketKey)
+
+		return await marketInternal.getTradePreview(
+			user,
+			tradeParams.sizeDelta.toBN(),
+			tradeParams.marginDelta.toBN(),
+			tradeParams.orderPrice.toBN()
+		)
+	}
+
 	public async getCrossMarginKeeperBalance(account: string) {
 		const bal = await this.sdk.context.provider.getBalance(account)
 		return wei(bal)

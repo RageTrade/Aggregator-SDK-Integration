@@ -474,6 +474,7 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
   getTradePreview(
+    user: string,
     signer: Signer,
     market: Market,
     order: Order
