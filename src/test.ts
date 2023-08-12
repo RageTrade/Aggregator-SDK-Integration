@@ -480,6 +480,8 @@ async function synService() {
   // });
   // await fireTxs(closePositionTxs);
 
+  // let withdrawTxs = await ss.withdrawUnusedCollateral();
+
   const fillPrice = await sdk.futures.getFillPrice(
     marketAddress,
     direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)

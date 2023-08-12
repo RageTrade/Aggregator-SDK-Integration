@@ -146,7 +146,7 @@ export default class SynthetixV2Service implements IExchange {
     let txs: UnsignedTransaction[] = [];
 
     // withdraw unused collateral tx's
-    txs.push(...(await this.withdrawUnusedCollateral(this.swAddr)));
+    txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
 
     if (order.inputCollateralAmount.gt(0)) {
       // deposit tx
@@ -561,8 +561,13 @@ export default class SynthetixV2Service implements IExchange {
     return result.totalIdleInMarkets.toBN();
   }
 
-  async withdrawUnusedCollateral(user: string): Promise<UnsignedTransaction[]> {
+  async withdrawUnusedCollateral(
+    user: string,
+    signer: Signer
+  ): Promise<UnsignedTransaction[]> {
     let txs: UnsignedTransaction[] = [];
+
+    await this.sdk.setSigner(signer);
 
     // withdraw unused collateral tx's
     const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(user);
