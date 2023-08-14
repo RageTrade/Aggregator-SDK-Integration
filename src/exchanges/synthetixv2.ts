@@ -33,7 +33,7 @@ export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
   private sdk: KwentaSDK;
   private sUSDAddr = "0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9";
-  private token: Token = {
+  private sUsd: Token = {
     name: "Synthetix USD",
     symbol: "sUSD",
     decimals: "18",
@@ -82,16 +82,16 @@ export default class SynthetixV2Service implements IExchange {
     name: string;
     chainId: number;
   }): Promise<ExtendedMarket[]> {
-    const markets = await this.sdk.futures.getMarkets();
+    const markets = await this.sdk.futures.getProxiedMarkets();
 
     let extendedMarkets: ExtendedMarket[] = [];
 
     markets.forEach((m) => {
       let extendedMarket: ExtendedMarket = {
         mode: "ASYNC",
-        longCollateral: [this.token],
-        shortCollateral: [this.token],
-        indexOrIdentifier: m.marketKey,
+        longCollateral: [this.sUsd],
+        shortCollateral: [this.sUsd],
+        indexOrIdentifier: m.marketKey!,
         supportedOrderTypes: {
           LIMIT_INCREASE: false,
           LIMIT_DECREASE: false,
@@ -107,7 +107,7 @@ export default class SynthetixV2Service implements IExchange {
         },
         asset: m.asset,
         address: m.market,
-        maxLeverage: m.contractMaxLeverage.toBN(),
+        maxLeverage: m.contractMaxLeverage!.toBN(),
         protocolName: this.protocolIdentifier,
       };
 
@@ -226,8 +226,8 @@ export default class SynthetixV2Service implements IExchange {
       signer,
       {
         mode: "ASYNC",
-        longCollateral: [this.token],
-        shortCollateral: [this.token],
+        longCollateral: [this.sUsd],
+        shortCollateral: [this.sUsd],
         indexOrIdentifier: position.indexOrIdentifier,
         supportedOrderTypes: {
           LIMIT_DECREASE: false,
@@ -345,7 +345,7 @@ export default class SynthetixV2Service implements IExchange {
         triggerPrice: orderData.desiredFillPrice.toBN(),
         triggerAboveThreshold: true,
       },
-      inputCollateral: this.token,
+      inputCollateral: this.sUsd,
       inputCollateralAmount: orderData.commitDeposit.toBN(),
     };
 
@@ -478,7 +478,7 @@ export default class SynthetixV2Service implements IExchange {
 
     return result.marketsWithIdleMargin.map((m) => ({
       indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
-      inputCollateral: this.token,
+      inputCollateral: this.sUsd,
       inputCollateralAmount: m.position.accessibleMargin.toBN(),
     }));
   }
@@ -540,7 +540,9 @@ export default class SynthetixV2Service implements IExchange {
     let extendedMarkets: ExtendedMarket[] = [];
     Object.keys(openMarkets).forEach((key) => {
       openMarkets[key]
-        .filter((m) => m.protocolName == this.protocolIdentifier)
+        .filter(
+          (m) => m.protocolName && m.protocolName == this.protocolIdentifier
+        )
         .forEach((m) => {
           extendedMarkets.push(m);
         });

@@ -234,6 +234,93 @@ export default class FuturesService {
 		return futuresMarkets
 	}
 
+	public async getProxiedMarkets(networkOverride?: NetworkOverrideOptions) {
+		const enabledMarkets = marketsForNetwork(
+			networkOverride?.networkId || this.sdk.context.networkId,
+			this.sdk.context.logError
+		)
+
+		const { PerpsV2MarketData } =
+			this.sdk.context.multicallContracts
+
+		if (!PerpsV2MarketData) {
+			throw new Error(UNSUPPORTED_NETWORK)
+		}
+
+		const futuresData = await this.sdk.context.multicallProvider.all([
+			PerpsV2MarketData.allProxiedMarketSummaries(),
+		])
+
+		const { markets } = {
+			markets: futuresData[0] as PerpsV2MarketData.MarketSummaryStructOutput[],
+		}
+
+		const filteredMarkets = markets.filter((m) => {
+			const marketKey = parseBytes32String(m.key) as FuturesMarketKey
+			const market = enabledMarkets.find((market) => {
+				return marketKey === market.key
+			})
+			return !!market
+		})
+
+		const futuresMarkets = filteredMarkets.map(
+			(
+				{
+					market,
+					key,
+					asset,
+					currentFundingRate,
+					currentFundingVelocity,
+					feeRates,
+					marketDebt,
+					marketSkew,
+					maxLeverage,
+					marketSize,
+					price,
+				},
+				i: number
+			): Partial<FuturesMarket> => ({
+				market,
+				marketKey: parseBytes32String(key) as FuturesMarketKey,
+				marketName: getMarketName(parseBytes32String(asset) as FuturesMarketAsset),
+				asset: parseBytes32String(asset) as FuturesMarketAsset,
+				assetHex: asset,
+				currentFundingRate: wei(currentFundingRate).div(24),
+				currentFundingVelocity: wei(currentFundingVelocity).div(24 * 24),
+				feeRates: {
+					makerFee: wei(feeRates.makerFee),
+					takerFee: wei(feeRates.takerFee),
+					makerFeeDelayedOrder: wei(feeRates.makerFeeDelayedOrder),
+					takerFeeDelayedOrder: wei(feeRates.takerFeeDelayedOrder),
+					makerFeeOffchainDelayedOrder: wei(feeRates.makerFeeOffchainDelayedOrder),
+					takerFeeOffchainDelayedOrder: wei(feeRates.takerFeeOffchainDelayedOrder),
+				},
+				openInterest: {
+					shortPct: wei(marketSize).eq(0)
+						? 0
+						: wei(marketSize).sub(marketSkew).div('2').div(marketSize).toNumber(),
+					longPct: wei(marketSize).eq(0)
+						? 0
+						: wei(marketSize).add(marketSkew).div('2').div(marketSize).toNumber(),
+					shortUSD: wei(marketSize).eq(0)
+						? wei(0)
+						: wei(marketSize).sub(marketSkew).div('2').mul(price),
+					longUSD: wei(marketSize).eq(0)
+						? wei(0)
+						: wei(marketSize).add(marketSkew).div('2').mul(price),
+					long: wei(marketSize).add(marketSkew).div('2'),
+					short: wei(marketSize).sub(marketSkew).div('2'),
+				},
+				marketDebt: wei(marketDebt),
+				marketSkew: wei(marketSkew),
+				contractMaxLeverage: wei(maxLeverage),
+				appMaxLeverage: appAdjustedLeverage(wei(maxLeverage)),
+				marketSize: wei(marketSize),
+			})
+		)
+		return futuresMarkets
+	}
+
 	// TODO: types
 	// TODO: Improve the API for fetching positions
 	public async getFuturesPositions(

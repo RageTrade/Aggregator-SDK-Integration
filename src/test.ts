@@ -437,7 +437,8 @@ async function synService() {
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
   const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  supportedMarkets.forEach((market) => logObject("Market: ", market));
+  logObject("Supported Markets: ", supportedMarkets[0]);
+  // supportedMarkets.forEach((market) => logObject("Market: ", market));
 
   // (await sdk.futures.getMarkets()).forEach(async (market) => {
   //   let price = await sdk.futures.getAssetPrice(market.market);
