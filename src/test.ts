@@ -433,11 +433,11 @@ async function synService() {
   // const allOrders = await ss.getAllOrders(w);
   // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  // const supportedNetworks = ss.supportedNetworks();
+  const supportedNetworks = ss.supportedNetworks();
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  // supportedMarkets.forEach((market) => logObject("Market: ", market));
+  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  supportedMarkets.forEach((market) => logObject("Market: ", market));
 
   // (await sdk.futures.getMarkets()).forEach(async (market) => {
   //   let price = await sdk.futures.getAssetPrice(market.market);
@@ -482,23 +482,23 @@ async function synService() {
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();
 
-  const fillPrice = await sdk.futures.getFillPrice(
-    marketAddress,
-    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  );
+  // const fillPrice = await sdk.futures.getFillPrice(
+  //   marketAddress,
+  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  // );
 
-  const fillPriceBn = direction.includes("SHORT")
-    ? fillPrice.price.mul(99).div(100)
-    : fillPrice.price.mul(101).div(100);
-  console.log("Fill Price: ", fillPriceBn.toString());
+  // const fillPriceBn = direction.includes("SHORT")
+  //   ? fillPrice.price.mul(99).div(100)
+  //   : fillPrice.price.mul(101).div(100);
+  // console.log("Fill Price: ", fillPriceBn.toString());
 
-  const tradePreview = await getTradePreview(
-    w,
-    ss,
-    sizeDelta,
-    direction,
-    fillPriceBn
-  );
+  // const tradePreview = await getTradePreview(
+  //   w,
+  //   ss,
+  //   sizeDelta,
+  //   direction,
+  //   fillPriceBn
+  // );
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")

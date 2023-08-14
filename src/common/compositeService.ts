@@ -1,6 +1,6 @@
 import GmxV1Service from "../exchanges/gmxv1";
 import SynthetixV2Service from "../exchanges/synthetixv2";
-import { Network, Market, ExtendedMarket } from "../interface";
+import { Network, Market, ExtendedMarket, OpenMarkets } from "../interface";
 
 export type OpenMarket = Record<string, Array<ExtendedMarket & Network>>;
 
@@ -13,40 +13,11 @@ export default class CompositeService {
     this.gmxService = _gmxService;
   }
 
-  // TODO: Complete for gmx
-  // async getOpenMarketsAlt(): Promise<OpenMarket[]> {
-  //   const synNetwork = this.synService.supportedNetworks()[0];
-  //   const synMarkets = await this.synService.supportedMarkets(synNetwork);
+  async getOpenMarkets(): Promise<OpenMarkets> {
+    let openMarkets: OpenMarkets = {};
 
-  //   const openMarkets: OpenMarket[] = [];
-
-  //   synMarkets.forEach((m) => {
-  //     let openIdentifier = m.asset!.replace("s", "").concat("/USD");
-  //     let marketRecode = {
-  //       [openIdentifier]: [
-  //         {
-  //           ...m,
-  //           ...synNetwork,
-  //         },
-  //       ],
-  //     };
-  //     openMarkets.push(marketRecode);
-  //   });
-
-  //   // gmx code
-
-  //   return openMarkets;
-  // }
-
-  async getOpenMarkets() {
     const synNetwork = this.synService.supportedNetworks()[0];
     const synMarkets = await this.synService.supportedMarkets(synNetwork);
-
-    let openMarkets: {
-      [index: string]: Array<
-        ExtendedMarket & Network & { openMarketIdentifier: string }
-      >;
-    } = {};
 
     synMarkets.forEach((m) => {
       let openIdentifier = m.asset!.replace("s", "").concat("/USD");

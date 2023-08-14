@@ -4,11 +4,8 @@ import {
   ExtendedPosition,
   IExchange,
   Market,
-  Mode,
   Order,
   OrderAction,
-  OrderDirection,
-  OrderType,
   Token,
   MarketIdentifier,
   CollateralData,
@@ -16,7 +13,8 @@ import {
   OrderIdentifier,
   ExtendedOrder,
   ExtendedMarket,
-  MarketMetadata,
+  DynamicMarketMetadata,
+  OpenMarkets,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -29,11 +27,7 @@ import {
   FuturesMarketAsset,
   FuturesPosition,
 } from "@kwenta/sdk/dist/types/futures";
-import {
-  getEnumEntryByValue,
-  getEnumKeyByEnumValue,
-  logObject,
-} from "../common/helper";
+import { getEnumEntryByValue, logObject } from "../common/helper";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -51,6 +45,18 @@ export default class SynthetixV2Service implements IExchange {
   constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
     this.swAddr = _swAddr;
+  }
+
+  async getMarketAddress(market: ExtendedMarket): Promise<string> {
+    let marketAddress = market.address;
+    if (!marketAddress) {
+      const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
+      if (!targetMarket) {
+        throw new Error("Market not found");
+      }
+      marketAddress = targetMarket.market;
+    }
+    return marketAddress;
   }
 
   async findMarketByKey(marketKey: string): Promise<FuturesMarket | undefined> {
@@ -75,7 +81,7 @@ export default class SynthetixV2Service implements IExchange {
   async supportedMarkets(network: {
     name: string;
     chainId: number;
-  }): Promise<readonly ExtendedMarket[]> {
+  }): Promise<ExtendedMarket[]> {
     const markets = await this.sdk.futures.getMarkets();
 
     let extendedMarkets: ExtendedMarket[] = [];
@@ -101,12 +107,6 @@ export default class SynthetixV2Service implements IExchange {
         },
         asset: m.asset,
         address: m.market,
-        oiLong: m.openInterest.long.toBN(),
-        oiShort: m.openInterest.short.toBN(),
-        fundingRate: m.currentFundingRate.toBN(),
-        fundingVelocity: m.currentFundingVelocity.toBN(),
-        makerFee: m.feeRates.makerFeeOffchainDelayedOrder.toBN(),
-        takerFee: m.feeRates.takerFeeOffchainDelayedOrder.toBN(),
         maxLeverage: m.contractMaxLeverage.toBN(),
         protocolName: this.protocolIdentifier,
       };
@@ -114,32 +114,34 @@ export default class SynthetixV2Service implements IExchange {
       extendedMarkets.push(extendedMarket);
     });
 
-    // for (let i = 0; i < extendedMarkets.length; i++) {
-    //   let m = extendedMarkets[i];
-    //   m.price = (await this.sdk.futures.getAssetPrice(m.address!)).toBN();
-    // }
-
     return extendedMarkets;
   }
 
-  async getMarketPrice(market: Market): Promise<BigNumber> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
+  async getDynamicMetadata(
+    market: ExtendedMarket
+  ): Promise<DynamicMarketMetadata> {
+    throw new Error("Method not Supported.");
 
-    return (await this.sdk.futures.getAssetPrice(targetMarket.market)).toBN();
+    // oiLong: m.openInterest.long.toBN(),
+    //     oiShort: m.openInterest.short.toBN(),
+    //     fundingRate: m.currentFundingRate.toBN(),
+    //     fundingVelocity: m.currentFundingVelocity.toBN(),
+    //     makerFee: m.feeRates.makerFeeOffchainDelayedOrder.toBN(),
+    //     takerFee: m.feeRates.takerFeeOffchainDelayedOrder.toBN(),
+  }
+
+  async getMarketPrice(market: ExtendedMarket): Promise<BigNumber> {
+    return (
+      await this.sdk.futures.getAssetPrice(await this.getMarketAddress(market))
+    ).toBN();
   }
 
   async createOrder(
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
+    const marketAddress = await this.getMarketAddress(market);
 
     await this.sdk.setSigner(signer);
 
@@ -152,7 +154,7 @@ export default class SynthetixV2Service implements IExchange {
       // deposit tx
       let depositAmount = wei(order.inputCollateralAmount);
       let depositTx = (await this.sdk.futures.depositIsolatedMargin(
-        targetMarket.market!,
+        marketAddress,
         depositAmount
       )) as UnsignedTransaction;
       // logObject("depositTx", depositTx);
@@ -168,7 +170,7 @@ export default class SynthetixV2Service implements IExchange {
 
       txs.push(
         (await this.sdk.futures.submitIsolatedMarginOrder(
-          targetMarket.market,
+          marketAddress,
           sizeDelta,
           wei(order.trigger?.triggerPrice)
         )) as UnsignedTransaction
@@ -190,17 +192,14 @@ export default class SynthetixV2Service implements IExchange {
 
   async cancelOrder(
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
+    const marketAddress = await this.getMarketAddress(market);
 
     return [
       await this.sdk.futures.cancelDelayedOrder(
-        targetMarket.market,
+        marketAddress,
         await signer.getAddress(),
         true
       ),
@@ -262,85 +261,27 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getFillPrice(market: Market, order: Order): Promise<BigNumber> {
-    return this.getFillPriceInternal(
-      market.indexOrIdentifier,
-      wei(order.sizeDelta)
-    );
+    const marketAddress = await this.getMarketAddress(market);
+
+    return this.getFillPriceInternal(marketAddress, wei(order.sizeDelta));
   }
 
-  async getFillPriceInternal(marketKey: string, sizeDelta: Wei) {
-    const targetMarket = await this.findMarketByKey(marketKey);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
-
+  async getFillPriceInternal(marketAddress: string, sizeDelta: Wei) {
     let fillPrice = await this.sdk.futures.getFillPrice(
-      targetMarket.market,
+      marketAddress,
       sizeDelta
     );
 
     return fillPrice.price;
   }
 
-  async getTradePreviewSync(
-    signer: Signer,
-    market: Market,
-    order: Order
-  ): Promise<ExtendedPosition> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
-
-    await this.sdk.setSigner(signer);
-
-    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
-      let sizeDelta = wei(order.sizeDelta);
-      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
-
-      const tradePreview = await this.sdk.futures.getIsolatedTradePreview(
-        targetMarket.market,
-        targetMarket.marketKey,
-        ContractOrderType.DELAYED_OFFCHAIN,
-        {
-          sizeDelta: sizeDelta,
-          price: wei(order.trigger!.triggerPrice),
-          leverageSide:
-            order.type == "MARKET_INCREASE"
-              ? PositionSide.LONG
-              : PositionSide.SHORT,
-        }
-      );
-
-      return {
-        indexOrIdentifier: "",
-        size: tradePreview.size.toBN(),
-        collateral: tradePreview.margin.toBN(),
-        averageEntryPrice: tradePreview.price.toBN(),
-        liqudationPrice: tradePreview.liqPrice.toBN(),
-        otherFees: tradePreview.fee.toBN(),
-        sizeDelta: tradePreview.sizeDelta.toBN(),
-        leverage: tradePreview.leverage.toBN(),
-        status: tradePreview.status,
-        priceImpact: tradePreview.priceImpact.toBN(),
-        exceedsPriceProtection: tradePreview.exceedsPriceProtection,
-        skewAdjustedPrice: tradePreview.skewAdjustedPrice.toBN(),
-      };
-    }
-
-    throw new Error("Invalid order type");
-  }
-
   async getTradePreview(
     user: string,
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition> {
-    const targetMarket = await this.findMarketByKey(market.indexOrIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
+    const marketAddress = await this.getMarketAddress(market);
 
     await this.sdk.setSigner(signer);
 
@@ -351,8 +292,8 @@ export default class SynthetixV2Service implements IExchange {
       const tradePreview =
         await this.sdk.futures.getSimulatedIsolatedTradePreview(
           user,
-          targetMarket.marketKey,
-          targetMarket.market,
+          getEnumEntryByValue(FuturesMarketKey, market.indexOrIdentifier!)!,
+          marketAddress,
           {
             sizeDelta: sizeDelta,
             marginDelta: wei(order.inputCollateralAmount),
@@ -377,16 +318,14 @@ export default class SynthetixV2Service implements IExchange {
 
   async getOrder(
     user: string,
-    orderIdentifier: OrderIdentifier // serves as market identifier for SNX
+    orderIdentifier: OrderIdentifier, // serves as market identifier for SNX
+    market: ExtendedMarket
   ): Promise<ExtendedOrder> {
-    const targetMarket = await this.findMarketByKey(orderIdentifier.toString());
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
+    const marketAddress = await this.getMarketAddress(market);
 
     const orderData = await this.sdk.futures.getDelayedOrder(
       user,
-      targetMarket.market
+      marketAddress
     );
 
     if (orderData.size.eq(0)) {
@@ -421,14 +360,15 @@ export default class SynthetixV2Service implements IExchange {
     };
   }
 
-  async getAllOrders(user: string): Promise<Array<ExtendedOrder>> {
-    const markets = (await this.sdk.futures.getMarkets()).filter(
-      (m) => m.isSuspended == false
-    );
+  async getAllOrders(
+    user: string,
+    openMarkets?: OpenMarkets
+  ): Promise<Array<ExtendedOrder>> {
+    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
     let ordersData: ExtendedOrder[] = [];
     markets.forEach(async (m) => {
-      let orderData = await this.getOrder(user, m.marketKey);
+      let orderData = await this.getOrder(user, m.indexOrIdentifier, m);
       if (orderData.orderIdentifier) {
         ordersData.push(orderData);
       }
@@ -440,32 +380,32 @@ export default class SynthetixV2Service implements IExchange {
   // will work as getOrder for SNX
   async getMarketOrders(
     user: string,
-    market: Market["indexOrIdentifier"]
+    market: ExtendedMarket
   ): Promise<Array<ExtendedOrder>> {
     let ordersData: ExtendedOrder[] = [];
 
-    ordersData.push(await this.getOrder(user, market.toString()));
+    ordersData.push(
+      await this.getOrder(user, market.indexOrIdentifier, market)
+    );
 
     return ordersData;
   }
 
   async getPosition(
     positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
+    market: ExtendedMarket,
     user?: string
   ): Promise<ExtendedPosition> {
     let extendedPosition: ExtendedPosition = {} as ExtendedPosition;
 
-    let targetMarket = await this.findMarketByKey(positionIdentifier);
-    if (!targetMarket) {
-      throw new Error("Market not found");
-    }
-
     let futureMarkets = [];
     futureMarkets.push({
-      // asset: FuturesMarketAsset[supportedMarkets[i].asset!],
-      asset: targetMarket.asset,
-      marketKey: targetMarket.marketKey,
-      address: targetMarket.market,
+      asset: getEnumEntryByValue(FuturesMarketAsset, market.asset!)!,
+      marketKey: getEnumEntryByValue(
+        FuturesMarketKey,
+        market.indexOrIdentifier!
+      )!,
+      address: await this.getMarketAddress(market),
     });
 
     let futurePositions = await this.sdk.futures.getFuturesPositions(
@@ -482,28 +422,23 @@ export default class SynthetixV2Service implements IExchange {
 
   async getAllPositions(
     user: string,
-    signer: Signer
+    signer: Signer,
+    openMarkets?: OpenMarkets
   ): Promise<ExtendedPosition[]> {
     let extendedPositions: ExtendedPosition[] = [];
 
-    let supportedMarkets = await this.supportedMarkets(
-      this.supportedNetworks()[0]
-    );
+    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
     let futureMarkets = [];
 
-    for (let i = 0; i < supportedMarkets.length; i++) {
+    for (let i = 0; i < markets.length; i++) {
       futureMarkets.push({
-        // asset: FuturesMarketAsset[supportedMarkets[i].asset!],
-        asset: getEnumEntryByValue(
-          FuturesMarketAsset,
-          supportedMarkets[i].asset!
-        )!,
+        asset: getEnumEntryByValue(FuturesMarketAsset, markets[i].asset!)!,
         marketKey: getEnumEntryByValue(
           FuturesMarketKey,
-          supportedMarkets[i].indexOrIdentifier!
+          markets[i].indexOrIdentifier!
         )!,
-        address: supportedMarkets[i].address!,
+        address: markets[i].address!,
       });
     }
 
@@ -530,14 +465,6 @@ export default class SynthetixV2Service implements IExchange {
     // });
 
     return extendedPositions;
-  }
-
-  // will work as getPosition for SNX
-  getMarketPositions(
-    user: string,
-    market: Market["indexOrIdentifier"]
-  ): Promise<Position[]> {
-    throw new Error("Method not Supported.");
   }
 
   getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
@@ -607,5 +534,31 @@ export default class SynthetixV2Service implements IExchange {
       direction:
         futurePosition.position!.side == PositionSide.LONG ? "LONG" : "SHORT",
     };
+  }
+
+  mapOpenMarketsToExtendedMarkets(openMarkets: OpenMarkets): ExtendedMarket[] {
+    let extendedMarkets: ExtendedMarket[] = [];
+    Object.keys(openMarkets).forEach((key) => {
+      openMarkets[key]
+        .filter((m) => m.protocolName == this.protocolIdentifier)
+        .forEach((m) => {
+          extendedMarkets.push(m);
+        });
+    });
+    return extendedMarkets;
+  }
+
+  async getExtendedMarketsFromOpenMarkets(
+    openMarkets?: OpenMarkets
+  ): Promise<ExtendedMarket[]> {
+    let supportedMarkets: ExtendedMarket[] = [];
+    if (openMarkets) {
+      supportedMarkets = this.mapOpenMarketsToExtendedMarkets(openMarkets);
+    } else {
+      supportedMarkets = await this.supportedMarkets(
+        this.supportedNetworks()[0]
+      );
+    }
+    return supportedMarkets;
   }
 }

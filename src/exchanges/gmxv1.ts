@@ -7,6 +7,8 @@ import {
 } from "ethers";
 import {
   CollateralData,
+  DynamicMarketMetadata,
+  ExtendedMarket,
   ExtendedOrder,
   ExtendedPosition,
   IExchange,
@@ -44,6 +46,10 @@ export default class GmxV1Service implements IExchange {
 
   constructor(_swAddr: string) {
     this.swAddr = _swAddr;
+  }
+
+  getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata> {
+    throw new Error("Method not implemented.");
   }
 
   closePosition(
@@ -124,28 +130,17 @@ export default class GmxV1Service implements IExchange {
     return networks;
   }
 
-  supportedMarkets(network: Network): Promise<readonly Market[]> {
+  supportedMarkets(network: Network): Promise<ExtendedMarket[]> {
     throw new Error("Method not implemented.");
   }
 
-  keys(obj: object) {
-    return Object.keys(obj) as Array<keyof Object>;
-  }
-
-  logObject(title: string, obj: object) {
-    console.log(
-      title,
-      this.keys(obj).map((key) => key + ": " + obj[key].toString())
-    );
-  }
-
-  getMarketPrice(market: Market): Promise<ethers.BigNumber> {
+  getMarketPrice(market: ExtendedMarket): Promise<ethers.BigNumber> {
     throw new Error("Method not implemented.");
   }
 
   async createOrder(
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
     let createOrderTx;
@@ -306,7 +301,7 @@ export default class GmxV1Service implements IExchange {
 
   async updateOrder(
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
@@ -366,22 +361,29 @@ export default class GmxV1Service implements IExchange {
 
   getOrder(
     user: string,
-    orderIdentifier: BigNumberish
+    orderIdentifier: BigNumberish,
+    market: ExtendedMarket
   ): Promise<ExtendedOrder> {
     throw new Error("Method not implemented.");
   }
   getAllOrders(user: string): Promise<ExtendedOrder[]> {
     throw new Error("Method not implemented.");
   }
-  getMarketOrders(user: string, market: string): Promise<ExtendedOrder[]> {
+
+  getMarketOrders(
+    user: string,
+    market: ExtendedMarket
+  ): Promise<ExtendedOrder[]> {
     throw new Error("Method not implemented.");
   }
 
-  getPosition(positionIdentifier: string, user?: string): Promise<Position> {
+  getPosition(
+    positionIdentifier: string,
+    market: ExtendedMarket,
+    user?: string
+  ): Promise<Position> {
     throw new Error("Method not implemented.");
   }
-
-  async getAllPositionsTest(user: string, signer: Signer) {}
 
   async getAllPositions(
     user: string,
@@ -467,16 +469,19 @@ export default class GmxV1Service implements IExchange {
   getMarketPositions(user: string, market: string): Promise<Position[]> {
     throw new Error("Method not implemented.");
   }
+
   getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
     throw new Error("Method not implemented.");
   }
+
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {
     throw new Error("Method not implemented.");
   }
+
   getTradePreview(
     user: string,
     signer: Signer,
-    market: Market,
+    market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition> {
     throw new Error("Method not implemented.");
