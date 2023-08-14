@@ -108,6 +108,7 @@ export default class SynthetixV2Service implements IExchange {
         asset: m.asset,
         address: m.market,
         maxLeverage: m.contractMaxLeverage!.toBN(),
+        minInitialMargin: m.minInitialMargin!.toBN(),
         protocolName: this.protocolIdentifier,
       };
 
@@ -141,7 +142,6 @@ export default class SynthetixV2Service implements IExchange {
       oiShortUsd: futureMarket.openInterest.shortUSD.toBN(),
       marketLimitUsd: futureMarket.marketLimitUsd.toBN(),
       marketLimitNative: futureMarket.marketLimitNative.toBN(),
-      minInitialMargin: futureMarket.minInitialMargin.toBN(),
     };
   }
 

@@ -45,6 +45,7 @@ export type StaticMarketMetadata = {
   maxLeverage?: BigNumber;
   address?: string;
   asset?: string;
+  minInitialMargin?: BigNumber;
 };
 
 export type DynamicMarketMetadata = {
@@ -64,7 +65,6 @@ export type DynamicMarketMetadata = {
   oiShortUsd: BigNumber;
   marketLimitUsd: BigNumber;
   marketLimitNative: BigNumber;
-  minInitialMargin: BigNumber;
 };
 
 export type ProtocolMetadata = {

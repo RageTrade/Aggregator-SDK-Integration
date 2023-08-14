@@ -240,19 +240,21 @@ export default class FuturesService {
 			this.sdk.context.logError
 		)
 
-		const { PerpsV2MarketData } =
+		const { PerpsV2MarketData, PerpsV2MarketSettings } =
 			this.sdk.context.multicallContracts
 
-		if (!PerpsV2MarketData) {
+		if (!PerpsV2MarketData || !PerpsV2MarketSettings) {
 			throw new Error(UNSUPPORTED_NETWORK)
 		}
 
 		const futuresData = await this.sdk.context.multicallProvider.all([
 			PerpsV2MarketData.allProxiedMarketSummaries(),
+			PerpsV2MarketSettings.minInitialMargin(),
 		])
 
-		const { markets } = {
+		const { markets, minInitialMargin } = {
 			markets: futuresData[0] as PerpsV2MarketData.MarketSummaryStructOutput[],
+			minInitialMargin: futuresData[1] as BigNumber,
 		}
 
 		const filteredMarkets = markets.filter((m) => {
@@ -287,6 +289,7 @@ export default class FuturesService {
 				assetHex: asset,
 				currentFundingRate: wei(currentFundingRate).div(24),
 				currentFundingVelocity: wei(currentFundingVelocity).div(24 * 24),
+				minInitialMargin: wei(minInitialMargin),
 				feeRates: {
 					makerFee: wei(feeRates.makerFee),
 					takerFee: wei(feeRates.takerFee),
