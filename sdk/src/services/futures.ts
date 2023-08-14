@@ -321,6 +321,151 @@ export default class FuturesService {
 		return futuresMarkets
 	}
 
+	public async getMarketMetadata(marketAddress: string, networkOverride?: NetworkOverrideOptions) {
+		const enabledMarkets = marketsForNetwork(
+			networkOverride?.networkId || this.sdk.context.networkId,
+			this.sdk.context.logError
+		)
+		const contracts =
+			networkOverride && networkOverride?.networkId !== this.sdk.context.networkId
+				? getContractsByNetwork(networkOverride.networkId, networkOverride.provider)
+				: this.sdk.context.contracts
+
+		const { SystemStatus } = contracts
+		const { ExchangeRates, PerpsV2MarketData, PerpsV2MarketSettings } =
+			this.sdk.context.multicallContracts
+
+		if (!SystemStatus || !ExchangeRates || !PerpsV2MarketData || !PerpsV2MarketSettings) {
+			throw new Error(UNSUPPORTED_NETWORK)
+		}
+
+		const futuresData = await this.sdk.context.multicallProvider.all([
+			PerpsV2MarketData.marketSummaries([marketAddress]),
+			PerpsV2MarketSettings.minInitialMargin(),
+			PerpsV2MarketSettings.minKeeperFee(),
+		])
+
+		const { markets, minInitialMargin, minKeeperFee } = {
+			markets: futuresData[0] as PerpsV2MarketData.MarketSummaryStructOutput[],
+			minInitialMargin: futuresData[1] as BigNumber,
+			minKeeperFee: futuresData[2] as BigNumber,
+		}
+
+		const filteredMarkets = markets.filter((m) => {
+			const marketKey = parseBytes32String(m.key) as FuturesMarketKey
+			const market = enabledMarkets.find((market) => {
+				return marketKey === market.key
+			})
+			return !!market
+		})
+
+		const marketKeys = filteredMarkets.map((m) => {
+			return m.key
+		})
+
+		const parametersCalls = marketKeys.map((key: string) => PerpsV2MarketSettings.parameters(key))
+
+		let marketParameters: IPerpsV2MarketSettings.ParametersStructOutput[] = []
+
+		if (this.sdk.context.isMainnet) {
+			marketParameters = await this.sdk.context.multicallProvider.all(parametersCalls)
+		} else {
+			const firstResponses = await this.sdk.context.multicallProvider.all(
+				parametersCalls.slice(0, 20)
+			)
+			const secondResponses = await this.sdk.context.multicallProvider.all(
+				parametersCalls.slice(20, parametersCalls.length)
+			)
+			marketParameters = [
+				...firstResponses,
+				...secondResponses,
+			] as IPerpsV2MarketSettings.ParametersStructOutput[]
+		}
+
+		const { suspensions, reasons } = await SystemStatus.getFuturesMarketSuspensions(marketKeys)
+
+		const futuresMarkets = filteredMarkets.map(
+			(
+				{
+					market,
+					key,
+					asset,
+					currentFundingRate,
+					currentFundingVelocity,
+					feeRates,
+					marketDebt,
+					marketSkew,
+					maxLeverage,
+					marketSize,
+					price,
+				},
+				i: number
+			): FuturesMarket => ({
+				market,
+				marketKey: parseBytes32String(key) as FuturesMarketKey,
+				marketName: getMarketName(parseBytes32String(asset) as FuturesMarketAsset),
+				asset: parseBytes32String(asset) as FuturesMarketAsset,
+				assetHex: asset,
+				currentFundingRate: wei(currentFundingRate).div(24),
+				currentFundingVelocity: wei(currentFundingVelocity).div(24 * 24),
+				feeRates: {
+					makerFee: wei(feeRates.makerFee),
+					takerFee: wei(feeRates.takerFee),
+					makerFeeDelayedOrder: wei(feeRates.makerFeeDelayedOrder),
+					takerFeeDelayedOrder: wei(feeRates.takerFeeDelayedOrder),
+					makerFeeOffchainDelayedOrder: wei(feeRates.makerFeeOffchainDelayedOrder),
+					takerFeeOffchainDelayedOrder: wei(feeRates.takerFeeOffchainDelayedOrder),
+				},
+				openInterest: {
+					shortPct: wei(marketSize).eq(0)
+						? 0
+						: wei(marketSize).sub(marketSkew).div('2').div(marketSize).toNumber(),
+					longPct: wei(marketSize).eq(0)
+						? 0
+						: wei(marketSize).add(marketSkew).div('2').div(marketSize).toNumber(),
+					shortUSD: wei(marketSize).eq(0)
+						? wei(0)
+						: wei(marketSize).sub(marketSkew).div('2').mul(price),
+					longUSD: wei(marketSize).eq(0)
+						? wei(0)
+						: wei(marketSize).add(marketSkew).div('2').mul(price),
+					long: wei(marketSize).add(marketSkew).div('2'),
+					short: wei(marketSize).sub(marketSkew).div('2'),
+				},
+				marketDebt: wei(marketDebt),
+				marketSkew: wei(marketSkew),
+				contractMaxLeverage: wei(maxLeverage),
+				appMaxLeverage: appAdjustedLeverage(wei(maxLeverage)),
+				marketSize: wei(marketSize),
+				marketLimitUsd: wei(marketParameters[i].maxMarketValue).mul(wei(price)),
+				marketLimitNative: wei(marketParameters[i].maxMarketValue),
+				minInitialMargin: wei(minInitialMargin),
+				keeperDeposit: wei(minKeeperFee),
+				isSuspended: suspensions[i],
+				marketClosureReason: getReasonFromCode(reasons[i]) as MarketClosureReason,
+				settings: {
+					maxMarketValue: wei(marketParameters[i].maxMarketValue),
+					skewScale: wei(marketParameters[i].skewScale),
+					delayedOrderConfirmWindow: wei(
+						marketParameters[i].delayedOrderConfirmWindow,
+						0
+					).toNumber(),
+					offchainDelayedOrderMinAge: wei(
+						marketParameters[i].offchainDelayedOrderMinAge,
+						0
+					).toNumber(),
+					offchainDelayedOrderMaxAge: wei(
+						marketParameters[i].offchainDelayedOrderMaxAge,
+						0
+					).toNumber(),
+					minDelayTimeDelta: wei(marketParameters[i].minDelayTimeDelta, 0).toNumber(),
+					maxDelayTimeDelta: wei(marketParameters[i].maxDelayTimeDelta, 0).toNumber(),
+				},
+			})
+		)
+		return futuresMarkets[0]
+	}
+
 	// TODO: types
 	// TODO: Improve the API for fetching positions
 	public async getFuturesPositions(

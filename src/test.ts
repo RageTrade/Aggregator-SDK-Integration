@@ -437,7 +437,7 @@ async function synService() {
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
   const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  logObject("Supported Markets: ", supportedMarkets[0]);
+  // logObject("Supported Markets: ", supportedMarkets[0]);
   // supportedMarkets.forEach((market) => logObject("Market: ", market));
 
   // (await sdk.futures.getMarkets()).forEach(async (market) => {
@@ -467,6 +467,16 @@ async function synService() {
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
+
+  for (let i = 0; i < supportedMarkets.length; i++) {
+    if (supportedMarkets[i].indexOrIdentifier == "sETHPERP") {
+      let dynamicMetadata = await ss.getDynamicMetadata(supportedMarkets[i]);
+      logObject(
+        supportedMarkets[i].indexOrIdentifier + " Dynamic Metadata: ",
+        dynamicMetadata
+      );
+    }
+  }
 
   const sizeDelta = "0.01";
   const direction = "SHORT";

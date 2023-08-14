@@ -57,6 +57,13 @@ export type DynamicMarketMetadata = {
   borrowRate?: BigNumber;
   makerFee?: BigNumber;
   takerFee?: BigNumber;
+  availableLiquidity?: BigNumber;
+  availableLiquidityLongUSD?: BigNumber;
+  availableLiquidityShortUSD?: BigNumber;
+  oiLongUsd: BigNumber;
+  oiShortUsd: BigNumber;
+  marketLimitUsd: BigNumber;
+  marketLimitNative: BigNumber;
 };
 
 export type ProtocolMetadata = {

@@ -120,14 +120,28 @@ export default class SynthetixV2Service implements IExchange {
   async getDynamicMetadata(
     market: ExtendedMarket
   ): Promise<DynamicMarketMetadata> {
-    throw new Error("Method not Supported.");
+    const futureMarket = await this.sdk.futures.getMarketMetadata(
+      market.address!
+    );
 
-    // oiLong: m.openInterest.long.toBN(),
-    //     oiShort: m.openInterest.short.toBN(),
-    //     fundingRate: m.currentFundingRate.toBN(),
-    //     fundingVelocity: m.currentFundingVelocity.toBN(),
-    //     makerFee: m.feeRates.makerFeeOffchainDelayedOrder.toBN(),
-    //     takerFee: m.feeRates.takerFeeOffchainDelayedOrder.toBN(),
+    return {
+      oiLong: futureMarket.openInterest.long.toBN(),
+      oiShort: futureMarket.openInterest.short.toBN(),
+      fundingRate: futureMarket.currentFundingRate.toBN(),
+      fundingVelocity: futureMarket.currentFundingVelocity.toBN(),
+      makerFee: futureMarket.feeRates.makerFeeOffchainDelayedOrder.toBN(),
+      takerFee: futureMarket.feeRates.takerFeeOffchainDelayedOrder.toBN(),
+      availableLiquidityLongUSD: futureMarket.marketLimitUsd
+        .sub(futureMarket.openInterest.longUSD)
+        .toBN(),
+      availableLiquidityShortUSD: futureMarket.marketLimitUsd
+        .sub(futureMarket.openInterest.shortUSD)
+        .toBN(),
+      oiLongUsd: futureMarket.openInterest.longUSD.toBN(),
+      oiShortUsd: futureMarket.openInterest.shortUSD.toBN(),
+      marketLimitUsd: futureMarket.marketLimitUsd.toBN(),
+      marketLimitNative: futureMarket.marketLimitNative.toBN(),
+    };
   }
 
   async getMarketPrice(market: ExtendedMarket): Promise<BigNumber> {
