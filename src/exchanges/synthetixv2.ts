@@ -141,6 +141,7 @@ export default class SynthetixV2Service implements IExchange {
       oiShortUsd: futureMarket.openInterest.shortUSD.toBN(),
       marketLimitUsd: futureMarket.marketLimitUsd.toBN(),
       marketLimitNative: futureMarket.marketLimitNative.toBN(),
+      minInitialMargin: futureMarket.minInitialMargin.toBN(),
     };
   }
 

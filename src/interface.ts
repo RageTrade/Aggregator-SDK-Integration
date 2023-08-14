@@ -64,6 +64,7 @@ export type DynamicMarketMetadata = {
   oiShortUsd: BigNumber;
   marketLimitUsd: BigNumber;
   marketLimitNative: BigNumber;
+  minInitialMargin: BigNumber;
 };
 
 export type ProtocolMetadata = {
