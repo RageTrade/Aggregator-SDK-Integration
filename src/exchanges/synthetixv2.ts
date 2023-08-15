@@ -27,7 +27,11 @@ import {
   FuturesMarketAsset,
   FuturesPosition,
 } from "@kwenta/sdk/dist/types/futures";
-import { getEnumEntryByValue, logObject } from "../common/helper";
+import {
+  getEnumEntryByValue,
+  logObject,
+  toNumberDecimal,
+} from "../common/helper";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -41,6 +45,7 @@ export default class SynthetixV2Service implements IExchange {
   };
   private swAddr: string;
   private protocolIdentifier = "synthetixV2";
+  private decimals = 18;
 
   constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
@@ -107,8 +112,14 @@ export default class SynthetixV2Service implements IExchange {
         },
         asset: m.asset,
         address: m.market,
-        maxLeverage: m.contractMaxLeverage!.toBN(),
-        minInitialMargin: m.minInitialMargin!.toBN(),
+        maxLeverage: toNumberDecimal(
+          m.contractMaxLeverage!.toBN(),
+          this.decimals
+        ),
+        minInitialMargin: toNumberDecimal(
+          m.minInitialMargin!.toBN(),
+          this.decimals
+        ),
         protocolName: this.protocolIdentifier,
       };
 
@@ -377,7 +388,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async getAllOrders(
     user: string,
-    openMarkets?: OpenMarkets
+    openMarkets: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
@@ -409,7 +420,7 @@ export default class SynthetixV2Service implements IExchange {
   async getPosition(
     positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
     market: ExtendedMarket,
-    user?: string
+    user: string | undefined
   ): Promise<ExtendedPosition> {
     let extendedPosition: ExtendedPosition = {} as ExtendedPosition;
 
@@ -438,7 +449,7 @@ export default class SynthetixV2Service implements IExchange {
   async getAllPositions(
     user: string,
     signer: Signer,
-    openMarkets?: OpenMarkets
+    openMarkets: OpenMarkets | undefined
   ): Promise<ExtendedPosition[]> {
     let extendedPositions: ExtendedPosition[] = [];
 
@@ -548,6 +559,7 @@ export default class SynthetixV2Service implements IExchange {
       leverage: futurePosition.position!.initialLeverage.toBN(),
       direction:
         futurePosition.position!.side == PositionSide.LONG ? "LONG" : "SHORT",
+      accessibleMargin: futurePosition.accessibleMargin.toBN(),
     };
   }
 
@@ -566,7 +578,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getExtendedMarketsFromOpenMarkets(
-    openMarkets?: OpenMarkets
+    openMarkets: OpenMarkets | undefined
   ): Promise<ExtendedMarket[]> {
     let supportedMarkets: ExtendedMarket[] = [];
     if (openMarkets) {

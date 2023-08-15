@@ -41,11 +41,16 @@ export type Market = {
   supportedOrderActions?: Record<OrderAction["orderAction"], Boolean>;
 } & MarketIdentifier;
 
+export type NumberDecimal = {
+  value: string;
+  decimals: number;
+};
+
 export type StaticMarketMetadata = {
-  maxLeverage?: BigNumber;
+  maxLeverage?: NumberDecimal;
   address?: string;
   asset?: string;
-  minInitialMargin?: BigNumber;
+  minInitialMargin?: NumberDecimal;
 };
 
 export type DynamicMarketMetadata = {
@@ -97,6 +102,7 @@ export type ExtendedPosition = Position & {
   sizeDelta?: BigNumber;
   skewAdjustedPrice?: BigNumber;
   direction?: OrderDirection;
+  accessibleMargin?: BigNumber;
 };
 
 export type CollateralData = {
@@ -181,7 +187,7 @@ export interface IExchange {
 
   getAllOrders(
     user: string,
-    openMarkers?: OpenMarkets
+    openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>>;
 
   // will work as getOrder for SNX
@@ -193,13 +199,13 @@ export interface IExchange {
   getPosition(
     positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
     market: ExtendedMarket,
-    user?: string
+    user: string | undefined
   ): Promise<ExtendedPosition>;
 
   getAllPositions(
     user: string,
     signer: Signer,
-    openMarkers?: OpenMarkets
+    openMarkers: OpenMarkets | undefined
   ): Promise<ExtendedPosition[]>;
 
   getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]>;
