@@ -15,6 +15,7 @@ import {
   ExtendedMarket,
   DynamicMarketMetadata,
   OpenMarkets,
+  OpenMarketData,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -173,10 +174,10 @@ export default class SynthetixV2Service implements IExchange {
 
     let txs: UnsignedTransaction[] = [];
 
-    // withdraw unused collateral tx's
-    txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
-
     if (order.inputCollateralAmount.gt(0)) {
+      // withdraw unused collateral tx's
+      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
+
       // deposit tx
       let depositAmount = wei(order.inputCollateralAmount);
       let depositTx = (await this.sdk.futures.depositIsolatedMargin(
@@ -234,13 +235,16 @@ export default class SynthetixV2Service implements IExchange {
 
   async closePosition(
     signer: Signer,
-    position: ExtendedPosition
+    position: ExtendedPosition,
+    closeSize: BigNumber
   ): Promise<UnsignedTransaction[]> {
+    if (closeSize.eq(0) || closeSize.gt(position.size)) {
+      throw new Error("Invalid close size");
+    }
+
     let fillPrice = await this.getFillPriceInternal(
-      position.indexOrIdentifier,
-      position.direction == "LONG"
-        ? wei(position.size).neg()
-        : wei(position.size)
+      position.marketAddress!,
+      position.direction == "LONG" ? wei(closeSize).neg() : wei(closeSize)
     );
 
     fillPrice =
@@ -255,6 +259,7 @@ export default class SynthetixV2Service implements IExchange {
         longCollateral: [this.sUsd],
         shortCollateral: [this.sUsd],
         indexOrIdentifier: position.indexOrIdentifier,
+        address: position.marketAddress,
         supportedOrderTypes: {
           LIMIT_DECREASE: false,
           LIMIT_INCREASE: false,
@@ -275,7 +280,7 @@ export default class SynthetixV2Service implements IExchange {
           address: "string",
         },
         inputCollateralAmount: BigNumber.from(0),
-        sizeDelta: position.size,
+        sizeDelta: closeSize,
         isTriggerOrder: false,
         referralCode: undefined,
         trigger: {
@@ -419,10 +424,11 @@ export default class SynthetixV2Service implements IExchange {
 
   async getPosition(
     positionIdentifier: Position["indexOrIdentifier"], // serves as market identifier for SNX
-    market: ExtendedMarket,
+    market: OpenMarketData,
     user: string | undefined
   ): Promise<ExtendedPosition> {
     let extendedPosition: ExtendedPosition = {} as ExtendedPosition;
+    let marketAddress = await this.getMarketAddress(market);
 
     let futureMarkets = [];
     futureMarkets.push({
@@ -431,7 +437,7 @@ export default class SynthetixV2Service implements IExchange {
         FuturesMarketKey,
         market.indexOrIdentifier!
       )!,
-      address: await this.getMarketAddress(market),
+      address: marketAddress,
     });
 
     let futurePositions = await this.sdk.futures.getFuturesPositions(
@@ -440,7 +446,10 @@ export default class SynthetixV2Service implements IExchange {
     );
 
     if (futurePositions.length != 0) {
-      return this.mapFuturePositionToExtendedPosition(futurePositions[0]);
+      extendedPosition = this.mapFuturePositionToExtendedPosition(
+        futurePositions[0],
+        marketAddress
+      );
     }
 
     return extendedPosition;
@@ -482,7 +491,13 @@ export default class SynthetixV2Service implements IExchange {
       if (futurePositions[i].position == null) continue;
 
       extendedPositions.push(
-        this.mapFuturePositionToExtendedPosition(futurePositions[i])
+        this.mapFuturePositionToExtendedPosition(
+          futurePositions[i],
+          markets.find(
+            (m) =>
+              m.indexOrIdentifier == futurePositions[i].marketKey.toString()
+          )!.address!
+        )
       );
     }
     // console.log("Extended positions: ", extendedPositions.length);
@@ -521,7 +536,6 @@ export default class SynthetixV2Service implements IExchange {
     let txs: UnsignedTransaction[] = [];
 
     await this.sdk.setSigner(signer);
-
     // withdraw unused collateral tx's
     const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(user);
 
@@ -546,7 +560,8 @@ export default class SynthetixV2Service implements IExchange {
   //// HELPERS ////
 
   mapFuturePositionToExtendedPosition(
-    futurePosition: FuturesPosition
+    futurePosition: FuturesPosition,
+    marketAddress: string
   ): ExtendedPosition {
     return {
       indexOrIdentifier: futurePosition.marketKey.toString(),
@@ -560,6 +575,7 @@ export default class SynthetixV2Service implements IExchange {
       direction:
         futurePosition.position!.side == PositionSide.LONG ? "LONG" : "SHORT",
       accessibleMargin: futurePosition.accessibleMargin.toBN(),
+      marketAddress: marketAddress,
     };
   }
 

@@ -468,27 +468,31 @@ async function synService() {
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
 
-  for (let i = 0; i < supportedMarkets.length; i++) {
-    if (supportedMarkets[i].indexOrIdentifier == "sETHPERP") {
-      let dynamicMetadata = await ss.getDynamicMetadata(supportedMarkets[i]);
-      logObject(
-        supportedMarkets[i].indexOrIdentifier + " Dynamic Metadata: ",
-        dynamicMetadata
-      );
-    }
-  }
+  // for (let i = 0; i < supportedMarkets.length; i++) {
+  //   if (supportedMarkets[i].indexOrIdentifier == "sETHPERP") {
+  //     let dynamicMetadata = await ss.getDynamicMetadata(supportedMarkets[i]);
+  //     logObject(
+  //       supportedMarkets[i].indexOrIdentifier + " Dynamic Metadata: ",
+  //       dynamicMetadata
+  //     );
+  //   }
+  // }
 
   const sizeDelta = "0.01";
   const direction = "SHORT";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  // const positions = await ss.getAllPositions(w, signer);
-  // positions.forEach((p) => logObject("Position: ", p));
+  const positions = await ss.getAllPositions(w, signer, undefined);
+  positions.forEach((p) => logObject("Position: ", p));
 
-  // const closePositionTxs = await ss.closePosition(signer, positions[0]);
-  // closePositionTxs.forEach((tx) => {
-  //   logObject("Close position tx: ", tx);
-  // });
+  const closePositionTxs = await ss.closePosition(
+    signer,
+    positions[0],
+    positions[0].size.mul(100).div(100)
+  );
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
   // await fireTxs(closePositionTxs);
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();
