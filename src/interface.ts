@@ -176,6 +176,13 @@ export interface IExchange {
     closeSize: BigNumber
   ): Promise<UnsignedTransaction[]>;
 
+  updatePositionMargin(
+    signer: Signer,
+    position: ExtendedPosition,
+    marginAmount: BigNumber,
+    isDeposit: boolean
+  ): Promise<UnsignedTransaction[]>;
+
   getMarketPrice(market: ExtendedMarket): Promise<BigNumber>;
 
   getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata>;

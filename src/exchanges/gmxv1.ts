@@ -59,6 +59,15 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
+  updatePositionMargin(
+    signer: Signer,
+    position: ExtendedPosition,
+    marginAmount: ethers.BigNumber,
+    isDeposit: boolean
+  ): Promise<UnsignedTransaction[]> {
+    throw new Error("Method not implemented.");
+  }
+
   invariant(condition: any, errorMsg: string | undefined) {
     if (!condition) {
       throw new Error(errorMsg);

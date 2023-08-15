@@ -178,12 +178,11 @@ export default class SynthetixV2Service implements IExchange {
       // withdraw unused collateral tx's
       txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
 
-      // deposit tx
-      let depositAmount = wei(order.inputCollateralAmount);
-      let depositTx = (await this.sdk.futures.depositIsolatedMargin(
+      // deposit
+      let depositTx = await this.formulateDepositTx(
         marketAddress,
-        depositAmount
-      )) as UnsignedTransaction;
+        wei(order.inputCollateralAmount)
+      );
       // logObject("depositTx", depositTx);
       txs.push(depositTx);
     }
@@ -289,6 +288,47 @@ export default class SynthetixV2Service implements IExchange {
         },
       }
     );
+  }
+
+  async updatePositionMargin(
+    signer: Signer,
+    position: ExtendedPosition,
+    marginAmount: BigNumber,
+    isDeposit: boolean
+  ): Promise<UnsignedTransaction[]> {
+    let txs: UnsignedTransaction[] = [];
+
+    // validation
+    if (
+      marginAmount.eq(0) ||
+      (!isDeposit && marginAmount.gt(position.accessibleMargin!))
+    ) {
+      throw new Error("Invalid collateral delta");
+    }
+
+    if (isDeposit) {
+      // withdraw unused collateral tx's
+      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
+
+      // deposit
+      let depositTx = await this.formulateDepositTx(
+        position.marketAddress!,
+        wei(marginAmount)
+      );
+      txs.push(depositTx);
+    } else {
+      await this.sdk.setSigner(signer);
+
+      // no need to withdraw from 0-positioned markets
+      // withdraw from the position
+      let withdrawTx = await this.formulateWithdrawTx(
+        position.marketAddress!,
+        wei(marginAmount)
+      );
+      txs.push(withdrawTx);
+    }
+
+    return txs;
   }
 
   async getFillPrice(market: Market, order: Order): Promise<BigNumber> {
@@ -543,11 +583,10 @@ export default class SynthetixV2Service implements IExchange {
       let idleMarkets = idleMargins.marketsWithIdleMargin;
 
       for (let i = 0; i < idleMarkets.length; i++) {
-        let withdrawAmount = idleMarkets[i].position!.remainingMargin.neg();
-        let withdrawTx = (await this.sdk.futures.depositIsolatedMargin(
+        let withdrawTx = await this.formulateWithdrawTx(
           idleMarkets[i].marketAddress,
-          withdrawAmount
-        )) as UnsignedTransaction;
+          idleMarkets[i].position!.remainingMargin
+        );
         // logObject("withdrawTx", withdrawTx);
 
         txs.push(withdrawTx);
@@ -605,5 +644,19 @@ export default class SynthetixV2Service implements IExchange {
       );
     }
     return supportedMarkets;
+  }
+
+  async formulateWithdrawTx(marketAddress: string, withdrawAmount: Wei) {
+    return (await this.sdk.futures.withdrawIsolatedMargin(
+      marketAddress,
+      withdrawAmount
+    )) as UnsignedTransaction;
+  }
+
+  async formulateDepositTx(marketAddress: string, depositAmount: Wei) {
+    return (await this.sdk.futures.depositIsolatedMargin(
+      marketAddress,
+      depositAmount
+    )) as UnsignedTransaction;
   }
 }

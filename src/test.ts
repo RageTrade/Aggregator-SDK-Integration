@@ -46,14 +46,16 @@ const sdk = new KwentaSDK({
 });
 
 async function fireTxs(utxs: UnsignedTransaction[]) {
-  await Promise.all(utxs.map((utx) => fireTx(utx)));
+  for (let i = 0; i < utxs.length; i++) {
+    await fireTx(utxs[i]);
+  }
 }
 
 async function fireTx(utx: UnsignedTransaction) {
   const tx = await signer.sendTransaction(
     utx as ethers.providers.TransactionRequest
   );
-  await tx.wait(1);
+  await tx.wait(10);
   console.log("Transaction: ", tx.hash);
 
   return tx;
@@ -485,15 +487,26 @@ async function synService() {
   const positions = await ss.getAllPositions(w, signer, undefined);
   positions.forEach((p) => logObject("Position: ", p));
 
-  const closePositionTxs = await ss.closePosition(
+  // const closePositionTxs = await ss.closePosition(
+  //   signer,
+  //   positions[0],
+  //   positions[0].size.mul(100).div(100)
+  // );
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
+  // await fireTxs(closePositionTxs);
+
+  const updatePosMarginTxs = await ss.updatePositionMargin(
     signer,
     positions[0],
-    positions[0].size.mul(100).div(100)
+    ethers.utils.parseUnits("10"),
+    true
   );
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
+  updatePosMarginTxs.forEach((tx) => {
+    logObject("Update position margin tx: ", tx);
   });
-  // await fireTxs(closePositionTxs);
+  // await fireTxs(updatePosMarginTxs);
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();
 
