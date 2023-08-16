@@ -61,7 +61,7 @@ export const queryTrades = async (
 	return getFuturesTrades(
 		sdk.futures.futuresGqlEndpoint,
 		{
-			first: params.pageLength,
+			first: params.pageLength > 1000 ? 1000 : params.pageLength,
 			where: filter,
 			orderDirection: 'desc',
 			orderBy: 'timestamp',
@@ -97,7 +97,7 @@ export const queryPositionHistory = (sdk: KwentaSDK, account: string) => {
 			where: {
 				abstractAccount: account,
 			},
-			first: 99999,
+			first: 1000,
 			orderBy: 'openTimestamp',
 			orderDirection: 'desc',
 		},
@@ -142,7 +142,7 @@ export const queryCompletePositionHistory = (sdk: KwentaSDK, account: string) =>
 			where: {
 				account: account,
 			},
-			first: 99999,
+			first: 1000,
 			orderBy: 'openTimestamp',
 			orderDirection: 'desc',
 		},
@@ -252,7 +252,7 @@ export const queryFundingRateHistory = async (
 			) {
 				fundingRatePeriods(
 					where: { asset: $marketAsset, timestamp_gt: $minTimestamp, period: $period }
-					first: 2000
+					first: 1000
 				) {
 					timestamp
 					fundingRate
