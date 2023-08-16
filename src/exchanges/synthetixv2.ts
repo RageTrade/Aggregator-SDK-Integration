@@ -16,6 +16,7 @@ import {
   DynamicMarketMetadata,
   OpenMarkets,
   OpenMarketData,
+  Trade,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -33,6 +34,7 @@ import {
   logObject,
   toNumberDecimal,
 } from "../common/helper";
+import { getExplorerUrl } from "../configs/gmx/chains";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -47,6 +49,7 @@ export default class SynthetixV2Service implements IExchange {
   private swAddr: string;
   private protocolIdentifier = "synthetixV2";
   private decimals = 18;
+  private explorerUrl = getExplorerUrl(this.opChainId);
 
   constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
@@ -548,8 +551,39 @@ export default class SynthetixV2Service implements IExchange {
     return extendedPositions;
   }
 
-  getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
-    throw new Error("Method not Supported.");
+  async getTradesHistory(
+    user: string,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<Trade[]> {
+    let trades: Trade[] = [];
+    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
+
+    let tradesHistory = await this.sdk.futures.getAllTrades(
+      user,
+      "isolated_margin",
+      1000
+    );
+
+    tradesHistory.forEach((t) => {
+      let market = markets.find((m) => m.asset == t.asset.toString())!;
+      trades.push({
+        indexOrIdentifier: market.indexOrIdentifier,
+        size: t.size.toBN(),
+        collateral: t.margin.toBN(),
+        averageEntryPrice: t.price.toBN(),
+        lastUpdatedAtTimestamp: t.timestamp,
+        pnl: t.pnl.toBN(),
+        fee: t.feesPaid.add(t.keeperFeesPaid).toBN(),
+        direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
+        marketAddress: market.address!,
+        positionClosed: t.positionClosed,
+        keeperFeesPaid: t.keeperFeesPaid.toBN(),
+        txHash: t.txnHash,
+        txLink: this.explorerUrl + "tx/" + t.txnHash,
+      });
+    });
+
+    return trades;
   }
 
   async getIdleMargins(

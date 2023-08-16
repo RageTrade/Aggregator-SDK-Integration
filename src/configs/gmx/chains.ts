@@ -240,6 +240,8 @@ export function getExplorerUrl(chainId: number) {
     return "https://snowtrace.io/";
   } else if (chainId === AVALANCHE_FUJI) {
     return "https://testnet.snowtrace.io/";
+  } else if (chainId === 10) {
+    return "https://optimistic.etherscan.io/";
   }
   return "https://etherscan.io/";
 }

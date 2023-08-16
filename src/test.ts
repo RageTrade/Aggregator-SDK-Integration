@@ -55,8 +55,8 @@ async function fireTx(utx: UnsignedTransaction) {
   const tx = await signer.sendTransaction(
     utx as ethers.providers.TransactionRequest
   );
-  await tx.wait(10);
   console.log("Transaction: ", tx.hash);
+  await tx.wait(10);
 
   return tx;
 }
@@ -484,8 +484,20 @@ async function synService() {
   const direction = "SHORT";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  const positions = await ss.getAllPositions(w, signer, undefined);
-  positions.forEach((p) => logObject("Position: ", p));
+  // const positionsHistory = await sdk.futures.getCompletePositionHistory(w);
+  // console.log("Position History: ", positionsHistory.length);
+  // positionsHistory.forEach((p) => {
+  //   logObject("Position History: ", p);
+  // });
+
+  const tradesHistory = await ss.getTradesHistory(w, undefined);
+  console.log("Trades History: ", tradesHistory.length);
+  tradesHistory.slice(0, 10).forEach((t) => {
+    logObject("Trades History: ", t);
+  });
+
+  // const positions = await ss.getAllPositions(w, signer, undefined);
+  // positions.forEach((p) => logObject("Position: ", p));
 
   // const closePositionTxs = await ss.closePosition(
   //   signer,
@@ -497,15 +509,15 @@ async function synService() {
   // });
   // await fireTxs(closePositionTxs);
 
-  const updatePosMarginTxs = await ss.updatePositionMargin(
-    signer,
-    positions[0],
-    ethers.utils.parseUnits("10"),
-    true
-  );
-  updatePosMarginTxs.forEach((tx) => {
-    logObject("Update position margin tx: ", tx);
-  });
+  // const updatePosMarginTxs = await ss.updatePositionMargin(
+  //   signer,
+  //   positions[0],
+  //   ethers.utils.parseUnits("10"),
+  //   true
+  // );
+  // updatePosMarginTxs.forEach((tx) => {
+  //   logObject("Update position margin tx: ", tx);
+  // });
   // await fireTxs(updatePosMarginTxs);
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();

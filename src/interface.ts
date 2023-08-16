@@ -106,6 +106,16 @@ export type ExtendedPosition = Position & {
   marketAddress?: string;
 };
 
+export type Trade = ExtendedPosition & {
+  isLiquidated?: boolean;
+  totalDeposits?: BigNumber;
+  positionClosed?: boolean;
+  keeperFeesPaid?: BigNumber;
+  pnl?: BigNumber;
+  txHash?: string;
+  txLink?: string;
+};
+
 export type CollateralData = {
   inputCollateral: Token;
   inputCollateralAmount: BigNumber;
@@ -217,7 +227,10 @@ export interface IExchange {
     openMarkers: OpenMarkets | undefined
   ): Promise<ExtendedPosition[]>;
 
-  getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]>;
+  getTradesHistory(
+    user: string,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<Trade[]>;
 
   getIdleMargins(
     user: string

@@ -479,7 +479,7 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getPositionsHistory(positions: Position[]): Promise<ExtendedPosition[]> {
+  getTradesHistory(user: string): Promise<ExtendedPosition[]> {
     throw new Error("Method not implemented.");
   }
 
