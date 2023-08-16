@@ -17,6 +17,7 @@ import {
   Network,
   Order,
   Position,
+  Token,
 } from "../interface";
 import {
   IERC20__factory,
@@ -28,7 +29,12 @@ import {
 } from "../../gmxV1Typechain";
 import { getContract } from "../configs/gmx/contracts";
 import { ARBITRUM, getConstant } from "../configs/gmx/chains";
-import { getTokenBySymbol, getTokens } from "../configs/gmx/tokens";
+import {
+  getTokenBySymbol,
+  getTokens,
+  getWhitelistedTokens,
+} from "../configs/gmx/tokens";
+import { logObject, toNumberDecimal } from "../common/helper";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -40,9 +46,32 @@ export default class GmxV1Service implements IExchange {
     ARBITRUM,
     "DECREASE_ORDER_EXECUTION_GAS_FEE"
   )! as BigNumberish;
-  private protocolIdentifier = "GMXv1";
+  private protocolIdentifier = "gmxV1";
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
   private swAddr: string;
+  private whitelistedTokens = getWhitelistedTokens(ARBITRUM);
+  private indexTokens = this.whitelistedTokens
+    .filter((token) => !token.isStable && !token.isWrapped)
+    .map((token) => {
+      let tokenIn: Token = {
+        address: token.address,
+        decimals: token.decimals.toString(),
+        symbol: token.symbol,
+        name: token.name,
+      };
+      return tokenIn;
+    });
+  private collateralTokens = this.whitelistedTokens
+    .filter((token) => !token.isTempHidden)
+    .map((token) => {
+      let tokenIn: Token = {
+        address: token.address,
+        decimals: token.decimals.toString(),
+        symbol: token.symbol,
+        name: token.name,
+      };
+      return tokenIn;
+    });
 
   constructor(_swAddr: string) {
     this.swAddr = _swAddr;
@@ -139,8 +168,36 @@ export default class GmxV1Service implements IExchange {
     return networks;
   }
 
-  supportedMarkets(network: Network): Promise<ExtendedMarket[]> {
-    throw new Error("Method not implemented.");
+  async supportedMarkets(network: Network): Promise<ExtendedMarket[]> {
+    let markets: ExtendedMarket[] = [];
+
+    this.indexTokens.forEach((indexToken) => {
+      markets.push({
+        mode: "ASYNC",
+        longCollateral: this.collateralTokens,
+        shortCollateral: this.collateralTokens,
+        supportedOrderTypes: {
+          LIMIT_INCREASE: true,
+          LIMIT_DECREASE: true,
+          MARKET_INCREASE: true,
+          MARKET_DECREASE: true,
+          DEPOSIT: false,
+          WITHDRAW: false,
+        },
+        supportedOrderActions: {
+          CREATE: true,
+          UPDATE: true,
+          CANCEL: true,
+        },
+        asset: indexToken.symbol,
+        indexOrIdentifier: this.getTokenAddress(indexToken),
+        maxLeverage: toNumberDecimal(BigNumber.from("50"), 0),
+        minInitialMargin: toNumberDecimal(BigNumber.from("0"), 0),
+        protocolName: this.protocolIdentifier,
+      });
+    });
+
+    return markets;
   }
 
   getMarketPrice(market: ExtendedMarket): Promise<ethers.BigNumber> {
@@ -524,5 +581,20 @@ export default class GmxV1Service implements IExchange {
       ["address", "address", "address", "bool"],
       [account, collateralToken, indexToken, isLong]
     );
+  }
+
+  //////// HELPERS //////////
+
+  getTokenAddress(token: Token): string {
+    if (token.address === ethers.constants.AddressZero) {
+      return this.nativeTokenAddress;
+    }
+    return token.address;
+  }
+  getTokenAddressString(tokenAddress: string): string {
+    if (tokenAddress === ethers.constants.AddressZero) {
+      return this.nativeTokenAddress;
+    }
+    return tokenAddress;
   }
 }

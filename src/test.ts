@@ -611,6 +611,11 @@ async function synService() {
 async function gmxService() {
   const gs = new GmxV1Service(await signer.getAddress());
 
+  let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
+  supportedMarkets.forEach((m) => {
+    logObject("Supported Market: ", m);
+  });
+
   // await gs.setup(signer);
   // console.log("Finished Setup".toUpperCase());
 
@@ -650,10 +655,10 @@ async function gmxService() {
   //   }
   // );
 
-  const positions = await gs.getAllPositions(w, signer);
-  positions.forEach((p) => {
-    logObject("Position: ", p);
-  });
+  // const positions = await gs.getAllPositions(w, signer);
+  // positions.forEach((p) => {
+  //   logObject("Position: ", p);
+  // });
 }
 
 async function compositeService() {
@@ -662,11 +667,11 @@ async function compositeService() {
 
   const cs = new CompositeService(ss, gs);
 
-  let openMarkets = await cs.getOpenMarkets();
+  let openMarkets = (await cs.getOpenMarkets())["ETH/USD"]
   console.dir(openMarkets, { depth: 10 });
 }
 
-synService()
+compositeService()
   .then()
   .catch((error) => {
     console.error(error);
