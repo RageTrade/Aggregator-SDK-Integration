@@ -171,11 +171,11 @@ export default class SynthetixV2Service implements IExchange {
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
-    const marketAddress = await this.getMarketAddress(market);
-
-    await this.sdk.setSigner(signer);
-
     let txs: UnsignedTransaction[] = [];
+    if (order.sizeDelta.eq(0)) return txs;
+
+    const marketAddress = await this.getMarketAddress(market);
+    await this.sdk.setSigner(signer);
 
     if (order.inputCollateralAmount.gt(0)) {
       // withdraw unused collateral tx's
@@ -190,23 +190,19 @@ export default class SynthetixV2Service implements IExchange {
       txs.push(depositTx);
     }
 
-    if (order.type == "MARKET_DECREASE" || order.type == "MARKET_INCREASE") {
-      // proper orders
-      let sizeDelta =
-        order.type == "MARKET_DECREASE"
-          ? wei(order.sizeDelta).neg()
-          : wei(order.sizeDelta);
+    // proper orders
+    let sizeDelta =
+      order.direction == "SHORT"
+        ? wei(order.sizeDelta).neg()
+        : wei(order.sizeDelta);
 
-      txs.push(
-        (await this.sdk.futures.submitIsolatedMarginOrder(
-          marketAddress,
-          sizeDelta,
-          wei(order.trigger?.triggerPrice)
-        )) as UnsignedTransaction
-      );
-    } else {
-      throw new Error("Invalid order type");
-    }
+    txs.push(
+      (await this.sdk.futures.submitIsolatedMarginOrder(
+        marketAddress,
+        sizeDelta,
+        wei(order.trigger?.triggerPrice)
+      )) as UnsignedTransaction
+    );
 
     return txs;
   }
@@ -272,8 +268,7 @@ export default class SynthetixV2Service implements IExchange {
         },
       },
       {
-        type:
-          position.direction == "LONG" ? "MARKET_DECREASE" : "MARKET_INCREASE",
+        type: "MARKET_DECREASE",
         direction: position.direction == "LONG" ? "SHORT" : "LONG",
         inputCollateral: {
           name: "string",
@@ -359,35 +354,31 @@ export default class SynthetixV2Service implements IExchange {
 
     await this.sdk.setSigner(signer);
 
-    if (order.type == "MARKET_INCREASE" || order.type == "MARKET_DECREASE") {
-      let sizeDelta = wei(order.sizeDelta);
-      sizeDelta = order.type == "MARKET_INCREASE" ? sizeDelta : sizeDelta.neg();
+    let sizeDelta = wei(order.sizeDelta);
+    sizeDelta = order.direction == "LONG" ? sizeDelta : sizeDelta.neg();
 
-      const tradePreview =
-        await this.sdk.futures.getSimulatedIsolatedTradePreview(
-          user,
-          getEnumEntryByValue(FuturesMarketKey, market.indexOrIdentifier!)!,
-          marketAddress,
-          {
-            sizeDelta: sizeDelta,
-            marginDelta: wei(order.inputCollateralAmount),
-            orderPrice: wei(order.trigger!.triggerPrice),
-          }
-        );
+    const tradePreview =
+      await this.sdk.futures.getSimulatedIsolatedTradePreview(
+        user,
+        getEnumEntryByValue(FuturesMarketKey, market.indexOrIdentifier!)!,
+        marketAddress,
+        {
+          sizeDelta: sizeDelta,
+          marginDelta: wei(order.inputCollateralAmount),
+          orderPrice: wei(order.trigger!.triggerPrice),
+        }
+      );
 
-      return {
-        indexOrIdentifier: "",
-        size: tradePreview.size,
-        collateral: tradePreview.margin,
-        averageEntryPrice: tradePreview.price,
-        liqudationPrice: tradePreview.liqPrice,
-        otherFees: tradePreview.fee,
-        status: tradePreview.status,
-        fee: tradePreview.fee,
-      };
-    }
-
-    throw new Error("Invalid order type");
+    return {
+      indexOrIdentifier: "",
+      size: tradePreview.size,
+      collateral: tradePreview.margin,
+      averageEntryPrice: tradePreview.price,
+      liqudationPrice: tradePreview.liqPrice,
+      otherFees: tradePreview.fee,
+      status: tradePreview.status,
+      fee: tradePreview.fee,
+    };
   }
 
   async getOrder(
@@ -407,12 +398,9 @@ export default class SynthetixV2Service implements IExchange {
     }
 
     const order: Order = {
-      type:
-        orderData.side == PositionSide.LONG
-          ? "MARKET_INCREASE"
-          : "MARKET_DECREASE",
+      type: orderData.size.gt(0) ? "MARKET_INCREASE" : "MARKET_DECREASE",
       direction: orderData.side == PositionSide.LONG ? "LONG" : "SHORT",
-      sizeDelta: orderData.size.toBN(),
+      sizeDelta: orderData.size.abs().toBN(),
       isTriggerOrder: false,
       referralCode: undefined,
       trigger: {

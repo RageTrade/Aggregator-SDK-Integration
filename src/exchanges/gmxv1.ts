@@ -48,6 +48,7 @@ export default class GmxV1Service implements IExchange {
   )! as BigNumberish;
   private protocolIdentifier = "gmxV1";
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
+  private shortTokenAddress = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
   private swAddr: string;
   private whitelistedTokens = getWhitelistedTokens(ARBITRUM);
   private indexTokens = this.whitelistedTokens
@@ -211,24 +212,18 @@ export default class GmxV1Service implements IExchange {
   ): Promise<UnsignedTransaction[]> {
     let createOrderTx;
 
-    if (order.type == "LIMIT_INCREASE") {
-      this.invariant(
-        !(order.direction == "LONG") ||
-          market.indexOrIdentifier === order.inputCollateral.address,
-        "invalid token addresses"
-      );
-      this.invariant(
-        market.indexOrIdentifier !== ethers.constants.AddressZero,
-        "indexToken is 0"
-      );
+    const tokenAddress0 = this.getTokenAddressString(
+      order.inputCollateral.address
+    );
 
+    if (order.type == "LIMIT_INCREASE") {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
         signer
       );
 
       const path: string[] = [];
-      path.push(order.inputCollateral.address);
+      path.push(tokenAddress0);
 
       createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
         path,
@@ -236,44 +231,32 @@ export default class GmxV1Service implements IExchange {
         market.indexOrIdentifier,
         0,
         order.sizeDelta,
-        order.inputCollateral.address,
+        market.indexOrIdentifier,
         order.direction == "LONG" ? true : false,
         order.trigger?.triggerPrice!,
         !(order.direction == "LONG"),
         this.EXECUTION_FEE,
-        order.shouldWrap!,
+        order.inputCollateral.address == ethers.constants.AddressZero,
         {
-          value: order.shouldWrap!
-            ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
-            : this.EXECUTION_FEE,
+          value:
+            order.inputCollateral.address == ethers.constants.AddressZero
+              ? BigNumber.from(this.EXECUTION_FEE).add(
+                  order.inputCollateralAmount
+                )
+              : this.EXECUTION_FEE,
         }
       );
     } else if (order.type == "LIMIT_DECREASE") {
-      this.invariant(
-        !(order.direction == "LONG") ||
-          market.indexOrIdentifier === order.inputCollateral.address,
-        "invalid token addresses"
-      );
-      this.invariant(
-        market.indexOrIdentifier !== ethers.constants.AddressZero,
-        "indexToken is 0"
-      );
-
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
         signer
       );
 
-      const path: string[] = [];
-      path.push(order.inputCollateral.address);
-
       createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
         market.indexOrIdentifier,
         order.sizeDelta,
         order.inputCollateral.address,
-        order.inputCollateralAmount,
+        order.inputCollateralAmount, // in USD e30
         order.direction == "LONG" ? true : false,
         order.trigger?.triggerPrice!,
         order.trigger?.triggerAboveThreshold!,
@@ -288,12 +271,18 @@ export default class GmxV1Service implements IExchange {
       );
 
       const path: string[] = [];
-      path.push(order.inputCollateral.address);
-      if (order.inputCollateral.address != market.indexOrIdentifier) {
-        path.push(market.indexOrIdentifier);
+      path.push(tokenAddress0);
+      if (order.direction == "LONG") {
+        if (tokenAddress0 != market.indexOrIdentifier) {
+          path.push(market.indexOrIdentifier);
+        }
+      } else {
+        if (tokenAddress0 != this.shortTokenAddress) {
+          path.push(this.shortTokenAddress);
+        }
       }
 
-      if (order.inputCollateral.address != this.nativeTokenAddress) {
+      if (order.inputCollateral.address != ethers.constants.AddressZero) {
         createOrderTx =
           await positionRouter.populateTransaction.createIncreasePosition(
             path,
@@ -313,14 +302,14 @@ export default class GmxV1Service implements IExchange {
       } else {
         createOrderTx =
           await positionRouter.populateTransaction.createIncreasePositionETH(
-            [order.inputCollateral.address],
+            path,
             market.indexOrIdentifier,
             0,
             order.sizeDelta,
             order.direction == "LONG" ? true : false,
             order.trigger?.triggerPrice!,
             this.EXECUTION_FEE,
-            this.REFERRAL_CODE,
+            ethers.constants.HashZero, // Referral code set during setup()
             ethers.constants.AddressZero,
             {
               value: BigNumber.from(this.EXECUTION_FEE).add(
@@ -337,11 +326,8 @@ export default class GmxV1Service implements IExchange {
 
       const path: string[] = [];
       path.push(market.indexOrIdentifier);
-      if (
-        order.inputCollateral.address != ethers.constants.AddressZero &&
-        order.inputCollateral.address != market.indexOrIdentifier
-      ) {
-        path.push(order.inputCollateral.address);
+      if (tokenAddress0 != market.indexOrIdentifier) {
+        path.push(tokenAddress0);
       }
 
       createOrderTx =
