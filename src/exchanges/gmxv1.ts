@@ -38,7 +38,11 @@ import {
   getInfoTokens,
   useInfoTokens,
   getPositions,
-  getLiquidationPrice
+  getLiquidationPrice,
+  MIN_ORDER_USD,
+  bigNumberify,
+  formatAmount,
+  USD_DECIMALS
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -511,6 +515,12 @@ export default class GmxV1Service implements IExchange {
     let extPositions: ExtendedPosition[] = [];
 
     for (const pos of positions) {
+      const maxAmount: BigNumber = pos.collateralAfterFee.sub(MIN_ORDER_USD).gt(0)
+        ? pos.collateralAfterFee.sub(MIN_ORDER_USD)
+        : bigNumberify(0);
+
+      console.log({ maxAmount })
+
       const extP: ExtendedPosition = {
         indexOrIdentifier: pos.key,
         size: pos.size,
@@ -521,6 +531,7 @@ export default class GmxV1Service implements IExchange {
         unrealizedPnl: pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1),
         liqudationPrice: getLiquidationPrice({ size: pos.size, collateral: pos.collateral, averagePrice: pos.averagePrice, isLong: pos.isLong, fundingFee: pos.fundingFee }),
         fee: pos.totalFees,
+        accessibleMargin: maxAmount,
         leverage: pos.leverage,
         exceedsPriceProtection: pos.hasLowCollateral,
         direction: pos.isLong ? "LONG" : "SHORT",

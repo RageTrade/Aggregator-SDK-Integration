@@ -1003,6 +1003,8 @@ export const MAX_REFERRAL_CODE_LENGTH = 20;
 
 export const MIN_PROFIT_BIPS = 0;
 
+export const MIN_ORDER_USD = expandDecimals(10, USD_DECIMALS);
+
 export const BASIS_POINTS_DIVISOR = 10000;
 
 const PENDING_POSITION_VALID_DURATION = 600 * 1000;
