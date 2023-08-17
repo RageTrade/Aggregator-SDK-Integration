@@ -90,7 +90,6 @@ export type TokenPrices = {
   maxPrice: BigNumber;
 };
 
-
 export const TOKENS: { [chainId: number]: Token[] } = {
   [ARBITRUM]: [
     {
@@ -100,7 +99,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: ethers.constants.AddressZero,
       isNative: true,
       isShortable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
       coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
       isV1Available: true,
     },
@@ -111,7 +111,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
       isWrapped: true,
       baseSymbol: "ETH",
-      imageUrl: "https://assets.coingecko.com/coins/images/2518/thumb/weth.png?1628852295",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/2518/thumb/weth.png?1628852295",
       coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
       isV1Available: true,
     },
@@ -121,9 +122,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 8,
       address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
       isShortable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
       coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
-      explorerUrl: "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+      explorerUrl:
+        "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
       isV1Available: true,
     },
     {
@@ -132,18 +135,22 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 18,
       priceDecimals: 3,
       address: "0x912CE59144191C1204E64559FE8253a0e49E6548",
-      imageUrl: "https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21.47.00.jpeg?1680097630",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21.47.00.jpeg?1680097630",
       coingeckoUrl: "https://www.coingecko.com/en/coins/arbitrum",
-      explorerUrl: "https://arbiscan.io/token/0x912ce59144191c1204e64559fe8253a0e49e6548",
+      explorerUrl:
+        "https://arbiscan.io/token/0x912ce59144191c1204e64559fe8253a0e49e6548",
     },
     {
       name: "Wrapped SOL (Wormhole)",
       symbol: "SOL",
       decimals: 9,
       address: "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",
-      imageUrl: "https://assets.coingecko.com/coins/images/4128/small/solana.png?1640133422",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/4128/small/solana.png?1640133422",
       coingeckoUrl: "https://www.coingecko.com/en/coins/solana",
-      explorerUrl: "https://arbiscan.io/token/0x2bCc6D6CdBbDC0a4071e48bb3B969b06B3330c07",
+      explorerUrl:
+        "https://arbiscan.io/token/0x2bCc6D6CdBbDC0a4071e48bb3B969b06B3330c07",
     },
     {
       name: "Chainlink",
@@ -153,9 +160,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
       isStable: false,
       isShortable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/877/thumb/chainlink-new-logo.png?1547034700",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/877/thumb/chainlink-new-logo.png?1547034700",
       coingeckoUrl: "https://www.coingecko.com/en/coins/chainlink",
-      explorerUrl: "https://arbiscan.io/token/0xf97f4df75117a78c1a5a0dbb814af92458539fb4",
+      explorerUrl:
+        "https://arbiscan.io/token/0xf97f4df75117a78c1a5a0dbb814af92458539fb4",
       isV1Available: true,
     },
     {
@@ -166,9 +175,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
       isStable: false,
       isShortable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/12504/thumb/uniswap-uni.png?1600306604",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/12504/thumb/uniswap-uni.png?1600306604",
       coingeckoUrl: "https://www.coingecko.com/en/coins/uniswap",
-      explorerUrl: "https://arbiscan.io/token/0xfa7f8980b0f1e64a2062791cc3b0871572f1f7f0",
+      explorerUrl:
+        "https://arbiscan.io/token/0xfa7f8980b0f1e64a2062791cc3b0871572f1f7f0",
       isV1Available: true,
     },
     {
@@ -177,9 +188,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
       isStable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
       coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
-      explorerUrl: "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+      explorerUrl:
+        "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
       isV1Available: true,
     },
     {
@@ -189,9 +202,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
       isStable: true,
       isV1Available: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
       coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
-      explorerUrl: "https://arbiscan.io/address/0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+      explorerUrl:
+        "https://arbiscan.io/address/0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     },
     {
       name: "Tether",
@@ -199,8 +214,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       isStable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/325/thumb/Tether-logo.png?1598003707",
-      explorerUrl: "https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/325/thumb/Tether-logo.png?1598003707",
+      explorerUrl:
+        "https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       coingeckoUrl: "https://www.coingecko.com/en/coins/tether",
       isV1Available: true,
     },
@@ -210,9 +227,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 18,
       address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
       isStable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/9956/thumb/4943.png?1636636734",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/9956/thumb/4943.png?1636636734",
       coingeckoUrl: "https://www.coingecko.com/en/coins/dai",
-      explorerUrl: "https://arbiscan.io/token/0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+      explorerUrl:
+        "https://arbiscan.io/token/0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
       isV1Available: true,
     },
     {
@@ -221,9 +240,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 18,
       address: "0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
       isStable: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/13422/small/frax_logo.png?1608476506",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/13422/small/frax_logo.png?1608476506",
       coingeckoUrl: "https://www.coingecko.com/en/coins/frax",
-      explorerUrl: "https://arbiscan.io/token/0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
+      explorerUrl:
+        "https://arbiscan.io/token/0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
       isV1Available: true,
     },
     {
@@ -233,7 +254,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0xFEa7a6a0B346362BF88A9e4A88416B77a57D6c2A",
       isStable: true,
       isTempHidden: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/16786/small/mimlogopng.png",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/16786/small/mimlogopng.png",
       isV1Available: true,
     },
     {
@@ -242,9 +264,11 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0x47904963fc8b2340414262125aF798B9655E58Cd",
       isSynthetic: true,
       decimals: 8,
-      imageUrl: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png?1547033579",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/1/small/bitcoin.png?1547033579",
       //TODO: remove explorerUrl in future
-      explorerUrl: "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+      explorerUrl:
+        "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
       coingeckoUrl: "https://www.coingecko.com/en/coins/bitcoin",
     },
     {
@@ -254,7 +278,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       priceDecimals: 4,
       address: "0xC4da4c24fd591125c3F47b340b6f4f76111883d8",
       isSynthetic: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png?1547792256",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/5/small/dogecoin.png?1547792256",
       coingeckoUrl: "https://www.coingecko.com/en/coins/dogecoin",
     },
     {
@@ -263,7 +288,8 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 8,
       address: "0xB46A094Bc4B0adBD801E14b9DB95e05E28962764",
       isSynthetic: true,
-      imageUrl: "https://assets.coingecko.com/coins/images/2/small/litecoin.png?1547033580",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/2/small/litecoin.png?1547033580",
       coingeckoUrl: "https://www.coingecko.com/en/coins/litecoin",
     },
     {
@@ -272,12 +298,13 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       priceDecimals: 4,
       address: "0xc14e065b0067dE91534e032868f5Ac6ecf2c6868",
-      imageUrl: "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png?1605778731",
+      imageUrl:
+        "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png?1605778731",
       coingeckoUrl: "https://www.coingecko.com/en/coins/xrp",
       isSynthetic: true,
-    }
+    },
   ],
-}
+};
 
 export const ICONLINKS = {
   [ARBITRUM_TESTNET]: {
@@ -441,7 +468,7 @@ const constants: { [chainId: number]: any } = {
     INCREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.01"),
     // contract requires that execution fee be strictly greater than instead of gte
     DECREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.0100001"),
-  }
+  },
 };
 
 export const GLP_POOL_COLORS = {
@@ -459,10 +486,13 @@ export const GLP_POOL_COLORS = {
   LINK: "#3256D6",
 };
 
-export const TOKENS_MAP: { [chainId: number]: { [address: string]: Token } } = {};
+export const TOKENS_MAP: { [chainId: number]: { [address: string]: Token } } =
+  {};
 export const V1_TOKENS: { [chainId: number]: Token[] } = {};
 export const V2_TOKENS: { [chainId: number]: Token[] } = {};
-export const TOKENS_BY_SYMBOL_MAP: { [chainId: number]: { [symbol: string]: Token } } = {};
+export const TOKENS_BY_SYMBOL_MAP: {
+  [chainId: number]: { [symbol: string]: Token };
+} = {};
 export const WRAPPED_TOKENS_MAP: { [chainId: number]: Token } = {};
 export const NATIVE_TOKENS_MAP: { [chainId: number]: Token } = {};
 
@@ -505,7 +535,6 @@ for (let j = 0; j < CHAIN_IDS.length; j++) {
   NATIVE_TOKENS_MAP[chainId].wrappedAddress = wrappedTokenAddress;
 }
 
-
 export function getWrappedToken(chainId: number) {
   return WRAPPED_TOKENS_MAP[chainId];
 }
@@ -518,7 +547,10 @@ export function getTokens(chainId: number) {
   return TOKENS[chainId];
 }
 
-const getTokenAddress = (token: { address: string }, nativeTokenAddress: { address: string }) => {
+const getTokenAddress = (
+  token: { address: string },
+  nativeTokenAddress: { address: string }
+) => {
   if (token.address === ethers.constants.AddressZero) {
     return nativeTokenAddress.address as string;
   }
@@ -569,7 +601,10 @@ export function getNormalizedTokenSymbol(tokenSymbol: string) {
   return tokenSymbol;
 }
 
-export function getPositionQuery(tokens: { address: string, isStable: boolean, isWrapped: boolean }[], nativeTokenAddress: string) {
+export function getPositionQuery(
+  tokens: { address: string; isStable: boolean; isWrapped: boolean }[],
+  nativeTokenAddress: string
+) {
   const collateralTokens = [];
   const indexTokens = [];
   const isLong = [];
@@ -582,7 +617,9 @@ export function getPositionQuery(tokens: { address: string, isStable: boolean, i
     if (token.isWrapped) {
       continue;
     }
-    collateralTokens.push(getTokenAddress(token, { address: nativeTokenAddress }));
+    collateralTokens.push(
+      getTokenAddress(token, { address: nativeTokenAddress })
+    );
     indexTokens.push(getTokenAddress(token, { address: nativeTokenAddress }));
     isLong.push(true);
   }
@@ -625,7 +662,10 @@ export function expandDecimals(n: BigNumberish, decimals: number): BigNumber {
   return bigNumberify(n).mul(bigNumberify(10).pow(decimals));
 }
 
-export function getSpread(p: { minPrice: BigNumber; maxPrice: BigNumber }): BigNumber {
+export function getSpread(p: {
+  minPrice: BigNumber;
+  maxPrice: BigNumber;
+}): BigNumber {
   const diff = p.maxPrice.sub(p.minPrice);
   return diff.mul(PRECISION).div(p.maxPrice.add(p.minPrice).div(2));
 }
@@ -662,12 +702,23 @@ export function getPositionKey(
   isLong: boolean,
   nativeTokenAddress?: string
 ) {
-  const tokenAddress0 = collateralTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : collateralTokenAddress;
-  const tokenAddress1 = indexTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : indexTokenAddress;
+  const tokenAddress0 =
+    collateralTokenAddress === ethers.constants.AddressZero
+      ? nativeTokenAddress
+      : collateralTokenAddress;
+  const tokenAddress1 =
+    indexTokenAddress === ethers.constants.AddressZero
+      ? nativeTokenAddress
+      : indexTokenAddress;
   return account + ":" + tokenAddress0 + ":" + tokenAddress1 + ":" + isLong;
 }
 
-export function getPositionContractKey(account: string, collateralToken: string, indexToken: string, isLong: Boolean) {
+export function getPositionContractKey(
+  account: string,
+  collateralToken: string,
+  indexToken: string,
+  isLong: Boolean
+) {
   return ethers.utils.solidityKeccak256(
     ["address", "address", "address", "bool"],
     [account, collateralToken, indexToken, isLong]
@@ -682,7 +733,9 @@ export function getFundingFee(data: {
   let { entryFundingRate, cumulativeFundingRate, size } = data;
 
   if (entryFundingRate && cumulativeFundingRate) {
-    return size.mul(cumulativeFundingRate.sub(entryFundingRate)).div(FUNDING_RATE_PRECISION);
+    return size
+      .mul(cumulativeFundingRate.sub(entryFundingRate))
+      .div(FUNDING_RATE_PRECISION);
   }
 
   return;
@@ -700,7 +753,10 @@ export const limitDecimals = (amount: BigNumberish, maxDecimals?: number) => {
   if (dotIndex !== -1) {
     let decimals = amountStr.length - dotIndex - 1;
     if (decimals > maxDecimals) {
-      amountStr = amountStr.substr(0, amountStr.length - (decimals - maxDecimals));
+      amountStr = amountStr.substr(
+        0,
+        amountStr.length - (decimals - maxDecimals)
+      );
     }
   }
 
@@ -713,7 +769,10 @@ export const padDecimals = (amount: BigNumberish, minDecimals: number) => {
   if (dotIndex !== -1) {
     const decimals = amountStr.length - dotIndex - 1;
     if (decimals < minDecimals) {
-      amountStr = amountStr.padEnd(amountStr.length + (minDecimals - decimals), "0");
+      amountStr = amountStr.padEnd(
+        amountStr.length + (minDecimals - decimals),
+        "0"
+      );
     }
   } else {
     amountStr = amountStr + ".0000";
@@ -784,7 +843,14 @@ type GetLeverageParams = {
   includeDelta?: boolean;
 };
 
-export function getLeverage({ size, collateral, fundingFee, hasProfit, delta, includeDelta }: GetLeverageParams) {
+export function getLeverage({
+  size,
+  collateral,
+  fundingFee,
+  hasProfit,
+  delta,
+  includeDelta,
+}: GetLeverageParams) {
   if (!size || !collateral) {
     return;
   }
@@ -832,14 +898,18 @@ function applyPendingChanges(position: any, pendingPositions: any) {
     pendingPositions[key] &&
     pendingPositions[key].updatedAt &&
     pendingPositions[key].pendingChanges &&
-    pendingPositions[key].updatedAt + PENDING_POSITION_VALID_DURATION > Date.now()
+    pendingPositions[key].updatedAt + PENDING_POSITION_VALID_DURATION >
+      Date.now()
   ) {
     const { pendingChanges } = pendingPositions[key];
     if (pendingChanges.size && position.size.eq(pendingChanges.size)) {
       return;
     }
 
-    if (pendingChanges.expectingCollateralChange && !position.collateral.eq(pendingChanges.collateralSnapshot)) {
+    if (
+      pendingChanges.expectingCollateralChange &&
+      !position.collateral.eq(pendingChanges.collateralSnapshot)
+    ) {
       return;
     }
 
@@ -867,7 +937,6 @@ export function getServerBaseUrl(chainId: number) {
 export function getServerUrl(chainId: number, path: string) {
   return `${getServerBaseUrl(chainId)}${path}`;
 }
-
 
 type GetLiquidationParams = {
   size: BigNumber;
@@ -907,11 +976,24 @@ export function getLiquidationPriceFromDelta({
   return isLong ? averagePrice.sub(priceDelta) : averagePrice.add(priceDelta);
 }
 
-function calculateTotalFees(size: BigNumber, fundingFees: BigNumber): BigNumber {
-  return size.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR).add(fundingFees).add(LIQUIDATION_FEE);
+function calculateTotalFees(
+  size: BigNumber,
+  fundingFees: BigNumber
+): BigNumber {
+  return size
+    .mul(MARGIN_FEE_BASIS_POINTS)
+    .div(BASIS_POINTS_DIVISOR)
+    .add(fundingFees)
+    .add(LIQUIDATION_FEE);
 }
 
-export function getLiquidationPrice({ size, collateral, averagePrice, isLong, fundingFee }: GetLiquidationParams) {
+export function getLiquidationPrice({
+  size,
+  collateral,
+  averagePrice,
+  isLong,
+  fundingFee,
+}: GetLiquidationParams) {
   if (!size || !collateral || !averagePrice) {
     return;
   }
@@ -1036,7 +1118,9 @@ function setTokenUsingIndexPrices(
   }
 
   const spread = token.maxPrice!.sub(token.minPrice!);
-  const spreadBps = spread.mul(BASIS_POINTS_DIVISOR).div(token.maxPrice!.add(token.minPrice!).div(2));
+  const spreadBps = spread
+    .mul(BASIS_POINTS_DIVISOR)
+    .div(token.maxPrice!.add(token.minPrice!).div(2));
 
   if (spreadBps.gt(MAX_PRICE_DEVIATION_BASIS_POINTS - 50)) {
     // only set one of the values as there will be a spread between the index price and the Chainlink price
@@ -1049,8 +1133,12 @@ function setTokenUsingIndexPrices(
   }
 
   const halfSpreadBps = spreadBps.div(2).toNumber();
-  token.maxPrice = indexPriceBn.mul(BASIS_POINTS_DIVISOR + halfSpreadBps).div(BASIS_POINTS_DIVISOR);
-  token.minPrice = indexPriceBn.mul(BASIS_POINTS_DIVISOR - halfSpreadBps).div(BASIS_POINTS_DIVISOR);
+  token.maxPrice = indexPriceBn
+    .mul(BASIS_POINTS_DIVISOR + halfSpreadBps)
+    .div(BASIS_POINTS_DIVISOR);
+  token.minPrice = indexPriceBn
+    .mul(BASIS_POINTS_DIVISOR - halfSpreadBps)
+    .div(BASIS_POINTS_DIVISOR);
 }
 
 export function getInfoTokens(
@@ -1119,7 +1207,9 @@ export function getInfoTokens(
       if (token.maxGlobalShortSize.gt(0)) {
         token.hasMaxAvailableShort = true;
         if (token.maxGlobalShortSize.gt(token.globalShortSize)) {
-          token.maxAvailableShort = token.maxGlobalShortSize.sub(token.globalShortSize);
+          token.maxAvailableShort = token.maxGlobalShortSize.sub(
+            token.globalShortSize
+          );
         }
       }
 
@@ -1128,8 +1218,12 @@ export function getInfoTokens(
       }
 
       token.availableUsd = token.isStable
-        ? token.poolAmount.mul(token.minPrice).div(expandDecimals(1, token.decimals))
-        : token.availableAmount.mul(token.minPrice).div(expandDecimals(1, token.decimals));
+        ? token.poolAmount
+            .mul(token.minPrice)
+            .div(expandDecimals(1, token.decimals))
+        : token.availableAmount
+            .mul(token.minPrice)
+            .div(expandDecimals(1, token.decimals));
 
       token.maxAvailableLong = bigNumberify(0)!;
       token.hasMaxAvailableLong = false;
@@ -1137,27 +1231,35 @@ export function getInfoTokens(
         token.hasMaxAvailableLong = true;
 
         if (token.maxGlobalLongSize.gt(token.guaranteedUsd)) {
-          const remainingLongSize = token.maxGlobalLongSize.sub(token.guaranteedUsd);
-          token.maxAvailableLong = remainingLongSize.lt(token.availableUsd) ? remainingLongSize : token.availableUsd;
+          const remainingLongSize = token.maxGlobalLongSize.sub(
+            token.guaranteedUsd
+          );
+          token.maxAvailableLong = remainingLongSize.lt(token.availableUsd)
+            ? remainingLongSize
+            : token.availableUsd;
         }
       } else {
         token.maxAvailableLong = token.availableUsd;
       }
 
       token.maxLongCapacity =
-        token.maxGlobalLongSize.gt(0) && token.maxGlobalLongSize.lt(token.availableUsd.add(token.guaranteedUsd))
+        token.maxGlobalLongSize.gt(0) &&
+        token.maxGlobalLongSize.lt(token.availableUsd.add(token.guaranteedUsd))
           ? token.maxGlobalLongSize
           : token.availableUsd.add(token.guaranteedUsd);
 
       token.managedUsd = token.availableUsd.add(token.guaranteedUsd);
-      token.managedAmount = token.managedUsd.mul(expandDecimals(1, token.decimals)).div(token.minPrice);
+      token.managedAmount = token.managedUsd
+        .mul(expandDecimals(1, token.decimals))
+        .div(token.minPrice);
 
       setTokenUsingIndexPrices(token, indexPrices, nativeTokenAddress);
     }
 
     if (fundingRateInfo) {
       token.fundingRate = fundingRateInfo[i * fundingRatePropsLength];
-      token.cumulativeFundingRate = fundingRateInfo[i * fundingRatePropsLength + 1];
+      token.cumulativeFundingRate =
+        fundingRateInfo[i * fundingRatePropsLength + 1];
     }
 
     if (infoTokens[token.address]) {
@@ -1185,15 +1287,23 @@ export async function useInfoTokens(
   const nativeTokenAddress = getContract(chainId, "NATIVE_TOKEN");
 
   const whitelistedTokens = tokens;
-  const whitelistedTokenAddresses = whitelistedTokens.map((token) => token.address);
+  const whitelistedTokenAddresses = whitelistedTokens.map(
+    (token) => token.address
+  );
 
-  const vr = VaultReader__factory.connect(vaultReaderAddress!, library!)
+  const vr = VaultReader__factory.connect(vaultReaderAddress!, library!);
 
-  const vaultTokenInfo = await vr.getVaultTokenInfoV4(vaultAddress!, positionRouterAddress!, nativeTokenAddress!, expandDecimals(1, 18), whitelistedTokenAddresses)
+  const vaultTokenInfo = await vr.getVaultTokenInfoV4(
+    vaultAddress!,
+    positionRouterAddress!,
+    nativeTokenAddress!,
+    expandDecimals(1, 18),
+    whitelistedTokenAddresses
+  );
 
   const indexPricesUrl = getServerUrl(chainId, "/prices");
 
-  const { data: indexPrices } = await (await fetch(indexPricesUrl)).json()
+  const { data: indexPrices } = await (await fetch(indexPricesUrl)).json();
 
   return {
     infoTokens: getInfoTokens(
@@ -1230,12 +1340,32 @@ export function getPositions(
 
   const { collateralTokens, indexTokens, isLong } = positionQuery;
   for (let i = 0; i < collateralTokens.length; i++) {
-    const collateralToken = getTokenInfo(infoTokens, collateralTokens[i], true, getContract(chainId, "NATIVE_TOKEN"));
-    const indexToken = getTokenInfo(infoTokens, indexTokens[i], true, getContract(chainId, "NATIVE_TOKEN"));
-    const key = getPositionKey(account, collateralTokens[i], indexTokens[i], isLong[i]);
+    const collateralToken = getTokenInfo(
+      infoTokens,
+      collateralTokens[i],
+      true,
+      getContract(chainId, "NATIVE_TOKEN")
+    );
+    const indexToken = getTokenInfo(
+      infoTokens,
+      indexTokens[i],
+      true,
+      getContract(chainId, "NATIVE_TOKEN")
+    );
+    const key = getPositionKey(
+      account,
+      collateralTokens[i],
+      indexTokens[i],
+      isLong[i]
+    );
     let contractKey;
     if (account) {
-      contractKey = getPositionContractKey(account, collateralTokens[i], indexTokens[i], isLong[i]);
+      contractKey = getPositionContractKey(
+        account,
+        collateralTokens[i],
+        indexTokens[i],
+        isLong[i]
+      );
     }
 
     const position: any = {
@@ -1255,13 +1385,15 @@ export function getPositions(
       hasProfit: positionData[i * propsLength + 7].eq(1),
       delta: positionData[i * propsLength + 8],
       markPrice: isLong[i] ? indexToken.minPrice : indexToken.maxPrice,
+      originalCollateralToken: collateralTokens[i],
     };
 
     if (
       updatedPositions &&
       updatedPositions[key] &&
       updatedPositions[key].updatedAt &&
-      updatedPositions[key].updatedAt + UPDATED_POSITION_VALID_DURATION > Date.now()
+      updatedPositions[key].updatedAt + UPDATED_POSITION_VALID_DURATION >
+        Date.now()
     ) {
       const updatedPosition = updatedPositions[key];
       position.size = updatedPosition.size;
@@ -1274,21 +1406,29 @@ export function getPositions(
     position.fundingFee = fundingFee ? fundingFee : bigNumberify(0);
     position.collateralAfterFee = position.collateral.sub(position.fundingFee);
 
-    position.closingFee = position.size.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR);
-    position.positionFee = position.size.mul(MARGIN_FEE_BASIS_POINTS).mul(2).div(BASIS_POINTS_DIVISOR);
+    position.closingFee = position.size
+      .mul(MARGIN_FEE_BASIS_POINTS)
+      .div(BASIS_POINTS_DIVISOR);
+    position.positionFee = position.size
+      .mul(MARGIN_FEE_BASIS_POINTS)
+      .mul(2)
+      .div(BASIS_POINTS_DIVISOR);
     position.totalFees = position.positionFee.add(position.fundingFee);
 
     position.pendingDelta = position.delta;
 
     if (position.collateral.gt(0)) {
       position.hasLowCollateral =
-        position.collateralAfterFee.lt(0) || position.size.div(position.collateralAfterFee.abs()).gt(50);
+        position.collateralAfterFee.lt(0) ||
+        position.size.div(position.collateralAfterFee.abs()).gt(50);
 
       if (position.averagePrice && position.markPrice) {
         const priceDelta = position.averagePrice.gt(position.markPrice)
           ? position.averagePrice.sub(position.markPrice)
           : position.markPrice.sub(position.averagePrice);
-        position.pendingDelta = position.size.mul(priceDelta).div(position.averagePrice);
+        position.pendingDelta = position.size
+          .mul(priceDelta)
+          .div(position.averagePrice);
 
         position.delta = position.pendingDelta;
 
@@ -1299,7 +1439,9 @@ export function getPositions(
         }
       }
 
-      position.deltaPercentage = position.pendingDelta.mul(BASIS_POINTS_DIVISOR).div(position.collateral);
+      position.deltaPercentage = position.pendingDelta
+        .mul(BASIS_POINTS_DIVISOR)
+        .div(position.collateral);
 
       const { deltaStr, deltaPercentageStr } = getDeltaStr({
         delta: position.pendingDelta,
@@ -1334,7 +1476,10 @@ export function getPositions(
         .mul(BASIS_POINTS_DIVISOR)
         .div(position.collateral.add(position.closingFee));
 
-      const { deltaStr: deltaAfterFeesStr, deltaPercentageStr: deltaAfterFeesPercentageStr } = getDeltaStr({
+      const {
+        deltaStr: deltaAfterFeesStr,
+        deltaPercentageStr: deltaAfterFeesPercentageStr,
+      } = getDeltaStr({
         delta: position.pendingDeltaAfterFees,
         deltaPercentage: position.deltaPercentageAfterFees,
         hasProfit: hasProfitAfterFees,

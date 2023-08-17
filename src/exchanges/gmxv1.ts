@@ -42,7 +42,8 @@ import {
   MIN_ORDER_USD,
   bigNumberify,
   formatAmount,
-  USD_DECIMALS
+  USD_DECIMALS,
+  getServerUrl,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -89,13 +90,6 @@ export default class GmxV1Service implements IExchange {
   }
 
   getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata> {
-    throw new Error("Method not implemented.");
-  }
-
-  closePosition(
-    signer: Signer,
-    position: ExtendedPosition
-  ): Promise<UnsignedTransaction[]> {
     throw new Error("Method not implemented.");
   }
 
@@ -211,8 +205,26 @@ export default class GmxV1Service implements IExchange {
     return markets;
   }
 
-  getMarketPrice(market: ExtendedMarket): Promise<ethers.BigNumber> {
-    throw new Error("Method not implemented.");
+  async getMarketPrice(market: ExtendedMarket): Promise<BigNumber> {
+    const indexPricesUrl = getServerUrl(ARBITRUM, "/prices");
+    const response = await fetch(indexPricesUrl);
+    const jsonResponse = await response.json();
+    // console.dir(jsonResponse, { depth: 10 });
+
+    const indexPrice = jsonResponse[market.indexOrIdentifier];
+
+    return bigNumberify(indexPrice)!;
+  }
+
+  async getMarketPriceByIndexAddress(indexAddr: string): Promise<BigNumber> {
+    const indexPricesUrl = getServerUrl(ARBITRUM, "/prices");
+    const response = await fetch(indexPricesUrl);
+    const jsonResponse = await response.json();
+    // console.dir(jsonResponse, { depth: 10 });
+
+    const indexPrice = jsonResponse[indexAddr];
+
+    return bigNumberify(indexPrice)!;
   }
 
   async createOrder(
@@ -251,8 +263,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
+                  order.inputCollateralAmount
+                )
               : this.EXECUTION_FEE,
         }
       );
@@ -428,6 +440,7 @@ export default class GmxV1Service implements IExchange {
   ): Promise<ExtendedOrder> {
     throw new Error("Method not implemented.");
   }
+
   getAllOrders(user: string): Promise<ExtendedOrder[]> {
     throw new Error("Method not implemented.");
   }
@@ -458,11 +471,15 @@ export default class GmxV1Service implements IExchange {
 
     const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
 
-    const whitelistedTokens = V1_TOKENS[ARBITRUM]
-    const tokenAddresses = whitelistedTokens.map(x => x.address)
+    const whitelistedTokens = V1_TOKENS[ARBITRUM];
+    const tokenAddresses = whitelistedTokens.map((x) => x.address);
 
     const positionQuery = getPositionQuery(
-      whitelistedTokens as { address: string, isStable: boolean, isWrapped: boolean }[],
+      whitelistedTokens as {
+        address: string;
+        isStable: boolean;
+        isWrapped: boolean;
+      }[],
       nativeTokenAddress!
     );
 
@@ -474,9 +491,9 @@ export default class GmxV1Service implements IExchange {
       positionQuery.collateralTokens,
       positionQuery.indexTokens,
       positionQuery.isLong
-    )
+    );
 
-    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses)
+    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses);
 
     // console.log(tokenBalances)
 
@@ -484,7 +501,7 @@ export default class GmxV1Service implements IExchange {
       getContract(ARBITRUM, "Vault")!,
       nativeTokenAddress!,
       tokenAddresses
-    )
+    );
 
     // console.log(fundingRateInfo)
 
@@ -492,9 +509,15 @@ export default class GmxV1Service implements IExchange {
       positionDataPromise,
       tokenBalancesPromise,
       fundingRateInfoPromise,
-    ])
+    ]);
 
-    const { infoTokens } = await useInfoTokens(signer.provider!, ARBITRUM, false, tokenBalances, fundingRateInfo);
+    const { infoTokens } = await useInfoTokens(
+      signer.provider!,
+      ARBITRUM,
+      false,
+      tokenBalances,
+      fundingRateInfo
+    );
 
     // console.log(infoTokens)
 
@@ -515,34 +538,110 @@ export default class GmxV1Service implements IExchange {
     let extPositions: ExtendedPosition[] = [];
 
     for (const pos of positions) {
-      const maxAmount: BigNumber = pos.collateralAfterFee.sub(MIN_ORDER_USD).gt(0)
+      const maxAmount: BigNumber = pos.collateralAfterFee
+        .sub(MIN_ORDER_USD)
+        .gt(0)
         ? pos.collateralAfterFee.sub(MIN_ORDER_USD)
         : bigNumberify(0);
 
-      console.log({ maxAmount })
+      // console.log({ maxAmount });
 
       const extP: ExtendedPosition = {
-        indexOrIdentifier: pos.key,
+        indexOrIdentifier: pos.key, // account + collateral + index + isLong
         size: pos.size,
         collateral: pos.collateral,
         averageEntryPrice: pos.averagePrice,
         cumulativeFunding: pos.fundingFee,
         lastUpdatedAtTimestamp: pos.lastIncreasedTime,
-        unrealizedPnl: pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1),
-        liqudationPrice: getLiquidationPrice({ size: pos.size, collateral: pos.collateral, averagePrice: pos.averagePrice, isLong: pos.isLong, fundingFee: pos.fundingFee }),
+        unrealizedPnl: pos.hasProfitAfterFees
+          ? pos.pendingDeltaAfterFees
+          : pos.pendingDeltaAfterFees.mul(-1),
+        liqudationPrice: getLiquidationPrice({
+          size: pos.size,
+          collateral: pos.collateral,
+          averagePrice: pos.averagePrice,
+          isLong: pos.isLong,
+          fundingFee: pos.fundingFee,
+        }),
         fee: pos.totalFees,
         accessibleMargin: maxAmount,
         leverage: pos.leverage,
         exceedsPriceProtection: pos.hasLowCollateral,
         direction: pos.isLong ? "LONG" : "SHORT",
-      }
+        originalCollateralToken: pos.originalCollateralToken,
+      };
 
-      extPositions.push(extP)
+      extPositions.push(extP);
     }
 
     // console.log(extPositions)
 
     return extPositions;
+  }
+
+  async closePosition(
+    signer: Signer,
+    position: ExtendedPosition,
+    closeSize: BigNumber,
+    outputToken: Token | undefined
+  ): Promise<UnsignedTransaction[]> {
+    let collateralOutAddr = outputToken
+      ? outputToken.address
+      : position.originalCollateralToken;
+
+    let indexAddress = this.getIndexTokenAddressFromPositionKey(
+      position.indexOrIdentifier
+    );
+
+    let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
+
+    fillPrice =
+      position.direction == "LONG"
+        ? fillPrice.mul(99).div(100)
+        : fillPrice.mul(101).div(100);
+
+    let collateralDelta = position.collateral
+      .mul(closeSize)
+      .div(position.size)
+      .add(position.unrealizedPnl!.mul(closeSize).div(position.size));
+    // console.log("collateralDelta: ", collateralDelta.toString());
+
+    return this.createOrder(
+      signer,
+      {
+        mode: "ASYNC",
+        longCollateral: this.collateralTokens,
+        shortCollateral: this.collateralTokens,
+        indexOrIdentifier: indexAddress,
+        address: indexAddress,
+        supportedOrderTypes: {
+          LIMIT_DECREASE: true,
+          LIMIT_INCREASE: true,
+          MARKET_INCREASE: true,
+          MARKET_DECREASE: true,
+          DEPOSIT: false,
+          WITHDRAW: false,
+        },
+      },
+      {
+        type: "MARKET_DECREASE",
+        direction: position.direction!,
+        inputCollateral: {
+          name: "string",
+          symbol: "string",
+          decimals: "string",
+          address: collateralOutAddr!,
+        },
+        inputCollateralAmount: collateralDelta,
+        sizeDelta: closeSize,
+        isTriggerOrder: false,
+        referralCode: undefined,
+        trigger: {
+          triggerPrice: fillPrice,
+          triggerAboveThreshold: true,
+        },
+      }
+    );
   }
 
   getMarketPositions(user: string, market: string): Promise<Position[]> {
@@ -604,10 +703,19 @@ export default class GmxV1Service implements IExchange {
     }
     return token.address;
   }
+
   getTokenAddressString(tokenAddress: string): string {
     if (tokenAddress === ethers.constants.AddressZero) {
       return this.nativeTokenAddress;
     }
     return tokenAddress;
+  }
+
+  getIndexTokenAddressFromPositionKey(positionKey: string): string {
+    return positionKey.split(":")[2];
+  }
+
+  getCollateralTokenAddressFromPositionKey(positionKey: string): string {
+    return positionKey.split(":")[1];
   }
 }

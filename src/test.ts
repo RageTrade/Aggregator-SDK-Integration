@@ -34,7 +34,7 @@ const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
 
 let provider = new ethers.providers.AlchemyProvider(
-  10,
+  ARBITRUM,
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -626,7 +626,26 @@ async function gmxService() {
   // });
   //
 
-  console.log(await gs.getAllPositions(signer.address, signer))
+  let position = (await gs.getAllPositions(signer.address, signer))[0];
+
+  logObject("Ext Pos: ", position);
+
+  let closePositionTxs = await gs.closePosition(
+    signer,
+    position,
+    position.size,
+    // ethers.utils.parseUnits("5", 30),
+    {
+      name: "Bridged USDC (USDC.e)",
+      symbol: "USDC.e",
+      decimals: "6",
+      address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    }
+  );
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
+  // await fireTxs(closePositionTxs);
 
   // await gs.setup(signer);
   // console.log("Finished Setup".toUpperCase());
@@ -679,7 +698,7 @@ async function compositeService() {
 
   const cs = new CompositeService(ss, gs);
 
-  let openMarkets = (await cs.getOpenMarkets())["ETH/USD"]
+  let openMarkets = (await cs.getOpenMarkets())["ETH/USD"];
   console.dir(openMarkets, { depth: 10 });
 }
 

@@ -104,6 +104,7 @@ export type ExtendedPosition = Position & {
   direction?: OrderDirection;
   accessibleMargin?: BigNumber;
   marketAddress?: string;
+  originalCollateralToken?: string;
 };
 
 export type Trade = ExtendedPosition & {
@@ -183,7 +184,8 @@ export interface IExchange {
   closePosition(
     signer: Signer,
     position: ExtendedPosition,
-    closeSize: BigNumber
+    closeSize: BigNumber,
+    outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]>;
 
   updatePositionMargin(
