@@ -28,11 +28,17 @@ import {
   Router__factory,
 } from "../../gmxV1Typechain";
 import { getContract } from "../configs/gmx/contracts";
-import { ARBITRUM, getConstant } from "../configs/gmx/chains";
+import { ARBITRUM, ARBITRUM_TESTNET, getConstant } from "../configs/gmx/chains";
 import {
+  V1_TOKENS,
+  getPositionQuery,
   getTokenBySymbol,
   getTokens,
   getWhitelistedTokens,
+  getInfoTokens,
+  useInfoTokens,
+  getPositions,
+  getLiquidationPrice
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -210,7 +216,7 @@ export default class GmxV1Service implements IExchange {
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
-    let createOrderTx;
+    let createOrderTx: UnsignedTransaction;
 
     const tokenAddress0 = this.getTokenAddressString(
       order.inputCollateral.address
@@ -241,8 +247,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
+                order.inputCollateralAmount
+              )
               : this.EXECUTION_FEE,
         }
       );
@@ -446,76 +452,86 @@ export default class GmxV1Service implements IExchange {
       signer
     );
 
-    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
+    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
 
-    const indexTokens = getTokens(ARBITRUM)
-      .filter((token) => !token.isStable && !token.isWrapped)
-      .map((token) =>
-        token.address == ethers.constants.AddressZero
-          ? nativeTokenAddress
-          : token.address
-      );
-    // console.log(indexTokens);
-    const shortCollateralToken = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
-    // console.log(shortCollateralToken);
+    const whitelistedTokens = V1_TOKENS[ARBITRUM]
+    const tokenAddresses = whitelistedTokens.map(x => x.address)
 
-    let collateralTokens: string[] = [];
-    let indexes: string[] = [];
-    let isLongs: boolean[] = [];
+    const positionQuery = getPositionQuery(
+      whitelistedTokens as { address: string, isStable: boolean, isWrapped: boolean }[],
+      nativeTokenAddress!
+    );
 
-    // for longs collateralToken = indexToken
-    indexTokens.forEach((token) => {
-      collateralTokens.push(token);
-      indexes.push(token);
-      isLongs.push(true);
-    });
-    // for shorts collateralToken = USDC.e
-    indexTokens.forEach((token) => {
-      collateralTokens.push(shortCollateralToken);
-      indexes.push(token);
-      isLongs.push(false);
-    });
+    // console.log(positionQuery)
 
-    // console.log(collateralTokens);
-    // console.log(indexes);
-    // console.log(isLongs);
-
-    const positionData = await reader.getPositions(
+    const positionDataPromise = reader.getPositions(
       getContract(ARBITRUM, "Vault")!,
       user,
-      collateralTokens,
-      indexes,
-      isLongs
+      positionQuery.collateralTokens,
+      positionQuery.indexTokens,
+      positionQuery.isLong
+    )
+
+    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses)
+
+    // console.log(tokenBalances)
+
+    const fundingRateInfoPromise = reader.getFundingRates(
+      getContract(ARBITRUM, "Vault")!,
+      nativeTokenAddress!,
+      tokenAddresses
+    )
+
+    // console.log(fundingRateInfo)
+
+    const [positionData, tokenBalances, fundingRateInfo] = await Promise.all([
+      positionDataPromise,
+      tokenBalancesPromise,
+      fundingRateInfoPromise,
+    ])
+
+    const { infoTokens } = await useInfoTokens(signer.provider!, ARBITRUM, false, tokenBalances, fundingRateInfo);
+
+    // console.log(infoTokens)
+
+    const { positions, positionsMap } = getPositions(
+      ARBITRUM,
+      positionQuery,
+      positionData,
+      infoTokens,
+      false,
+      true,
+      ethers.utils.getAddress(user),
+      undefined,
+      undefined
     );
-    // console.log(positionData);
 
-    const propsLength = 9;
+    // console.log(positions)
 
-    let positions: ExtendedPosition[] = [];
+    let extPositions: ExtendedPosition[] = [];
 
-    for (let i = 0; i < indexes.length; i++) {
-      let size = positionData[i * propsLength];
-      if (size.eq(0)) continue;
+    for (const pos of positions) {
+      const extP: ExtendedPosition = {
+        indexOrIdentifier: pos.key,
+        size: pos.size,
+        collateral: pos.collateral,
+        averageEntryPrice: pos.averagePrice,
+        cumulativeFunding: pos.fundingFee,
+        lastUpdatedAtTimestamp: pos.lastIncreasedTime,
+        unrealizedPnl: pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1),
+        liqudationPrice: getLiquidationPrice({ size: pos.size, collateral: pos.collateral, averagePrice: pos.averagePrice, isLong: pos.isLong, fundingFee: pos.fundingFee }),
+        fee: pos.totalFees,
+        leverage: pos.leverage,
+        exceedsPriceProtection: pos.hasLowCollateral,
+        direction: pos.isLong ? "LONG" : "SHORT",
+      }
 
-      const key = this.getPositionKey(
-        user,
-        collateralTokens[i],
-        indexes[i],
-        isLongs[i],
-        nativeTokenAddress
-      );
-
-      let position: ExtendedPosition = {
-        indexOrIdentifier: key,
-        size: size,
-        collateral: positionData[i * propsLength + 1],
-        averageEntryPrice: positionData[i * propsLength + 2],
-        lastUpdatedAtTimestamp: positionData[i * propsLength + 6].toNumber(),
-      };
-      positions.push(position);
+      extPositions.push(extP)
     }
 
-    return positions;
+    // console.log(extPositions)
+
+    return extPositions;
   }
 
   getMarketPositions(user: string, market: string): Promise<Position[]> {

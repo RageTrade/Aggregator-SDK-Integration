@@ -1,4 +1,4 @@
-import { ethers } from "ethers";
+import { BigNumber, BigNumberish, ethers } from "ethers";
 import { getContract } from "./contracts";
 import {
   ARBITRUM,
@@ -6,72 +6,92 @@ import {
   AVALANCHE,
   AVALANCHE_FUJI,
 } from "./chains";
+import { parseEther } from "ethers/lib/utils";
+import { Provider } from "@ethersproject/providers";
+import { VaultReader__factory } from "../../../gmxV1Typechain";
 
 export type Token = {
   name: string;
   symbol: string;
+  baseSymbol?: string;
   decimals: number;
   address: string;
-  isShortable?: boolean;
+  priceDecimals?: number;
+  wrappedAddress?: string;
+  coingeckoUrl?: string;
+  explorerUrl?: string;
+  reservesUrl?: string;
   imageUrl?: string;
+
+  isUsdg?: boolean;
   isNative?: boolean;
   isWrapped?: boolean;
-  baseSymbol?: string;
+  isShortable?: boolean;
   isStable?: boolean;
+  isSynthetic?: boolean;
   isTempHidden?: boolean;
+  isChartDisabled?: boolean;
+  isV1Available?: boolean;
+  isPlatformToken?: boolean;
 };
 
+export type TokenInfo = Token & {
+  hasMaxAvailableLong?: boolean;
+  hasMaxAvailableShort?: boolean;
+
+  usdgAmount?: BigNumber;
+  maxUsdgAmount?: BigNumber;
+
+  poolAmount?: BigNumber;
+  bufferAmount?: BigNumber;
+  managedAmount?: BigNumber;
+  managedUsd?: BigNumber;
+  availableAmount?: BigNumber;
+  availableUsd?: BigNumber;
+  guaranteedUsd?: BigNumber;
+  redemptionAmount?: BigNumber;
+  reservedAmount?: BigNumber;
+
+  balance?: BigNumber;
+
+  weight?: BigNumber;
+
+  maxPrice?: BigNumber;
+  maxPrimaryPrice?: BigNumber;
+
+  minPrice?: BigNumber;
+  minPrimaryPrice?: BigNumber;
+
+  contractMaxPrice?: BigNumber;
+  contractMinPrice?: BigNumber;
+
+  spread?: BigNumber;
+
+  cumulativeFundingRate?: BigNumber;
+  fundingRate?: BigNumber;
+
+  globalShortSize?: BigNumber;
+
+  maxAvailableLong?: BigNumber;
+  maxAvailableShort?: BigNumber;
+
+  maxGlobalLongSize?: BigNumber;
+  maxGlobalShortSize?: BigNumber;
+
+  maxLongCapacity?: BigNumber;
+};
+
+export type InfoTokens = {
+  [key: string]: TokenInfo;
+};
+
+export type TokenPrices = {
+  minPrice: BigNumber;
+  maxPrice: BigNumber;
+};
+
+
 export const TOKENS: { [chainId: number]: Token[] } = {
-  [ARBITRUM_TESTNET]: [
-    {
-      name: "Bitcoin",
-      symbol: "BTC",
-      decimals: 8,
-      address: "0x27960f9A322BE96A1535E6c19B3958e80E6a2670",
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/7598/thumb/wrapped_bitcoin_wbtc.png?1548822744",
-    },
-    {
-      name: "Ethereum",
-      symbol: "ETH",
-      decimals: 18,
-      address: ethers.constants.AddressZero,
-      isNative: true,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
-    },
-    // https://github.com/OffchainLabs/arbitrum/blob/950c2f91b2e951cd3764394e0a73eac3797aecf3/packages/arb-ts/src/lib/networks.ts#L65
-    {
-      name: "Wrapped Ethereum",
-      symbol: "WETH",
-      decimals: 18,
-      address: "0xB47e6A5f8b33b3F17603C83a0535A9dcD7E32681",
-      isWrapped: true,
-      baseSymbol: "ETH",
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/2518/thumb/weth.png?1628852295",
-    },
-    {
-      name: "USD Coin",
-      symbol: "USDC",
-      decimals: 6,
-      address: "0xf0DCd4737A20ED33481A49De94C599944a3Ca737",
-      isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
-    },
-    {
-      name: "Tether",
-      symbol: "USDT",
-      decimals: 6,
-      address: "0x818ED84bA1927945b631016e0d402Db50cE8865f",
-      isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/325/small/Tether-logo.png",
-    },
-  ],
   [ARBITRUM]: [
     {
       name: "Ethereum",
@@ -80,8 +100,9 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: ethers.constants.AddressZero,
       isNative: true,
       isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+      imageUrl: "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+      isV1Available: true,
     },
     {
       name: "Wrapped Ethereum",
@@ -90,8 +111,9 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0x82aF49447D8a07e3bd95BD0d56f35241523fBab1",
       isWrapped: true,
       baseSymbol: "ETH",
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/2518/thumb/weth.png?1628852295",
+      imageUrl: "https://assets.coingecko.com/coins/images/2518/thumb/weth.png?1628852295",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+      isV1Available: true,
     },
     {
       name: "Bitcoin (WBTC)",
@@ -99,28 +121,55 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 8,
       address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
       isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/7598/thumb/wrapped_bitcoin_wbtc.png?1548822744",
+      imageUrl: "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
+      explorerUrl: "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+      isV1Available: true,
+    },
+    {
+      name: "Arbitrum",
+      symbol: "ARB",
+      decimals: 18,
+      priceDecimals: 3,
+      address: "0x912CE59144191C1204E64559FE8253a0e49E6548",
+      imageUrl: "https://assets.coingecko.com/coins/images/16547/small/photo_2023-03-29_21.47.00.jpeg?1680097630",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/arbitrum",
+      explorerUrl: "https://arbiscan.io/token/0x912ce59144191c1204e64559fe8253a0e49e6548",
+    },
+    {
+      name: "Wrapped SOL (Wormhole)",
+      symbol: "SOL",
+      decimals: 9,
+      address: "0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07",
+      imageUrl: "https://assets.coingecko.com/coins/images/4128/small/solana.png?1640133422",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/solana",
+      explorerUrl: "https://arbiscan.io/token/0x2bCc6D6CdBbDC0a4071e48bb3B969b06B3330c07",
     },
     {
       name: "Chainlink",
       symbol: "LINK",
       decimals: 18,
+      priceDecimals: 3,
       address: "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
       isStable: false,
       isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/877/thumb/chainlink-new-logo.png?1547034700",
+      imageUrl: "https://assets.coingecko.com/coins/images/877/thumb/chainlink-new-logo.png?1547034700",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/chainlink",
+      explorerUrl: "https://arbiscan.io/token/0xf97f4df75117a78c1a5a0dbb814af92458539fb4",
+      isV1Available: true,
     },
     {
       name: "Uniswap",
       symbol: "UNI",
       decimals: 18,
+      priceDecimals: 3,
       address: "0xFa7F8980b0f1E64A2062791cc3b0871572f1F7f0",
       isStable: false,
       isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/12504/thumb/uniswap-uni.png?1600306604",
+      imageUrl: "https://assets.coingecko.com/coins/images/12504/thumb/uniswap-uni.png?1600306604",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/uniswap",
+      explorerUrl: "https://arbiscan.io/token/0xfa7f8980b0f1e64a2062791cc3b0871572f1f7f0",
+      isV1Available: true,
     },
     {
       name: "Bridged USDC (USDC.e)",
@@ -128,8 +177,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
       isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      imageUrl: "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
+      explorerUrl: "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+      isV1Available: true,
     },
     {
       name: "USD Coin",
@@ -137,8 +188,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
       isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      isV1Available: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
+      explorerUrl: "https://arbiscan.io/address/0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
     },
     {
       name: "Tether",
@@ -146,8 +199,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 6,
       address: "0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
       isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/325/thumb/Tether-logo.png?1598003707",
+      imageUrl: "https://assets.coingecko.com/coins/images/325/thumb/Tether-logo.png?1598003707",
+      explorerUrl: "https://arbiscan.io/address/0xFd086bC7CD5C481DCC9C85ebE478A1C0b69FCbb9",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/tether",
+      isV1Available: true,
     },
     {
       name: "Dai",
@@ -155,8 +210,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 18,
       address: "0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
       isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/9956/thumb/4943.png?1636636734",
+      imageUrl: "https://assets.coingecko.com/coins/images/9956/thumb/4943.png?1636636734",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/dai",
+      explorerUrl: "https://arbiscan.io/token/0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1",
+      isV1Available: true,
     },
     {
       name: "Frax",
@@ -164,8 +221,10 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       decimals: 18,
       address: "0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
       isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/13422/small/frax_logo.png?1608476506",
+      imageUrl: "https://assets.coingecko.com/coins/images/13422/small/frax_logo.png?1608476506",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/frax",
+      explorerUrl: "https://arbiscan.io/token/0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F",
+      isV1Available: true,
     },
     {
       name: "Magic Internet Money",
@@ -174,222 +233,51 @@ export const TOKENS: { [chainId: number]: Token[] } = {
       address: "0xFEa7a6a0B346362BF88A9e4A88416B77a57D6c2A",
       isStable: true,
       isTempHidden: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/16786/small/mimlogopng.png",
-    },
-  ],
-  [AVALANCHE]: [
-    {
-      name: "Avalanche",
-      symbol: "AVAX",
-      decimals: 18,
-      address: ethers.constants.AddressZero,
-      isNative: true,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/12559/small/coin-round-red.png?1604021818",
+      imageUrl: "https://assets.coingecko.com/coins/images/16786/small/mimlogopng.png",
+      isV1Available: true,
     },
     {
-      name: "Wrapped AVAX",
-      symbol: "WAVAX",
-      decimals: 18,
-      address: "0xB31f66AA3C1e785363F0875A1B74E27b85FD66c7",
-      isWrapped: true,
-      baseSymbol: "AVAX",
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/12559/small/coin-round-red.png?1604021818",
-    },
-    {
-      name: "Ethereum (WETH.e)",
-      symbol: "ETH",
-      address: "0x49D5c2BdFfac6CE2BFdB6640F4F80f226bc10bAB",
-      decimals: 18,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
-    },
-    {
-      name: "Bitcoin (BTC.b)",
+      name: "Bitcoin",
       symbol: "BTC",
-      address: "0x152b9d0FdC40C096757F570A51E494bd4b943E50",
+      address: "0x47904963fc8b2340414262125aF798B9655E58Cd",
+      isSynthetic: true,
       decimals: 8,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
+      imageUrl: "https://assets.coingecko.com/coins/images/1/small/bitcoin.png?1547033579",
+      //TODO: remove explorerUrl in future
+      explorerUrl: "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/bitcoin",
     },
     {
-      name: "Bitcoin (WBTC.e)",
-      symbol: "WBTC",
-      address: "0x50b7545627a5162F82A992c33b87aDc75187B218",
+      name: "Dogecoin",
+      symbol: "DOGE",
       decimals: 8,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/7598/thumb/wrapped_bitcoin_wbtc.png?1548822744",
+      priceDecimals: 4,
+      address: "0xC4da4c24fd591125c3F47b340b6f4f76111883d8",
+      isSynthetic: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/5/small/dogecoin.png?1547792256",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/dogecoin",
     },
     {
-      name: "USD Coin",
-      symbol: "USDC",
-      address: "0xB97EF9Ef8734C71904D8002F8b6Bc66Dd9c48a6E",
+      name: "Litecoin",
+      symbol: "LTC",
+      decimals: 8,
+      address: "0xB46A094Bc4B0adBD801E14b9DB95e05E28962764",
+      isSynthetic: true,
+      imageUrl: "https://assets.coingecko.com/coins/images/2/small/litecoin.png?1547033580",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/litecoin",
+    },
+    {
+      name: "XRP",
+      symbol: "XRP",
       decimals: 6,
-      isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
-    },
-    {
-      name: "Bridged USDC (USDC.e)",
-      symbol: "USDC.e",
-      address: "0xA7D7079b0FEaD91F3e65f86E8915Cb59c1a4C664",
-      decimals: 6,
-      isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
-    },
-    {
-      name: "Magic Internet Money",
-      symbol: "MIM",
-      address: "0x130966628846BFd36ff31a822705796e8cb8C18D",
-      decimals: 18,
-      isStable: true,
-      isTempHidden: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/16786/small/mimlogopng.png",
-    },
+      priceDecimals: 4,
+      address: "0xc14e065b0067dE91534e032868f5Ac6ecf2c6868",
+      imageUrl: "https://assets.coingecko.com/coins/images/44/small/xrp-symbol-white-128.png?1605778731",
+      coingeckoUrl: "https://www.coingecko.com/en/coins/xrp",
+      isSynthetic: true,
+    }
   ],
-  [AVALANCHE_FUJI]: [
-    {
-      name: "Avalanche",
-      symbol: "AVAX",
-      decimals: 18,
-      address: ethers.constants.AddressZero,
-      isNative: true,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/12559/small/coin-round-red.png?1604021818",
-    },
-    {
-      name: "Wrapped AVAX",
-      symbol: "WAVAX",
-      decimals: 18,
-      address: "0x1D308089a2D1Ced3f1Ce36B1FcaF815b07217be3",
-      isWrapped: true,
-      baseSymbol: "AVAX",
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/12559/small/coin-round-red.png?1604021818",
-    },
-    {
-      name: "Ethereum (WETH.e)",
-      symbol: "ETH",
-      address: "0x8226EC2c1926c9162b6F815153d10018A7ccdf07",
-      decimals: 18,
-      isShortable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
-    },
-    {
-      name: "USD Coin",
-      symbol: "USDC",
-      address: "0xC492c8d82DC576Ad870707bb40EDb63E2026111E",
-      decimals: 6,
-      isStable: true,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
-    },
-  ],
-};
-
-export const ADDITIONAL_TOKENS: { [chainId: number]: Token[] } = {
-  [ARBITRUM]: [
-    {
-      name: "GMX",
-      symbol: "GMX",
-      address: getContract(ARBITRUM, "GMX")!,
-      decimals: 18,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468",
-    },
-    {
-      name: "Escrowed GMX",
-      symbol: "esGMX",
-      address: getContract(ARBITRUM, "ES_GMX")!,
-      decimals: 18,
-    },
-    {
-      name: "GMX LP",
-      symbol: "GLP",
-      address: getContract(ARBITRUM, "GLP")!,
-      decimals: 18,
-      imageUrl:
-        "https://github.com/gmx-io/gmx-assets/blob/main/GMX-Assets/PNG/GLP_LOGO%20ONLY.png?raw=true",
-    },
-  ],
-  [AVALANCHE]: [
-    {
-      name: "GMX",
-      symbol: "GMX",
-      address: getContract(AVALANCHE, "GMX")!,
-      decimals: 18,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468",
-    },
-    {
-      name: "Escrowed GMX",
-      symbol: "esGMX",
-      address: getContract(AVALANCHE, "ES_GMX")!,
-      decimals: 18,
-    },
-    {
-      name: "GMX LP",
-      symbol: "GLP",
-      address: getContract(ARBITRUM, "GLP")!,
-      decimals: 18,
-      imageUrl:
-        "https://github.com/gmx-io/gmx-assets/blob/main/GMX-Assets/PNG/GLP_LOGO%20ONLY.png?raw=true",
-    },
-  ],
-};
-
-export const PLATFORM_TOKENS: {
-  [chainId: number]: { [symbol: string]: Token };
-} = {
-  [ARBITRUM]: {
-    // arbitrum
-    GMX: {
-      name: "GMX",
-      symbol: "GMX",
-      decimals: 18,
-      address: getContract(ARBITRUM, "GMX")!,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468",
-    },
-    GLP: {
-      name: "GMX LP",
-      symbol: "GLP",
-      decimals: 18,
-      address: getContract(ARBITRUM, "StakedGlpTracker")!, // address of fsGLP token because user only holds fsGLP
-      imageUrl:
-        "https://github.com/gmx-io/gmx-assets/blob/main/GMX-Assets/PNG/GLP_LOGO%20ONLY.png?raw=true",
-    },
-  },
-  [AVALANCHE]: {
-    // avalanche
-    GMX: {
-      name: "GMX",
-      symbol: "GMX",
-      decimals: 18,
-      address: getContract(AVALANCHE, "GMX")!,
-      imageUrl:
-        "https://assets.coingecko.com/coins/images/18323/small/arbit.png?1631532468",
-    },
-    GLP: {
-      name: "GMX LP",
-      symbol: "GLP",
-      decimals: 18,
-      address: getContract(AVALANCHE, "StakedGlpTracker")!, // address of fsGLP token because user only holds fsGLP
-      imageUrl:
-        "https://github.com/gmx-io/gmx-assets/blob/main/GMX-Assets/PNG/GLP_LOGO%20ONLY.png?raw=true",
-    },
-  },
-};
+}
 
 export const ICONLINKS = {
   [ARBITRUM_TESTNET]: {
@@ -527,6 +415,35 @@ export const ICONLINKS = {
   },
 };
 
+const constants: { [chainId: number]: any } = {
+  [ARBITRUM]: {
+    nativeTokenSymbol: "ETH",
+    wrappedTokenSymbol: "WETH",
+    defaultCollateralSymbol: "USDC.e",
+    defaultFlagOrdersEnabled: false,
+    positionReaderPropsLength: 9,
+    v2: true,
+
+    SWAP_ORDER_EXECUTION_GAS_FEE: parseEther("0.0003"),
+    INCREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.0003"),
+    // contract requires that execution fee be strictly greater than instead of gte
+    DECREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.000300001"),
+  },
+  [AVALANCHE]: {
+    nativeTokenSymbol: "AVAX",
+    wrappedTokenSymbol: "WAVAX",
+    defaultCollateralSymbol: "USDC",
+    defaultFlagOrdersEnabled: true,
+    positionReaderPropsLength: 9,
+    v2: true,
+
+    SWAP_ORDER_EXECUTION_GAS_FEE: parseEther("0.01"),
+    INCREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.01"),
+    // contract requires that execution fee be strictly greater than instead of gte
+    DECREASE_ORDER_EXECUTION_GAS_FEE: parseEther("0.0100001"),
+  }
+};
+
 export const GLP_POOL_COLORS = {
   ETH: "#6062a6",
   BTC: "#F7931A",
@@ -542,41 +459,52 @@ export const GLP_POOL_COLORS = {
   LINK: "#3256D6",
 };
 
-export const TOKENS_MAP: { [chainId: number]: { [address: string]: Token } } =
-  {};
-export const TOKENS_BY_SYMBOL_MAP: {
-  [chainId: number]: { [symbol: string]: Token };
-} = {};
+export const TOKENS_MAP: { [chainId: number]: { [address: string]: Token } } = {};
+export const V1_TOKENS: { [chainId: number]: Token[] } = {};
+export const V2_TOKENS: { [chainId: number]: Token[] } = {};
+export const TOKENS_BY_SYMBOL_MAP: { [chainId: number]: { [symbol: string]: Token } } = {};
 export const WRAPPED_TOKENS_MAP: { [chainId: number]: Token } = {};
 export const NATIVE_TOKENS_MAP: { [chainId: number]: Token } = {};
 
-const CHAIN_IDS = [ARBITRUM, ARBITRUM_TESTNET, AVALANCHE, AVALANCHE_FUJI];
+const CHAIN_IDS = [ARBITRUM];
 
 for (let j = 0; j < CHAIN_IDS.length; j++) {
   const chainId = CHAIN_IDS[j];
+
   TOKENS_MAP[chainId] = {};
   TOKENS_BY_SYMBOL_MAP[chainId] = {};
+  V1_TOKENS[chainId] = [];
+  V2_TOKENS[chainId] = [];
+
   let tokens = TOKENS[chainId];
-  if (ADDITIONAL_TOKENS[chainId]) {
-    tokens = tokens.concat(ADDITIONAL_TOKENS[chainId]);
-  }
+  let wrappedTokenAddress: string | undefined;
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i];
     TOKENS_MAP[chainId][token.address] = token;
     TOKENS_BY_SYMBOL_MAP[chainId][token.symbol] = token;
-  }
-}
 
-for (const chainId of CHAIN_IDS) {
-  for (const token of TOKENS[chainId]) {
     if (token.isWrapped) {
       WRAPPED_TOKENS_MAP[chainId] = token;
-    } else if (token.isNative) {
+      wrappedTokenAddress = token.address;
+    }
+
+    if (token.isNative) {
       NATIVE_TOKENS_MAP[chainId] = token;
     }
+
+    if (token.isV1Available && !token.isTempHidden) {
+      V1_TOKENS[chainId].push(token);
+    }
+
+    if (!token.isPlatformToken && !token.isTempHidden) {
+      V2_TOKENS[chainId].push(token);
+    }
   }
+
+  NATIVE_TOKENS_MAP[chainId].wrappedAddress = wrappedTokenAddress;
 }
+
 
 export function getWrappedToken(chainId: number) {
   return WRAPPED_TOKENS_MAP[chainId];
@@ -589,6 +517,13 @@ export function getNativeToken(chainId: number) {
 export function getTokens(chainId: number) {
   return TOKENS[chainId];
 }
+
+const getTokenAddress = (token: { address: string }, nativeTokenAddress: { address: string }) => {
+  if (token.address === ethers.constants.AddressZero) {
+    return nativeTokenAddress.address as string;
+  }
+  return token.address as string;
+};
 
 export function isValidToken(chainId: number, address: string) {
   if (!TOKENS_MAP[chainId]) {
@@ -632,4 +567,812 @@ export function getNormalizedTokenSymbol(tokenSymbol: string) {
     return "BTC";
   }
   return tokenSymbol;
+}
+
+export function getPositionQuery(tokens: { address: string, isStable: boolean, isWrapped: boolean }[], nativeTokenAddress: string) {
+  const collateralTokens = [];
+  const indexTokens = [];
+  const isLong = [];
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = tokens[i];
+    if (token.isStable) {
+      continue;
+    }
+    if (token.isWrapped) {
+      continue;
+    }
+    collateralTokens.push(getTokenAddress(token, { address: nativeTokenAddress }));
+    indexTokens.push(getTokenAddress(token, { address: nativeTokenAddress }));
+    isLong.push(true);
+  }
+
+  for (let i = 0; i < tokens.length; i++) {
+    const stableToken = tokens[i];
+    if (!stableToken.isStable) {
+      continue;
+    }
+
+    for (let j = 0; j < tokens.length; j++) {
+      const token = tokens[j];
+      if (token.isStable) {
+        continue;
+      }
+      if (token.isWrapped) {
+        continue;
+      }
+      collateralTokens.push(stableToken.address);
+      indexTokens.push(getTokenAddress(token, { address: nativeTokenAddress }));
+      isLong.push(false);
+    }
+  }
+
+  return { collateralTokens, indexTokens, isLong };
+}
+
+export function bigNumberify(n?: BigNumberish) {
+  try {
+    return BigNumber.from(n);
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error("bigNumberify error", e);
+    return undefined;
+  }
+}
+
+export function expandDecimals(n: BigNumberish, decimals: number): BigNumber {
+  // @ts-ignore
+  return bigNumberify(n).mul(bigNumberify(10).pow(decimals));
+}
+
+export function getSpread(p: { minPrice: BigNumber; maxPrice: BigNumber }): BigNumber {
+  const diff = p.maxPrice.sub(p.minPrice);
+  return diff.mul(PRECISION).div(p.maxPrice.add(p.minPrice).div(2));
+}
+
+export const getConstant = (chainId: number, key: string) => {
+  if (!constants[chainId]) {
+    throw new Error(`Unsupported chainId ${chainId}`);
+  }
+
+  if (!(key in constants[chainId])) {
+    throw new Error(`Key ${key} does not exist for chainId ${chainId}`);
+  }
+
+  return constants[chainId][key];
+};
+
+export function getTokenInfo(
+  infoTokens: InfoTokens,
+  tokenAddress: string,
+  replaceNative?: boolean,
+  nativeTokenAddress?: string
+) {
+  if (replaceNative && tokenAddress === nativeTokenAddress) {
+    return infoTokens[ethers.constants.AddressZero];
+  }
+
+  return infoTokens[tokenAddress];
+}
+
+export function getPositionKey(
+  account: string,
+  collateralTokenAddress: string,
+  indexTokenAddress: string,
+  isLong: boolean,
+  nativeTokenAddress?: string
+) {
+  const tokenAddress0 = collateralTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : collateralTokenAddress;
+  const tokenAddress1 = indexTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : indexTokenAddress;
+  return account + ":" + tokenAddress0 + ":" + tokenAddress1 + ":" + isLong;
+}
+
+export function getPositionContractKey(account: string, collateralToken: string, indexToken: string, isLong: Boolean) {
+  return ethers.utils.solidityKeccak256(
+    ["address", "address", "address", "bool"],
+    [account, collateralToken, indexToken, isLong]
+  );
+}
+
+export function getFundingFee(data: {
+  size: BigNumber;
+  entryFundingRate?: BigNumber;
+  cumulativeFundingRate?: BigNumber;
+}) {
+  let { entryFundingRate, cumulativeFundingRate, size } = data;
+
+  if (entryFundingRate && cumulativeFundingRate) {
+    return size.mul(cumulativeFundingRate.sub(entryFundingRate)).div(FUNDING_RATE_PRECISION);
+  }
+
+  return;
+}
+
+export const limitDecimals = (amount: BigNumberish, maxDecimals?: number) => {
+  let amountStr = amount.toString();
+  if (maxDecimals === undefined) {
+    return amountStr;
+  }
+  if (maxDecimals === 0) {
+    return amountStr.split(".")[0];
+  }
+  const dotIndex = amountStr.indexOf(".");
+  if (dotIndex !== -1) {
+    let decimals = amountStr.length - dotIndex - 1;
+    if (decimals > maxDecimals) {
+      amountStr = amountStr.substr(0, amountStr.length - (decimals - maxDecimals));
+    }
+  }
+
+  return amountStr;
+};
+
+export const padDecimals = (amount: BigNumberish, minDecimals: number) => {
+  let amountStr = amount.toString();
+  const dotIndex = amountStr.indexOf(".");
+  if (dotIndex !== -1) {
+    const decimals = amountStr.length - dotIndex - 1;
+    if (decimals < minDecimals) {
+      amountStr = amountStr.padEnd(amountStr.length + (minDecimals - decimals), "0");
+    }
+  } else {
+    amountStr = amountStr + ".0000";
+  }
+  return amountStr;
+};
+
+export function numberWithCommas(x: BigNumberish) {
+  if (!x) {
+    return "...";
+  }
+
+  var parts = x.toString().split(".");
+  parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return parts.join(".");
+}
+
+export const formatAmount = (
+  amount: BigNumberish | undefined,
+  tokenDecimals: number,
+  displayDecimals?: number,
+  useCommas?: boolean,
+  defaultValue?: string
+) => {
+  if (!defaultValue) {
+    defaultValue = "...";
+  }
+  if (amount === undefined || amount.toString().length === 0) {
+    return defaultValue;
+  }
+  if (displayDecimals === undefined) {
+    displayDecimals = 4;
+  }
+  let amountStr = ethers.utils.formatUnits(amount, tokenDecimals);
+  amountStr = limitDecimals(amountStr, displayDecimals);
+  if (displayDecimals !== 0) {
+    amountStr = padDecimals(amountStr, displayDecimals);
+  }
+  if (useCommas) {
+    return numberWithCommas(amountStr);
+  }
+  return amountStr;
+};
+
+export function getDeltaStr({ delta, deltaPercentage, hasProfit }: any) {
+  let deltaStr;
+  let deltaPercentageStr;
+
+  if (delta.gt(0)) {
+    deltaStr = hasProfit ? "+" : "-";
+    deltaPercentageStr = hasProfit ? "+" : "-";
+  } else {
+    deltaStr = "";
+    deltaPercentageStr = "";
+  }
+  deltaStr += `$${formatAmount(delta, USD_DECIMALS, 2, true)}`;
+  deltaPercentageStr += `${formatAmount(deltaPercentage, 2, 2)}%`;
+
+  return { deltaStr, deltaPercentageStr };
+}
+
+type GetLeverageParams = {
+  size: BigNumber;
+  collateral: BigNumber;
+  fundingFee?: BigNumber;
+  hasProfit?: boolean;
+  delta?: BigNumber;
+  includeDelta?: boolean;
+};
+
+export function getLeverage({ size, collateral, fundingFee, hasProfit, delta, includeDelta }: GetLeverageParams) {
+  if (!size || !collateral) {
+    return;
+  }
+
+  let remainingCollateral = collateral;
+
+  if (fundingFee && fundingFee.gt(0)) {
+    remainingCollateral = remainingCollateral.sub(fundingFee);
+  }
+
+  if (delta && includeDelta) {
+    if (hasProfit) {
+      remainingCollateral = remainingCollateral.add(delta);
+    } else {
+      if (delta.gt(remainingCollateral)) {
+        return;
+      }
+
+      remainingCollateral = remainingCollateral.sub(delta);
+    }
+  }
+
+  if (remainingCollateral.eq(0)) {
+    return;
+  }
+  return size.mul(BASIS_POINTS_DIVISOR).div(remainingCollateral);
+}
+
+export function getLeverageStr(leverage: BigNumber) {
+  if (leverage && BigNumber.isBigNumber(leverage)) {
+    if (leverage.lt(0)) {
+      return "> 100x";
+    }
+    return `${formatAmount(leverage, 4, 2, true)}x`;
+  }
+}
+
+function applyPendingChanges(position: any, pendingPositions: any) {
+  if (!pendingPositions) {
+    return;
+  }
+  const { key } = position;
+
+  if (
+    pendingPositions[key] &&
+    pendingPositions[key].updatedAt &&
+    pendingPositions[key].pendingChanges &&
+    pendingPositions[key].updatedAt + PENDING_POSITION_VALID_DURATION > Date.now()
+  ) {
+    const { pendingChanges } = pendingPositions[key];
+    if (pendingChanges.size && position.size.eq(pendingChanges.size)) {
+      return;
+    }
+
+    if (pendingChanges.expectingCollateralChange && !position.collateral.eq(pendingChanges.collateralSnapshot)) {
+      return;
+    }
+
+    position.hasPendingChanges = true;
+    position.pendingChanges = pendingChanges;
+  }
+}
+
+export const GMX_STATS_API_URL = "https://stats.gmx.io/api";
+
+const BACKEND_URLS: any = {
+  default: "https://gmx-server-mainnet.uw.r.appspot.com",
+
+  [ARBITRUM]: "https://gmx-server-mainnet.uw.r.appspot.com",
+};
+
+export function getServerBaseUrl(chainId: number) {
+  if (!chainId) {
+    throw new Error("chainId is not provided");
+  }
+
+  return BACKEND_URLS[chainId] || BACKEND_URLS.default;
+}
+
+export function getServerUrl(chainId: number, path: string) {
+  return `${getServerBaseUrl(chainId)}${path}`;
+}
+
+
+type GetLiquidationParams = {
+  size: BigNumber;
+  collateral: BigNumber;
+  averagePrice: BigNumber;
+  isLong: boolean;
+  fundingFee?: BigNumber;
+};
+
+export function getLiquidationPriceFromDelta({
+  liquidationAmount,
+  size,
+  collateral,
+  averagePrice,
+  isLong,
+}: {
+  liquidationAmount: BigNumber;
+  size: BigNumber;
+  collateral: BigNumber;
+  averagePrice: BigNumber;
+  isLong: boolean;
+}) {
+  if (!size || size.eq(0)) {
+    return;
+  }
+
+  if (liquidationAmount.gt(collateral)) {
+    const liquidationDelta = liquidationAmount.sub(collateral);
+    const priceDelta = liquidationDelta.mul(averagePrice).div(size);
+
+    return isLong ? averagePrice.add(priceDelta) : averagePrice.sub(priceDelta);
+  }
+
+  const liquidationDelta = collateral.sub(liquidationAmount);
+  const priceDelta = liquidationDelta.mul(averagePrice).div(size);
+
+  return isLong ? averagePrice.sub(priceDelta) : averagePrice.add(priceDelta);
+}
+
+function calculateTotalFees(size: BigNumber, fundingFees: BigNumber): BigNumber {
+  return size.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR).add(fundingFees).add(LIQUIDATION_FEE);
+}
+
+export function getLiquidationPrice({ size, collateral, averagePrice, isLong, fundingFee }: GetLiquidationParams) {
+  if (!size || !collateral || !averagePrice) {
+    return;
+  }
+
+  const totalFees = calculateTotalFees(size, fundingFee || BigNumber.from("0"));
+  const liquidationPriceForFees = getLiquidationPriceFromDelta({
+    liquidationAmount: totalFees,
+    size,
+    collateral,
+    averagePrice,
+    isLong,
+  });
+
+  const liquidationPriceForMaxLeverage = getLiquidationPriceFromDelta({
+    liquidationAmount: size.mul(BASIS_POINTS_DIVISOR).div(MAX_LEVERAGE),
+    size: size,
+    collateral,
+    averagePrice,
+    isLong,
+  });
+
+  if (!liquidationPriceForFees) {
+    return liquidationPriceForMaxLeverage;
+  }
+
+  if (!liquidationPriceForMaxLeverage) {
+    return liquidationPriceForFees;
+  }
+
+  if (isLong) {
+    // return the higher price
+    return liquidationPriceForFees.gt(liquidationPriceForMaxLeverage)
+      ? liquidationPriceForFees
+      : liquidationPriceForMaxLeverage;
+  }
+
+  // return the lower price
+  return liquidationPriceForFees.lt(liquidationPriceForMaxLeverage)
+    ? liquidationPriceForFees
+    : liquidationPriceForMaxLeverage;
+}
+
+export const MIN_PROFIT_TIME = 0;
+
+export const USDG_ADDRESS = getContract(ARBITRUM, "USDG");
+
+export const MAX_PRICE_DEVIATION_BASIS_POINTS = 750;
+export const DEFAULT_GAS_LIMIT = 1 * 1000 * 1000;
+export const SECONDS_PER_YEAR = 31536000;
+export const USDG_DECIMALS = 18;
+export const USD_DECIMALS = 30;
+export const DEPOSIT_FEE = 30;
+export const DUST_BNB = "2000000000000000";
+export const DUST_USD = expandDecimals(1, USD_DECIMALS);
+export const PRECISION = expandDecimals(1, 30);
+export const GLP_DECIMALS = 18;
+export const GMX_DECIMALS = 18;
+export const DEFAULT_MAX_USDG_AMOUNT = expandDecimals(200 * 1000 * 1000, 18);
+
+export const TAX_BASIS_POINTS = 60;
+export const STABLE_TAX_BASIS_POINTS = 5;
+export const MINT_BURN_FEE_BASIS_POINTS = 25;
+export const SWAP_FEE_BASIS_POINTS = 25;
+export const STABLE_SWAP_FEE_BASIS_POINTS = 1;
+export const MARGIN_FEE_BASIS_POINTS = 10;
+
+export const LIQUIDATION_FEE = expandDecimals(5, USD_DECIMALS);
+
+export const TRADES_PAGE_SIZE = 100;
+
+export const GLP_COOLDOWN_DURATION = 0;
+export const THRESHOLD_REDEMPTION_VALUE = expandDecimals(993, 27); // 0.993
+export const FUNDING_RATE_PRECISION = 1000000;
+
+export const SWAP = "Swap";
+export const INCREASE = "Increase";
+export const DECREASE = "Decrease";
+export const LONG = "Long";
+export const SHORT = "Short";
+
+export const MARKET = "Market";
+export const LIMIT = "Limit";
+export const STOP = "Stop";
+export const LEVERAGE_ORDER_OPTIONS = [MARKET, LIMIT, STOP];
+export const SWAP_ORDER_OPTIONS = [MARKET, LIMIT];
+export const SWAP_OPTIONS = [LONG, SHORT, SWAP];
+export const REFERRAL_CODE_QUERY_PARAM = "ref";
+export const MAX_REFERRAL_CODE_LENGTH = 20;
+
+export const MIN_PROFIT_BIPS = 0;
+
+export const BASIS_POINTS_DIVISOR = 10000;
+
+const PENDING_POSITION_VALID_DURATION = 600 * 1000;
+const UPDATED_POSITION_VALID_DURATION = 60 * 1000;
+
+export const MAX_LEVERAGE = 100 * BASIS_POINTS_DIVISOR;
+
+function setTokenUsingIndexPrices(
+  token: TokenInfo,
+  indexPrices: { [address: string]: BigNumber },
+  nativeTokenAddress: string
+) {
+  if (!indexPrices) {
+    return;
+  }
+
+  const tokenAddress = token.isNative ? nativeTokenAddress : token.address;
+
+  const indexPrice = indexPrices[tokenAddress];
+
+  if (!indexPrice) {
+    return;
+  }
+
+  const indexPriceBn = bigNumberify(indexPrice)!;
+
+  if (indexPriceBn.eq(0)) {
+    return;
+  }
+
+  const spread = token.maxPrice!.sub(token.minPrice!);
+  const spreadBps = spread.mul(BASIS_POINTS_DIVISOR).div(token.maxPrice!.add(token.minPrice!).div(2));
+
+  if (spreadBps.gt(MAX_PRICE_DEVIATION_BASIS_POINTS - 50)) {
+    // only set one of the values as there will be a spread between the index price and the Chainlink price
+    if (indexPriceBn.gt(token.minPrimaryPrice!)) {
+      token.maxPrice = indexPriceBn;
+    } else {
+      token.minPrice = indexPriceBn;
+    }
+    return;
+  }
+
+  const halfSpreadBps = spreadBps.div(2).toNumber();
+  token.maxPrice = indexPriceBn.mul(BASIS_POINTS_DIVISOR + halfSpreadBps).div(BASIS_POINTS_DIVISOR);
+  token.minPrice = indexPriceBn.mul(BASIS_POINTS_DIVISOR - halfSpreadBps).div(BASIS_POINTS_DIVISOR);
+}
+
+export function getInfoTokens(
+  tokens: Token[],
+  tokenBalances: BigNumber[] | undefined,
+  whitelistedTokens: Token[],
+  vaultTokenInfo: BigNumber[] | undefined,
+  fundingRateInfo: BigNumber[] | undefined,
+  vaultPropsLength: number | undefined,
+  indexPrices: { [address: string]: BigNumber },
+  nativeTokenAddress: string
+): InfoTokens {
+  if (!vaultPropsLength) {
+    vaultPropsLength = 15;
+  }
+  const fundingRatePropsLength = 2;
+  const infoTokens: InfoTokens = {};
+
+  for (let i = 0; i < tokens.length; i++) {
+    const token = JSON.parse(JSON.stringify(tokens[i])) as TokenInfo;
+
+    if (tokenBalances) {
+      token.balance = tokenBalances[i];
+    }
+
+    if (token.address === USDG_ADDRESS) {
+      token.minPrice = expandDecimals(1, USD_DECIMALS);
+      token.maxPrice = expandDecimals(1, USD_DECIMALS);
+    }
+
+    infoTokens[token.address] = token;
+  }
+
+  for (let i = 0; i < whitelistedTokens.length; i++) {
+    const token = JSON.parse(JSON.stringify(whitelistedTokens[i])) as TokenInfo;
+
+    if (vaultTokenInfo) {
+      token.poolAmount = vaultTokenInfo[i * vaultPropsLength];
+      token.reservedAmount = vaultTokenInfo[i * vaultPropsLength + 1];
+      token.availableAmount = token.poolAmount.sub(token.reservedAmount);
+      token.usdgAmount = vaultTokenInfo[i * vaultPropsLength + 2];
+      token.redemptionAmount = vaultTokenInfo[i * vaultPropsLength + 3];
+      token.weight = vaultTokenInfo[i * vaultPropsLength + 4];
+      token.bufferAmount = vaultTokenInfo[i * vaultPropsLength + 5];
+      token.maxUsdgAmount = vaultTokenInfo[i * vaultPropsLength + 6];
+      token.globalShortSize = vaultTokenInfo[i * vaultPropsLength + 7];
+      token.maxGlobalShortSize = vaultTokenInfo[i * vaultPropsLength + 8];
+      token.maxGlobalLongSize = vaultTokenInfo[i * vaultPropsLength + 9];
+      token.minPrice = vaultTokenInfo[i * vaultPropsLength + 10];
+      token.maxPrice = vaultTokenInfo[i * vaultPropsLength + 11];
+      token.spread = getSpread({
+        minPrice: token.minPrice,
+        maxPrice: token.maxPrice,
+      });
+      token.guaranteedUsd = vaultTokenInfo[i * vaultPropsLength + 12];
+      token.maxPrimaryPrice = vaultTokenInfo[i * vaultPropsLength + 13];
+      token.minPrimaryPrice = vaultTokenInfo[i * vaultPropsLength + 14];
+
+      // save minPrice and maxPrice as setTokenUsingIndexPrices may override it
+      token.contractMinPrice = token.minPrice;
+      token.contractMaxPrice = token.maxPrice;
+
+      token.maxAvailableShort = bigNumberify(0)!;
+
+      token.hasMaxAvailableShort = false;
+      if (token.maxGlobalShortSize.gt(0)) {
+        token.hasMaxAvailableShort = true;
+        if (token.maxGlobalShortSize.gt(token.globalShortSize)) {
+          token.maxAvailableShort = token.maxGlobalShortSize.sub(token.globalShortSize);
+        }
+      }
+
+      if (token.maxUsdgAmount.eq(0)) {
+        token.maxUsdgAmount = DEFAULT_MAX_USDG_AMOUNT;
+      }
+
+      token.availableUsd = token.isStable
+        ? token.poolAmount.mul(token.minPrice).div(expandDecimals(1, token.decimals))
+        : token.availableAmount.mul(token.minPrice).div(expandDecimals(1, token.decimals));
+
+      token.maxAvailableLong = bigNumberify(0)!;
+      token.hasMaxAvailableLong = false;
+      if (token.maxGlobalLongSize.gt(0)) {
+        token.hasMaxAvailableLong = true;
+
+        if (token.maxGlobalLongSize.gt(token.guaranteedUsd)) {
+          const remainingLongSize = token.maxGlobalLongSize.sub(token.guaranteedUsd);
+          token.maxAvailableLong = remainingLongSize.lt(token.availableUsd) ? remainingLongSize : token.availableUsd;
+        }
+      } else {
+        token.maxAvailableLong = token.availableUsd;
+      }
+
+      token.maxLongCapacity =
+        token.maxGlobalLongSize.gt(0) && token.maxGlobalLongSize.lt(token.availableUsd.add(token.guaranteedUsd))
+          ? token.maxGlobalLongSize
+          : token.availableUsd.add(token.guaranteedUsd);
+
+      token.managedUsd = token.availableUsd.add(token.guaranteedUsd);
+      token.managedAmount = token.managedUsd.mul(expandDecimals(1, token.decimals)).div(token.minPrice);
+
+      setTokenUsingIndexPrices(token, indexPrices, nativeTokenAddress);
+    }
+
+    if (fundingRateInfo) {
+      token.fundingRate = fundingRateInfo[i * fundingRatePropsLength];
+      token.cumulativeFundingRate = fundingRateInfo[i * fundingRatePropsLength + 1];
+    }
+
+    if (infoTokens[token.address]) {
+      token.balance = infoTokens[token.address].balance;
+    }
+
+    infoTokens[token.address] = token;
+  }
+
+  return infoTokens;
+}
+
+export async function useInfoTokens(
+  library: Provider | undefined,
+  chainId: number,
+  active: boolean,
+  tokenBalances?: BigNumber[],
+  fundingRateInfo?: BigNumber[],
+  vaultPropsLength?: number
+) {
+  const tokens = V1_TOKENS[chainId];
+  const vaultReaderAddress = getContract(chainId, "VaultReader");
+  const vaultAddress = getContract(chainId, "Vault");
+  const positionRouterAddress = getContract(chainId, "PositionRouter");
+  const nativeTokenAddress = getContract(chainId, "NATIVE_TOKEN");
+
+  const whitelistedTokens = tokens;
+  const whitelistedTokenAddresses = whitelistedTokens.map((token) => token.address);
+
+  const vr = VaultReader__factory.connect(vaultReaderAddress!, library!)
+
+  const vaultTokenInfo = await vr.getVaultTokenInfoV4(vaultAddress!, positionRouterAddress!, nativeTokenAddress!, expandDecimals(1, 18), whitelistedTokenAddresses)
+
+  const indexPricesUrl = getServerUrl(chainId, "/prices");
+
+  const { data: indexPrices } = await (await fetch(indexPricesUrl)).json()
+
+  return {
+    infoTokens: getInfoTokens(
+      tokens,
+      tokenBalances,
+      whitelistedTokens,
+      vaultTokenInfo,
+      fundingRateInfo,
+      vaultPropsLength,
+      indexPrices,
+      nativeTokenAddress!
+    ),
+  };
+}
+
+export function getPositions(
+  chainId: number,
+  positionQuery: ReturnType<typeof getPositionQuery>,
+  positionData: BigNumber[],
+  infoTokens: InfoTokens,
+  includeDelta: boolean | undefined,
+  showPnlAfterFees: boolean,
+  account: string,
+  pendingPositions: any,
+  updatedPositions: any
+) {
+  const propsLength = getConstant(chainId, "positionReaderPropsLength");
+  const positions: any = [];
+  const positionsMap: any = {};
+
+  if (!positionData) {
+    return { positions, positionsMap };
+  }
+
+  const { collateralTokens, indexTokens, isLong } = positionQuery;
+  for (let i = 0; i < collateralTokens.length; i++) {
+    const collateralToken = getTokenInfo(infoTokens, collateralTokens[i], true, getContract(chainId, "NATIVE_TOKEN"));
+    const indexToken = getTokenInfo(infoTokens, indexTokens[i], true, getContract(chainId, "NATIVE_TOKEN"));
+    const key = getPositionKey(account, collateralTokens[i], indexTokens[i], isLong[i]);
+    let contractKey;
+    if (account) {
+      contractKey = getPositionContractKey(account, collateralTokens[i], indexTokens[i], isLong[i]);
+    }
+
+    const position: any = {
+      key,
+      contractKey,
+      collateralToken,
+      indexToken,
+      isLong: isLong[i],
+      size: positionData[i * propsLength],
+      collateral: positionData[i * propsLength + 1],
+      averagePrice: positionData[i * propsLength + 2],
+      entryFundingRate: positionData[i * propsLength + 3],
+      cumulativeFundingRate: collateralToken.cumulativeFundingRate,
+      hasRealisedProfit: positionData[i * propsLength + 4].eq(1),
+      realisedPnl: positionData[i * propsLength + 5],
+      lastIncreasedTime: positionData[i * propsLength + 6].toNumber(),
+      hasProfit: positionData[i * propsLength + 7].eq(1),
+      delta: positionData[i * propsLength + 8],
+      markPrice: isLong[i] ? indexToken.minPrice : indexToken.maxPrice,
+    };
+
+    if (
+      updatedPositions &&
+      updatedPositions[key] &&
+      updatedPositions[key].updatedAt &&
+      updatedPositions[key].updatedAt + UPDATED_POSITION_VALID_DURATION > Date.now()
+    ) {
+      const updatedPosition = updatedPositions[key];
+      position.size = updatedPosition.size;
+      position.collateral = updatedPosition.collateral;
+      position.averagePrice = updatedPosition.averagePrice;
+      position.entryFundingRate = updatedPosition.entryFundingRate;
+    }
+
+    let fundingFee = getFundingFee(position);
+    position.fundingFee = fundingFee ? fundingFee : bigNumberify(0);
+    position.collateralAfterFee = position.collateral.sub(position.fundingFee);
+
+    position.closingFee = position.size.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR);
+    position.positionFee = position.size.mul(MARGIN_FEE_BASIS_POINTS).mul(2).div(BASIS_POINTS_DIVISOR);
+    position.totalFees = position.positionFee.add(position.fundingFee);
+
+    position.pendingDelta = position.delta;
+
+    if (position.collateral.gt(0)) {
+      position.hasLowCollateral =
+        position.collateralAfterFee.lt(0) || position.size.div(position.collateralAfterFee.abs()).gt(50);
+
+      if (position.averagePrice && position.markPrice) {
+        const priceDelta = position.averagePrice.gt(position.markPrice)
+          ? position.averagePrice.sub(position.markPrice)
+          : position.markPrice.sub(position.averagePrice);
+        position.pendingDelta = position.size.mul(priceDelta).div(position.averagePrice);
+
+        position.delta = position.pendingDelta;
+
+        if (position.isLong) {
+          position.hasProfit = position.markPrice.gte(position.averagePrice);
+        } else {
+          position.hasProfit = position.markPrice.lte(position.averagePrice);
+        }
+      }
+
+      position.deltaPercentage = position.pendingDelta.mul(BASIS_POINTS_DIVISOR).div(position.collateral);
+
+      const { deltaStr, deltaPercentageStr } = getDeltaStr({
+        delta: position.pendingDelta,
+        deltaPercentage: position.deltaPercentage,
+        hasProfit: position.hasProfit,
+      });
+
+      position.deltaStr = deltaStr;
+      position.deltaPercentageStr = deltaPercentageStr;
+      position.deltaBeforeFeesStr = deltaStr;
+
+      let hasProfitAfterFees;
+      let pendingDeltaAfterFees;
+
+      if (position.hasProfit) {
+        if (position.pendingDelta.gt(position.totalFees)) {
+          hasProfitAfterFees = true;
+          pendingDeltaAfterFees = position.pendingDelta.sub(position.totalFees);
+        } else {
+          hasProfitAfterFees = false;
+          pendingDeltaAfterFees = position.totalFees.sub(position.pendingDelta);
+        }
+      } else {
+        hasProfitAfterFees = false;
+        pendingDeltaAfterFees = position.pendingDelta.add(position.totalFees);
+      }
+
+      position.hasProfitAfterFees = hasProfitAfterFees;
+      position.pendingDeltaAfterFees = pendingDeltaAfterFees;
+      // while calculating delta percentage after fees, we need to add opening fee (which is equal to closing fee) to collateral
+      position.deltaPercentageAfterFees = position.pendingDeltaAfterFees
+        .mul(BASIS_POINTS_DIVISOR)
+        .div(position.collateral.add(position.closingFee));
+
+      const { deltaStr: deltaAfterFeesStr, deltaPercentageStr: deltaAfterFeesPercentageStr } = getDeltaStr({
+        delta: position.pendingDeltaAfterFees,
+        deltaPercentage: position.deltaPercentageAfterFees,
+        hasProfit: hasProfitAfterFees,
+      });
+
+      position.deltaAfterFeesStr = deltaAfterFeesStr;
+      position.deltaAfterFeesPercentageStr = deltaAfterFeesPercentageStr;
+
+      if (showPnlAfterFees) {
+        position.deltaStr = position.deltaAfterFeesStr;
+        position.deltaPercentageStr = position.deltaAfterFeesPercentageStr;
+      }
+
+      let netValue = position.hasProfit
+        ? position.collateral.add(position.pendingDelta)
+        : position.collateral.sub(position.pendingDelta);
+
+      netValue = netValue.sub(position.fundingFee).sub(position.closingFee);
+      position.netValue = netValue;
+    }
+
+    position.leverage = getLeverage({
+      size: position.size,
+      collateral: position.collateral,
+      fundingFee: position.fundingFee,
+      hasProfit: position.hasProfit,
+      delta: position.delta,
+      includeDelta,
+    });
+
+    position.leverageStr = getLeverageStr(position.leverage);
+
+    positionsMap[key] = position;
+
+    applyPendingChanges(position, pendingPositions);
+
+    if (position.size.gt(0) || position.hasPendingChanges) {
+      positions.push(position);
+    }
+  }
+
+  return { positions, positionsMap };
 }

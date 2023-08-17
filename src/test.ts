@@ -609,12 +609,24 @@ async function synService() {
 }
 
 async function gmxService() {
-  const gs = new GmxV1Service(await signer.getAddress());
+  const provider = new ethers.providers.AlchemyProvider(
+    42161,
+    ALCHEMY_KEY_OP_MAIN!.toString()
+  );
+
+  const signer = new ethers.Wallet(wpk, provider);
+  const gs = new GmxV1Service(signer.address);
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
-  supportedMarkets.forEach((m) => {
-    logObject("Supported Market: ", m);
-  });
+
+  // supportedMarkets.forEach((m) => {
+  //   console.log('long:', m.longCollateral)
+  //   console.log('short:', m.shortCollateral)
+  //   console.log('-----')
+  // });
+  //
+
+  console.log(await gs.getAllPositions(signer.address, signer))
 
   // await gs.setup(signer);
   // console.log("Finished Setup".toUpperCase());
@@ -671,8 +683,8 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-compositeService()
-  .then()
+gmxService()
+  .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
     process.exitCode = 1;
