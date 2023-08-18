@@ -111,6 +111,8 @@ export type ExtendedPosition = Position & {
   accessibleMargin?: BigNumber;
   marketAddress?: string;
   originalCollateralToken?: string;
+  indexToken?: Token;
+  collateralToken?: Token;
 };
 
 export type Trade = ExtendedPosition & {

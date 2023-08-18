@@ -48,6 +48,7 @@ import {
   USD_DECIMALS,
   getServerUrl,
   getServerBaseUrl,
+  getToken,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -595,6 +596,15 @@ export default class GmxV1Service implements IExchange {
         exceedsPriceProtection: pos.hasLowCollateral,
         direction: pos.isLong ? "LONG" : "SHORT",
         originalCollateralToken: pos.originalCollateralToken,
+        indexToken: this.convertToToken(
+          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(pos.key))
+        ),
+        collateralToken: this.convertToToken(
+          getToken(
+            ARBITRUM,
+            this.getCollateralTokenAddressFromPositionKey(pos.key)
+          )
+        ),
       };
 
       extPositions.push(extP);
@@ -932,5 +942,20 @@ export default class GmxV1Service implements IExchange {
 
   getCollateralTokenAddressFromPositionKey(positionKey: string): string {
     return positionKey.split(":")[1];
+  }
+
+  convertToToken(inToken: {
+    address: string;
+    decimals: number;
+    symbol: string;
+    name: string;
+  }): Token {
+    let token: Token = {
+      address: inToken.address,
+      decimals: inToken.decimals.toString(),
+      symbol: inToken.symbol,
+      name: inToken.name,
+    };
+    return token;
   }
 }
