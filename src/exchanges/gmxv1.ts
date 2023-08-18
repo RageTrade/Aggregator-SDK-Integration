@@ -15,6 +15,7 @@ import {
   Market,
   MarketIdentifier,
   Network,
+  NumberDecimal,
   OpenMarkets,
   Order,
   Position,
@@ -46,7 +47,7 @@ import {
   formatAmount,
   USD_DECIMALS,
   getServerUrl,
-  getServerBaseUrl
+  getServerBaseUrl,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -207,7 +208,7 @@ export default class GmxV1Service implements IExchange {
     return markets;
   }
 
-  async getMarketPrice(market: ExtendedMarket): Promise<BigNumber> {
+  async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
     const indexPricesUrl = getServerUrl(ARBITRUM, "/prices");
     const response = await fetch(indexPricesUrl);
     const jsonResponse = await response.json();
@@ -215,7 +216,10 @@ export default class GmxV1Service implements IExchange {
 
     const indexPrice = jsonResponse[market.indexOrIdentifier];
 
-    return bigNumberify(indexPrice)!;
+    return {
+      value: bigNumberify(indexPrice)!.toString(),
+      decimals: USD_DECIMALS,
+    };
   }
 
   async getMarketPriceByIndexAddress(indexAddr: string): Promise<BigNumber> {
@@ -803,21 +807,26 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  async getTradesHistory(user: string, _: OpenMarkets | undefined): Promise<TradeHistory[]> {
-    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`
-    const data = await (await fetch(url)).json()
+  async getTradesHistory(
+    user: string,
+    _: OpenMarkets | undefined
+  ): Promise<TradeHistory[]> {
+    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`;
+    const data = await (await fetch(url)).json();
 
-    const trades: TradeHistory[] = []
+    const trades: TradeHistory[] = [];
 
     for (const each of data) {
-      const params = JSON.parse(each.data.params)
+      const params = JSON.parse(each.data.params);
 
-      const isLong = params.order?.isLong || params.isLong
+      const isLong = params.order?.isLong || params.isLong;
 
       let keeperFeesPaid = undefined;
 
       if (params.feeBasisPoints) {
-        keeperFeesPaid = BigNumber.from(params.sizeDelta).mul(params.feeBasisPoints).div(10_000)
+        keeperFeesPaid = BigNumber.from(params.sizeDelta)
+          .mul(params.feeBasisPoints)
+          .div(10_000);
       }
 
       const t: TradeHistory = {
@@ -826,15 +835,22 @@ export default class GmxV1Service implements IExchange {
         operation: each.data.action,
         sizeDelta: params.order?.sizeDelta || params.sizeDelta,
         direction: isLong ? (isLong === true ? "LONG" : "SHORT") : isLong,
-        price: params.order?.acceptablePrice || params.order?.triggerPrice || params.acceptablePrice || params.price,
-        collateralDelta: params.order?.collateralDelta || params.collateralDelta || BigNumber.from(0),
+        price:
+          params.order?.acceptablePrice ||
+          params.order?.triggerPrice ||
+          params.acceptablePrice ||
+          params.price,
+        collateralDelta:
+          params.order?.collateralDelta ||
+          params.collateralDelta ||
+          BigNumber.from(0),
         realisedPnl: BigNumber.from(0),
         keeperFeesPaid: keeperFeesPaid || params.order?.executionFee,
         isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
         txHash: each.data.txhash,
-      }
+      };
 
-      trades.push(t)
+      trades.push(t);
     }
 
     return trades;

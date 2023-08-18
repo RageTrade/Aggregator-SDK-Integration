@@ -19,6 +19,7 @@ import {
   Trade,
   TradeHistory,
   HistoricalOrderType,
+  NumberDecimal,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -162,10 +163,17 @@ export default class SynthetixV2Service implements IExchange {
     };
   }
 
-  async getMarketPrice(market: ExtendedMarket): Promise<BigNumber> {
-    return (
-      await this.sdk.futures.getAssetPrice(await this.getMarketAddress(market))
-    ).toBN();
+  async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
+    return {
+      value: (
+        await this.sdk.futures.getAssetPrice(
+          await this.getMarketAddress(market)
+        )
+      )
+        .toBN()
+        .toString(),
+      decimals: 18,
+    };
   }
 
   async createOrder(
@@ -607,7 +615,7 @@ export default class SynthetixV2Service implements IExchange {
         realisedPnl: t.pnl.toBN(),
         direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
         keeperFeesPaid: t.keeperFeesPaid.toBN(),
-        txHash: t.txnHash
+        txHash: t.txnHash,
       });
     });
 

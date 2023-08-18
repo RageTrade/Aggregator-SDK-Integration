@@ -15,7 +15,10 @@ export type OrderType =
   | "DEPOSIT"
   | "WITHDRAW";
 
-export type HistoricalOrderType = OrderType | `${OrderType}_EXECUTED` | "LIQUIDATED";
+export type HistoricalOrderType =
+  | OrderType
+  | `${OrderType}_EXECUTED`
+  | "LIQUIDATED";
 
 export type OrderDirection = "LONG" | "SHORT";
 
@@ -121,18 +124,18 @@ export type Trade = ExtendedPosition & {
 };
 
 export type TradeHistory = {
-  marketIdentifier: MarketIdentifier,
-  timestamp: number,
-  operation: string,
-  sizeDelta: BigNumber,
-  direction?: OrderDirection,
-  price: BigNumber,
-  collateralDelta: BigNumber,
-  realisedPnl: BigNumber,
-  keeperFeesPaid?: BigNumber,
-  isTriggerAboveThreshold?: Boolean,
-  txHash: string,
-}
+  marketIdentifier: MarketIdentifier;
+  timestamp: number;
+  operation: string;
+  sizeDelta: BigNumber;
+  direction?: OrderDirection;
+  price: BigNumber;
+  collateralDelta: BigNumber;
+  realisedPnl: BigNumber;
+  keeperFeesPaid?: BigNumber;
+  isTriggerAboveThreshold?: Boolean;
+  txHash: string;
+};
 
 export type CollateralData = {
   inputCollateral: Token;
@@ -150,11 +153,11 @@ export type Order = {
   isTriggerOrder: Boolean;
   referralCode: string | undefined;
   trigger:
-  | {
-    triggerPrice: BigNumber;
-    triggerAboveThreshold: boolean;
-  }
-  | undefined;
+    | {
+        triggerPrice: BigNumber;
+        triggerAboveThreshold: boolean;
+      }
+    | undefined;
 } & CollateralData;
 
 export type ExtendedOrder = Order &
@@ -213,7 +216,7 @@ export interface IExchange {
     transferToken: Token | undefined
   ): Promise<UnsignedTransaction[]>;
 
-  getMarketPrice(market: ExtendedMarket): Promise<BigNumber>;
+  getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal>;
 
   getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata>;
 
