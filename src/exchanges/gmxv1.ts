@@ -765,6 +765,17 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
+  getEditTradePreview(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
+    sizeDelta: ethers.BigNumber,
+    marginDelta: ethers.BigNumber,
+    isDeposit: boolean
+  ): Promise<ExtendedPosition> {
+    throw new Error("Method not implemented.");
+  }
+
   getPositionKey(
     account: string,
     collateralTokenAddress: string,

@@ -381,6 +381,47 @@ export default class SynthetixV2Service implements IExchange {
     };
   }
 
+  async getEditTradePreview(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
+    sizeDelta: BigNumber,
+    marginDelta: BigNumber,
+    isDeposit: boolean
+  ): Promise<ExtendedPosition> {
+    const marketAddress = position.marketAddress!;
+    await this.sdk.setSigner(signer);
+
+    // because simulation is for only (partial) close position
+    let sizeDeltaIn = wei(sizeDelta).neg();
+
+    let fillPrice = await this.getFillPriceInternal(marketAddress, sizeDeltaIn);
+    // console.log("FillPrice: ", fillPrice.toString());
+
+    const tradePreview =
+      await this.sdk.futures.getSimulatedIsolatedTradePreview(
+        user,
+        getEnumEntryByValue(FuturesMarketKey, position.indexOrIdentifier!)!,
+        marketAddress,
+        {
+          sizeDelta: sizeDeltaIn,
+          marginDelta: isDeposit ? wei(marginDelta) : wei(marginDelta).neg(),
+          orderPrice: wei(fillPrice),
+        }
+      );
+
+    return {
+      indexOrIdentifier: "",
+      size: tradePreview.size,
+      collateral: tradePreview.margin,
+      averageEntryPrice: tradePreview.price,
+      liqudationPrice: tradePreview.liqPrice,
+      otherFees: tradePreview.fee,
+      status: tradePreview.status,
+      fee: tradePreview.fee,
+    };
+  }
+
   async getOrder(
     user: string,
     orderIdentifier: OrderIdentifier, // serves as market identifier for SNX

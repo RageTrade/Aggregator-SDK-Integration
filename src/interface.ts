@@ -245,4 +245,13 @@ export interface IExchange {
     market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition>;
+
+  getEditTradePreview(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
+    sizeDelta: BigNumber,
+    marginDelta: BigNumber,
+    isDeposit: boolean
+  ): Promise<ExtendedPosition>;
 }
