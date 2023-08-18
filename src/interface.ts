@@ -192,7 +192,8 @@ export interface IExchange {
     signer: Signer,
     position: ExtendedPosition,
     marginAmount: BigNumber,
-    isDeposit: boolean
+    isDeposit: boolean,
+    transferToken: Token | undefined
   ): Promise<UnsignedTransaction[]>;
 
   getMarketPrice(market: ExtendedMarket): Promise<BigNumber>;

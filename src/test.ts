@@ -620,31 +620,83 @@ async function gmxService() {
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
   // supportedMarkets.forEach((m) => {
-  //   console.log('long:', m.longCollateral)
-  //   console.log('short:', m.shortCollateral)
-  //   console.log('-----')
+  //   logObject("Supported Market: ", m);
   // });
-  //
+  // supportedMarkets[0].longCollateral.forEach((c) => {
+  //   console.log("Long Collateral: ", c.symbol);
+  // });
 
-  let position = (await gs.getAllPositions(signer.address, signer))[0];
+  let position0 = (await gs.getAllPositions(signer.address, signer))[0];
+  logObject("Ext Pos: ", position0);
+  let position1 = (await gs.getAllPositions(signer.address, signer))[1];
+  logObject("Ext Pos: ", position1);
 
-  logObject("Ext Pos: ", position);
+  const btcToken = {
+    name: "Bitcoin (WBTC)",
+    symbol: "BTC",
+    decimals: "8",
+    address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+    isShortable: true,
+    imageUrl:
+      "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
+    explorerUrl:
+      "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+    isV1Available: true,
+  };
+  const nativeETH = {
+    name: "Ethereum",
+    symbol: "ETH",
+    decimals: "18",
+    address: ethers.constants.AddressZero,
+    isNative: true,
+    isShortable: true,
+    imageUrl:
+      "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+    isV1Available: true,
+  };
+  const usdcEToken = {
+    name: "Bridged USDC (USDC.e)",
+    symbol: "USDC.e",
+    decimals: "6",
+    address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    isStable: true,
+    imageUrl:
+      "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+    coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
+    explorerUrl:
+      "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    isV1Available: true,
+  };
 
-  let closePositionTxs = await gs.closePosition(
+  let inToken = nativeETH;
+
+  let updateMarginTx = await gs.updatePositionMargin(
     signer,
-    position,
-    position.size,
-    // ethers.utils.parseUnits("5", 30),
-    {
-      name: "Bridged USDC (USDC.e)",
-      symbol: "USDC.e",
-      decimals: "6",
-      address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-    }
+    position1,
+    ethers.utils.parseUnits("2.45", 30 /* inToken.decimals */),
+    false,
+    inToken
   );
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
-  });
+  logObject("Update Margin Tx: ", updateMarginTx[0]);
+  // await fireTxs(updateMarginTx);
+
+  // let closePositionTxs = await gs.closePosition(
+  //   signer,
+  //   position0,
+  //   position0.size,
+  //   // ethers.utils.parseUnits("5", 30),
+  //   {
+  //     name: "Bridged USDC (USDC.e)",
+  //     symbol: "USDC.e",
+  //     decimals: "6",
+  //     address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+  //   }
+  // );
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
   // await fireTxs(closePositionTxs);
 
   // await gs.setup(signer);

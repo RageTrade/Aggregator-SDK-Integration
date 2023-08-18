@@ -583,7 +583,7 @@ export function getTokenBySymbol(chainId: number, symbol: string) {
 }
 
 export function getWhitelistedTokens(chainId: number) {
-  return TOKENS[chainId].filter((token) => token.symbol !== "USDG");
+  return V1_TOKENS[chainId].filter((token) => token.symbol !== "USDG");
 }
 
 export function getVisibleTokens(chainId: number) {

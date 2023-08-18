@@ -93,15 +93,6 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  updatePositionMargin(
-    signer: Signer,
-    position: ExtendedPosition,
-    marginAmount: ethers.BigNumber,
-    isDeposit: boolean
-  ): Promise<UnsignedTransaction[]> {
-    throw new Error("Method not implemented.");
-  }
-
   invariant(condition: any, errorMsg: string | undefined) {
     if (!condition) {
       throw new Error(errorMsg);
@@ -577,6 +568,115 @@ export default class GmxV1Service implements IExchange {
     // console.log(extPositions)
 
     return extPositions;
+  }
+
+  async updatePositionMargin(
+    signer: Signer,
+    position: ExtendedPosition,
+    marginAmount: BigNumber, // For deposit it's in token terms and for withdraw it's in USD terms (F/E)
+    isDeposit: boolean,
+    transferToken: Token | undefined
+  ): Promise<UnsignedTransaction[]> {
+    const positionRouter = PositionRouter__factory.connect(
+      getContract(ARBITRUM, "PositionRouter")!,
+      signer
+    );
+    let indexAddress = this.getIndexTokenAddressFromPositionKey(
+      position.indexOrIdentifier
+    );
+    let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
+
+    let createOrderTx: UnsignedTransaction;
+    const path: string[] = [];
+    let txs: UnsignedTransaction[] = [];
+
+    if (isDeposit) {
+      fillPrice =
+        position.direction == "LONG"
+          ? fillPrice.mul(101).div(100)
+          : fillPrice.mul(99).div(100);
+
+      if (
+        transferToken &&
+        transferToken.address == ethers.constants.AddressZero
+      ) {
+        path.push(this.nativeTokenAddress);
+        if (this.nativeTokenAddress != indexAddress) {
+          path.push(indexAddress);
+        }
+
+        createOrderTx =
+          await positionRouter.populateTransaction.createIncreasePositionETH(
+            path,
+            indexAddress,
+            0,
+            BigNumber.from(0),
+            position.direction == "LONG" ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
+            }
+          );
+      } else {
+        if (transferToken && transferToken.address != indexAddress) {
+          path.push(transferToken.address);
+        }
+        path.push(indexAddress);
+
+        createOrderTx =
+          await positionRouter.populateTransaction.createIncreasePosition(
+            path,
+            indexAddress,
+            marginAmount,
+            0,
+            BigNumber.from(0),
+            position.direction == "LONG" ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE,
+            }
+          );
+      }
+    } else {
+      path.push(indexAddress);
+      // TODO - check if working
+      if (transferToken && transferToken.address != this.shortTokenAddress) {
+        path.push(this.getTokenAddressString(transferToken.address));
+      }
+      fillPrice =
+        position.direction == "LONG"
+          ? fillPrice.mul(99).div(100)
+          : fillPrice.mul(101).div(100);
+
+      createOrderTx =
+        await positionRouter.populateTransaction.createDecreasePosition(
+          path,
+          indexAddress,
+          marginAmount,
+          BigNumber.from(0),
+          position.direction == "LONG" ? true : false,
+          this.swAddr,
+          fillPrice,
+          0,
+          this.EXECUTION_FEE,
+          transferToken != undefined &&
+            transferToken.address == ethers.constants.AddressZero,
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE,
+          }
+        );
+    }
+
+    txs.push(createOrderTx);
+
+    return txs;
   }
 
   async closePosition(
