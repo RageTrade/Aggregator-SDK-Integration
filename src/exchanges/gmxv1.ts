@@ -15,9 +15,11 @@ import {
   Market,
   MarketIdentifier,
   Network,
+  OpenMarkets,
   Order,
   Position,
   Token,
+  TradeHistory,
 } from "../interface";
 import {
   IERC20__factory,
@@ -28,7 +30,7 @@ import {
   Router__factory,
 } from "../../gmxV1Typechain";
 import { getContract } from "../configs/gmx/contracts";
-import { ARBITRUM, ARBITRUM_TESTNET, getConstant } from "../configs/gmx/chains";
+import { ARBITRUM, getConstant } from "../configs/gmx/chains";
 import {
   V1_TOKENS,
   getPositionQuery,
@@ -44,6 +46,7 @@ import {
   formatAmount,
   USD_DECIMALS,
   getServerUrl,
+  getServerBaseUrl
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 
@@ -800,8 +803,41 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getTradesHistory(user: string): Promise<ExtendedPosition[]> {
-    throw new Error("Method not implemented.");
+  async getTradesHistory(user: string, _: OpenMarkets | undefined): Promise<TradeHistory[]> {
+    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`
+    const data = await (await fetch(url)).json()
+
+    const trades: TradeHistory[] = []
+
+    for (const each of data) {
+      const params = JSON.parse(each.data.params)
+
+      const isLong = params.order?.isLong || params.isLong
+
+      let keeperFeesPaid = undefined;
+
+      if (params.feeBasisPoints) {
+        keeperFeesPaid = BigNumber.from(params.sizeDelta).mul(params.feeBasisPoints).div(10_000)
+      }
+
+      const t: TradeHistory = {
+        marketIdentifier: { indexOrIdentifier: each.id },
+        timestamp: each.data.timestamp,
+        operation: each.data.action,
+        sizeDelta: params.order?.sizeDelta || params.sizeDelta,
+        direction: isLong ? (isLong === true ? "LONG" : "SHORT") : isLong,
+        price: params.order?.acceptablePrice || params.order?.triggerPrice || params.acceptablePrice || params.price,
+        collateralDelta: params.order?.collateralDelta || params.collateralDelta || BigNumber.from(0),
+        realisedPnl: BigNumber.from(0),
+        keeperFeesPaid: keeperFeesPaid || params.order?.executionFee,
+        isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
+        txHash: each.data.txhash,
+      }
+
+      trades.push(t)
+    }
+
+    return trades;
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {

@@ -15,6 +15,8 @@ export type OrderType =
   | "DEPOSIT"
   | "WITHDRAW";
 
+export type HistoricalOrderType = OrderType | `${OrderType}_EXECUTED` | "LIQUIDATED";
+
 export type OrderDirection = "LONG" | "SHORT";
 
 export type Network = {
@@ -118,6 +120,20 @@ export type Trade = ExtendedPosition & {
   txLink?: string;
 };
 
+export type TradeHistory = {
+  marketIdentifier: MarketIdentifier,
+  timestamp: number,
+  operation: string,
+  sizeDelta: BigNumber,
+  direction?: OrderDirection,
+  price: BigNumber,
+  collateralDelta: BigNumber,
+  realisedPnl: BigNumber,
+  keeperFeesPaid?: BigNumber,
+  isTriggerAboveThreshold?: Boolean,
+  txHash: string,
+}
+
 export type CollateralData = {
   inputCollateral: Token;
   inputCollateralAmount: BigNumber;
@@ -134,11 +150,11 @@ export type Order = {
   isTriggerOrder: Boolean;
   referralCode: string | undefined;
   trigger:
-    | {
-        triggerPrice: BigNumber;
-        triggerAboveThreshold: boolean;
-      }
-    | undefined;
+  | {
+    triggerPrice: BigNumber;
+    triggerAboveThreshold: boolean;
+  }
+  | undefined;
 } & CollateralData;
 
 export type ExtendedOrder = Order &
@@ -234,7 +250,7 @@ export interface IExchange {
   getTradesHistory(
     user: string,
     openMarkers: OpenMarkets | undefined
-  ): Promise<Trade[]>;
+  ): Promise<TradeHistory[]>;
 
   getIdleMargins(
     user: string

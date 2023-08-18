@@ -17,6 +17,8 @@ import {
   OpenMarkets,
   OpenMarketData,
   Trade,
+  TradeHistory,
+  HistoricalOrderType,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -583,8 +585,8 @@ export default class SynthetixV2Service implements IExchange {
   async getTradesHistory(
     user: string,
     openMarkers: OpenMarkets | undefined
-  ): Promise<Trade[]> {
-    let trades: Trade[] = [];
+  ): Promise<TradeHistory[]> {
+    let trades: TradeHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
 
     let tradesHistory = await this.sdk.futures.getAllTrades(
@@ -596,19 +598,16 @@ export default class SynthetixV2Service implements IExchange {
     tradesHistory.forEach((t) => {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
-        indexOrIdentifier: market.indexOrIdentifier,
-        size: t.size.toBN(),
-        collateral: t.margin.toBN(),
-        averageEntryPrice: t.price.toBN(),
-        lastUpdatedAtTimestamp: t.timestamp,
-        pnl: t.pnl.toBN(),
-        fee: t.feesPaid.add(t.keeperFeesPaid).toBN(),
+        marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
+        operation: t.orderType,
+        sizeDelta: t.size.toBN(),
+        collateralDelta: t.margin.toBN(),
+        price: t.price.toBN(),
+        timestamp: t.timestamp,
+        realisedPnl: t.pnl.toBN(),
         direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
-        marketAddress: market.address!,
-        positionClosed: t.positionClosed,
         keeperFeesPaid: t.keeperFeesPaid.toBN(),
-        txHash: t.txnHash,
-        txLink: this.explorerUrl + "tx/" + t.txnHash,
+        txHash: t.txnHash
       });
     });
 
