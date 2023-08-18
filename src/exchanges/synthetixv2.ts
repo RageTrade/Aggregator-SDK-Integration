@@ -74,8 +74,8 @@ export default class SynthetixV2Service implements IExchange {
     return markets.find((m) => m.marketKey == marketKey);
   }
 
-  setup(signer: Signer): Promise<void> {
-    return Promise.resolve();
+  setup(signer: Signer): Promise<UnsignedTransaction[]> {
+    return Promise.resolve([]);
   }
 
   supportedNetworks(): readonly { name: string; chainId: number }[] {

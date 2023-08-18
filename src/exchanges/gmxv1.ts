@@ -99,60 +99,67 @@ export default class GmxV1Service implements IExchange {
     }
   }
 
-  async setup(signer: Signer): Promise<void> {
-    // set referral code
+  async setup(signer: Signer): Promise<UnsignedTransaction[]> {
     const referralStorage = ReferralStorage__factory.connect(
       getContract(ARBITRUM, "ReferralStorage")!,
       signer
     );
-    const setReferralCodeTx = await referralStorage.setTraderReferralCodeByUser(
-      this.REFERRAL_CODE
-    );
-    await setReferralCodeTx.wait(1);
+
+    // Check if user has already setup
+    const code = await referralStorage.traderReferralCodes(this.swAddr);
+    if (code != ethers.constants.HashZero) {
+      return Promise.resolve([]);
+    }
+
+    let txs: UnsignedTransaction[] = [];
+
+    // set referral code
+    const setReferralCodeTx =
+      await referralStorage.populateTransaction.setTraderReferralCodeByUser(
+        this.REFERRAL_CODE
+      );
+    txs.push(setReferralCodeTx);
 
     // approve router
     const router = Router__factory.connect(
       getContract(ARBITRUM, "Router")!,
       signer
     );
-    const approveOrderBookTx = await router.approvePlugin(
+    const approveOrderBookTx = await router.populateTransaction.approvePlugin(
       getContract(ARBITRUM, "OrderBook")!
     );
-    await approveOrderBookTx.wait(1);
+    txs.push(approveOrderBookTx);
 
-    const approvePositionRouterTx = await router.approvePlugin(
-      getContract(ARBITRUM, "PositionRouter")!
-    );
-    await approvePositionRouterTx.wait(1);
+    const approvePositionRouterTx =
+      await router.populateTransaction.approvePlugin(
+        getContract(ARBITRUM, "PositionRouter")!
+      );
+    txs.push(approvePositionRouterTx);
 
-    //approve router for token spends
-    await this.approveRouterSpend(
-      getTokenBySymbol(ARBITRUM, "WETH")!.address,
-      signer
-    );
-    await this.approveRouterSpend(
-      getTokenBySymbol(ARBITRUM, "USDC.e")!.address,
-      signer
-    );
-    await this.approveRouterSpend(
-      getTokenBySymbol(ARBITRUM, "USDC")!.address,
-      signer
-    );
-    await this.approveRouterSpend(
-      getTokenBySymbol(ARBITRUM, "BTC")!.address,
-      signer
-    );
-
-    return Promise.resolve();
+    return txs;
   }
 
-  async approveRouterSpend(tokenAddress: string, signer: Signer) {
+  async getApproveRouterSpendTx(
+    tokenAddress: string,
+    signer: Signer,
+    allowanceAmount: BigNumber
+  ): Promise<UnsignedTransaction | undefined> {
     let token = IERC20__factory.connect(tokenAddress, signer);
-    const tx = await token.approve(
-      getContract(ARBITRUM, "Router")!,
-      ethers.constants.MaxUint256
+
+    let allowance = await token.allowance(
+      await signer.getAddress(),
+      getContract(ARBITRUM, "Router")!
     );
-    await tx.wait(1);
+
+    if (allowance.lt(allowanceAmount)) {
+      let tx = await token.populateTransaction.approve(
+        getContract(ARBITRUM, "Router")!,
+        ethers.constants.MaxUint256
+      );
+      return tx;
+    }
+
+    return Promise.resolve(undefined);
   }
 
   supportedNetworks(): readonly Network[] {
@@ -223,12 +230,28 @@ export default class GmxV1Service implements IExchange {
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
-    let createOrderTx: UnsignedTransaction;
+    let txs: UnsignedTransaction[] = [];
+
+    if (
+      (order.type == "LIMIT_INCREASE" || order.type == "MARKET_INCREASE") &&
+      order.inputCollateral.address != ethers.constants.AddressZero
+    ) {
+      //approve router for token spends
+      let approvalTx = await this.getApproveRouterSpendTx(
+        order.inputCollateral.address,
+        signer,
+        order.inputCollateralAmount!
+      );
+      if (approvalTx) {
+        txs.push(approvalTx);
+      }
+    }
 
     const tokenAddress0 = this.getTokenAddressString(
       order.inputCollateral.address
     );
 
+    let createOrderTx: UnsignedTransaction;
     if (order.type == "LIMIT_INCREASE") {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
@@ -361,7 +384,9 @@ export default class GmxV1Service implements IExchange {
           }
         );
     }
-    return [createOrderTx!];
+    txs.push(createOrderTx!);
+
+    return txs;
   }
 
   async updateOrder(
@@ -373,6 +398,8 @@ export default class GmxV1Service implements IExchange {
       getContract(ARBITRUM, "OrderBook")!,
       signer
     );
+
+    // TODO - check for approve tx
 
     let updateOrderTx;
 
@@ -586,11 +613,35 @@ export default class GmxV1Service implements IExchange {
     );
     let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
 
-    let createOrderTx: UnsignedTransaction;
+    let marginTx: UnsignedTransaction;
     const path: string[] = [];
     let txs: UnsignedTransaction[] = [];
 
     if (isDeposit) {
+      if (
+        transferToken &&
+        transferToken.address != ethers.constants.AddressZero
+      ) {
+        //approve router for token spends
+        let approvalTx = await this.getApproveRouterSpendTx(
+          transferToken.address,
+          signer,
+          marginAmount
+        );
+        if (approvalTx) {
+          txs.push(approvalTx);
+        }
+      } else {
+        let approvalTx = await this.getApproveRouterSpendTx(
+          indexAddress,
+          signer,
+          marginAmount
+        );
+        if (approvalTx) {
+          txs.push(approvalTx);
+        }
+      }
+
       fillPrice =
         position.direction == "LONG"
           ? fillPrice.mul(101).div(100)
@@ -605,7 +656,7 @@ export default class GmxV1Service implements IExchange {
           path.push(indexAddress);
         }
 
-        createOrderTx =
+        marginTx =
           await positionRouter.populateTransaction.createIncreasePositionETH(
             path,
             indexAddress,
@@ -626,7 +677,7 @@ export default class GmxV1Service implements IExchange {
         }
         path.push(indexAddress);
 
-        createOrderTx =
+        marginTx =
           await positionRouter.populateTransaction.createIncreasePosition(
             path,
             indexAddress,
@@ -654,7 +705,7 @@ export default class GmxV1Service implements IExchange {
           ? fillPrice.mul(99).div(100)
           : fillPrice.mul(101).div(100);
 
-      createOrderTx =
+      marginTx =
         await positionRouter.populateTransaction.createDecreasePosition(
           path,
           indexAddress,
@@ -674,7 +725,7 @@ export default class GmxV1Service implements IExchange {
         );
     }
 
-    txs.push(createOrderTx);
+    txs.push(marginTx);
 
     return txs;
   }

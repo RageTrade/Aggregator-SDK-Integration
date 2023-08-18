@@ -157,7 +157,7 @@ export type OpenMarkets = {
 
 export interface IExchange {
   // something to indicate when setup should be called
-  setup(signer: Signer): Promise<void>;
+  setup(signer: Signer): Promise<UnsignedTransaction[]>;
 
   supportedNetworks(): readonly Network[];
 
