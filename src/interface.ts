@@ -31,6 +31,7 @@ export type Token = {
 
 export type MarketIdentifier = {
   indexOrIdentifier: string;
+  marketToken?: Token;
 };
 
 export type Market = {

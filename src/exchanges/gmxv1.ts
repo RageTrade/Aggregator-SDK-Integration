@@ -194,6 +194,7 @@ export default class GmxV1Service implements IExchange {
         },
         asset: indexToken.symbol,
         indexOrIdentifier: this.getTokenAddress(indexToken),
+        marketToken: indexToken,
         maxLeverage: toNumberDecimal(BigNumber.from("50"), 0),
         minInitialMargin: toNumberDecimal(BigNumber.from("0"), 0),
         protocolName: this.protocolIdentifier,

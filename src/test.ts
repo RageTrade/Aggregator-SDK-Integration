@@ -754,7 +754,7 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-gmxService()
+compositeService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
