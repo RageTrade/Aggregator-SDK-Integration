@@ -112,7 +112,7 @@ export type ExtendedPosition = Position & {
   marketAddress?: string;
   originalCollateralToken?: string;
   indexToken?: Token;
-  collateralToken?: Token;
+  collateralToken: Token;
 };
 
 export type Trade = ExtendedPosition & {

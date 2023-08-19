@@ -286,8 +286,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
+                order.inputCollateralAmount
+              )
               : this.EXECUTION_FEE,
         }
       );
@@ -468,8 +468,37 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getAllOrders(user: string): Promise<ExtendedOrder[]> {
-    throw new Error("Method not implemented.");
+  async getAllOrders(user: string): Promise<ExtendedOrder[]> {
+    // const gmxSubgraphUrl =
+    //   "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats";
+    //
+    // const results = await fetch(gmxSubgraphUrl, {
+    //   method: "POST",
+    //   headers: { "Content-Type": "application/json" },
+    //   body: JSON.stringify({
+    //     query: `
+    //     query openOrders {
+    //       orders(
+    //         first: 1000,
+    //         orderBy: createdTimestamp,
+    //         orderDirection: desc,
+    //         where: {status: "open", account: "${user.toLowerCase()}"}
+    //       ) {
+    //         id
+    //         type
+    //         status
+    //         size
+    //         createdTimestamp
+    //       }
+    //     }
+    //   `,
+    //   }),
+    // });
+    //
+    // console.log((await results.json()).data)
+
+    const x: ExtendedOrder[] = []
+    return Promise.resolve(x);
   }
 
   getMarketOrders(
@@ -483,7 +512,7 @@ export default class GmxV1Service implements IExchange {
     positionIdentifier: string,
     market: ExtendedMarket,
     user?: string
-  ): Promise<Position> {
+  ): Promise<ExtendedPosition> {
     throw new Error("Method not implemented.");
   }
 
@@ -620,7 +649,7 @@ export default class GmxV1Service implements IExchange {
     position: ExtendedPosition,
     marginAmount: BigNumber, // For deposit it's in token terms and for withdraw it's in USD terms (F/E)
     isDeposit: boolean,
-    transferToken: Token | undefined
+    transferToken: Token
   ): Promise<UnsignedTransaction[]> {
     const positionRouter = PositionRouter__factory.connect(
       getContract(ARBITRUM, "PositionRouter")!,
@@ -636,88 +665,51 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTransaction[] = [];
 
     if (isDeposit) {
-      if (
-        transferToken &&
-        transferToken.address != ethers.constants.AddressZero
-      ) {
-        //approve router for token spends
-        let approvalTx = await this.getApproveRouterSpendTx(
-          transferToken.address,
-          signer,
-          marginAmount
-        );
-        if (approvalTx) {
-          txs.push(approvalTx);
-        }
-      } else {
-        let approvalTx = await this.getApproveRouterSpendTx(
-          indexAddress,
-          signer,
-          marginAmount
-        );
-        if (approvalTx) {
-          txs.push(approvalTx);
-        }
-      }
+      //approve router for token spends
+      let approvalTx = await this.getApproveRouterSpendTx(
+        transferToken.address,
+        signer,
+        marginAmount
+      );
+
+      if (approvalTx) txs.push(approvalTx);
 
       fillPrice =
         position.direction == "LONG"
           ? fillPrice.mul(101).div(100)
           : fillPrice.mul(99).div(100);
 
-      if (
-        transferToken &&
-        transferToken.address == ethers.constants.AddressZero
-      ) {
-        path.push(this.nativeTokenAddress);
-        if (this.nativeTokenAddress != indexAddress) {
-          path.push(indexAddress);
-        }
-
-        marginTx =
-          await positionRouter.populateTransaction.createIncreasePositionETH(
-            path,
-            indexAddress,
-            0,
-            BigNumber.from(0),
-            position.direction == "LONG" ? true : false,
-            fillPrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
-            }
-          );
-      } else {
-        if (transferToken && transferToken.address != indexAddress) {
-          path.push(transferToken.address);
-        }
-        path.push(indexAddress);
-
-        marginTx =
-          await positionRouter.populateTransaction.createIncreasePosition(
-            path,
-            indexAddress,
-            marginAmount,
-            0,
-            BigNumber.from(0),
-            position.direction == "LONG" ? true : false,
-            fillPrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: this.EXECUTION_FEE,
-            }
-          );
+      if (transferToken.address !== position.collateralToken.address) {
+        path.push(transferToken.address, position.collateralToken.address)
       }
+      else {
+        path.push(position.collateralToken!.address)
+      }
+
+      marginTx =
+        await positionRouter.populateTransaction.createIncreasePositionETH(
+          path,
+          indexAddress,
+          0,
+          BigNumber.from(0),
+          position.direction == "LONG" ? true : false,
+          fillPrice,
+          this.EXECUTION_FEE,
+          ethers.constants.HashZero, // Referral code set during setup()
+          ethers.constants.AddressZero,
+          {
+            value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
+          }
+        );
     } else {
       path.push(indexAddress);
-      // TODO - check if working
-      if (transferToken && transferToken.address != this.shortTokenAddress) {
-        path.push(this.getTokenAddressString(transferToken.address));
+      if (transferToken.address !== position.collateralToken.address) {
+        path.push(position.collateralToken.address, transferToken.address)
       }
+      else {
+        path.push(position.collateralToken.address)
+      }
+
       fillPrice =
         position.direction == "LONG"
           ? fillPrice.mul(99).div(100)
@@ -735,7 +727,7 @@ export default class GmxV1Service implements IExchange {
           0,
           this.EXECUTION_FEE,
           transferToken != undefined &&
-            transferToken.address == ethers.constants.AddressZero,
+          transferToken.address == ethers.constants.AddressZero,
           ethers.constants.AddressZero,
           {
             value: this.EXECUTION_FEE,
