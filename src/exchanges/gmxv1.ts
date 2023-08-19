@@ -699,7 +699,7 @@ export default class GmxV1Service implements IExchange {
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
+            value: BigNumber.from(this.EXECUTION_FEE),
           }
         );
     } else {
