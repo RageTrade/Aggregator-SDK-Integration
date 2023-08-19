@@ -702,17 +702,21 @@ export default class GmxV1Service implements IExchange {
           }
         );
     } else {
-      path.push(indexAddress);
+      // path.push(indexAddress);
+      // if (transferToken.address !== position.collateralToken.address) {
+      //   if (position.collateralToken.address != indexAddress) {
+      //     path.push(position.collateralToken.address, transferToken.address);
+      //   } else {
+      //     path.push(transferToken.address);
+      //   }
+      // } else {
+      //   if (position.collateralToken.address != indexAddress) {
+      //     path.push(position.collateralToken.address);
+      //   }
+      // }
+      path.push(position.collateralToken.address);
       if (transferToken.address !== position.collateralToken.address) {
-        if (position.collateralToken.address != indexAddress) {
-          path.push(position.collateralToken.address, transferToken.address);
-        } else {
-          path.push(transferToken.address);
-        }
-      } else {
-        if (position.collateralToken.address != indexAddress) {
-          path.push(position.collateralToken.address);
-        }
+        path.push(transferToken.address);
       }
 
       fillPrice =
