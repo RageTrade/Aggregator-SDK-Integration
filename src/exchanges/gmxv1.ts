@@ -687,9 +687,10 @@ export default class GmxV1Service implements IExchange {
       }
 
       marginTx =
-        await positionRouter.populateTransaction.createIncreasePositionETH(
+        await positionRouter.populateTransaction.createIncreasePosition(
           path,
           indexAddress,
+          marginAmount,
           0,
           BigNumber.from(0),
           position.direction == "LONG" ? true : false,
