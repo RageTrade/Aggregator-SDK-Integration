@@ -286,8 +286,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
+                  order.inputCollateralAmount
+                )
               : this.EXECUTION_FEE,
         }
       );
@@ -497,7 +497,7 @@ export default class GmxV1Service implements IExchange {
     //
     // console.log((await results.json()).data)
 
-    const x: ExtendedOrder[] = []
+    const x: ExtendedOrder[] = [];
     return Promise.resolve(x);
   }
 
@@ -680,10 +680,9 @@ export default class GmxV1Service implements IExchange {
           : fillPrice.mul(99).div(100);
 
       if (transferToken.address !== position.collateralToken.address) {
-        path.push(transferToken.address, position.collateralToken.address)
-      }
-      else {
-        path.push(position.collateralToken!.address)
+        path.push(transferToken.address, position.collateralToken.address);
+      } else {
+        path.push(position.collateralToken!.address);
       }
 
       marginTx =
@@ -705,10 +704,15 @@ export default class GmxV1Service implements IExchange {
     } else {
       path.push(indexAddress);
       if (transferToken.address !== position.collateralToken.address) {
-        path.push(position.collateralToken.address, transferToken.address)
-      }
-      else {
-        path.push(position.collateralToken.address)
+        if (position.collateralToken.address != indexAddress) {
+          path.push(position.collateralToken.address, transferToken.address);
+        } else {
+          path.push(transferToken.address);
+        }
+      } else {
+        if (position.collateralToken.address != indexAddress) {
+          path.push(position.collateralToken.address);
+        }
       }
 
       fillPrice =
@@ -728,7 +732,7 @@ export default class GmxV1Service implements IExchange {
           0,
           this.EXECUTION_FEE,
           transferToken != undefined &&
-          transferToken.address == ethers.constants.AddressZero,
+            transferToken.address == ethers.constants.AddressZero,
           ethers.constants.AddressZero,
           {
             value: this.EXECUTION_FEE,
