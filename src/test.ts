@@ -34,7 +34,7 @@ const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
 
 let provider = new ethers.providers.AlchemyProvider(
-  ARBITRUM,
+  10,
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -84,6 +84,7 @@ async function getTradePreview(
         DEPOSIT: true,
         WITHDRAW: true,
       },
+      protocolName: "SYNTHETIX_V2",
     },
     {
       type: direction == "LONG" ? "MARKET_INCREASE" : "MARKET_DECREASE",
@@ -130,6 +131,7 @@ async function createLongOrder(
         DEPOSIT: true,
         WITHDRAW: true,
       },
+      protocolName: "SYNTHETIX_V2",
     },
     {
       type: direction == "LONG" ? "MARKET_INCREASE" : "MARKET_DECREASE",
@@ -155,7 +157,7 @@ async function createLongOrder(
 }
 
 async function getIdleMargins(ss: SynthetixV2Service) {
-  const idleMargins = await ss.getIdleMargins(w);
+  const idleMargins = await ss.getIdleMargins(w, undefined);
   idleMargins.forEach((idleMargin) => {
     logObject("Idle Margin: ", idleMargin);
   });
@@ -180,6 +182,7 @@ async function cancelDelayedOffChainOrder(
         DEPOSIT: true,
         WITHDRAW: true,
       },
+      protocolName: "SYNTHETIX_V2",
     },
     {}
   );
@@ -206,6 +209,7 @@ async function createTransferMarginOrder(
         DEPOSIT: true,
         WITHDRAW: true,
       },
+      protocolName: "SYNTHETIX_V2",
     },
     {
       type: "LIMIT_INCREASE",
@@ -429,16 +433,22 @@ const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 async function synService() {
   const ss = new SynthetixV2Service(sdk, await signer.getAddress());
 
+  // for (let i = 0; i < 10; i++) {
+  //   console.time("Idle margin" + i);
+  //   await sdk.futures.getIdleMarginInMarkets(w);
+  //   console.timeEnd("Idle margin" + i);
+  // }
+
   // const order = await ss.getOrder(w, "sETHPERP");
   // logObject("Order: ", order);
 
   // const allOrders = await ss.getAllOrders(w);
   // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  const supportedNetworks = ss.supportedNetworks();
+  // const supportedNetworks = ss.supportedNetworks();
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
   // logObject("Supported Markets: ", supportedMarkets[0]);
   // supportedMarkets.forEach((market) => logObject("Market: ", market));
 
@@ -465,7 +475,7 @@ async function synService() {
   // let position = await ss.getPosition("sBTCPERP", w);
   // logObject("Position: ", position);
 
-  // await ss.getAllPositions(w, signer);
+  // await ss.getAllPositions(w, signer, undefined);
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
@@ -490,14 +500,25 @@ async function synService() {
   //   logObject("Position History: ", p);
   // });
 
-  const tradesHistory = await ss.getTradesHistory(w, undefined);
-  console.log("Trades History: ", tradesHistory.length);
-  tradesHistory.slice(0, 10).forEach((t) => {
-    logObject("Trades History: ", t);
-  });
+  // const tradesHistory = await ss.getTradesHistory(w, undefined);
+  // console.log("Trades History: ", tradesHistory.length);
+  // tradesHistory.slice(0, 10).forEach((t) => {
+  //   logObject("Trades History: ", t);
+  // });
 
-  // const positions = await ss.getAllPositions(w, signer, undefined);
+  const positions = await ss.getAllPositions(w, signer, undefined);
   // positions.forEach((p) => logObject("Position: ", p));
+  logObject("Position: ", positions[0]);
+
+  const editTradePreview = await ss.getEditTradePreview(
+    w,
+    signer,
+    positions[0],
+    ethers.utils.parseEther("0.03"),
+    ethers.utils.parseEther("0"),
+    false
+  );
+  logObject("Edit Trade Preview: ", editTradePreview);
 
   // const closePositionTxs = await ss.closePosition(
   //   signer,
@@ -619,17 +640,21 @@ async function gmxService() {
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
-  // supportedMarkets.forEach((m) => {
-  //   logObject("Supported Market: ", m);
-  // });
+  supportedMarkets.forEach((m) => {
+    logObject("Supported Market: ", m);
+  });
   // supportedMarkets[0].longCollateral.forEach((c) => {
   //   console.log("Long Collateral: ", c.symbol);
   // });
+  // console.time("Get Market Price");
+  // const price = await gs.getMarketPrice(supportedMarkets[0]);
+  // logObject("Price: ", price);
+  // console.timeEnd("Get Market Price");
 
   let position0 = (await gs.getAllPositions(signer.address, signer))[0];
   logObject("Ext Pos: ", position0);
-  let position1 = (await gs.getAllPositions(signer.address, signer))[1];
-  logObject("Ext Pos: ", position1);
+  // let position1 = (await gs.getAllPositions(signer.address, signer))[1];
+  // logObject("Ext Pos: ", position1);
 
   const btcToken = {
     name: "Bitcoin (WBTC)",
@@ -672,31 +697,31 @@ async function gmxService() {
 
   let inToken = nativeETH;
 
-  let updateMarginTx = await gs.updatePositionMargin(
-    signer,
-    position1,
-    ethers.utils.parseUnits("2.45", 30 /* inToken.decimals */),
-    false,
-    inToken
-  );
-  logObject("Update Margin Tx: ", updateMarginTx[0]);
+  // let updateMarginTx = await gs.updatePositionMargin(
+  //   signer,
+  //   position1,
+  //   ethers.utils.parseUnits("2.45", 30 /* inToken.decimals */),
+  //   false,
+  //   inToken
+  // );
+  // logObject("Update Margin Tx: ", updateMarginTx[0]);
   // await fireTxs(updateMarginTx);
 
-  // let closePositionTxs = await gs.closePosition(
-  //   signer,
-  //   position0,
-  //   position0.size,
-  //   // ethers.utils.parseUnits("5", 30),
-  //   {
-  //     name: "Bridged USDC (USDC.e)",
-  //     symbol: "USDC.e",
-  //     decimals: "6",
-  //     address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-  //   }
-  // );
-  // closePositionTxs.forEach((tx) => {
-  //   logObject("Close position tx: ", tx);
-  // });
+  let closePositionTxs = await gs.closePosition(
+    signer,
+    position0,
+    position0.size.mul(50).div(100),
+    // ethers.utils.parseUnits("5", 30),
+    {
+      name: "Bridged USDC (USDC.e)",
+      symbol: "USDC.e",
+      decimals: "6",
+      address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+    }
+  );
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
   // await fireTxs(closePositionTxs);
 
   // await gs.setup(signer);
@@ -754,7 +779,7 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-compositeService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

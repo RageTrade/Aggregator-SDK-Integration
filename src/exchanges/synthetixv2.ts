@@ -34,6 +34,7 @@ import {
   FuturesPosition,
 } from "@kwenta/sdk/dist/types/futures";
 import {
+  formatN,
   getEnumEntryByValue,
   logObject,
   toNumberDecimal,
@@ -410,7 +411,7 @@ export default class SynthetixV2Service implements IExchange {
       position.direction == "LONG" ? wei(sizeDelta).neg() : wei(sizeDelta);
 
     let fillPrice = await this.getFillPriceInternal(marketAddress, sizeDeltaIn);
-    // console.log("FillPrice: ", fillPrice.toString());
+    // console.log("FillPrice: ", formatN(fillPrice));
 
     const tradePreview =
       await this.sdk.futures.getSimulatedIsolatedTradePreview(
@@ -424,9 +425,11 @@ export default class SynthetixV2Service implements IExchange {
         }
       );
 
+    // logObject("tradePreview", tradePreview);
+
     return {
       indexOrIdentifier: "",
-      size: tradePreview.size,
+      size: tradePreview.size.abs(),
       collateral: tradePreview.margin,
       collateralToken: this.sUsd,
       averageEntryPrice: tradePreview.price,

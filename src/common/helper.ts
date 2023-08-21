@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers";
+import { BigNumber, ethers } from "ethers";
 import { NumberDecimal } from "../interface";
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
@@ -36,4 +36,8 @@ export function toNumberDecimal(
     value: input.toString(),
     decimals: decimals,
   };
+}
+
+export function formatN(value: BigNumber, decimals: number = 18): string {
+  return ethers.utils.formatUnits(value, decimals);
 }
