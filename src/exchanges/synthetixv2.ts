@@ -406,7 +406,8 @@ export default class SynthetixV2Service implements IExchange {
     await this.sdk.setSigner(signer);
 
     // because simulation is for only (partial) close position
-    let sizeDeltaIn = wei(sizeDelta).neg();
+    let sizeDeltaIn =
+      position.direction == "LONG" ? wei(sizeDelta).neg() : wei(sizeDelta);
 
     let fillPrice = await this.getFillPriceInternal(marketAddress, sizeDeltaIn);
     // console.log("FillPrice: ", fillPrice.toString());
