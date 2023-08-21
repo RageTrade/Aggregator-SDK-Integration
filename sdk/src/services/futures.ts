@@ -496,18 +496,18 @@ export default class FuturesService {
 		const positionDetails = (await this.sdk.context.multicallProvider.all(
 			positionCalls
 		)) as PositionDetail[]
-		const canLiquidateState = (await this.sdk.context.multicallProvider.all(
-			liquidationCalls
-		)) as boolean[]
+		// const canLiquidateState = (await this.sdk.context.multicallProvider.all(
+		// 	liquidationCalls
+		// )) as boolean[]
 
 		// map the positions using the results
 		const positions = await Promise.all(
 			positionDetails.map(async (position, ind) => {
-				const canLiquidate = canLiquidateState[ind]
+				// const canLiquidate = canLiquidateState[ind]
 				const marketKey = futuresMarkets[ind].marketKey
 				const asset = futuresMarkets[ind].asset
 
-				return mapFuturesPosition(position, canLiquidate, asset, marketKey)
+				return mapFuturesPosition(position, false, asset, marketKey)
 			})
 		)
 
@@ -905,12 +905,16 @@ export default class FuturesService {
 
 	public async getIdleMarginInMarkets(accountOrEoa: string) {
 		const markets = this.markets ?? (await this.getMarkets())
+		return this.getIdleMarginInMarketsCached(accountOrEoa, markets)
+	}
+
+	public async getIdleMarginInMarketsCached(accountOrEoa: string, markets: Partial<FuturesMarket>[]) {
 		const filteredMarkets = markets.filter((m) => !m.isSuspended)
 		const marketParams =
 			filteredMarkets?.map((m) => ({
-				asset: m.asset,
-				marketKey: m.marketKey,
-				address: m.market,
+				asset: m.asset!,
+				marketKey: m.marketKey!,
+				address: m.market!,
 			})) ?? []
 		const positions = await this.getFuturesPositions(accountOrEoa, marketParams)
 		const positionsWithIdleMargin = positions.filter(
@@ -927,8 +931,8 @@ export default class FuturesService {
 
 				if (market) {
 					acc.push({
-						marketAddress: market.market,
-						marketKey: market.marketKey,
+						marketAddress: market.market!,
+						marketKey: market.marketKey!,
 						position: p,
 					})
 				}

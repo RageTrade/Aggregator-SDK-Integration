@@ -260,7 +260,8 @@ export interface IExchange {
   ): Promise<TradeHistory[]>;
 
   getIdleMargins(
-    user: string
+    user: string,
+    openMarkets: OpenMarkets | undefined
   ): Promise<Array<MarketIdentifier & CollateralData>>;
 
   getTradePreview(

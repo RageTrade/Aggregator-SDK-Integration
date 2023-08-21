@@ -628,9 +628,13 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getIdleMargins(
-    user: string
+    user: string,
+    openMarkets: OpenMarkets | undefined
   ): Promise<(MarketIdentifier & CollateralData)[]> {
-    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
+    const result = await this.sdk.futures.getIdleMarginInMarketsCached(
+      user,
+      await this.getPartialFutureMarketsFromOpenMarkets(openMarkets)
+    );
 
     return result.marketsWithIdleMargin.map((m) => ({
       indexOrIdentifier: FuturesMarketKey[m.marketKey].toString(),
@@ -639,8 +643,14 @@ export default class SynthetixV2Service implements IExchange {
     }));
   }
 
-  async getAvailableSusdBalance(user: string): Promise<BigNumber> {
-    const result = await this.sdk.futures.getIdleMarginInMarkets(user);
+  async getAvailableSusdBalance(
+    user: string,
+    openMarkets: OpenMarkets | undefined
+  ): Promise<BigNumber> {
+    const result = await this.sdk.futures.getIdleMarginInMarketsCached(
+      user,
+      await this.getPartialFutureMarketsFromOpenMarkets(openMarkets)
+    );
     return result.totalIdleInMarkets.toBN();
   }
 
@@ -708,6 +718,27 @@ export default class SynthetixV2Service implements IExchange {
     return extendedMarkets;
   }
 
+  mapExtendedMarketsToPartialFutureMarkets(
+    extendedMarkets: ExtendedMarket[]
+  ): Partial<FuturesMarket>[] {
+    let futureMarkets: Partial<FuturesMarket>[] = [];
+    extendedMarkets
+      .filter(
+        (m) => m.protocolName && m.protocolName == this.protocolIdentifier
+      )
+      .forEach((m) => {
+        futureMarkets.push({
+          asset: getEnumEntryByValue(FuturesMarketAsset, m.asset!)!,
+          marketKey: getEnumEntryByValue(
+            FuturesMarketKey,
+            m.indexOrIdentifier!
+          )!,
+          market: m.address!,
+        });
+      });
+    return futureMarkets;
+  }
+
   async getExtendedMarketsFromOpenMarkets(
     openMarkets: OpenMarkets | undefined
   ): Promise<ExtendedMarket[]> {
@@ -720,6 +751,15 @@ export default class SynthetixV2Service implements IExchange {
       );
     }
     return supportedMarkets;
+  }
+
+  async getPartialFutureMarketsFromOpenMarkets(
+    openMarkets: OpenMarkets | undefined
+  ): Promise<Partial<FuturesMarket>[]> {
+    let extendedMarkets = await this.getExtendedMarketsFromOpenMarkets(
+      openMarkets
+    );
+    return this.mapExtendedMarketsToPartialFutureMarkets(extendedMarkets);
   }
 
   async formulateWithdrawTx(marketAddress: string, withdrawAmount: Wei) {
