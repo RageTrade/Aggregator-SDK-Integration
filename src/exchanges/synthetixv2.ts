@@ -20,6 +20,7 @@ import {
   TradeHistory,
   HistoricalOrderType,
   NumberDecimal,
+  PROTOCOL_NAME,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -50,7 +51,7 @@ export default class SynthetixV2Service implements IExchange {
     address: this.sUSDAddr,
   };
   private swAddr: string;
-  private protocolIdentifier = "synthetixV2";
+  private protocolIdentifier: PROTOCOL_NAME = "SYNTHETIX_V2";
   private decimals = 18;
   private explorerUrl = getExplorerUrl(this.opChainId);
 
@@ -276,6 +277,7 @@ export default class SynthetixV2Service implements IExchange {
           DEPOSIT: true,
           WITHDRAW: true,
         },
+        protocolName: this.protocolIdentifier,
       },
       {
         type: "MARKET_DECREASE",
@@ -339,7 +341,7 @@ export default class SynthetixV2Service implements IExchange {
     return txs;
   }
 
-  async getFillPrice(market: Market, order: Order): Promise<BigNumber> {
+  async getFillPrice(market: ExtendedMarket, order: Order): Promise<BigNumber> {
     const marketAddress = await this.getMarketAddress(market);
 
     return this.getFillPriceInternal(marketAddress, wei(order.sizeDelta));

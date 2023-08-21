@@ -21,6 +21,7 @@ import {
   Position,
   Token,
   TradeHistory,
+  PROTOCOL_NAME,
 } from "../interface";
 import {
   IERC20__factory,
@@ -62,7 +63,7 @@ export default class GmxV1Service implements IExchange {
     ARBITRUM,
     "DECREASE_ORDER_EXECUTION_GAS_FEE"
   )! as BigNumberish;
-  private protocolIdentifier = "gmxV1";
+  private protocolIdentifier: PROTOCOL_NAME = "GMX_V1";
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
   private swAddr: string;
@@ -792,6 +793,7 @@ export default class GmxV1Service implements IExchange {
           DEPOSIT: false,
           WITHDRAW: false,
         },
+        protocolName: this.protocolIdentifier,
       },
       {
         type: "MARKET_DECREASE",

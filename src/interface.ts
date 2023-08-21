@@ -7,6 +7,8 @@ export type OrderAction = {
   orderAction: "CREATE" | "UPDATE" | "CANCEL";
 };
 
+export type PROTOCOL_NAME = "GMX_V1" | "SYNTHETIX_V2";
+
 export type OrderType =
   | "LIMIT_INCREASE"
   | "LIMIT_DECREASE"
@@ -79,7 +81,7 @@ export type DynamicMarketMetadata = {
 };
 
 export type ProtocolMetadata = {
-  protocolName?: string;
+  protocolName: PROTOCOL_NAME;
 };
 
 export type ExtendedMarket = Market & StaticMarketMetadata & ProtocolMetadata;
