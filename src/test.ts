@@ -34,7 +34,7 @@ const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
 
 let provider = new ethers.providers.AlchemyProvider(
-  10,
+  ARBITRUM,
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -514,7 +514,7 @@ async function synService() {
     w,
     signer,
     positions[0],
-    ethers.utils.parseEther("0.03"),
+    ethers.utils.parseEther("0.01"),
     ethers.utils.parseEther("0"),
     false
   );
@@ -640,9 +640,10 @@ async function gmxService() {
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
-  supportedMarkets.forEach((m) => {
-    logObject("Supported Market: ", m);
-  });
+  // supportedMarkets.forEach((m) => {
+  //   logObject("Supported Market: ", m);
+  // });
+
   // supportedMarkets[0].longCollateral.forEach((c) => {
   //   console.log("Long Collateral: ", c.symbol);
   // });
@@ -707,17 +708,33 @@ async function gmxService() {
   // logObject("Update Margin Tx: ", updateMarginTx[0]);
   // await fireTxs(updateMarginTx);
 
+  let usdce = {
+    name: "Bridged USDC (USDC.e)",
+    symbol: "USDC.e",
+    decimals: "6",
+    address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+  };
+
+  let usdc = {
+    name: "USDC",
+    symbol: "USDC",
+    decimals: "6",
+    address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831",
+  };
+
+  let eth = {
+    name: "ETH",
+    symbol: "ETH",
+    decimals: "18",
+    address: ethers.constants.AddressZero,
+  };
+
   let closePositionTxs = await gs.closePosition(
     signer,
     position0,
-    position0.size.mul(50).div(100),
-    // ethers.utils.parseUnits("5", 30),
-    {
-      name: "Bridged USDC (USDC.e)",
-      symbol: "USDC.e",
-      decimals: "6",
-      address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-    }
+    position0.size.mul(100).div(100),
+    // ethers.utils.parseUnits("10", 30),
+    eth
   );
   closePositionTxs.forEach((tx) => {
     logObject("Close position tx: ", tx);
@@ -779,7 +796,7 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

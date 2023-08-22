@@ -717,7 +717,7 @@ export default class GmxV1Service implements IExchange {
       // }
       path.push(position.collateralToken.address);
       if (transferToken.address !== position.collateralToken.address) {
-        path.push(transferToken.address);
+        path.push(this.getTokenAddressString(transferToken.address));
       }
 
       fillPrice =
@@ -777,43 +777,36 @@ export default class GmxV1Service implements IExchange {
       .add(position.unrealizedPnl!.mul(closeSize).div(position.size));
     // console.log("collateralDelta: ", collateralDelta.toString());
 
-    return this.createOrder(
-      signer,
-      {
-        mode: "ASYNC",
-        longCollateral: this.collateralTokens,
-        shortCollateral: this.collateralTokens,
-        indexOrIdentifier: indexAddress,
-        address: indexAddress,
-        supportedOrderTypes: {
-          LIMIT_DECREASE: true,
-          LIMIT_INCREASE: true,
-          MARKET_INCREASE: true,
-          MARKET_DECREASE: true,
-          DEPOSIT: false,
-          WITHDRAW: false,
-        },
-        protocolName: this.protocolIdentifier,
-      },
-      {
-        type: "MARKET_DECREASE",
-        direction: position.direction!,
-        inputCollateral: {
-          name: "string",
-          symbol: "string",
-          decimals: "string",
-          address: collateralOutAddr!,
-        },
-        inputCollateralAmount: collateralDelta,
-        sizeDelta: closeSize,
-        isTriggerOrder: false,
-        referralCode: undefined,
-        trigger: {
-          triggerPrice: fillPrice,
-          triggerAboveThreshold: true,
-        },
-      }
+    const positionRouter = PositionRouter__factory.connect(
+      getContract(ARBITRUM, "PositionRouter")!,
+      signer
     );
+
+    const path: string[] = [];
+    path.push(position.collateralToken.address);
+    if (collateralOutAddr !== position.collateralToken.address) {
+      path.push(this.getTokenAddressString(collateralOutAddr!));
+    }
+
+    let createOrderTx =
+      await positionRouter.populateTransaction.createDecreasePosition(
+        path,
+        indexAddress,
+        collateralDelta,
+        closeSize,
+        position.direction! == "LONG" ? true : false,
+        this.swAddr,
+        fillPrice,
+        0,
+        this.EXECUTION_FEE,
+        collateralOutAddr == ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        {
+          value: this.EXECUTION_FEE,
+        }
+      );
+
+    return [createOrderTx!];
   }
 
   getMarketPositions(user: string, market: string): Promise<Position[]> {
