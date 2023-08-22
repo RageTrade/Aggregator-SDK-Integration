@@ -660,6 +660,7 @@ export default class GmxV1Service implements IExchange {
       position.indexOrIdentifier
     );
     let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
+    let transferTokenString = this.getTokenAddressString(transferToken.address);
 
     let marginTx: UnsignedTransaction;
     const path: string[] = [];
@@ -667,57 +668,64 @@ export default class GmxV1Service implements IExchange {
 
     if (isDeposit) {
       //approve router for token spends
-      let approvalTx = await this.getApproveRouterSpendTx(
-        transferToken.address,
-        signer,
-        marginAmount
-      );
-
-      if (approvalTx) txs.push(approvalTx);
+      if (transferToken.address !== ethers.constants.AddressZero) {
+        let approvalTx = await this.getApproveRouterSpendTx(
+          transferToken.address,
+          signer,
+          marginAmount
+        );
+        if (approvalTx) txs.push(approvalTx);
+      }
 
       fillPrice =
         position.direction == "LONG"
           ? fillPrice.mul(101).div(100)
           : fillPrice.mul(99).div(100);
 
-      if (transferToken.address !== position.collateralToken.address) {
-        path.push(transferToken.address, position.collateralToken.address);
+      if (transferTokenString !== position.collateralToken.address) {
+        path.push(transferTokenString, position.collateralToken.address);
       } else {
-        path.push(position.collateralToken!.address);
+        path.push(position.collateralToken.address);
       }
 
-      marginTx =
-        await positionRouter.populateTransaction.createIncreasePosition(
-          path,
-          indexAddress,
-          marginAmount,
-          0,
-          BigNumber.from(0),
-          position.direction == "LONG" ? true : false,
-          fillPrice,
-          this.EXECUTION_FEE,
-          ethers.constants.HashZero, // Referral code set during setup()
-          ethers.constants.AddressZero,
-          {
-            value: BigNumber.from(this.EXECUTION_FEE),
-          }
-        );
+      if (transferToken.address == ethers.constants.AddressZero) {
+        marginTx =
+          await positionRouter.populateTransaction.createIncreasePositionETH(
+            path,
+            indexAddress,
+            0,
+            BigNumber.from(0),
+            position.direction == "LONG" ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
+            }
+          );
+      } else {
+        marginTx =
+          await positionRouter.populateTransaction.createIncreasePosition(
+            path,
+            indexAddress,
+            marginAmount,
+            0,
+            BigNumber.from(0),
+            position.direction == "LONG" ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: BigNumber.from(this.EXECUTION_FEE),
+            }
+          );
+      }
     } else {
-      // path.push(indexAddress);
-      // if (transferToken.address !== position.collateralToken.address) {
-      //   if (position.collateralToken.address != indexAddress) {
-      //     path.push(position.collateralToken.address, transferToken.address);
-      //   } else {
-      //     path.push(transferToken.address);
-      //   }
-      // } else {
-      //   if (position.collateralToken.address != indexAddress) {
-      //     path.push(position.collateralToken.address);
-      //   }
-      // }
       path.push(position.collateralToken.address);
-      if (transferToken.address !== position.collateralToken.address) {
-        path.push(this.getTokenAddressString(transferToken.address));
+      if (transferTokenString !== position.collateralToken.address) {
+        path.push(transferTokenString);
       }
 
       fillPrice =
@@ -736,8 +744,7 @@ export default class GmxV1Service implements IExchange {
           fillPrice,
           0,
           this.EXECUTION_FEE,
-          transferToken != undefined &&
-            transferToken.address == ethers.constants.AddressZero,
+          transferToken.address == ethers.constants.AddressZero,
           ethers.constants.AddressZero,
           {
             value: this.EXECUTION_FEE,
