@@ -9,6 +9,8 @@ export type OrderAction = {
 
 export type PROTOCOL_NAME = "GMX_V1" | "SYNTHETIX_V2";
 
+export type TRIGGER_TYPE = "STOP_LOSS" | "TAKE_PROFIT" | "NONE";
+
 export type OrderType =
   | "LIMIT_INCREASE"
   | "LIMIT_DECREASE"
@@ -167,6 +169,8 @@ export type Order = {
 export type ExtendedOrder = Order &
   OrderAction & {
     orderIdentifier: OrderIdentifier;
+  } & MarketIdentifier & {
+    triggerType: TRIGGER_TYPE;
   };
 
 // at any point in time, there is only one delayed order per market for SNX
@@ -233,6 +237,14 @@ export interface IExchange {
 
   getAllOrders(
     user: string,
+    signer: Signer,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<Array<ExtendedOrder>>;
+
+  getAllOrdersForPosition(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>>;
 

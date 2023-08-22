@@ -40,6 +40,7 @@ import {
   toNumberDecimal,
 } from "../common/helper";
 import { getExplorerUrl } from "../configs/gmx/chains";
+import { timer } from "execution-time-decorators";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -478,11 +479,16 @@ export default class SynthetixV2Service implements IExchange {
       ...{
         orderIdentifier: orderIdentifier.toString(),
       },
+      ...{
+        indexOrIdentifier: market.indexOrIdentifier,
+      },
+      triggerType: "NONE",
     };
   }
 
   async getAllOrders(
     user: string,
+    signer: Signer,
     openMarkets: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
@@ -496,6 +502,15 @@ export default class SynthetixV2Service implements IExchange {
     });
 
     return ordersData;
+  }
+
+  getAllOrdersForPosition(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<Array<ExtendedOrder>> {
+    throw new Error("Method not implemented.");
   }
 
   // will work as getOrder for SNX

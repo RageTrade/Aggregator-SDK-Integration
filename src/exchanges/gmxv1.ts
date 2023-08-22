@@ -22,9 +22,11 @@ import {
   Token,
   TradeHistory,
   PROTOCOL_NAME,
+  TRIGGER_TYPE,
 } from "../interface";
 import {
   IERC20__factory,
+  OrderBookReader__factory,
   OrderBook__factory,
   PositionRouter__factory,
   Reader__factory,
@@ -52,6 +54,7 @@ import {
   getToken,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
+import { timer } from "execution-time-decorators";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -299,6 +302,8 @@ export default class GmxV1Service implements IExchange {
         signer
       );
 
+      // TODO - calculate collatetral delta
+
       createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
         market.indexOrIdentifier,
         order.sizeDelta,
@@ -470,10 +475,11 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  async getAllOrders(user: string): Promise<ExtendedOrder[]> {
+  // @timer()
+  async getAllOrders(user: string, signer: Signer): Promise<ExtendedOrder[]> {
     // const gmxSubgraphUrl =
     //   "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats";
-    //
+
     // const results = await fetch(gmxSubgraphUrl, {
     //   method: "POST",
     //   headers: { "Content-Type": "application/json" },
@@ -496,11 +502,72 @@ export default class GmxV1Service implements IExchange {
     //   `,
     //   }),
     // });
-    //
-    // console.log((await results.json()).data)
 
-    const x: ExtendedOrder[] = [];
-    return Promise.resolve(x);
+    // console.log((await results.json()).data);
+
+    const eos: ExtendedOrder[] = [];
+
+    const orders = await this.getAccountOrders(user, signer);
+    orders.forEach((order) => {
+      let isIncrease = order.type == "Increase";
+      let collateralToken;
+      let collateralAmount;
+      if (isIncrease) {
+        collateralToken = this.convertToToken(
+          getToken(ARBITRUM, order.purchaseToken)
+        );
+        collateralAmount = order.purchaseTokenAmount as BigNumber;
+      } else {
+        collateralToken = this.convertToToken(
+          getToken(ARBITRUM, order.collateralToken)
+        );
+        collateralAmount = order.collateralDelta as BigNumber;
+      }
+
+      let isTp = false;
+      let isSl = false;
+      let triggerType: TRIGGER_TYPE;
+      if (!isIncrease) {
+        if (order.isLong) {
+          isTp = order.triggerAboveThreshold as boolean;
+        } else {
+          isTp = !order.triggerAboveThreshold as boolean;
+        }
+        isSl = !isTp;
+        triggerType = isTp ? "TAKE_PROFIT" : "STOP_LOSS";
+      } else {
+        triggerType = "NONE";
+      }
+
+      eos.push({
+        orderAction: "CREATE",
+        orderIdentifier: order.index as number,
+        type: order.type == "Increase" ? "LIMIT_INCREASE" : "LIMIT_DECREASE",
+        direction: order.isLong ? "LONG" : "SHORT",
+        sizeDelta: order.sizeDelta as BigNumber,
+        referralCode: undefined,
+        isTriggerOrder: order.type == "Decrease",
+        trigger: {
+          triggerPrice: order.triggerPrice as BigNumber,
+          triggerAboveThreshold: order.triggerAboveThreshold as boolean,
+        },
+        ...{
+          inputCollateral: collateralToken,
+          inputCollateralAmount: collateralAmount,
+        },
+        ...{
+          indexOrIdentifier: order.indexToken as string,
+          marketToken: this.convertToToken(
+            getToken(ARBITRUM, order.indexToken as string)
+          ),
+          ...{
+            triggerType: triggerType,
+          },
+        },
+      });
+    });
+
+    return eos;
   }
 
   getMarketOrders(
@@ -515,6 +582,15 @@ export default class GmxV1Service implements IExchange {
     market: ExtendedMarket,
     user?: string
   ): Promise<ExtendedPosition> {
+    throw new Error("Method not implemented.");
+  }
+
+  getAllOrdersForPosition(
+    user: string,
+    signer: Signer,
+    position: ExtendedPosition,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<Array<ExtendedOrder>> {
     throw new Error("Method not implemented.");
   }
 
@@ -961,5 +1037,238 @@ export default class GmxV1Service implements IExchange {
       name: inToken.name,
     };
     return token;
+  }
+
+  ////////// HELPERS ////////////
+  // @timer()
+  async getAccountOrders(account: string, signer: Signer) {
+    const orderBookAddress = getContract(ARBITRUM, "OrderBook")!;
+    const orderBookReaderAddress = getContract(ARBITRUM, "OrderBookReader")!;
+
+    const orderBookContract = OrderBook__factory.connect(
+      orderBookAddress,
+      signer
+    );
+    const orderBookReaderContract = OrderBookReader__factory.connect(
+      orderBookReaderAddress,
+      signer
+    );
+
+    const fetchIndexesFromServer = () => {
+      const ordersIndexesUrl = `${getServerBaseUrl(
+        ARBITRUM
+      )}/orders_indices?account=${account}`;
+      return fetch(ordersIndexesUrl)
+        .then(async (res) => {
+          const json = await res.json();
+          const ret: {
+            [index: string]: Array<{
+              _type: string;
+              val: string;
+            }>;
+          } = {};
+          for (const key of Object.keys(json)) {
+            ret[key.toLowerCase()] = json[key]
+              .map((val: { value: string }) => parseInt(val.value))
+              .sort((a: number, b: number) => a - b);
+          }
+
+          // console.dir(ret, { depth: 10 });
+          return ret;
+        })
+        .catch(() => ({ swap: [], increase: [], decrease: [] }));
+    };
+
+    const fetchLastIndexes = async () => {
+      const [increase, decrease] = await Promise.all([
+        (await orderBookContract.increaseOrdersIndex(account)).toNumber(),
+        (await orderBookContract.increaseOrdersIndex(account)).toNumber(),
+      ]);
+
+      return { increase, decrease };
+    };
+
+    const getRange = (to: number, from?: number) => {
+      const LIMIT = 10;
+      const _indexes: number[] = [];
+      from = from || Math.max(to - LIMIT, 0);
+      for (let i = to - 1; i >= from; i--) {
+        _indexes.push(i);
+      }
+      return _indexes;
+    };
+
+    const getIndexes = (knownIndexes: number[], lastIndex: number) => {
+      if (knownIndexes.length === 0) {
+        return getRange(lastIndex);
+      }
+      return [
+        ...knownIndexes,
+        ...getRange(lastIndex, knownIndexes[knownIndexes.length - 1] + 1).sort(
+          (a, b) => b - a
+        ),
+      ];
+    };
+
+    const getIncreaseOrders = async (
+      knownIndexes: number[],
+      lastIndex: number,
+      parseFunc: (
+        arg1: [ethers.BigNumber[], string[]],
+        arg2: string,
+        arg3: number[]
+      ) => any[]
+    ) => {
+      const indexes = getIndexes(knownIndexes, lastIndex);
+      const ordersData = await orderBookReaderContract.getIncreaseOrders(
+        orderBookAddress,
+        account,
+        indexes
+      );
+      const orders = parseFunc(ordersData, account, indexes);
+
+      return orders;
+    };
+
+    const getDecreaseOrders = async (
+      knownIndexes: number[],
+      lastIndex: number,
+      parseFunc: (
+        arg1: [ethers.BigNumber[], string[]],
+        arg2: string,
+        arg3: number[]
+      ) => any[]
+    ) => {
+      const indexes = getIndexes(knownIndexes, lastIndex);
+      const ordersData = await orderBookReaderContract.getDecreaseOrders(
+        orderBookAddress,
+        account,
+        indexes
+      );
+      const orders = parseFunc(ordersData, account, indexes);
+
+      return orders;
+    };
+
+    function _parseOrdersData(
+      ordersData: [ethers.BigNumber[], string[]],
+      account: string,
+      indexes: number[],
+      extractor: any,
+      uintPropsLength: number,
+      addressPropsLength: number
+    ) {
+      if (!ordersData) {
+        return [];
+      }
+      const [uintProps, addressProps] = ordersData;
+      const count = uintProps.length / uintPropsLength;
+
+      const orders: any[] = [];
+      for (let i = 0; i < count; i++) {
+        const sliced = addressProps
+          .slice(addressPropsLength * i, addressPropsLength * (i + 1))
+          .map((prop) => prop as any)
+          .concat(
+            uintProps.slice(uintPropsLength * i, uintPropsLength * (i + 1))
+          );
+
+        if (
+          (sliced[0] as string) === ethers.constants.AddressZero &&
+          (sliced[1] as string) === ethers.constants.AddressZero
+        ) {
+          continue;
+        }
+
+        const order = extractor(sliced);
+        order.index = indexes[i];
+        order.account = account;
+        orders.push(order);
+      }
+
+      return orders;
+    }
+
+    function parseDecreaseOrdersData(
+      decreaseOrdersData: [ethers.BigNumber[], string[]],
+      account: string,
+      indexes: number[]
+    ) {
+      const extractor = (sliced: any[]) => {
+        const isLong = sliced[4].toString() === "1";
+        return {
+          collateralToken: sliced[0] as string,
+          indexToken: sliced[1] as string,
+          collateralDelta: sliced[2] as BigNumber,
+          sizeDelta: sliced[3] as BigNumber,
+          isLong,
+          triggerPrice: sliced[5] as BigNumber,
+          triggerAboveThreshold: sliced[6].toString() === "1",
+          type: "Decrease",
+        };
+      };
+      return _parseOrdersData(
+        decreaseOrdersData,
+        account,
+        indexes,
+        extractor,
+        5,
+        2
+      );
+    }
+
+    function parseIncreaseOrdersData(
+      increaseOrdersData: [ethers.BigNumber[], string[]],
+      account: string,
+      indexes: number[]
+    ) {
+      const extractor = (sliced: any[]) => {
+        const isLong = sliced[5].toString() === "1";
+        return {
+          purchaseToken: sliced[0] as string,
+          collateralToken: sliced[1] as string,
+          indexToken: sliced[2] as string,
+          purchaseTokenAmount: sliced[3] as BigNumber,
+          sizeDelta: sliced[4] as BigNumber,
+          isLong,
+          triggerPrice: sliced[6] as BigNumber,
+          triggerAboveThreshold: sliced[7].toString() === "1",
+          type: "Increase",
+        };
+      };
+      return _parseOrdersData(
+        increaseOrdersData,
+        account,
+        indexes,
+        extractor,
+        5,
+        3
+      );
+    }
+
+    const [serverIndexes, lastIndexes]: any = await Promise.all([
+      fetchIndexesFromServer(),
+      fetchLastIndexes(),
+    ]);
+    const [increaseOrders = [], decreaseOrders = []] = await Promise.all([
+      getIncreaseOrders(
+        serverIndexes.increase,
+        lastIndexes.increase,
+        parseIncreaseOrdersData
+      ),
+      getDecreaseOrders(
+        serverIndexes.decrease,
+        lastIndexes.decrease,
+        parseDecreaseOrdersData
+      ),
+    ]);
+    // increaseOrders.forEach((io: any) => {
+    //   logObject("io", io);
+    // });
+    // decreaseOrders.forEach((dor: any) => {
+    //   logObject("do", dor);
+    // });
+
+    return [...increaseOrders, ...decreaseOrders];
   }
 }

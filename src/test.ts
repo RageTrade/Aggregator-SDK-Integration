@@ -652,60 +652,73 @@ async function gmxService() {
   // logObject("Price: ", price);
   // console.timeEnd("Get Market Price");
 
-  let position0 = (await gs.getAllPositions(signer.address, signer))[0];
-  logObject("Ext Pos: ", position0);
+  // let position0 = (await gs.getAllPositions(signer.address, signer))[0];
+  // logObject("Ext Pos: ", position0);
   // let position1 = (await gs.getAllPositions(signer.address, signer))[1];
   // logObject("Ext Pos: ", position1);
 
-  const btcToken = {
-    name: "Bitcoin (WBTC)",
-    symbol: "BTC",
-    decimals: "8",
-    address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
-    isShortable: true,
-    imageUrl:
-      "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
-    coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
-    explorerUrl:
-      "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
-    isV1Available: true,
-  };
-  const nativeETH = {
-    name: "Ethereum",
-    symbol: "ETH",
-    decimals: "18",
-    address: ethers.constants.AddressZero,
-    isNative: true,
-    isShortable: true,
-    imageUrl:
-      "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
-    coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
-    isV1Available: true,
-  };
-  const usdcEToken = {
-    name: "Bridged USDC (USDC.e)",
-    symbol: "USDC.e",
-    decimals: "6",
-    address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-    isStable: true,
-    imageUrl:
-      "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
-    coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
-    explorerUrl:
-      "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
-    isV1Available: true,
-  };
+  // await gs.getAllOrders(w, signer);
 
-  let inToken = nativeETH;
+  // const orders = await gs.getAccountOrders(w, signer);
+  // orders!.forEach((o) => {
+  //   logObject("Order: ", o);
+  // });
 
-  let updateMarginTx = await gs.updatePositionMargin(
-    signer,
-    position0,
-    ethers.utils.parseUnits("0.01", /* 30 */ inToken.decimals),
-    true,
-    inToken
-  );
-  logObject("Update Margin Tx: ", updateMarginTx[0]);
+  const expandedOrders = await gs.getAllOrders(w, signer);
+  expandedOrders.forEach((o) => {
+    logObject("Expanded Order: ", o);
+    logObject("Trigger", o.trigger!);
+  });
+
+  // const btcToken = {
+  //   name: "Bitcoin (WBTC)",
+  //   symbol: "BTC",
+  //   decimals: "8",
+  //   address: "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f",
+  //   isShortable: true,
+  //   imageUrl:
+  //     "https://assets.coingecko.com/coins/images/26115/thumb/btcb.png?1655921693",
+  //   coingeckoUrl: "https://www.coingecko.com/en/coins/wrapped-bitcoin",
+  //   explorerUrl:
+  //     "https://arbiscan.io/address/0x2f2a2543b76a4166549f7aab2e75bef0aefc5b0f",
+  //   isV1Available: true,
+  // };
+  // const nativeETH = {
+  //   name: "Ethereum",
+  //   symbol: "ETH",
+  //   decimals: "18",
+  //   address: ethers.constants.AddressZero,
+  //   isNative: true,
+  //   isShortable: true,
+  //   imageUrl:
+  //     "https://assets.coingecko.com/coins/images/279/small/ethereum.png?1595348880",
+  //   coingeckoUrl: "https://www.coingecko.com/en/coins/ethereum",
+  //   isV1Available: true,
+  // };
+  // const usdcEToken = {
+  //   name: "Bridged USDC (USDC.e)",
+  //   symbol: "USDC.e",
+  //   decimals: "6",
+  //   address: "0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+  //   isStable: true,
+  //   imageUrl:
+  //     "https://assets.coingecko.com/coins/images/6319/thumb/USD_Coin_icon.png?1547042389",
+  //   coingeckoUrl: "https://www.coingecko.com/en/coins/usd-coin",
+  //   explorerUrl:
+  //     "https://arbiscan.io/token/0xFF970A61A04b1cA14834A43f5dE4533eBDDB5CC8",
+  //   isV1Available: true,
+  // };
+
+  // let inToken = nativeETH;
+
+  // let updateMarginTx = await gs.updatePositionMargin(
+  //   signer,
+  //   position0,
+  //   ethers.utils.parseUnits("10", 30 /* inToken.decimals */),
+  //   false,
+  //   inToken
+  // );
+  // logObject("Update Margin Tx: ", updateMarginTx[0]);
   // await fireTxs(updateMarginTx);
 
   let usdce = {

@@ -25,6 +25,9 @@ devDependencies:
   dotenv:
     specifier: ^16.3.1
     version: 16.3.1
+  execution-time-decorators:
+    specifier: ^2.0.3
+    version: 2.0.3
   prettier:
     specifier: ^2.8.8
     version: 2.8.8
@@ -505,6 +508,11 @@ packages:
       - bufferutil
       - utf-8-validate
     dev: false
+
+  /execution-time-decorators@2.0.3:
+    resolution: {integrity: sha512-ZSp7q1mOmfzUXz2TgLWJ47Q97xj1cn1Ik3Fx8KlewGiX9hSxdw/mavlEZDMC/udA+jHz4ftnqYqK2O6rzVy6hA==}
+    engines: {node: '>=10'}
+    dev: true
 
   /hash.js@1.1.7:
     resolution: {integrity: sha512-taOaskGt4z4SOANNseOviYDvjEJinIkRgmp7LbKP2YTTmVxWBl87s/uzK9r+44BclBSp2X7K1hqeNfz9JbBeXA==}

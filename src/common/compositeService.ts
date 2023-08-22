@@ -1,6 +1,7 @@
 import GmxV1Service from "../exchanges/gmxv1";
 import SynthetixV2Service from "../exchanges/synthetixv2";
 import { Network, Market, ExtendedMarket, OpenMarkets } from "../interface";
+import { timer } from "execution-time-decorators";
 
 export type OpenMarket = Record<string, Array<ExtendedMarket & Network>>;
 
