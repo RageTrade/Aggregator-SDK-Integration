@@ -698,14 +698,14 @@ async function gmxService() {
 
   let inToken = nativeETH;
 
-  // let updateMarginTx = await gs.updatePositionMargin(
-  //   signer,
-  //   position1,
-  //   ethers.utils.parseUnits("2.45", 30 /* inToken.decimals */),
-  //   false,
-  //   inToken
-  // );
-  // logObject("Update Margin Tx: ", updateMarginTx[0]);
+  let updateMarginTx = await gs.updatePositionMargin(
+    signer,
+    position0,
+    ethers.utils.parseUnits("0.01", /* 30 */ inToken.decimals),
+    true,
+    inToken
+  );
+  logObject("Update Margin Tx: ", updateMarginTx[0]);
   // await fireTxs(updateMarginTx);
 
   let usdce = {
@@ -729,16 +729,16 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  let closePositionTxs = await gs.closePosition(
-    signer,
-    position0,
-    position0.size.mul(100).div(100),
-    // ethers.utils.parseUnits("10", 30),
-    eth
-  );
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
-  });
+  // let closePositionTxs = await gs.closePosition(
+  //   signer,
+  //   position0,
+  //   position0.size.mul(100).div(100),
+  //   // ethers.utils.parseUnits("10", 30),
+  //   eth
+  // );
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
   // await fireTxs(closePositionTxs);
 
   // await gs.setup(signer);

@@ -242,6 +242,7 @@ export default class GmxV1Service implements IExchange {
   ): Promise<UnsignedTransaction[]> {
     let txs: UnsignedTransaction[] = [];
 
+    // approval tx
     if (
       (order.type == "LIMIT_INCREASE" || order.type == "MARKET_INCREASE") &&
       order.inputCollateral.address != ethers.constants.AddressZero
@@ -257,7 +258,7 @@ export default class GmxV1Service implements IExchange {
       }
     }
 
-    const tokenAddress0 = this.getTokenAddressString(
+    const tokenAddressString = this.getTokenAddressString(
       order.inputCollateral.address
     );
 
@@ -269,7 +270,7 @@ export default class GmxV1Service implements IExchange {
       );
 
       const path: string[] = [];
-      path.push(tokenAddress0);
+      path.push(tokenAddressString);
 
       createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
         path,
@@ -317,13 +318,13 @@ export default class GmxV1Service implements IExchange {
       );
 
       const path: string[] = [];
-      path.push(tokenAddress0);
+      path.push(tokenAddressString);
       if (order.direction == "LONG") {
-        if (tokenAddress0 != market.indexOrIdentifier) {
+        if (tokenAddressString != market.indexOrIdentifier) {
           path.push(market.indexOrIdentifier);
         }
       } else {
-        if (tokenAddress0 != this.shortTokenAddress) {
+        if (tokenAddressString != this.shortTokenAddress) {
           path.push(this.shortTokenAddress);
         }
       }
@@ -372,8 +373,8 @@ export default class GmxV1Service implements IExchange {
 
       const path: string[] = [];
       path.push(market.indexOrIdentifier);
-      if (tokenAddress0 != market.indexOrIdentifier) {
-        path.push(tokenAddress0);
+      if (tokenAddressString != market.indexOrIdentifier) {
+        path.push(tokenAddressString);
       }
 
       createOrderTx =
