@@ -199,13 +199,13 @@ export interface IExchange {
 
   updateOrder(
     signer: Signer,
-    market: ExtendedMarket,
+    market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]>;
 
   cancelOrder(
     signer: Signer,
-    market: ExtendedMarket,
+    market: ExtendedMarket | undefined,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]>;
 

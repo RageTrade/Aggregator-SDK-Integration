@@ -415,8 +415,6 @@ export default class GmxV1Service implements IExchange {
       signer
     );
 
-    // TODO - check for approve tx
-
     let updateOrderTx;
 
     if (updatedOrder.type! == "LIMIT_INCREASE") {
@@ -427,8 +425,9 @@ export default class GmxV1Service implements IExchange {
         updatedOrder.trigger?.triggerAboveThreshold!
       );
     } else if (updatedOrder.type! == "LIMIT_DECREASE") {
-      updateOrderTx = await orderBook.populateTransaction.updateIncreaseOrder(
+      updateOrderTx = await orderBook.populateTransaction.updateDecreaseOrder(
         updatedOrder.orderIdentifier!,
+        updatedOrder.inputCollateralAmount!,
         updatedOrder.sizeDelta!,
         updatedOrder.trigger?.triggerPrice!,
         updatedOrder.trigger?.triggerAboveThreshold!
@@ -442,7 +441,7 @@ export default class GmxV1Service implements IExchange {
 
   async cancelOrder(
     signer: Signer,
-    market: Market,
+    market: Market | undefined,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
@@ -477,34 +476,6 @@ export default class GmxV1Service implements IExchange {
 
   // @timer()
   async getAllOrders(user: string, signer: Signer): Promise<ExtendedOrder[]> {
-    // const gmxSubgraphUrl =
-    //   "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats";
-
-    // const results = await fetch(gmxSubgraphUrl, {
-    //   method: "POST",
-    //   headers: { "Content-Type": "application/json" },
-    //   body: JSON.stringify({
-    //     query: `
-    //     query openOrders {
-    //       orders(
-    //         first: 1000,
-    //         orderBy: createdTimestamp,
-    //         orderDirection: desc,
-    //         where: {status: "open", account: "${user.toLowerCase()}"}
-    //       ) {
-    //         id
-    //         type
-    //         status
-    //         size
-    //         createdTimestamp
-    //       }
-    //     }
-    //   `,
-    //   }),
-    // });
-
-    // console.log((await results.json()).data);
-
     const eos: ExtendedOrder[] = [];
 
     const orders = await this.getAccountOrders(user, signer);
@@ -585,13 +556,15 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getAllOrdersForPosition(
+  async getAllOrdersForPosition(
     user: string,
     signer: Signer,
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
-    throw new Error("Method not implemented.");
+    return (await this.getAllOrders(user, signer)).filter(
+      (order) => order.marketToken!.address == position.indexToken!.address
+    );
   }
 
   async getAllPositions(
@@ -840,6 +813,25 @@ export default class GmxV1Service implements IExchange {
     closeSize: BigNumber,
     outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]> {
+    let txs: UnsignedTransaction[] = [];
+
+    // close all related tp/sl orders if full close
+    if (closeSize.eq(position.size)) {
+      const orders = (
+        await this.getAllOrdersForPosition(
+          this.swAddr,
+          signer,
+          position,
+          undefined
+        )
+      ).filter((order) => order.triggerType != "NONE");
+      for (const order of orders) {
+        const cancelOrderTx = await this.cancelOrder(signer, undefined, order);
+        txs.push(...cancelOrderTx);
+      }
+    }
+
+    // close position
     let collateralOutAddr = outputToken
       ? outputToken.address
       : position.originalCollateralToken;
@@ -889,8 +881,9 @@ export default class GmxV1Service implements IExchange {
           value: this.EXECUTION_FEE,
         }
       );
+    txs.push(createOrderTx);
 
-    return [createOrderTx!];
+    return txs;
   }
 
   getMarketPositions(user: string, market: string): Promise<Position[]> {

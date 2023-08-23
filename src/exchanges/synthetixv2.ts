@@ -222,7 +222,7 @@ export default class SynthetixV2Service implements IExchange {
 
   updateOrder(
     signer: Signer,
-    market: Market,
+    market: Market | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     throw new Error("Method not Supported.");

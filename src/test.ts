@@ -664,11 +664,11 @@ async function gmxService() {
   //   logObject("Order: ", o);
   // });
 
-  const expandedOrders = await gs.getAllOrders(w, signer);
-  expandedOrders.forEach((o) => {
-    logObject("Expanded Order: ", o);
-    logObject("Trigger", o.trigger!);
-  });
+  // const expandedOrders = await gs.getAllOrders(w, signer);
+  // expandedOrders.forEach((o) => {
+  //   logObject("Expanded Order: ", o);
+  //   logObject("Trigger", o.trigger!);
+  // });
 
   // const btcToken = {
   //   name: "Bitcoin (WBTC)",
@@ -742,16 +742,30 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  // let closePositionTxs = await gs.closePosition(
-  //   signer,
-  //   position0,
-  //   position0.size.mul(100).div(100),
-  //   // ethers.utils.parseUnits("10", 30),
-  //   eth
-  // );
-  // closePositionTxs.forEach((tx) => {
-  //   logObject("Close position tx: ", tx);
-  // });
+  const allPositions = await gs.getAllPositions(w, signer);
+  for (let i = 0; i < allPositions.length; i++) {
+    logObject("Position: ", allPositions[i]);
+    let positionOrders = await gs.getAllOrdersForPosition(
+      w,
+      signer,
+      allPositions[i],
+      undefined
+    );
+    positionOrders.forEach((o) => {
+      logObject("Position Order: ", o);
+    });
+  }
+
+  let closePositionTxs = await gs.closePosition(
+    signer,
+    allPositions[0],
+    allPositions[0].size.mul(100).div(100),
+    // ethers.utils.parseUnits("10", 30),
+    eth
+  );
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
   // await fireTxs(closePositionTxs);
 
   // await gs.setup(signer);
