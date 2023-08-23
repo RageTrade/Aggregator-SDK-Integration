@@ -70,7 +70,7 @@ async function getTradePreview(
 ) {
   const tradePreview = await ss.getTradePreview(
     user,
-    signer,
+    provider,
     {
       mode: "ASYNC",
       longCollateral: [],
@@ -117,7 +117,7 @@ async function createLongOrder(
   inputCollateral: string
 ): Promise<UnsignedTransaction[]> {
   const createOrderTxs = await ss.createOrder(
-    signer,
+    provider,
     {
       mode: "ASYNC",
       longCollateral: [],
@@ -168,7 +168,7 @@ async function cancelDelayedOffChainOrder(
   ss: SynthetixV2Service
 ): Promise<UnsignedTransaction[]> {
   const cancelOrder = await ss.cancelOrder(
-    signer,
+    provider,
     {
       mode: "ASYNC",
       longCollateral: [],
@@ -195,7 +195,7 @@ async function createTransferMarginOrder(
   amount: BigNumber
 ): Promise<UnsignedTransaction[]> {
   const createOrder = await ss.createOrder(
-    signer,
+    provider,
     {
       mode: "ASYNC",
       longCollateral: [],
@@ -475,7 +475,7 @@ async function synService() {
   // let position = await ss.getPosition("sBTCPERP", w);
   // logObject("Position: ", position);
 
-  // await ss.getAllPositions(w, signer, undefined);
+  // await ss.getAllPositions(w, provider, undefined);
 
   // const transferMarginTx = await createTransferMarginOrder(ss, "50");
   // await fireTx(transferMarginTx);
@@ -506,13 +506,13 @@ async function synService() {
   //   logObject("Trades History: ", t);
   // });
 
-  const positions = await ss.getAllPositions(w, signer, undefined);
+  const positions = await ss.getAllPositions(w, provider, undefined);
   // positions.forEach((p) => logObject("Position: ", p));
   logObject("Position: ", positions[0]);
 
   const editTradePreview = await ss.getEditTradePreview(
     w,
-    signer,
+    provider,
     positions[0],
     ethers.utils.parseEther("0.01"),
     ethers.utils.parseEther("0"),
@@ -521,7 +521,7 @@ async function synService() {
   logObject("Edit Trade Preview: ", editTradePreview);
 
   // const closePositionTxs = await ss.closePosition(
-  //   signer,
+  //   provider,
   //   positions[0],
   //   positions[0].size.mul(100).div(100)
   // );
@@ -531,7 +531,7 @@ async function synService() {
   // await fireTxs(closePositionTxs);
 
   // const updatePosMarginTxs = await ss.updatePositionMargin(
-  //   signer,
+  //   provider,
   //   positions[0],
   //   ethers.utils.parseUnits("10"),
   //   true
@@ -652,19 +652,19 @@ async function gmxService() {
   // logObject("Price: ", price);
   // console.timeEnd("Get Market Price");
 
-  // let position0 = (await gs.getAllPositions(signer.address, signer))[0];
+  // let position0 = (await gs.getAllPositions(w, signer))[0];
   // logObject("Ext Pos: ", position0);
-  // let position1 = (await gs.getAllPositions(signer.address, signer))[1];
+  // let position1 = (await gs.getAllPositions(w, signer))[1];
   // logObject("Ext Pos: ", position1);
 
-  // await gs.getAllOrders(w, signer);
+  // await gs.getAllOrders(w, provider);
 
-  // const orders = await gs.getAccountOrders(w, signer);
+  // const orders = await gs.getAccountOrders(w, provider);
   // orders!.forEach((o) => {
   //   logObject("Order: ", o);
   // });
 
-  // const expandedOrders = await gs.getAllOrders(w, signer);
+  // const expandedOrders = await gs.getAllOrders(w, provider);
   // expandedOrders.forEach((o) => {
   //   logObject("Expanded Order: ", o);
   //   logObject("Trigger", o.trigger!);
@@ -712,7 +712,7 @@ async function gmxService() {
   // let inToken = nativeETH;
 
   // let updateMarginTx = await gs.updatePositionMargin(
-  //   signer,
+  //   provider,
   //   position0,
   //   ethers.utils.parseUnits("10", 30 /* inToken.decimals */),
   //   false,
@@ -742,12 +742,12 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  const allPositions = await gs.getAllPositions(w, signer);
+  const allPositions = await gs.getAllPositions(w, provider);
   for (let i = 0; i < allPositions.length; i++) {
     logObject("Position: ", allPositions[i]);
     let positionOrders = await gs.getAllOrdersForPosition(
       w,
-      signer,
+      provider,
       allPositions[i],
       undefined
     );
@@ -757,7 +757,7 @@ async function gmxService() {
   }
 
   let closePositionTxs = await gs.closePosition(
-    signer,
+    provider,
     allPositions[0],
     allPositions[0].size.mul(100).div(100),
     // ethers.utils.parseUnits("10", 30),
@@ -768,11 +768,11 @@ async function gmxService() {
   });
   // await fireTxs(closePositionTxs);
 
-  // await gs.setup(signer);
+  // await gs.setup(provider);
   // console.log("Finished Setup".toUpperCase());
 
   // await gs.createOrder(
-  //   signer,
+  //   provider,
   //   {
   //     mode: "ASYNC",
   //     longCollateral: "",
@@ -807,7 +807,7 @@ async function gmxService() {
   //   }
   // );
 
-  // const positions = await gs.getAllPositions(w, signer);
+  // const positions = await gs.getAllPositions(w, provider);
   // positions.forEach((p) => {
   //   logObject("Position: ", p);
   // });

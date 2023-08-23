@@ -1,5 +1,5 @@
 import KwentaSDK from "@kwenta/sdk";
-import { Signer, BigNumber, UnsignedTransaction, BigNumberish } from "ethers";
+import { BigNumber, UnsignedTransaction, BigNumberish } from "ethers";
 import {
   ExtendedPosition,
   IExchange,
@@ -21,6 +21,7 @@ import {
   HistoricalOrderType,
   NumberDecimal,
   PROTOCOL_NAME,
+  Provider,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -80,7 +81,7 @@ export default class SynthetixV2Service implements IExchange {
     return markets.find((m) => m.marketKey == marketKey);
   }
 
-  setup(signer: Signer): Promise<UnsignedTransaction[]> {
+  setup(provider: Provider): Promise<UnsignedTransaction[]> {
     return Promise.resolve([]);
   }
 
@@ -180,7 +181,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async createOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
@@ -188,11 +189,11 @@ export default class SynthetixV2Service implements IExchange {
     if (order.sizeDelta.eq(0)) return txs;
 
     const marketAddress = await this.getMarketAddress(market);
-    await this.sdk.setSigner(signer);
+    await this.sdk.setProvider(provider);
 
     if (order.inputCollateralAmount.gt(0)) {
       // withdraw unused collateral tx's
-      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
+      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, provider)));
 
       // deposit
       let depositTx = await this.formulateDepositTx(
@@ -221,7 +222,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   updateOrder(
-    signer: Signer,
+    provider: Provider,
     market: Market | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
@@ -229,7 +230,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async cancelOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
@@ -238,14 +239,14 @@ export default class SynthetixV2Service implements IExchange {
     return [
       await this.sdk.futures.cancelDelayedOrder(
         marketAddress,
-        await signer.getAddress(),
+        this.swAddr,
         true
       ),
     ];
   }
 
   async closePosition(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     closeSize: BigNumber
   ): Promise<UnsignedTransaction[]> {
@@ -264,7 +265,7 @@ export default class SynthetixV2Service implements IExchange {
         : fillPrice.mul(101).div(100);
 
     return this.createOrder(
-      signer,
+      provider,
       {
         mode: "ASYNC",
         longCollateral: [this.sUsd],
@@ -303,7 +304,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async updatePositionMargin(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     marginAmount: BigNumber,
     isDeposit: boolean
@@ -320,7 +321,7 @@ export default class SynthetixV2Service implements IExchange {
 
     if (isDeposit) {
       // withdraw unused collateral tx's
-      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, signer)));
+      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, provider)));
 
       // deposit
       let depositTx = await this.formulateDepositTx(
@@ -329,7 +330,7 @@ export default class SynthetixV2Service implements IExchange {
       );
       txs.push(depositTx);
     } else {
-      await this.sdk.setSigner(signer);
+      await this.sdk.setProvider(provider);
 
       // no need to withdraw from 0-positioned markets
       // withdraw from the position
@@ -360,13 +361,13 @@ export default class SynthetixV2Service implements IExchange {
 
   async getTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition> {
     const marketAddress = await this.getMarketAddress(market);
 
-    await this.sdk.setSigner(signer);
+    await this.sdk.setProvider(provider);
 
     let sizeDelta = wei(order.sizeDelta);
     sizeDelta = order.direction == "LONG" ? sizeDelta : sizeDelta.neg();
@@ -398,14 +399,14 @@ export default class SynthetixV2Service implements IExchange {
 
   async getEditTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     sizeDelta: BigNumber,
     marginDelta: BigNumber,
     isDeposit: boolean
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!;
-    await this.sdk.setSigner(signer);
+    await this.sdk.setProvider(provider);
 
     // because simulation is for only (partial) close position
     let sizeDeltaIn =
@@ -488,7 +489,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async getAllOrders(
     user: string,
-    signer: Signer,
+    provider: Provider,
     openMarkets: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
@@ -506,7 +507,7 @@ export default class SynthetixV2Service implements IExchange {
 
   getAllOrdersForPosition(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
@@ -562,7 +563,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async getAllPositions(
     user: string,
-    signer: Signer,
+    provider: Provider,
     openMarkets: OpenMarkets | undefined
   ): Promise<ExtendedPosition[]> {
     let extendedPositions: ExtendedPosition[] = [];
@@ -674,11 +675,11 @@ export default class SynthetixV2Service implements IExchange {
 
   async withdrawUnusedCollateral(
     user: string,
-    signer: Signer
+    provider: Provider
   ): Promise<UnsignedTransaction[]> {
     let txs: UnsignedTransaction[] = [];
 
-    await this.sdk.setSigner(signer);
+    await this.sdk.setProvider(provider);
     // withdraw unused collateral tx's
     const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(user);
 

@@ -1,4 +1,6 @@
-import { BigNumber, BigNumberish, Signer, UnsignedTransaction } from "ethers";
+import { BigNumber, BigNumberish, UnsignedTransaction, ethers } from "ethers";
+
+export type Provider = ethers.providers.Provider;
 
 export type Mode = "SYNC" | "ASYNC";
 
@@ -185,39 +187,39 @@ export type OpenMarkets = {
 
 export interface IExchange {
   // something to indicate when setup should be called
-  setup(signer: Signer): Promise<UnsignedTransaction[]>;
+  setup(provider: Provider): Promise<UnsignedTransaction[]>;
 
   supportedNetworks(): readonly Network[];
 
   supportedMarkets(network: Network): Promise<ExtendedMarket[]>;
 
   createOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]>;
 
   updateOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]>;
 
   cancelOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket | undefined,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]>;
 
   closePosition(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     closeSize: BigNumber,
     outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]>;
 
   updatePositionMargin(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     marginAmount: BigNumber,
     isDeposit: boolean,
@@ -237,13 +239,13 @@ export interface IExchange {
 
   getAllOrders(
     user: string,
-    signer: Signer,
+    provider: Provider,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>>;
 
   getAllOrdersForPosition(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>>;
@@ -262,7 +264,7 @@ export interface IExchange {
 
   getAllPositions(
     user: string,
-    signer: Signer,
+    provider: Provider,
     openMarkers: OpenMarkets | undefined
   ): Promise<ExtendedPosition[]>;
 
@@ -278,14 +280,14 @@ export interface IExchange {
 
   getTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition>;
 
   getEditTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     sizeDelta: BigNumber,
     marginDelta: BigNumber,

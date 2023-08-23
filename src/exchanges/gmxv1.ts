@@ -1,10 +1,4 @@
-import {
-  Signer,
-  UnsignedTransaction,
-  BigNumberish,
-  ethers,
-  BigNumber,
-} from "ethers";
+import { UnsignedTransaction, BigNumberish, ethers, BigNumber } from "ethers";
 import {
   CollateralData,
   DynamicMarketMetadata,
@@ -23,6 +17,7 @@ import {
   TradeHistory,
   PROTOCOL_NAME,
   TRIGGER_TYPE,
+  Provider,
 } from "../interface";
 import {
   IERC20__factory,
@@ -108,10 +103,10 @@ export default class GmxV1Service implements IExchange {
     }
   }
 
-  async setup(signer: Signer): Promise<UnsignedTransaction[]> {
+  async setup(provider: Provider): Promise<UnsignedTransaction[]> {
     const referralStorage = ReferralStorage__factory.connect(
       getContract(ARBITRUM, "ReferralStorage")!,
-      signer
+      provider
     );
 
     // Check if user has already setup
@@ -132,7 +127,7 @@ export default class GmxV1Service implements IExchange {
     // approve router
     const router = Router__factory.connect(
       getContract(ARBITRUM, "Router")!,
-      signer
+      provider
     );
     const approveOrderBookTx = await router.populateTransaction.approvePlugin(
       getContract(ARBITRUM, "OrderBook")!
@@ -150,13 +145,13 @@ export default class GmxV1Service implements IExchange {
 
   async getApproveRouterSpendTx(
     tokenAddress: string,
-    signer: Signer,
+    provider: Provider,
     allowanceAmount: BigNumber
   ): Promise<UnsignedTransaction | undefined> {
-    let token = IERC20__factory.connect(tokenAddress, signer);
+    let token = IERC20__factory.connect(tokenAddress, provider);
 
     let allowance = await token.allowance(
-      await signer.getAddress(),
+      this.swAddr,
       getContract(ARBITRUM, "Router")!
     );
 
@@ -239,7 +234,7 @@ export default class GmxV1Service implements IExchange {
   }
 
   async createOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<UnsignedTransaction[]> {
@@ -253,7 +248,7 @@ export default class GmxV1Service implements IExchange {
       //approve router for token spends
       let approvalTx = await this.getApproveRouterSpendTx(
         order.inputCollateral.address,
-        signer,
+        provider,
         order.inputCollateralAmount!
       );
       if (approvalTx) {
@@ -269,7 +264,7 @@ export default class GmxV1Service implements IExchange {
     if (order.type == "LIMIT_INCREASE") {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
-        signer
+        provider
       );
 
       const path: string[] = [];
@@ -299,7 +294,7 @@ export default class GmxV1Service implements IExchange {
     } else if (order.type == "LIMIT_DECREASE") {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
-        signer
+        provider
       );
 
       // TODO - calculate collatetral delta
@@ -319,7 +314,7 @@ export default class GmxV1Service implements IExchange {
     } else if (order.type == "MARKET_INCREASE") {
       const positionRouter = PositionRouter__factory.connect(
         getContract(ARBITRUM, "PositionRouter")!,
-        signer
+        provider
       );
 
       const path: string[] = [];
@@ -373,7 +368,7 @@ export default class GmxV1Service implements IExchange {
     } else if (order.type == "MARKET_DECREASE") {
       const positionRouter = PositionRouter__factory.connect(
         getContract(ARBITRUM, "PositionRouter")!,
-        signer
+        provider
       );
 
       const path: string[] = [];
@@ -406,13 +401,13 @@ export default class GmxV1Service implements IExchange {
   }
 
   async updateOrder(
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
-      signer
+      provider
     );
 
     let updateOrderTx;
@@ -440,13 +435,13 @@ export default class GmxV1Service implements IExchange {
   }
 
   async cancelOrder(
-    signer: Signer,
+    provider: Provider,
     market: Market | undefined,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
-      signer
+      provider
     );
 
     let cancelOrderTx;
@@ -475,10 +470,13 @@ export default class GmxV1Service implements IExchange {
   }
 
   // @timer()
-  async getAllOrders(user: string, signer: Signer): Promise<ExtendedOrder[]> {
+  async getAllOrders(
+    user: string,
+    provider: Provider
+  ): Promise<ExtendedOrder[]> {
     const eos: ExtendedOrder[] = [];
 
-    const orders = await this.getAccountOrders(user, signer);
+    const orders = await this.getAccountOrders(user, provider);
     orders.forEach((order) => {
       let isIncrease = order.type == "Increase";
       let collateralToken;
@@ -558,22 +556,22 @@ export default class GmxV1Service implements IExchange {
 
   async getAllOrdersForPosition(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
-    return (await this.getAllOrders(user, signer)).filter(
+    return (await this.getAllOrders(user, provider)).filter(
       (order) => order.marketToken!.address == position.indexToken!.address
     );
   }
 
   async getAllPositions(
     user: string,
-    signer: Signer
+    provider: Provider
   ): Promise<ExtendedPosition[]> {
     const reader = Reader__factory.connect(
       getContract(ARBITRUM, "Reader")!,
-      signer
+      provider
     );
 
     const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
@@ -619,7 +617,7 @@ export default class GmxV1Service implements IExchange {
     ]);
 
     const { infoTokens } = await useInfoTokens(
-      signer.provider!,
+      provider,
       ARBITRUM,
       false,
       tokenBalances,
@@ -696,7 +694,7 @@ export default class GmxV1Service implements IExchange {
   }
 
   async updatePositionMargin(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     marginAmount: BigNumber, // For deposit it's in token terms and for withdraw it's in USD terms (F/E)
     isDeposit: boolean,
@@ -704,7 +702,7 @@ export default class GmxV1Service implements IExchange {
   ): Promise<UnsignedTransaction[]> {
     const positionRouter = PositionRouter__factory.connect(
       getContract(ARBITRUM, "PositionRouter")!,
-      signer
+      provider
     );
     let indexAddress = this.getIndexTokenAddressFromPositionKey(
       position.indexOrIdentifier
@@ -721,7 +719,7 @@ export default class GmxV1Service implements IExchange {
       if (transferToken.address !== ethers.constants.AddressZero) {
         let approvalTx = await this.getApproveRouterSpendTx(
           transferToken.address,
-          signer,
+          provider,
           marginAmount
         );
         if (approvalTx) txs.push(approvalTx);
@@ -808,7 +806,7 @@ export default class GmxV1Service implements IExchange {
   }
 
   async closePosition(
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     closeSize: BigNumber,
     outputToken: Token | undefined
@@ -820,13 +818,17 @@ export default class GmxV1Service implements IExchange {
       const orders = (
         await this.getAllOrdersForPosition(
           this.swAddr,
-          signer,
+          provider,
           position,
           undefined
         )
       ).filter((order) => order.triggerType != "NONE");
       for (const order of orders) {
-        const cancelOrderTx = await this.cancelOrder(signer, undefined, order);
+        const cancelOrderTx = await this.cancelOrder(
+          provider,
+          undefined,
+          order
+        );
         txs.push(...cancelOrderTx);
       }
     }
@@ -855,7 +857,7 @@ export default class GmxV1Service implements IExchange {
 
     const positionRouter = PositionRouter__factory.connect(
       getContract(ARBITRUM, "PositionRouter")!,
-      signer
+      provider
     );
 
     const path: string[] = [];
@@ -945,7 +947,7 @@ export default class GmxV1Service implements IExchange {
 
   getTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     market: ExtendedMarket,
     order: Order
   ): Promise<ExtendedPosition> {
@@ -954,7 +956,7 @@ export default class GmxV1Service implements IExchange {
 
   getEditTradePreview(
     user: string,
-    signer: Signer,
+    provider: Provider,
     position: ExtendedPosition,
     sizeDelta: ethers.BigNumber,
     marginDelta: ethers.BigNumber,
@@ -1034,17 +1036,17 @@ export default class GmxV1Service implements IExchange {
 
   ////////// HELPERS ////////////
   // @timer()
-  async getAccountOrders(account: string, signer: Signer) {
+  async getAccountOrders(account: string, provider: Provider) {
     const orderBookAddress = getContract(ARBITRUM, "OrderBook")!;
     const orderBookReaderAddress = getContract(ARBITRUM, "OrderBookReader")!;
 
     const orderBookContract = OrderBook__factory.connect(
       orderBookAddress,
-      signer
+      provider
     );
     const orderBookReaderContract = OrderBookReader__factory.connect(
       orderBookReaderAddress,
-      signer
+      provider
     );
 
     const fetchIndexesFromServer = () => {
