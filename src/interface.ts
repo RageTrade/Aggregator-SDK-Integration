@@ -119,6 +119,11 @@ export type ExtendedPosition = Position & {
   originalCollateralToken?: string;
   indexToken?: Token;
   collateralToken: Token;
+  pnlwithoutfees?: BigNumber;
+  closeFee?: BigNumber;
+  swapFee?: BigNumber;
+  borrowFee?: BigNumber;
+  positionFee?: BigNumber;
 };
 
 export type Trade = ExtendedPosition & {
@@ -215,6 +220,9 @@ export interface IExchange {
     provider: Provider,
     position: ExtendedPosition,
     closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]>;
 

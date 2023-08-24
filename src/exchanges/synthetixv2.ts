@@ -248,7 +248,11 @@ export default class SynthetixV2Service implements IExchange {
   async closePosition(
     provider: Provider,
     position: ExtendedPosition,
-    closeSize: BigNumber
+    closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
+    outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]> {
     if (closeSize.eq(0) || closeSize.gt(position.size)) {
       throw new Error("Invalid close size");

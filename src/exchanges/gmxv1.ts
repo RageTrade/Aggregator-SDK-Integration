@@ -291,26 +291,6 @@ export default class GmxV1Service implements IExchange {
               : this.EXECUTION_FEE,
         }
       );
-    } else if (order.type == "LIMIT_DECREASE") {
-      const orderBook = OrderBook__factory.connect(
-        getContract(ARBITRUM, "OrderBook")!,
-        provider
-      );
-
-      // TODO - calculate collatetral delta
-
-      createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
-        market.indexOrIdentifier,
-        order.sizeDelta,
-        order.inputCollateral.address,
-        order.inputCollateralAmount, // in USD e30
-        order.direction == "LONG" ? true : false,
-        order.trigger?.triggerPrice!,
-        order.trigger?.triggerAboveThreshold!,
-        {
-          value: this.EXECUTION_FEE,
-        }
-      );
     } else if (order.type == "MARKET_INCREASE") {
       const positionRouter = PositionRouter__factory.connect(
         getContract(ARBITRUM, "PositionRouter")!,
@@ -365,35 +345,6 @@ export default class GmxV1Service implements IExchange {
             }
           );
       }
-    } else if (order.type == "MARKET_DECREASE") {
-      const positionRouter = PositionRouter__factory.connect(
-        getContract(ARBITRUM, "PositionRouter")!,
-        provider
-      );
-
-      const path: string[] = [];
-      path.push(market.indexOrIdentifier);
-      if (tokenAddressString != market.indexOrIdentifier) {
-        path.push(tokenAddressString);
-      }
-
-      createOrderTx =
-        await positionRouter.populateTransaction.createDecreasePosition(
-          path,
-          market.indexOrIdentifier,
-          order.inputCollateralAmount,
-          order.sizeDelta,
-          order.direction == "LONG" ? true : false,
-          this.swAddr,
-          order.trigger?.triggerPrice!,
-          0,
-          this.EXECUTION_FEE,
-          order.inputCollateral.address == ethers.constants.AddressZero,
-          ethers.constants.AddressZero,
-          {
-            value: this.EXECUTION_FEE,
-          }
-        );
     }
     txs.push(createOrderTx!);
 
@@ -476,6 +427,7 @@ export default class GmxV1Service implements IExchange {
   ): Promise<ExtendedOrder[]> {
     const eos: ExtendedOrder[] = [];
 
+    // TODO - Filter the market orders
     const orders = await this.getAccountOrders(user, provider);
     orders.forEach((order) => {
       let isIncrease = order.type == "Increase";
@@ -638,8 +590,6 @@ export default class GmxV1Service implements IExchange {
       undefined
     );
 
-    // console.log(positions)
-
     let extPositions: ExtendedPosition[] = [];
 
     for (const pos of positions) {
@@ -683,6 +633,11 @@ export default class GmxV1Service implements IExchange {
             this.getCollateralTokenAddressFromPositionKey(pos.key)
           )
         ),
+        pnlwithoutfees: pos.delta,
+        closeFee: pos.closingFee,
+        swapFee: pos.swapFee,
+        borrowFee: pos.fundingFee,
+        positionFee: pos.positionFee,
       };
 
       extPositions.push(extP);
@@ -809,12 +764,20 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     position: ExtendedPosition,
     closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined
   ): Promise<UnsignedTransaction[]> {
     let txs: UnsignedTransaction[] = [];
+    let indexAddress = this.getIndexTokenAddressFromPositionKey(
+      position.indexOrIdentifier
+    );
 
-    // close all related tp/sl orders if full close
-    if (closeSize.eq(position.size)) {
+    if (!isTrigger) {
+      let remainingSize = position.size.sub(closeSize);
+
+      // close all related tp/sl orders if order.sizeDelta > remaining size
       const orders = (
         await this.getAllOrdersForPosition(
           this.swAddr,
@@ -822,7 +785,10 @@ export default class GmxV1Service implements IExchange {
           position,
           undefined
         )
-      ).filter((order) => order.triggerType != "NONE");
+      ).filter(
+        (order) =>
+          order.triggerType != "NONE" && order.sizeDelta > remainingSize
+      );
       for (const order of orders) {
         const cancelOrderTx = await this.cancelOrder(
           provider,
@@ -831,59 +797,69 @@ export default class GmxV1Service implements IExchange {
         );
         txs.push(...cancelOrderTx);
       }
-    }
 
-    // close position
-    let collateralOutAddr = outputToken
-      ? outputToken.address
-      : position.originalCollateralToken;
+      // close position
+      let collateralOutAddr = outputToken
+        ? outputToken.address
+        : position.originalCollateralToken;
 
-    let indexAddress = this.getIndexTokenAddressFromPositionKey(
-      position.indexOrIdentifier
-    );
+      let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
 
-    let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
+      fillPrice =
+        position.direction == "LONG"
+          ? fillPrice.mul(99).div(100)
+          : fillPrice.mul(101).div(100);
 
-    fillPrice =
-      position.direction == "LONG"
-        ? fillPrice.mul(99).div(100)
-        : fillPrice.mul(101).div(100);
-
-    let collateralDelta = position.collateral
-      .mul(closeSize)
-      .div(position.size)
-      .add(position.unrealizedPnl!.mul(closeSize).div(position.size));
-    // console.log("collateralDelta: ", collateralDelta.toString());
-
-    const positionRouter = PositionRouter__factory.connect(
-      getContract(ARBITRUM, "PositionRouter")!,
-      provider
-    );
-
-    const path: string[] = [];
-    path.push(position.collateralToken.address);
-    if (collateralOutAddr !== position.collateralToken.address) {
-      path.push(this.getTokenAddressString(collateralOutAddr!));
-    }
-
-    let createOrderTx =
-      await positionRouter.populateTransaction.createDecreasePosition(
-        path,
-        indexAddress,
-        collateralDelta,
-        closeSize,
-        position.direction! == "LONG" ? true : false,
-        this.swAddr,
-        fillPrice,
-        0,
-        this.EXECUTION_FEE,
-        collateralOutAddr == ethers.constants.AddressZero,
-        ethers.constants.AddressZero,
-        {
-          value: this.EXECUTION_FEE,
-        }
+      const positionRouter = PositionRouter__factory.connect(
+        getContract(ARBITRUM, "PositionRouter")!,
+        provider
       );
-    txs.push(createOrderTx);
+
+      const path: string[] = [];
+      path.push(position.collateralToken.address);
+      if (collateralOutAddr !== position.collateralToken.address) {
+        path.push(this.getTokenAddressString(collateralOutAddr!));
+      }
+
+      let createOrderTx =
+        await positionRouter.populateTransaction.createDecreasePosition(
+          path,
+          indexAddress,
+          BigNumber.from(0),
+          closeSize,
+          position.direction! == "LONG" ? true : false,
+          this.swAddr,
+          fillPrice,
+          0,
+          this.EXECUTION_FEE,
+          collateralOutAddr == ethers.constants.AddressZero,
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE,
+          }
+        );
+      txs.push(createOrderTx);
+    } else {
+      const orderBook = OrderBook__factory.connect(
+        getContract(ARBITRUM, "OrderBook")!,
+        provider
+      );
+
+      let createOrderTx =
+        await orderBook.populateTransaction.createDecreaseOrder(
+          indexAddress,
+          closeSize,
+          position.originalCollateralToken!,
+          BigNumber.from(0), // in USD e30
+          position.direction == "LONG" ? true : false,
+          triggerPrice!,
+          triggerAboveThreshold!,
+          {
+            value: this.EXECUTION_FEE,
+          }
+        );
+      txs.push(createOrderTx);
+    }
 
     return txs;
   }

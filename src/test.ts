@@ -638,7 +638,13 @@ async function gmxService() {
   const signer = new ethers.Wallet(wpk, provider);
   const gs = new GmxV1Service(signer.address);
 
-  let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
+  const allOrders = await gs.getAllOrders(w, provider);
+  allOrders.forEach((o) => {
+    logObject("All Orders: ", o);
+    logObject("Trigger: ", o.trigger!);
+  });
+
+  // let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -756,17 +762,35 @@ async function gmxService() {
     });
   }
 
-  let closePositionTxs = await gs.closePosition(
+  // let closePositionTxs = await gs.closePosition(
+  //   provider,
+  //   allPositions[0],
+  //   allPositions[0].size.mul(75).div(100),
+  //   // ethers.utils.parseUnits("10", 30),
+  //   false,
+  //   undefined,
+  //   undefined,
+  //   eth
+  // );
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
+  // await fireTxs(closePositionTxs);
+
+  let triggerClosePositionTxs = await gs.closePosition(
     provider,
     allPositions[0],
-    allPositions[0].size.mul(100).div(100),
+    allPositions[0].size.mul(75).div(100),
     // ethers.utils.parseUnits("10", 30),
+    true,
+    ethers.utils.parseUnits("20000", 30),
+    false,
     eth
   );
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
+  triggerClosePositionTxs.forEach((tx) => {
+    logObject("TriggerClose position tx: ", tx);
   });
-  // await fireTxs(closePositionTxs);
+  // await fireTxs(triggerClosePositionTxs);
 
   // await gs.setup(provider);
   // console.log("Finished Setup".toUpperCase());
