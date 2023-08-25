@@ -299,11 +299,21 @@ export interface IExchange {
     existingPosition: ExtendedPosition | undefined
   ): Promise<ExtendedPosition>;
 
-  getEditTradePreview(
+  getCloseTradePreview(
     user: string,
     provider: Provider,
     position: ExtendedPosition,
-    sizeDelta: BigNumber,
+    closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
+    outputToken: Token | undefined
+  ): Promise<ExtendedPosition>;
+
+  getEditCollateralPreview(
+    user: string,
+    provider: Provider,
+    position: ExtendedPosition,
     marginDelta: BigNumber,
     isDeposit: boolean
   ): Promise<ExtendedPosition>;

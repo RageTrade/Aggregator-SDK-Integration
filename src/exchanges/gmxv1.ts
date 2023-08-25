@@ -48,6 +48,7 @@ import {
   getServerBaseUrl,
   getToken,
   getTradePreviewInternal,
+  getCloseTradePreviewInternal,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
@@ -944,11 +945,29 @@ export default class GmxV1Service implements IExchange {
     );
   }
 
-  getEditTradePreview(
+  async getCloseTradePreview(
     user: string,
     provider: Provider,
     position: ExtendedPosition,
-    sizeDelta: ethers.BigNumber,
+    closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
+    outputToken: Token | undefined
+  ): Promise<ExtendedPosition> {
+    return await getCloseTradePreviewInternal(
+      position,
+      closeSize,
+      isTrigger,
+      triggerPrice,
+      this.convertToToken
+    );
+  }
+
+  getEditCollateralPreview(
+    user: string,
+    provider: Provider,
+    position: ExtendedPosition,
     marginDelta: ethers.BigNumber,
     isDeposit: boolean
   ): Promise<ExtendedPosition> {

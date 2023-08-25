@@ -1648,6 +1648,16 @@ function getNextAveragePrice(
   return nextAveragePrice;
 }
 
+function getMarginFee(sizeDelta: BigNumber) {
+  if (!sizeDelta) {
+    return BigNumber.from(0);
+  }
+  const afterFeeUsd = sizeDelta
+    .mul(BASIS_POINTS_DIVISOR - MARGIN_FEE_BASIS_POINTS)
+    .div(BASIS_POINTS_DIVISOR);
+  return sizeDelta.sub(afterFeeUsd);
+}
+
 function getNextData(
   isMarketOrder: boolean,
   entryMarkPrice: BigNumber,
@@ -1692,6 +1702,203 @@ function getNextData(
   }
   return { nextAveragePrice, nextDelta, nextHasProfit };
 }
+
+function getNextDataForClose(
+  position: ExtendedPosition,
+  isMarketOrder: boolean,
+  triggerPriceUsd: BigNumber | undefined
+) {
+  let nextDelta = BigNumber.from(0);
+  let nextHasProfit = false;
+  if (!position) {
+    return { nextDelta, nextHasProfit };
+  }
+
+  if (isMarketOrder) {
+    nextDelta = position.delta!;
+    nextHasProfit = position.hasProfit!;
+    return { nextDelta, nextHasProfit };
+  }
+
+  if (!triggerPriceUsd) {
+    return { nextDelta, nextHasProfit };
+  }
+
+  const { delta, hasProfit, deltaPercentage } = calculatePositionDelta(
+    triggerPriceUsd,
+    position.size,
+    position.collateral,
+    position.direction == "LONG",
+    position.averageEntryPrice,
+    position.lastUpdatedAtTimestamp!,
+    undefined
+  );
+  nextDelta = delta;
+  nextHasProfit = hasProfit;
+
+  return { nextDelta, nextHasProfit };
+}
+
+function calculateNextCollateralAndReceiveUsd(
+  collateral: BigNumber | undefined,
+  hasProfit: boolean,
+  isClosing: boolean,
+  adjustedDelta: BigNumber,
+  collateralDelta: BigNumber | undefined,
+  totalFees: BigNumber
+) {
+  let nextCollateral = BigNumber.from(0);
+  let receiveUsd = BigNumber.from(0);
+
+  if (collateral) {
+    nextCollateral = collateral;
+
+    if (hasProfit) {
+      receiveUsd = receiveUsd.add(adjustedDelta);
+    } else {
+      nextCollateral = nextCollateral.sub(adjustedDelta);
+    }
+
+    if (collateralDelta && collateralDelta.gt(0)) {
+      receiveUsd = receiveUsd.add(collateralDelta);
+      nextCollateral = nextCollateral.sub(collateralDelta);
+    }
+    if (isClosing) {
+      receiveUsd = receiveUsd.add(nextCollateral);
+      nextCollateral = BigNumber.from(0);
+    }
+    if (receiveUsd.gt(totalFees)) {
+      receiveUsd = receiveUsd.sub(totalFees);
+    } else {
+      nextCollateral = nextCollateral!.sub(totalFees);
+    }
+  }
+
+  return { nextCollateral, receiveUsd };
+}
+
+export const getCloseTradePreviewInternal = async (
+  position: ExtendedPosition,
+  closeSize: BigNumber,
+  isTrigger: boolean,
+  triggerPrice: BigNumber | undefined,
+  convertToToken: any
+): Promise<ExtendedPosition> => {
+  let liquidationPrice: BigNumber | undefined;
+  let nextLiquidationPrice: BigNumber | undefined;
+  let keepLeverage = false;
+  let isClosing = closeSize.eq(position.size);
+  let fromAmount = closeSize;
+  let sizeDelta = fromAmount;
+  let receiveUsd = BigNumber.from(0);
+  let nextCollateral: BigNumber | undefined;
+  let adjustedDelta = BigNumber.from(0);
+  let collateralDelta = BigNumber.from(0);
+  let totalFees = BigNumber.from(0);
+  let positionFee = getMarginFee(fromAmount);
+  let fundingFee = position.borrowFee!;
+  let nextLeverage;
+
+  liquidationPrice = getLiquidationPrice({
+    size: position.size,
+    collateral: position.collateral,
+    averagePrice: position.averageEntryPrice,
+    isLong: position.direction == "LONG",
+    fundingFee: position.borrowFee,
+  });
+
+  let { nextDelta, nextHasProfit } = getNextDataForClose(
+    position,
+    !isTrigger,
+    triggerPrice
+  );
+
+  let leverageWithoutDelta = getLeverage({
+    size: position.size,
+    collateral: position.collateral,
+    fundingFee: fundingFee,
+  });
+  nextLeverage = position.leverage!;
+  let nextLeverageWithoutDelta = leverageWithoutDelta;
+
+  // if (isClosing) {
+  //   sizeDelta = position.size;
+  // } else if (isTrigger && sizeDelta && existingOrders.length > 0) {
+  //   let residualSize = position.size;
+  //   for (const order of existingOrders) {
+  //     residualSize = residualSize.sub(order.sizeDelta);
+  //   }
+  //   if (residualSize.sub(sizeDelta).abs().lt(ORDER_SIZE_DUST_USD)) {
+  //     sizeDelta = residualSize;
+  //   }
+  // }
+
+  if (sizeDelta && position.size.gt(0)) {
+    adjustedDelta = nextDelta.mul(sizeDelta).div(position.size);
+  }
+
+  totalFees = totalFees
+    .add(positionFee || BigNumber.from(0))
+    .add(fundingFee || BigNumber.from(0));
+
+  ({ receiveUsd, nextCollateral } = calculateNextCollateralAndReceiveUsd(
+    position.collateral,
+    nextHasProfit,
+    isClosing,
+    adjustedDelta,
+    collateralDelta,
+    totalFees
+  ));
+
+  if (fromAmount) {
+    positionFee = getMarginFee(fromAmount);
+  }
+
+  if (fromAmount) {
+    if (!isClosing) {
+      nextLiquidationPrice = getLiquidationPrice({
+        size: position.size.sub(sizeDelta),
+        collateral: nextCollateral,
+        averagePrice: position.averageEntryPrice,
+        isLong: position.direction == "LONG",
+      });
+
+      if (!keepLeverage) {
+        // We need to send the remaining delta
+        const remainingDelta = nextDelta?.sub(adjustedDelta);
+        nextLeverage = getLeverage({
+          size: position.size.sub(sizeDelta),
+          collateral: nextCollateral,
+          hasProfit: nextHasProfit,
+          delta: remainingDelta,
+          includeDelta: false,
+        });
+
+        nextLeverageWithoutDelta = getLeverage({
+          size: position.size.sub(sizeDelta),
+          collateral: nextCollateral,
+          hasProfit: nextHasProfit,
+          delta: remainingDelta,
+          includeDelta: false,
+        });
+      }
+    }
+  }
+
+  return {
+    indexOrIdentifier: "",
+    leverage: isClosing ? BigNumber.from(0) : nextLeverage,
+    size: isClosing ? BigNumber.from(0) : position.size.sub(sizeDelta),
+    collateral: isClosing ? BigNumber.from(0) : nextCollateral,
+    collateralToken:
+      position.direction == "LONG"
+        ? convertToToken(getToken(ARBITRUM, position.indexToken!.address)!)
+        : convertToToken(getTokenBySymbol(ARBITRUM, "USDC.e")!),
+    averageEntryPrice: position.averageEntryPrice,
+    liqudationPrice: isClosing ? BigNumber.from(0) : nextLiquidationPrice,
+    fee: totalFees,
+  };
+};
 
 export const getTradePreviewInternal = async (
   user: string,

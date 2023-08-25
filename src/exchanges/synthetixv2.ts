@@ -402,20 +402,62 @@ export default class SynthetixV2Service implements IExchange {
     };
   }
 
-  async getEditTradePreview(
+  async getEditCollateralPreview(
     user: string,
     provider: Provider,
     position: ExtendedPosition,
-    sizeDelta: BigNumber,
     marginDelta: BigNumber,
     isDeposit: boolean
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!;
     await this.sdk.setProvider(provider);
 
+    let fillPrice = await this.getFillPriceInternal(marketAddress, wei(0));
+    // console.log("FillPrice: ", formatN(fillPrice));
+
+    const tradePreview =
+      await this.sdk.futures.getSimulatedIsolatedTradePreview(
+        user,
+        getEnumEntryByValue(FuturesMarketKey, position.indexOrIdentifier!)!,
+        marketAddress,
+        {
+          sizeDelta: wei(0),
+          marginDelta: isDeposit ? wei(marginDelta) : wei(marginDelta).neg(),
+          orderPrice: wei(fillPrice),
+        }
+      );
+
+    // logObject("tradePreview", tradePreview);
+
+    return {
+      indexOrIdentifier: "",
+      size: tradePreview.size.abs(),
+      collateral: tradePreview.margin,
+      collateralToken: this.sUsd,
+      averageEntryPrice: tradePreview.price,
+      liqudationPrice: tradePreview.liqPrice,
+      otherFees: tradePreview.fee,
+      status: tradePreview.status,
+      fee: tradePreview.fee,
+    };
+  }
+
+  async getCloseTradePreview(
+    user: string,
+    provider: Provider,
+    position: ExtendedPosition,
+    closeSize: BigNumber,
+    isTrigger: boolean,
+    triggerPrice: BigNumber | undefined,
+    triggerAboveThreshold: boolean | undefined,
+    outputToken: Token | undefined
+  ): Promise<ExtendedPosition> {
+    const marketAddress = position.marketAddress!;
+    await this.sdk.setProvider(provider);
+
     // because simulation is for only (partial) close position
     let sizeDeltaIn =
-      position.direction == "LONG" ? wei(sizeDelta).neg() : wei(sizeDelta);
+      position.direction == "LONG" ? wei(closeSize).neg() : wei(closeSize);
 
     let fillPrice = await this.getFillPriceInternal(marketAddress, sizeDeltaIn);
     // console.log("FillPrice: ", formatN(fillPrice));
@@ -427,7 +469,7 @@ export default class SynthetixV2Service implements IExchange {
         marketAddress,
         {
           sizeDelta: sizeDeltaIn,
-          marginDelta: isDeposit ? wei(marginDelta) : wei(marginDelta).neg(),
+          marginDelta: wei(0),
           orderPrice: wei(fillPrice),
         }
       );

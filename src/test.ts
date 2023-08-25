@@ -511,11 +511,10 @@ async function synService() {
   // positions.forEach((p) => logObject("Position: ", p));
   logObject("Position: ", positions[0]);
 
-  const editTradePreview = await ss.getEditTradePreview(
+  const editTradePreview = await ss.getEditCollateralPreview(
     w,
     provider,
     positions[0],
-    ethers.utils.parseEther("0.01"),
     ethers.utils.parseEther("0"),
     false
   );
@@ -750,44 +749,56 @@ async function gmxService() {
   };
 
   const allPositions = await gs.getAllPositions(w, provider);
-  for (let i = 0; i < allPositions.length; i++) {
-    logObject("Position: ", allPositions[i]);
-    let positionOrders = await gs.getAllOrdersForPosition(
-      w,
-      provider,
-      allPositions[i],
-      undefined
-    );
-    positionOrders.forEach((o) => {
-      logObject("Position Order: ", o);
-    });
-  }
+  // for (let i = 0; i < allPositions.length; i++) {
+  //   logObject("Position: ", allPositions[i]);
+  //   let positionOrders = await gs.getAllOrdersForPosition(
+  //     w,
+  //     provider,
+  //     allPositions[i],
+  //     undefined
+  //   );
+  //   positionOrders.forEach((o) => {
+  //     logObject("Position Order: ", o);
+  //   });
+  // }
 
   let position0 = allPositions[0];
   let market = supportedMarkets.find(
     (m) => m.indexOrIdentifier == position0.indexToken!.address
   )!;
-  const tradePreview = await gs.getTradePreview(
+  // const tradePreview = await gs.getTradePreview(
+  //   w,
+  //   provider,
+  //   market,
+  //   {
+  //     type: "LIMIT_INCREASE",
+  //     direction: "LONG",
+  //     inputCollateral: usdc,
+  //     inputCollateralAmount: ethers.utils.parseUnits("16.48", usdc.decimals),
+  //     sizeDelta: ethers.utils.parseUnits("32.82", 30),
+  //     isTriggerOrder: false,
+  //     referralCode: undefined,
+  //     trigger: {
+  //       // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+  //       triggerPrice: ethers.utils.parseUnits("20000", 30),
+  //       triggerAboveThreshold: false,
+  //     },
+  //   },
+  //   position0
+  // );
+  // logObject("Trade Preview: ", tradePreview);
+
+  const closePreview = await gs.getCloseTradePreview(
     w,
     provider,
-    market,
-    {
-      type: "LIMIT_INCREASE",
-      direction: "LONG",
-      inputCollateral: usdc,
-      inputCollateralAmount: ethers.utils.parseUnits("16.48", usdc.decimals),
-      sizeDelta: ethers.utils.parseUnits("32.82", 30),
-      isTriggerOrder: false,
-      referralCode: undefined,
-      trigger: {
-        // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-        triggerPrice: ethers.utils.parseUnits("20000", 30),
-        triggerAboveThreshold: false,
-      },
-    },
-    position0
+    position0,
+    position0.size.mul(50).div(100),
+    true,
+    ethers.utils.parseUnits("30000", 30),
+    true,
+    undefined
   );
-  logObject("Trade Preview: ", tradePreview);
+  logObject("Close Preview: ", closePreview);
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,
