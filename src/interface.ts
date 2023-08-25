@@ -64,6 +64,7 @@ export type StaticMarketMetadata = {
   asset?: string;
   minInitialMargin?: NumberDecimal;
   minPositionSize?: NumberDecimal;
+  minLeverage?: NumberDecimal;
 };
 
 export type DynamicMarketMetadata = {
