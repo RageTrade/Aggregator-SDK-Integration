@@ -412,7 +412,8 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee,
       leverage: tradePreview.size
         .mul(marketPrice.value)
-        .div(tradePreview.margin),
+        .div(tradePreview.margin)
+        .abs(),
     };
   }
 
@@ -458,7 +459,8 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee,
       leverage: tradePreview.size
         .mul(marketPrice.value)
-        .div(tradePreview.margin),
+        .div(tradePreview.margin)
+        .abs(),
     };
   }
 
@@ -509,7 +511,8 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee,
       leverage: tradePreview.size
         .mul(marketPrice.value)
-        .div(tradePreview.margin),
+        .div(tradePreview.margin)
+        .abs(),
     };
   }
 

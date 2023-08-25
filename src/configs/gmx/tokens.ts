@@ -2075,7 +2075,7 @@ export const getTradePreviewInternal = async (
     order.trigger!.triggerPrice!
   );
   // const toUsdMax = order.sizeDelta;
-  console.log("toUsdMax: ", toUsdMax!.toString());
+  // console.log("toUsdMax: ", toUsdMax!.toString());
 
   if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
     const fees = toUsdMax
@@ -2100,7 +2100,7 @@ export const getTradePreviewInternal = async (
     marketPrice,
     order.trigger!.triggerPrice!,
     existingPosition,
-    existingPosition!.direction == "LONG",
+    existingPosition?.direction == "LONG",
     toUsdMax!
   );
 
