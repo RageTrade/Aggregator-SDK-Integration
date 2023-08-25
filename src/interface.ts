@@ -132,6 +132,7 @@ export type ExtendedPosition = Position & {
   marketIdentifier?: MarketIdentifier["indexOrIdentifier"];
   entryFundingRate?: BigNumber;
   cumulativeFundingRate?: BigNumber;
+  protocolMetadata?: ProtocolMetadata;
 };
 
 export type Trade = ExtendedPosition & {

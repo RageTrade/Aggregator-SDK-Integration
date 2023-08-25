@@ -34,7 +34,7 @@ const w = W1!.toString();
 const wpk = PRIVATE_KEY1!.toString();
 
 let provider = new ethers.providers.AlchemyProvider(
-  ARBITRUM,
+  10,
   ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
@@ -106,7 +106,6 @@ async function getTradePreview(
     },
     undefined
   );
-  logObject("Trade Preview: ", tradePreview);
   return tradePreview;
 }
 
@@ -491,8 +490,8 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = "0.01";
-  const direction = "SHORT";
+  const sizeDelta = "0.0785";
+  const direction = "LONG";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
   // const positionsHistory = await sdk.futures.getCompletePositionHistory(w);
@@ -507,18 +506,18 @@ async function synService() {
   //   logObject("Trades History: ", t);
   // });
 
-  const positions = await ss.getAllPositions(w, provider, undefined);
+  // const positions = await ss.getAllPositions(w, provider, undefined);
   // positions.forEach((p) => logObject("Position: ", p));
-  logObject("Position: ", positions[0]);
+  // logObject("Position: ", positions[0]);
 
-  const editTradePreview = await ss.getEditCollateralPreview(
-    w,
-    provider,
-    positions[0],
-    ethers.utils.parseEther("0"),
-    false
-  );
-  logObject("Edit Trade Preview: ", editTradePreview);
+  // const editTradePreview = await ss.getEditCollateralPreview(
+  //   w,
+  //   provider,
+  //   positions[0],
+  //   ethers.utils.parseEther("0"),
+  //   false
+  // );
+  // logObject("Edit Trade Preview: ", editTradePreview);
 
   // const closePositionTxs = await ss.closePosition(
   //   provider,
@@ -543,23 +542,24 @@ async function synService() {
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();
 
-  // const fillPrice = await sdk.futures.getFillPrice(
-  //   marketAddress,
-  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  // );
+  const fillPrice = await sdk.futures.getFillPrice(
+    marketAddress,
+    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  );
 
-  // const fillPriceBn = direction.includes("SHORT")
-  //   ? fillPrice.price.mul(99).div(100)
-  //   : fillPrice.price.mul(101).div(100);
+  const fillPriceBn = direction.includes("SHORT")
+    ? fillPrice.price.mul(99).div(100)
+    : fillPrice.price.mul(101).div(100);
   // console.log("Fill Price: ", fillPriceBn.toString());
 
-  // const tradePreview = await getTradePreview(
-  //   w,
-  //   ss,
-  //   sizeDelta,
-  //   direction,
-  //   fillPriceBn
-  // );
+  const tradePreview = await getTradePreview(
+    w,
+    ss,
+    sizeDelta,
+    direction,
+    fillPriceBn
+  );
+  logObject("Trade Preview: ", tradePreview);
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -895,7 +895,7 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

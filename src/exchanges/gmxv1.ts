@@ -647,6 +647,9 @@ export default class GmxV1Service implements IExchange {
         marketIdentifier: this.getIndexTokenAddressFromPositionKey(pos.key),
         entryFundingRate: pos.entryFundingRate,
         cumulativeFundingRate: pos.cumulativeFundingRate,
+        protocolMetadata: {
+          protocolName: this.protocolIdentifier
+        }
       };
 
       extPositions.push(extP);

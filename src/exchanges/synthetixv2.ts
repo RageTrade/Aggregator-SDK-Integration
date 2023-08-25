@@ -795,6 +795,9 @@ export default class SynthetixV2Service implements IExchange {
       accessibleMargin: futurePosition.accessibleMargin.toBN(),
       marketAddress: marketAddress,
       marketIdentifier: futurePosition.marketKey.toString(),
+      protocolMetadata: {
+        protocolName: this.protocolIdentifier,
+      },
     };
   }
 
