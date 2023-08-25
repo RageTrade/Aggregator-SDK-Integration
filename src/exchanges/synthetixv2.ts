@@ -56,7 +56,6 @@ export default class SynthetixV2Service implements IExchange {
   private swAddr: string;
   private protocolIdentifier: PROTOCOL_NAME = "SYNTHETIX_V2";
   private decimals = 18;
-  private explorerUrl = getExplorerUrl(this.opChainId);
 
   constructor(sdk: KwentaSDK, _swAddr: string) {
     this.sdk = sdk;
@@ -176,6 +175,15 @@ export default class SynthetixV2Service implements IExchange {
           await this.getMarketAddress(market)
         )
       )
+        .toBN()
+        .toString(),
+      decimals: 18,
+    };
+  }
+
+  async getMarketPriceByAddress(marketAddress: string): Promise<NumberDecimal> {
+    return {
+      value: (await this.sdk.futures.getAssetPrice(marketAddress))
         .toBN()
         .toString(),
       decimals: 18,
@@ -373,6 +381,7 @@ export default class SynthetixV2Service implements IExchange {
     existingPosition: ExtendedPosition | undefined
   ): Promise<ExtendedPosition> {
     const marketAddress = await this.getMarketAddress(market);
+    const marketPrice = await this.getMarketPrice(market);
 
     await this.sdk.setProvider(provider);
 
@@ -401,6 +410,9 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: tradePreview.fee,
+      leverage: tradePreview.size
+        .mul(marketPrice.value)
+        .div(tradePreview.margin),
     };
   }
 
@@ -412,6 +424,9 @@ export default class SynthetixV2Service implements IExchange {
     isDeposit: boolean
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!;
+    const marketPrice = await this.getMarketPriceByAddress(
+      position.marketAddress!
+    );
     await this.sdk.setProvider(provider);
 
     let fillPrice = await this.getFillPriceInternal(marketAddress, wei(0));
@@ -441,6 +456,9 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: tradePreview.fee,
+      leverage: tradePreview.size
+        .mul(marketPrice.value)
+        .div(tradePreview.margin),
     };
   }
 
@@ -455,6 +473,7 @@ export default class SynthetixV2Service implements IExchange {
     outputToken: Token | undefined
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!;
+    const marketPrice = await this.getMarketPriceByAddress(marketAddress);
     await this.sdk.setProvider(provider);
 
     // because simulation is for only (partial) close position
@@ -488,6 +507,9 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: tradePreview.fee,
+      leverage: tradePreview.size
+        .mul(marketPrice.value)
+        .div(tradePreview.margin),
     };
   }
 
