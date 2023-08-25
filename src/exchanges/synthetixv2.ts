@@ -132,6 +132,8 @@ export default class SynthetixV2Service implements IExchange {
           this.decimals
         ),
         protocolName: this.protocolIdentifier,
+        minPositionSize: toNumberDecimal(BigNumber.from(0), this.decimals),
+        minLeverage: toNumberDecimal(BigNumber.from(0), this.decimals),
       };
 
       extendedMarkets.push(extendedMarket);
