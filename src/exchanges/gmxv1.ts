@@ -49,6 +49,7 @@ import {
   getToken,
   getTradePreviewInternal,
   getCloseTradePreviewInternal,
+  getEditCollateralPreviewInternal,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
@@ -644,6 +645,8 @@ export default class GmxV1Service implements IExchange {
         delta: pos.delta,
         hasProfit: pos.hasProfit ?? true,
         marketIdentifier: this.getIndexTokenAddressFromPositionKey(pos.key),
+        entryFundingRate: pos.entryFundingRate,
+        cumulativeFundingRate: pos.cumulativeFundingRate,
       };
 
       extPositions.push(extP);
@@ -964,14 +967,20 @@ export default class GmxV1Service implements IExchange {
     );
   }
 
-  getEditCollateralPreview(
+  async getEditCollateralPreview(
     user: string,
     provider: Provider,
     position: ExtendedPosition,
     marginDelta: ethers.BigNumber,
     isDeposit: boolean
   ): Promise<ExtendedPosition> {
-    throw new Error("Method not implemented.");
+    return await getEditCollateralPreviewInternal(
+      provider,
+      position,
+      marginDelta,
+      isDeposit,
+      this.convertToToken
+    );
   }
 
   getPositionKey(

@@ -788,17 +788,27 @@ async function gmxService() {
   // );
   // logObject("Trade Preview: ", tradePreview);
 
-  const closePreview = await gs.getCloseTradePreview(
+  // const closePreview = await gs.getCloseTradePreview(
+  //   w,
+  //   provider,
+  //   position0,
+  //   position0.size.mul(50).div(100),
+  //   true,
+  //   ethers.utils.parseUnits("30000", 30),
+  //   true,
+  //   undefined
+  // );
+  // logObject("Close Preview: ", closePreview);
+
+  const editCollateralPreview = await gs.getEditCollateralPreview(
     w,
     provider,
     position0,
-    position0.size.mul(50).div(100),
-    true,
-    ethers.utils.parseUnits("30000", 30),
-    true,
-    undefined
+    // ethers.utils.parseUnits("0", 30),
+    ethers.utils.parseUnits("0.0005", position0.collateralToken!.decimals),
+    true
   );
-  logObject("Close Preview: ", closePreview);
+  logObject("editCollateralPreview: ", editCollateralPreview);
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,

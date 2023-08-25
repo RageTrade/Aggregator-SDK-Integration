@@ -1777,6 +1777,110 @@ function calculateNextCollateralAndReceiveUsd(
   return { nextCollateral, receiveUsd };
 }
 
+export const getEditCollateralPreviewInternal = async (
+  provider: Provider,
+  position: ExtendedPosition,
+  marginDelta: BigNumber,
+  isDeposit: boolean,
+  convertToToken: any
+): Promise<ExtendedPosition> => {
+  let collateralToken = position.collateralToken;
+  let fundingFee = getFundingFee(position);
+
+  let liquidationPrice = getLiquidationPrice({
+    size: position.size,
+    collateral: position.collateral,
+    averagePrice: position.averageEntryPrice,
+    isLong: position.direction == "LONG",
+    fundingFee,
+  });
+
+  let fromAmount = marginDelta;
+  let convertedAmount: BigNumber;
+
+  const { infoTokens } = await useInfoTokens(
+    provider,
+    ARBITRUM,
+    false,
+    undefined,
+    undefined
+  );
+
+  if (isDeposit) {
+    convertedAmount = getUsd(
+      fromAmount,
+      position.collateralToken.address,
+      false,
+      infoTokens
+    )!;
+  } else {
+    convertedAmount = fromAmount
+      .mul(expandDecimals(1, Number(collateralToken.decimals)))
+      .div(
+        getTokenInfo(
+          infoTokens,
+          position.collateralToken.address,
+          undefined,
+          undefined
+        ).maxPrice!
+      );
+    console.log("convertedAmount", convertedAmount.toString());
+  }
+
+  let collateralDelta = isDeposit ? convertedAmount : fromAmount;
+  let depositFeeUSD = BigNumber.from(0);
+
+  if (position.direction == "LONG" && isDeposit) {
+    collateralDelta = collateralDelta
+      .mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE)
+      .div(BASIS_POINTS_DIVISOR);
+    depositFeeUSD = convertedAmount.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR);
+  }
+
+  let nextCollateral = isDeposit
+    ? position.collateralAfterFee!.add(collateralDelta)
+    : position.collateralAfterFee!.sub(collateralDelta);
+
+  let nextLeverage = getLeverage({
+    size: position.size,
+    collateral: nextCollateral,
+    hasProfit: position.hasProfit,
+    delta: position.delta,
+    includeDelta: false,
+  });
+
+  let nextLeverageExcludingPnl = getLeverage({
+    size: position.size,
+    collateral: nextCollateral,
+    hasProfit: position.hasProfit,
+    delta: position.delta,
+    includeDelta: false,
+  });
+
+  // nextCollateral is prev collateral + deposit amount - borrow fee - deposit fee
+  // in case of withdrawal nextCollateral is prev collateral - withdraw amount - borrow fee
+  let nextLiquidationPrice = getLiquidationPrice({
+    isLong: position.direction == "LONG",
+    size: position.size,
+    collateral: nextCollateral,
+    averagePrice: position.averageEntryPrice,
+  });
+
+  return {
+    indexOrIdentifier: "",
+    leverage: nextLeverage,
+    size: position.size,
+    collateral: nextCollateral,
+    collateralToken:
+      position.direction == "LONG"
+        ? convertToToken(getToken(ARBITRUM, position.indexToken!.address)!)
+        : convertToToken(getTokenBySymbol(ARBITRUM, "USDC.e")!),
+    averageEntryPrice: position.averageEntryPrice,
+    liqudationPrice: nextLiquidationPrice,
+    fee: depositFeeUSD,
+  };
+};
+
 export const getCloseTradePreviewInternal = async (
   position: ExtendedPosition,
   closeSize: BigNumber,

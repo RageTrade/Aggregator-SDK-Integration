@@ -129,6 +129,8 @@ export type ExtendedPosition = Position & {
   delta?: BigNumber;
   hasProfit?: boolean;
   marketIdentifier?: MarketIdentifier["indexOrIdentifier"];
+  entryFundingRate?: BigNumber;
+  cumulativeFundingRate?: BigNumber;
 };
 
 export type Trade = ExtendedPosition & {
