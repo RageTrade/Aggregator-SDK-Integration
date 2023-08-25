@@ -128,6 +128,7 @@ export type ExtendedPosition = Position & {
   collateralAfterFee?: BigNumber;
   delta?: BigNumber;
   hasProfit?: boolean;
+  marketIdentifier?: MarketIdentifier["indexOrIdentifier"];
 };
 
 export type Trade = ExtendedPosition & {

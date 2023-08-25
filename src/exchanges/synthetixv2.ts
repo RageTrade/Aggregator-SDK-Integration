@@ -725,6 +725,7 @@ export default class SynthetixV2Service implements IExchange {
         futurePosition.position!.side == PositionSide.LONG ? "LONG" : "SHORT",
       accessibleMargin: futurePosition.accessibleMargin.toBN(),
       marketAddress: marketAddress,
+      marketIdentifier: futurePosition.marketKey.toString(),
     };
   }
 

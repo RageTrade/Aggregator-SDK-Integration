@@ -642,6 +642,7 @@ export default class GmxV1Service implements IExchange {
         collateralAfterFee: pos.collateralAfterFee,
         delta: pos.delta,
         hasProfit: pos.hasProfit ?? true,
+        marketIdentifier: this.getIndexTokenAddressFromPositionKey(pos.key),
       };
 
       extPositions.push(extP);
