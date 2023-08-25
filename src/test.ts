@@ -103,7 +103,8 @@ async function getTradePreview(
         triggerPrice: triggerPrice,
         triggerAboveThreshold: true,
       },
-    }
+    },
+    undefined
   );
   logObject("Trade Preview: ", tradePreview);
   return tradePreview;
@@ -638,13 +639,13 @@ async function gmxService() {
   const signer = new ethers.Wallet(wpk, provider);
   const gs = new GmxV1Service(signer.address);
 
-  const allOrders = await gs.getAllOrders(w, provider);
-  allOrders.forEach((o) => {
-    logObject("All Orders: ", o);
-    logObject("Trigger: ", o.trigger!);
-  });
+  // const allOrders = await gs.getAllOrders(w, provider);
+  // allOrders.forEach((o) => {
+  //   logObject("All Orders: ", o);
+  //   logObject("Trigger: ", o.trigger!);
+  // });
 
-  // let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
+  let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -762,10 +763,36 @@ async function gmxService() {
     });
   }
 
+  let position0 = allPositions[0];
+  let market = supportedMarkets.find(
+    (m) => m.indexOrIdentifier == position0.indexToken!.address
+  )!;
+  const tradePreview = await gs.getTradePreview(
+    w,
+    provider,
+    market,
+    {
+      type: "LIMIT_INCREASE",
+      direction: "LONG",
+      inputCollateral: usdc,
+      inputCollateralAmount: ethers.utils.parseUnits("16.48", usdc.decimals),
+      sizeDelta: ethers.utils.parseUnits("32.82", 30),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+        triggerPrice: ethers.utils.parseUnits("20000", 30),
+        triggerAboveThreshold: false,
+      },
+    },
+    position0
+  );
+  logObject("Trade Preview: ", tradePreview);
+
   // let closePositionTxs = await gs.closePosition(
   //   provider,
   //   allPositions[0],
-  //   allPositions[0].size.mul(75).div(100),
+  //   allPositions[0].size.mul(100).div(100),
   //   // ethers.utils.parseUnits("10", 30),
   //   false,
   //   undefined,
@@ -777,19 +804,19 @@ async function gmxService() {
   // });
   // await fireTxs(closePositionTxs);
 
-  let triggerClosePositionTxs = await gs.closePosition(
-    provider,
-    allPositions[0],
-    allPositions[0].size.mul(75).div(100),
-    // ethers.utils.parseUnits("10", 30),
-    true,
-    ethers.utils.parseUnits("20000", 30),
-    false,
-    eth
-  );
-  triggerClosePositionTxs.forEach((tx) => {
-    logObject("TriggerClose position tx: ", tx);
-  });
+  // let triggerClosePositionTxs = await gs.closePosition(
+  //   provider,
+  //   allPositions[0],
+  //   allPositions[0].size.mul(75).div(100),
+  //   // ethers.utils.parseUnits("10", 30),
+  //   true,
+  //   ethers.utils.parseUnits("20000", 30),
+  //   false,
+  //   eth
+  // );
+  // triggerClosePositionTxs.forEach((tx) => {
+  //   logObject("TriggerClose position tx: ", tx);
+  // });
   // await fireTxs(triggerClosePositionTxs);
 
   // await gs.setup(provider);

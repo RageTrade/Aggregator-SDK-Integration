@@ -367,7 +367,8 @@ export default class SynthetixV2Service implements IExchange {
     user: string,
     provider: Provider,
     market: ExtendedMarket,
-    order: Order
+    order: Order,
+    existingPosition: ExtendedPosition | undefined
   ): Promise<ExtendedPosition> {
     const marketAddress = await this.getMarketAddress(market);
 

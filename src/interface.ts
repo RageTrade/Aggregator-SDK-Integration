@@ -63,6 +63,7 @@ export type StaticMarketMetadata = {
   address?: string;
   asset?: string;
   minInitialMargin?: NumberDecimal;
+  minPositionSize?: NumberDecimal;
 };
 
 export type DynamicMarketMetadata = {
@@ -124,6 +125,9 @@ export type ExtendedPosition = Position & {
   swapFee?: BigNumber;
   borrowFee?: BigNumber;
   positionFee?: BigNumber;
+  collateralAfterFee?: BigNumber;
+  delta?: BigNumber;
+  hasProfit?: boolean;
 };
 
 export type Trade = ExtendedPosition & {
@@ -290,7 +294,8 @@ export interface IExchange {
     user: string,
     provider: Provider,
     market: ExtendedMarket,
-    order: Order
+    order: Order,
+    existingPosition: ExtendedPosition | undefined
   ): Promise<ExtendedPosition>;
 
   getEditTradePreview(

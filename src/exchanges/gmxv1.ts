@@ -47,6 +47,7 @@ import {
   getServerUrl,
   getServerBaseUrl,
   getToken,
+  getTradePreviewInternal,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
@@ -638,6 +639,9 @@ export default class GmxV1Service implements IExchange {
         swapFee: pos.swapFee,
         borrowFee: pos.fundingFee,
         positionFee: pos.positionFee,
+        collateralAfterFee: pos.collateralAfterFee,
+        delta: pos.delta,
+        hasProfit: pos.hasProfit ?? true,
       };
 
       extPositions.push(extP);
@@ -921,13 +925,22 @@ export default class GmxV1Service implements IExchange {
     throw new Error("Method not implemented.");
   }
 
-  getTradePreview(
+  async getTradePreview(
     user: string,
     provider: Provider,
     market: ExtendedMarket,
-    order: Order
+    order: Order,
+    existingPosition: ExtendedPosition | undefined
   ): Promise<ExtendedPosition> {
-    throw new Error("Method not implemented.");
+    return await getTradePreviewInternal(
+      user,
+      provider,
+      market,
+      this.getMarketPrice,
+      this.convertToToken,
+      order,
+      existingPosition
+    );
   }
 
   getEditTradePreview(

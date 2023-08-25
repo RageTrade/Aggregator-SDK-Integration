@@ -8,7 +8,9 @@ import {
 } from "./chains";
 import { parseEther } from "ethers/lib/utils";
 import { Provider } from "@ethersproject/providers";
-import { VaultReader__factory } from "../../../gmxV1Typechain";
+import { Reader__factory, VaultReader__factory } from "../../../gmxV1Typechain";
+import { ExtendedMarket, ExtendedPosition, Order } from "../../interface";
+import { logObject } from "../../common/helper";
 
 export type Token = {
   name: string;
@@ -1319,6 +1321,60 @@ export async function useInfoTokens(
   };
 }
 
+export function getTriggerPrice(
+  tokenAddress: string,
+  max: boolean,
+  info: TokenInfo,
+  orderOption?: string,
+  triggerPriceUsd?: BigNumber
+) {
+  // Limit/stop orders are executed with price specified by user
+  if (orderOption && orderOption !== MARKET && triggerPriceUsd) {
+    return triggerPriceUsd;
+  }
+
+  // Market orders are executed with current market price
+  if (!info) {
+    return;
+  }
+  if (max && !info.maxPrice) {
+    return;
+  }
+  if (!max && !info.minPrice) {
+    return;
+  }
+  return max ? info.maxPrice : info.minPrice;
+}
+
+export function getUsd(
+  amount: BigNumber | undefined,
+  tokenAddress: string,
+  max: boolean,
+  infoTokens: InfoTokens,
+  orderOption?: string,
+  triggerPriceUsd?: BigNumber
+) {
+  if (!amount) {
+    return;
+  }
+  if (tokenAddress === USDG_ADDRESS) {
+    return amount.mul(PRECISION).div(expandDecimals(1, 18));
+  }
+  const info = getTokenInfo(infoTokens, tokenAddress);
+  const price = getTriggerPrice(
+    tokenAddress,
+    max,
+    info,
+    orderOption,
+    triggerPriceUsd
+  );
+  if (!price) {
+    return;
+  }
+
+  return amount.mul(price).div(expandDecimals(1, info.decimals));
+}
+
 export function getPositions(
   chainId: number,
   positionQuery: ReturnType<typeof getPositionQuery>,
@@ -1523,3 +1579,272 @@ export function getPositions(
 
   return { positions, positionsMap };
 }
+
+export function calculatePositionDelta(
+  price: BigNumber,
+  size: BigNumber,
+  collateral: BigNumber,
+  isLong: boolean,
+  averagePrice: BigNumber,
+  lastIncreasedTime: number,
+  sizeDelta: BigNumber | undefined
+) {
+  if (!sizeDelta) {
+    sizeDelta = size;
+  }
+  const priceDelta = averagePrice.gt(price)
+    ? averagePrice.sub(price)
+    : price.sub(averagePrice);
+  let delta = sizeDelta.mul(priceDelta).div(averagePrice);
+  const pendingDelta = delta;
+
+  const minProfitExpired =
+    lastIncreasedTime + MIN_PROFIT_TIME < Date.now() / 1000;
+  const hasProfit = isLong ? price.gt(averagePrice) : price.lt(averagePrice);
+  if (
+    !minProfitExpired &&
+    hasProfit &&
+    delta.mul(BASIS_POINTS_DIVISOR).lte(size.mul(MIN_PROFIT_BIPS))
+  ) {
+    delta = BigNumber.from(0);
+  }
+
+  const deltaPercentage = delta.mul(BASIS_POINTS_DIVISOR).div(collateral);
+  const pendingDeltaPercentage = pendingDelta
+    .mul(BASIS_POINTS_DIVISOR)
+    .div(collateral);
+
+  return {
+    delta,
+    pendingDelta,
+    pendingDeltaPercentage,
+    hasProfit,
+    deltaPercentage,
+  };
+}
+
+function getNextAveragePrice(
+  size: BigNumber,
+  sizeDelta: BigNumber,
+  hasProfit: boolean,
+  delta: BigNumber,
+  nextPrice: BigNumber,
+  isLong: boolean
+) {
+  if (!size || !sizeDelta || !delta || !nextPrice) {
+    return;
+  }
+  const nextSize = size.add(sizeDelta);
+  let divisor;
+  if (isLong) {
+    divisor = hasProfit ? nextSize.add(delta) : nextSize.sub(delta);
+  } else {
+    divisor = hasProfit ? nextSize.sub(delta) : nextSize.add(delta);
+  }
+  if (!divisor || divisor.eq(0)) {
+    return;
+  }
+  const nextAveragePrice = nextPrice.mul(nextSize).div(divisor);
+  return nextAveragePrice;
+}
+
+function getNextData(
+  isMarketOrder: boolean,
+  entryMarkPrice: BigNumber,
+  triggerPriceUsd: BigNumber,
+  existingPosition: ExtendedPosition | undefined,
+  isLong: boolean,
+  toUsdMax: BigNumber
+) {
+  let nextAveragePrice = isMarketOrder ? entryMarkPrice : triggerPriceUsd;
+  let nextDelta = BigNumber.from(0);
+  let nextHasProfit = false;
+  if (existingPosition) {
+    if (isMarketOrder) {
+      nextDelta = existingPosition.delta!;
+      nextHasProfit = existingPosition.hasProfit!;
+    } else {
+      const data = calculatePositionDelta(
+        triggerPriceUsd || BigNumber.from(0),
+        existingPosition.size,
+        existingPosition.collateral,
+        existingPosition.direction == "LONG",
+        existingPosition.averageEntryPrice,
+        existingPosition.lastUpdatedAtTimestamp!,
+        undefined
+      );
+      nextDelta = data.delta;
+      nextHasProfit = data.hasProfit;
+    }
+
+    let tempNextAveragePrice = getNextAveragePrice(
+      existingPosition.size,
+      toUsdMax,
+      nextHasProfit,
+      nextDelta,
+      isMarketOrder ? entryMarkPrice : triggerPriceUsd,
+      isLong
+    );
+
+    if (tempNextAveragePrice) {
+      nextAveragePrice = tempNextAveragePrice;
+    }
+  }
+  return { nextAveragePrice, nextDelta, nextHasProfit };
+}
+
+export const getTradePreviewInternal = async (
+  user: string,
+  provider: Provider,
+  market: ExtendedMarket,
+  getMarketPrice: any,
+  convertToToken: any,
+  order: Order,
+  existingPosition: ExtendedPosition | undefined
+): Promise<ExtendedPosition> => {
+  const reader = Reader__factory.connect(
+    getContract(ARBITRUM, "Reader")!,
+    provider
+  );
+
+  const marketPrice = BigNumber.from((await getMarketPrice(market)).value);
+
+  const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
+
+  const whitelistedTokens = V1_TOKENS[ARBITRUM];
+  const tokenAddresses = whitelistedTokens.map((x) => x.address);
+
+  const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses);
+  // console.log(tokenBalances)
+
+  const fundingRateInfoPromise = reader.getFundingRates(
+    getContract(ARBITRUM, "Vault")!,
+    nativeTokenAddress!,
+    tokenAddresses
+  );
+  // console.log(fundingRateInfo)
+
+  const [tokenBalances, fundingRateInfo] = await Promise.all([
+    tokenBalancesPromise,
+    fundingRateInfoPromise,
+  ]);
+
+  const { infoTokens } = await useInfoTokens(
+    provider,
+    ARBITRUM,
+    false,
+    tokenBalances,
+    fundingRateInfo
+  );
+
+  let leverage: BigNumber | undefined = BigNumber.from(0);
+  const fromUsdMin = getUsd(
+    order.inputCollateralAmount,
+    order.inputCollateral.address,
+    false,
+    infoTokens
+  );
+  // console.log("fromUsdMin: ", fromUsdMin!.toString());
+
+  // console.log("marketPrice: ", marketPrice.toString());
+  // console.log("triggerPrice: ", order.trigger!.triggerPrice!.toString());
+  const toTokenAmount = order.sizeDelta
+    .mul(BigNumber.from(10).pow(market.marketToken!.decimals))
+    .div(
+      order.type == "MARKET_INCREASE"
+        ? marketPrice
+        : order.trigger!.triggerPrice!
+    );
+  const toUsdMax = getUsd(
+    toTokenAmount,
+    market.marketToken!.address,
+    true,
+    infoTokens,
+    order.type == "MARKET_INCREASE" ? MARKET : LIMIT,
+    order.trigger!.triggerPrice!
+  );
+  // const toUsdMax = order.sizeDelta;
+  console.log("toUsdMax: ", toUsdMax!.toString());
+
+  if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
+    const fees = toUsdMax
+      .mul(MARGIN_FEE_BASIS_POINTS)
+      .div(BASIS_POINTS_DIVISOR);
+    if (fromUsdMin.sub(fees).gt(0)) {
+      leverage = toUsdMax.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin.sub(fees));
+    }
+  }
+
+  if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
+    const fees = toUsdMax
+      .mul(MARGIN_FEE_BASIS_POINTS)
+      .div(BASIS_POINTS_DIVISOR);
+    if (fromUsdMin.sub(fees).gt(0)) {
+      leverage = toUsdMax.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin.sub(fees));
+    }
+  }
+
+  let { nextAveragePrice, nextDelta, nextHasProfit } = getNextData(
+    order.type == "MARKET_INCREASE",
+    marketPrice,
+    order.trigger!.triggerPrice!,
+    existingPosition,
+    existingPosition!.direction == "LONG",
+    toUsdMax!
+  );
+
+  // TODO - add swap fees logic
+  let swapFees = BigNumber.from(0);
+  let positionFee = toUsdMax!
+    .mul(MARGIN_FEE_BASIS_POINTS)
+    .div(BASIS_POINTS_DIVISOR);
+  let feesUsd = swapFees.add(positionFee);
+  const fromUsdMinAfterFees =
+    fromUsdMin?.sub(swapFees ?? 0).sub(positionFee ?? 0) || BigNumber.from(0);
+
+  // console.log("fromUsdMinAfterFees: ", fromUsdMinAfterFees.toString());
+  // console.log("nextDelta", nextDelta.toString());
+  // console.log("nextHasProfit", nextHasProfit.toString());
+  if (existingPosition) {
+    leverage = getLeverage({
+      size: existingPosition.size.add(toUsdMax || 0),
+      collateral: existingPosition.collateralAfterFee!.add(fromUsdMinAfterFees),
+      delta: nextDelta,
+      hasProfit: nextHasProfit,
+      includeDelta: false,
+    });
+  }
+
+  const liquidationPrice = getLiquidationPrice({
+    isLong: order.direction == "LONG",
+    size: existingPosition
+      ? existingPosition.size.add(toUsdMax || 0)
+      : toUsdMax ?? BigNumber.from(0),
+    collateral: existingPosition
+      ? existingPosition.collateralAfterFee!.add(fromUsdMinAfterFees)
+      : fromUsdMinAfterFees ?? BigNumber.from(0),
+    averagePrice: nextAveragePrice ?? BigNumber.from(0),
+  });
+
+  const displayLiquidationPrice = liquidationPrice
+    ? liquidationPrice
+    : existingPosition?.liqudationPrice!;
+
+  return {
+    indexOrIdentifier: "",
+    leverage: leverage,
+    size: existingPosition
+      ? existingPosition.size.add(order.sizeDelta)
+      : order.sizeDelta,
+    collateral: existingPosition
+      ? existingPosition.collateral.add(fromUsdMin!)
+      : fromUsdMin!,
+    collateralToken:
+      order.direction == "LONG"
+        ? market.marketToken!
+        : convertToToken(getTokenBySymbol(ARBITRUM, "USDC.e")!),
+    averageEntryPrice: nextAveragePrice,
+    liqudationPrice: displayLiquidationPrice,
+    fee: feesUsd,
+  };
+};
