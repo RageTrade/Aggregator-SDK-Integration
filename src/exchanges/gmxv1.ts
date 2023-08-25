@@ -354,7 +354,7 @@ export default class GmxV1Service implements IExchange {
 
   async updateOrder(
     provider: Provider,
-    market: ExtendedMarket,
+    market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTransaction[]> {
     const orderBook = OrderBook__factory.connect(
