@@ -96,8 +96,40 @@ export default class GmxV1Service implements IExchange {
     this.swAddr = _swAddr;
   }
 
-  getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata> {
-    throw new Error("Method not implemented.");
+  async getDynamicMetadata(market: ExtendedMarket, provider: Provider): Promise<DynamicMarketMetadata> {
+    const reader = Reader__factory.connect(
+      getContract(ARBITRUM, "Reader")!,
+      provider
+    );
+
+    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
+
+    const fundingRateInfoPromise = reader.getFundingRates(
+      getContract(ARBITRUM, "Vault")!,
+      nativeTokenAddress!,
+      [market.marketToken?.address!]
+    );
+
+    const { infoTokens } = await useInfoTokens(
+      provider,
+      ARBITRUM,
+      false,
+      [BigNumber.from(0)],
+      await fundingRateInfoPromise
+    );
+
+    const info = infoTokens[market.marketToken?.address!]
+
+    return {
+      oiLongUsd: info.guaranteedUsd!,
+      oiShortUsd: info.globalShortSize!,
+      fundingRate: BigNumber.from(0),
+      borrowRate: info.fundingRate,
+      availableLiquidityLongUSD: info.maxAvailableLong,
+      availableLiquidityShortUSD: info.maxAvailableShort,
+      marketLimitUsd: BigNumber.from(0),
+      marketLimitNative: BigNumber.from(0)
+    }
   }
 
   invariant(condition: any, errorMsg: string | undefined) {
@@ -289,8 +321,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
+                order.inputCollateralAmount
+              )
               : this.EXECUTION_FEE,
         }
       );

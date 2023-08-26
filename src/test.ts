@@ -748,7 +748,7 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  const allPositions = await gs.getAllPositions(w, provider);
+  // const allPositions = await gs.getAllPositions(w, provider);
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject("Position: ", allPositions[i]);
   //   let positionOrders = await gs.getAllOrdersForPosition(
@@ -762,10 +762,10 @@ async function gmxService() {
   //   });
   // }
 
-  let position0 = allPositions[0];
-  let market = supportedMarkets.find(
-    (m) => m.indexOrIdentifier == position0.indexToken!.address
-  )!;
+  // let position0 = allPositions[0];
+  // let market = supportedMarkets.find(
+  //   (m) => m.indexOrIdentifier == position0.indexToken!.address
+  // )!;
   // const tradePreview = await gs.getTradePreview(
   //   w,
   //   provider,
@@ -800,15 +800,15 @@ async function gmxService() {
   // );
   // logObject("Close Preview: ", closePreview);
 
-  const editCollateralPreview = await gs.getEditCollateralPreview(
-    w,
-    provider,
-    position0,
-    // ethers.utils.parseUnits("0", 30),
-    ethers.utils.parseUnits("0.0005", position0.collateralToken!.decimals),
-    true
-  );
-  logObject("editCollateralPreview: ", editCollateralPreview);
+  // const editCollateralPreview = await gs.getEditCollateralPreview(
+  //   w,
+  //   provider,
+  //   position0,
+  //   // ethers.utils.parseUnits("0", 30),
+  //   ethers.utils.parseUnits("0.0005", position0.collateralToken!.decimals),
+  //   true
+  // );
+  // logObject("editCollateralPreview: ", editCollateralPreview);
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,
@@ -883,6 +883,9 @@ async function gmxService() {
   // positions.forEach((p) => {
   //   logObject("Position: ", p);
   // });
+
+  const mtdt = await gs.getDynamicMetadata(supportedMarkets[0], provider)
+  console.log(mtdt)
 }
 
 async function compositeService() {
@@ -895,7 +898,14 @@ async function compositeService() {
   console.dir(openMarkets, { depth: 10 });
 }
 
-synService()
+// synService()
+//   .then(() => process.exit(0))
+//   .catch((error) => {
+//     console.error(error);
+//     process.exitCode = 1;
+//   });
+
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
