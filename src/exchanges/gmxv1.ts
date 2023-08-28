@@ -96,7 +96,10 @@ export default class GmxV1Service implements IExchange {
     this.swAddr = _swAddr;
   }
 
-  async getDynamicMetadata(market: ExtendedMarket, provider: Provider): Promise<DynamicMarketMetadata> {
+  async getDynamicMetadata(
+    market: ExtendedMarket,
+    provider: Provider
+  ): Promise<DynamicMarketMetadata> {
     const reader = Reader__factory.connect(
       getContract(ARBITRUM, "Reader")!,
       provider
@@ -118,7 +121,7 @@ export default class GmxV1Service implements IExchange {
       await fundingRateInfoPromise
     );
 
-    const info = infoTokens[market.marketToken?.address!]
+    const info = infoTokens[market.marketToken?.address!];
 
     return {
       oiLongUsd: info.guaranteedUsd!,
@@ -128,8 +131,8 @@ export default class GmxV1Service implements IExchange {
       availableLiquidityLongUSD: info.maxAvailableLong,
       availableLiquidityShortUSD: info.maxAvailableShort,
       marketLimitUsd: BigNumber.from(0),
-      marketLimitNative: BigNumber.from(0)
-    }
+      marketLimitNative: BigNumber.from(0),
+    };
   }
 
   invariant(condition: any, errorMsg: string | undefined) {
@@ -321,8 +324,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
+                  order.inputCollateralAmount
+                )
               : this.EXECUTION_FEE,
         }
       );
@@ -680,8 +683,8 @@ export default class GmxV1Service implements IExchange {
         entryFundingRate: pos.entryFundingRate,
         cumulativeFundingRate: pos.cumulativeFundingRate,
         protocolMetadata: {
-          protocolName: this.protocolIdentifier
-        }
+          protocolName: this.protocolIdentifier,
+        },
       };
 
       extPositions.push(extP);

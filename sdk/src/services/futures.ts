@@ -961,7 +961,7 @@ export default class FuturesService {
 
 	// TODO: Get delayed order fee
 	public async getOrderFee(marketAddress: string, size: Wei) {
-		const marketContract = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const marketContract = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		const orderFee = await marketContract.orderFee(size.toBN(), 0)
 		return wei(orderFee.fee)
 	}
@@ -982,7 +982,7 @@ export default class FuturesService {
 	public async depositCrossMarginAccount(crossMarginAddress: string, amount: Wei) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
@@ -994,7 +994,7 @@ export default class FuturesService {
 	public async withdrawCrossMarginAccount(crossMarginAddress: string, amount: Wei) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		const { commands, inputs } = await this.batchIdleMarketMarginSweeps(crossMarginAddress)
@@ -1014,7 +1014,7 @@ export default class FuturesService {
 	) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		const commands = []
@@ -1081,7 +1081,7 @@ export default class FuturesService {
 		}
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		commands.push(AccountExecuteFunctions.PERPS_V2_SUBMIT_OFFCHAIN_DELAYED_ORDER)
@@ -1094,13 +1094,13 @@ export default class FuturesService {
 	}
 
 	public async depositIsolatedMargin(marketAddress: string, amount: Wei) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		const txn = await this.sdk.transactions.getContractTxn(market, 'transferMargin', [amount.toBN()])
 		return txn
 	}
 
 	public async withdrawIsolatedMargin(marketAddress: string, amount: Wei) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		const txn = await this.sdk.transactions.getContractTxn(market, 'transferMargin', [
 			amount.neg().toBN(),
 		])
@@ -1108,7 +1108,7 @@ export default class FuturesService {
 	}
 
 	public async closeIsolatedPosition(marketAddress: string, priceImpactDelta: Wei) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		return market.closePositionWithTracking(priceImpactDelta.toBN(), RAGE_TRACKING_CODE)
 	}
 
@@ -1117,7 +1117,7 @@ export default class FuturesService {
 		sizeDelta: Wei,
 		priceImpactDelta: Wei
 	) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 
 		return await this.sdk.transactions.getContractTxn(
 			market,
@@ -1127,7 +1127,7 @@ export default class FuturesService {
 	}
 
 	public async cancelDelayedOrder(marketAddress: string, account: string, isOffchain: boolean) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 
 		return isOffchain
 			? await this.sdk.transactions.getContractTxn(
@@ -1143,7 +1143,7 @@ export default class FuturesService {
 	}
 
 	public async executeDelayedOrder(marketAddress: string, account: string) {
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		return market.executeDelayedOrder(account)
 	}
 
@@ -1153,7 +1153,7 @@ export default class FuturesService {
 		account: string
 	) {
 		const { Pyth } = this.sdk.context.contracts
-		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.signer)
+		const market = PerpsV2Market__factory.connect(marketAddress, this.sdk.context.provider)
 		if (!Pyth) throw new Error(UNSUPPORTED_NETWORK)
 
 		// get price update data
@@ -1187,7 +1187,7 @@ export default class FuturesService {
 	) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 		const commands = []
 		const inputs = []
@@ -1337,7 +1337,7 @@ export default class FuturesService {
 	) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		const commands = []
@@ -1365,7 +1365,7 @@ export default class FuturesService {
 	public async cancelConditionalOrder(crossMarginAddress: string, orderId: number) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 
 		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
@@ -1377,7 +1377,7 @@ export default class FuturesService {
 	public async withdrawAccountKeeperBalance(crossMarginAddress: string, amount: Wei) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 		return await this.sdk.transactions.getContractTxn(crossMarginAccountContract, 'execute', [
 			[AccountExecuteFunctions.ACCOUNT_WITHDRAW_ETH],
@@ -1392,7 +1392,7 @@ export default class FuturesService {
 	) {
 		const crossMarginAccountContract = SmartMarginAccount__factory.connect(
 			crossMarginAddress,
-			this.sdk.context.signer
+			this.sdk.context.provider
 		)
 		const commands = []
 		const inputs = []

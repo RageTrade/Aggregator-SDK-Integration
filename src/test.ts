@@ -66,7 +66,8 @@ async function getTradePreview(
   ss: SynthetixV2Service,
   sizeDelta: string,
   direction: "LONG" | "SHORT",
-  triggerPrice: BigNumber
+  triggerPrice: BigNumber,
+  marketAddress: string
 ) {
   const tradePreview = await ss.getTradePreview(
     user,
@@ -85,9 +86,10 @@ async function getTradePreview(
         WITHDRAW: true,
       },
       protocolName: "SYNTHETIX_V2",
+      address: marketAddress,
     },
     {
-      type: direction == "LONG" ? "MARKET_INCREASE" : "MARKET_DECREASE",
+      type: "MARKET_INCREASE",
       direction: direction,
       inputCollateral: {
         name: "string",
@@ -95,7 +97,7 @@ async function getTradePreview(
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits("60"),
+      inputCollateralAmount: ethers.utils.parseUnits("0"),
       sizeDelta: ethers.utils.parseEther(sizeDelta),
       isTriggerOrder: false,
       referralCode: undefined,
@@ -431,7 +433,7 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 async function synService() {
-  const ss = new SynthetixV2Service(sdk, await signer.getAddress());
+  const ss = new SynthetixV2Service(sdk, w);
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -490,7 +492,7 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = "0.0785";
+  const sizeDelta = "0.1924";
   const direction = "LONG";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
@@ -557,14 +559,15 @@ async function synService() {
     ss,
     sizeDelta,
     direction,
-    fillPriceBn
+    fillPriceBn,
+    marketAddress
   );
-  logObject("Trade Preview: ", tradePreview);
+  // logObject("Trade Preview: ", tradePreview);
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
-  //     ? tradePreview.skewAdjustedPrice!.mul(99).div(100)
-  //     : tradePreview.skewAdjustedPrice!.mul(101).div(100);
+  //     ? tradePreview.averageEntryPrice!.mul(99).div(100)
+  //     : tradePreview.averageEntryPrice!.mul(101).div(100);
   //   console.log("Trigger Price: ", triggerPrice.toString());
 
   //   const createLongOrderTxs = await createLongOrder(
@@ -884,8 +887,8 @@ async function gmxService() {
   //   logObject("Position: ", p);
   // });
 
-  const mtdt = await gs.getDynamicMetadata(supportedMarkets[0], provider)
-  console.log(mtdt)
+  const mtdt = await gs.getDynamicMetadata(supportedMarkets[0], provider);
+  console.log(mtdt);
 }
 
 async function compositeService() {
@@ -905,7 +908,7 @@ async function compositeService() {
 //     process.exitCode = 1;
 //   });
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
