@@ -554,14 +554,29 @@ async function synService() {
     : fillPrice.price.mul(101).div(100);
   // console.log("Fill Price: ", fillPriceBn.toString());
 
-  const tradePreview = await getTradePreview(
-    w,
-    ss,
-    sizeDelta,
-    direction,
-    fillPriceBn,
-    marketAddress
-  );
+  // for (let i = 0; i < 10; i++) {
+  //   console.time("getSimulatedIsolatedTradePreview");
+  //   await sdk.futures.getSimulatedIsolatedTradePreview(
+  //     w,
+  //     FuturesMarketKey.sETHPERP,
+  //     marketAddress,
+  //     {
+  //       sizeDelta: wei(ethers.utils.parseEther(sizeDelta)),
+  //       marginDelta: wei(0),
+  //       orderPrice: wei(fillPriceBn),
+  //     }
+  //   );
+  //   console.timeEnd("getSimulatedIsolatedTradePreview");
+  // }
+
+  // const tradePreview = await getTradePreview(
+  //   w,
+  //   ss,
+  //   sizeDelta,
+  //   direction,
+  //   fillPriceBn,
+  //   marketAddress
+  // );
   // logObject("Trade Preview: ", tradePreview);
 
   // if (tradePreview.status == 0) {
