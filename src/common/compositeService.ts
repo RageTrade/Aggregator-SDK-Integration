@@ -21,7 +21,7 @@ export default class CompositeService {
     const synV2Markets = await this.synService.supportedMarkets(synV2Network);
 
     synV2Markets.forEach((m) => {
-      let openIdentifier = m.asset!.replace("s", "").concat("/USD");
+      let openIdentifier = m.asset!.replace("s", "").concat("-USD");
       let marketData = {
         ...m,
         ...synV2Network,
@@ -34,7 +34,7 @@ export default class CompositeService {
     const gmxV1Markets = await this.gmxService.supportedMarkets(gmxV1Network);
 
     gmxV1Markets.forEach((m) => {
-      let openIdentifier = m.asset!.concat("/USD");
+      let openIdentifier = m.asset!.concat("-USD");
       let marketData = {
         ...m,
         ...gmxV1Network,
