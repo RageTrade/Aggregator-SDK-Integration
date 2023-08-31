@@ -402,7 +402,7 @@ export default class SynthetixV2Service implements IExchange {
 
     return {
       indexOrIdentifier: "",
-      size: tradePreview.size,
+      size: tradePreview.size.abs(),
       collateral: tradePreview.margin,
       collateralToken: this.sUsd,
       averageEntryPrice: tradePreview.price,
@@ -572,17 +572,18 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     openMarkets: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
-    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
+    throw new Error("Method not implemented.");
+    // let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
-    let ordersData: ExtendedOrder[] = [];
-    markets.forEach(async (m) => {
-      let orderData = await this.getOrder(user, m.indexOrIdentifier, m);
-      if (orderData.orderIdentifier) {
-        ordersData.push(orderData);
-      }
-    });
+    // let ordersData: ExtendedOrder[] = [];
+    // markets.forEach(async (m) => {
+    //   let orderData = await this.getOrder(user, m.indexOrIdentifier, m);
+    //   if (orderData.orderIdentifier) {
+    //     ordersData.push(orderData);
+    //   }
+    // });
 
-    return ordersData;
+    // return ordersData;
   }
 
   getAllOrdersForPosition(
