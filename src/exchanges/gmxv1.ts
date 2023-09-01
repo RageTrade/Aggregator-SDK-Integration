@@ -53,6 +53,7 @@ import {
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
+import { parseUnits } from "ethers/lib/utils";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -237,8 +238,9 @@ export default class GmxV1Service implements IExchange {
         asset: indexToken.symbol,
         indexOrIdentifier: this.getTokenAddress(indexToken),
         marketToken: indexToken,
-        maxLeverage: toNumberDecimal(BigNumber.from("50"), 0),
-        minInitialMargin: toNumberDecimal(BigNumber.from("0"), 0),
+        minLeverage: toNumberDecimal(parseUnits("1.1", 4), 4),
+        maxLeverage: toNumberDecimal(parseUnits("50", 4), 4),
+        minInitialMargin: toNumberDecimal(BigNumber.from("0"), 30),
         protocolName: this.protocolIdentifier,
       });
     });
