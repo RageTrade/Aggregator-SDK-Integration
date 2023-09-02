@@ -42,6 +42,7 @@ import {
 } from "../common/helper";
 import { getExplorerUrl } from "../configs/gmx/chains";
 import { timer } from "execution-time-decorators";
+import { parseUnits } from "ethers/lib/utils";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -127,7 +128,7 @@ export default class SynthetixV2Service implements IExchange {
           this.decimals
         ),
         minInitialMargin: toNumberDecimal(
-          m.minInitialMargin!.toBN(),
+          parseUnits("50", 18),
           this.decimals
         ),
         protocolName: this.protocolIdentifier,
