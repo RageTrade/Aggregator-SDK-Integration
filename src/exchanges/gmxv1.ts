@@ -242,6 +242,7 @@ export default class GmxV1Service implements IExchange {
         maxLeverage: toNumberDecimal(parseUnits("50", 4), 4),
         minInitialMargin: toNumberDecimal(BigNumber.from("0"), 30),
         protocolName: this.protocolIdentifier,
+        minPositionSize: toNumberDecimal(BigNumber.from("10"), 30),
       });
     });
 
