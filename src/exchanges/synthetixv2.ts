@@ -507,7 +507,7 @@ export default class SynthetixV2Service implements IExchange {
     return {
       indexOrIdentifier: "",
       size: tradePreview.size.abs(),
-      collateral: tradePreview.margin,
+      collateral: closeSize.eq(position.size) ? BigNumber.from(0) : tradePreview.margin,
       collateralToken: this.sUsd,
       averageEntryPrice: tradePreview.price,
       liqudationPrice: tradePreview.liqPrice,
