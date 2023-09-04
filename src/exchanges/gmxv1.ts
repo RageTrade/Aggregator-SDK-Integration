@@ -554,7 +554,9 @@ export default class GmxV1Service implements IExchange {
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
     return (await this.getAllOrders(user, provider)).filter(
-      (order) => order.marketToken!.address == position.indexToken!.address
+      (order) =>
+        order.marketToken!.address == position.indexToken!.address &&
+        order.direction == position.direction
     );
   }
 
