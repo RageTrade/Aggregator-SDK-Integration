@@ -127,10 +127,7 @@ export default class SynthetixV2Service implements IExchange {
           m.contractMaxLeverage!.toBN(),
           this.decimals
         ),
-        minInitialMargin: toNumberDecimal(
-          parseUnits("50", 18),
-          this.decimals
-        ),
+        minInitialMargin: toNumberDecimal(parseUnits("50", 18), this.decimals),
         protocolName: this.protocolIdentifier,
         minPositionSize: toNumberDecimal(BigNumber.from(0), this.decimals),
         minLeverage: toNumberDecimal(BigNumber.from(0), this.decimals),
@@ -383,8 +380,16 @@ export default class SynthetixV2Service implements IExchange {
   ): Promise<ExtendedPosition> {
     const marketAddress = await this.getMarketAddress(market);
     const marketPrice = await this.getMarketPrice(market);
-
     await this.sdk.setProvider(provider);
+
+    const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([
+      market,
+    ])[0];
+    const sUsdBalanceInMarket = (
+      await this.sdk.futures.getIdleMarginInMarketsCached(this.swAddr, [
+        futureMarket,
+      ])
+    ).totalIdleInMarkets;
 
     let sizeDelta = wei(order.sizeDelta);
     sizeDelta = order.direction == "LONG" ? sizeDelta : sizeDelta.neg();
@@ -396,7 +401,9 @@ export default class SynthetixV2Service implements IExchange {
         marketAddress,
         {
           sizeDelta: sizeDelta,
-          marginDelta: wei(order.inputCollateralAmount),
+          marginDelta: wei(order.inputCollateralAmount).sub(
+            sUsdBalanceInMarket
+          ),
           orderPrice: wei(order.trigger!.triggerPrice),
         }
       );
@@ -507,7 +514,9 @@ export default class SynthetixV2Service implements IExchange {
     return {
       indexOrIdentifier: "",
       size: tradePreview.size.abs(),
-      collateral: closeSize.eq(position.size) ? BigNumber.from(0) : tradePreview.margin,
+      collateral: closeSize.eq(position.size)
+        ? BigNumber.from(0)
+        : tradePreview.margin,
       collateralToken: this.sUsd,
       averageEntryPrice: tradePreview.price,
       liqudationPrice: tradePreview.liqPrice,
