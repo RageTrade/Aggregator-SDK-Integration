@@ -418,10 +418,10 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: tradePreview.fee,
-      leverage: tradePreview.margin
+      leverage: order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
         ? tradePreview.size
             .mul(marketPrice.value)
-            .div(tradePreview.margin)
+            .div(order.inputCollateralAmount)
             .abs()
         : undefined,
     };
