@@ -130,7 +130,7 @@ export default class SynthetixV2Service implements IExchange {
         minInitialMargin: toNumberDecimal(parseUnits("50", 18), this.decimals),
         protocolName: this.protocolIdentifier,
         minPositionSize: toNumberDecimal(BigNumber.from(0), this.decimals),
-        minLeverage: toNumberDecimal(BigNumber.from(0), this.decimals),
+        minLeverage: toNumberDecimal(BigNumber.from(1), this.decimals),
       };
 
       extendedMarkets.push(extendedMarket);
