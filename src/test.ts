@@ -24,6 +24,7 @@ import { ARBITRUM } from "./configs/gmx/chains";
 import CompositeService from "./common/compositeService";
 import { FuturesMarketKey } from "@kwenta/sdk/dist/types/futures";
 import { logObject } from "./common/helper";
+import { parseUnits } from "ethers/lib/utils";
 
 config();
 
@@ -35,14 +36,19 @@ const wpk = PRIVATE_KEY1!.toString();
 
 let provider = new ethers.providers.AlchemyProvider(
   10,
-  ALCHEMY_KEY_OP_MAIN!.toString()
+  "F5JltP3quuOpkC_Dzg5bzmDppydPAO1i"
+  // ALCHEMY_KEY_OP_MAIN!.toString()
 );
 
 const signer = new ethers.Wallet(wpk, provider);
 
 const sdk = new KwentaSDK({
   networkId: 10,
-  provider: provider,
+  // provider: provider,
+  provider: new ethers.providers.JsonRpcProvider(
+    "https://optimism.blockpi.network/v1/rpc/public",
+    10
+  ),
 });
 
 async function fireTxs(utxs: UnsignedTransaction[]) {
@@ -65,6 +71,7 @@ async function getTradePreview(
   user: string,
   ss: SynthetixV2Service,
   sizeDelta: string,
+  marginDelta: string,
   direction: "LONG" | "SHORT",
   triggerPrice: BigNumber,
   marketAddress: string
@@ -97,7 +104,7 @@ async function getTradePreview(
         decimals: "string",
         address: "string",
       },
-      inputCollateralAmount: ethers.utils.parseUnits("0"),
+      inputCollateralAmount: ethers.utils.parseUnits(marginDelta),
       sizeDelta: ethers.utils.parseEther(sizeDelta),
       isTriggerOrder: false,
       referralCode: undefined,
@@ -433,7 +440,10 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms));
 
 async function synService() {
-  const ss = new SynthetixV2Service(sdk, w);
+  const ss = new SynthetixV2Service(
+    sdk,
+    "0x89E369321619114e317a3121A2693f39728f51f1"
+  );
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -492,9 +502,28 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = "0.1924";
+  const sizeDelta = "0.0612";
   const direction = "LONG";
   const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+
+  const openMarkets = await compositeService();
+  const futureMarkets = await ss.getPartialFutureMarketsFromOpenMarkets(
+    openMarkets
+  );
+  const ethFutureMarket = futureMarkets.find((m) => m.marketKey == "sETHPERP")!;
+
+  // const result = await ss.getAvailableSusdBalance("0x89E369321619114e317a3121A2693f39728f51f1", openMarkets)
+  // console.log("Available Susd Balance: ", result.toString())
+
+  // for (let i = 0; i < 10; i++) {
+  //   console.time("getSimulatedIsolatedTradePreview");
+  //   const result1 = await sdk.futures.getIdleMarginInMarketsCached(
+  //     "0x89E369321619114e317a3121A2693f39728f51f1",
+  //     [ethFutureMarket]
+  //   );
+  //   console.timeEnd("getSimulatedIsolatedTradePreview");
+  //   console.log(result1.totalIdleInMarkets.toString());
+  // }
 
   // const positionsHistory = await sdk.futures.getCompletePositionHistory(w);
   // console.log("Position History: ", positionsHistory.length);
@@ -508,7 +537,11 @@ async function synService() {
   //   logObject("Trades History: ", t);
   // });
 
-  // const positions = await ss.getAllPositions(w, provider, undefined);
+  // const positions = await ss.getAllPositions(
+  //   "0x8c546Af9A2EB2FB74070Ba899c632F1352502a40",
+  //   provider,
+  //   undefined
+  // );
   // positions.forEach((p) => logObject("Position: ", p));
   // logObject("Position: ", positions[0]);
 
@@ -524,7 +557,11 @@ async function synService() {
   // const closePositionTxs = await ss.closePosition(
   //   provider,
   //   positions[0],
-  //   positions[0].size.mul(100).div(100)
+  //   positions[0].size.mul(100).div(100),
+  //   false,
+  //   undefined,
+  //   undefined,
+  //   undefined
   // );
   // closePositionTxs.forEach((tx) => {
   //   logObject("Close position tx: ", tx);
@@ -552,7 +589,7 @@ async function synService() {
   const fillPriceBn = direction.includes("SHORT")
     ? fillPrice.price.mul(99).div(100)
     : fillPrice.price.mul(101).div(100);
-  // console.log("Fill Price: ", fillPriceBn.toString());
+  console.log("Fill Price: ", fillPriceBn.toString());
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("getSimulatedIsolatedTradePreview");
@@ -567,17 +604,19 @@ async function synService() {
   //     }
   //   );
   //   console.timeEnd("getSimulatedIsolatedTradePreview");
+  //   console.log("\n\n\n");
   // }
 
-  // const tradePreview = await getTradePreview(
-  //   w,
-  //   ss,
-  //   sizeDelta,
-  //   direction,
-  //   fillPriceBn,
-  //   marketAddress
-  // );
-  // logObject("Trade Preview: ", tradePreview);
+  const tradePreview = await getTradePreview(
+    "0x89E369321619114e317a3121A2693f39728f51f1",
+    ss,
+    sizeDelta,
+    "50",
+    direction,
+    ethers.utils.parseUnits("1650.187897946949", 18),
+    marketAddress
+  );
+  logObject("Trade Preview: ", tradePreview);
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -648,9 +687,14 @@ async function synService() {
 }
 
 async function gmxService() {
-  const provider = new ethers.providers.AlchemyProvider(
-    42161,
-    ALCHEMY_KEY_OP_MAIN!.toString()
+  // const provider = new ethers.providers.AlchemyProvider(
+  //   42161,
+  //   ALCHEMY_KEY_OP_MAIN!.toString()
+  // );
+  const provider = new ethers.providers.JsonRpcProvider(
+    "https://arbitrum.blockpi.network/v1/rpc/public",
+    // "https://rpc.ankr.com/arbitrum",
+    ARBITRUM
   );
 
   const signer = new ethers.Wallet(wpk, provider);
@@ -766,7 +810,10 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  // const allPositions = await gs.getAllPositions(w, provider);
+  // const allPositions = await gs.getAllPositions(
+  //   "0x89E369321619114e317a3121A2693f39728f51f1",
+  //   provider
+  // );
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject("Position: ", allPositions[i]);
   //   let positionOrders = await gs.getAllOrdersForPosition(
@@ -781,30 +828,31 @@ async function gmxService() {
   // }
 
   // let position0 = allPositions[0];
-  // let market = supportedMarkets.find(
-  //   (m) => m.indexOrIdentifier == position0.indexToken!.address
-  // )!;
-  // const tradePreview = await gs.getTradePreview(
-  //   w,
-  //   provider,
-  //   market,
-  //   {
-  //     type: "LIMIT_INCREASE",
-  //     direction: "LONG",
-  //     inputCollateral: usdc,
-  //     inputCollateralAmount: ethers.utils.parseUnits("16.48", usdc.decimals),
-  //     sizeDelta: ethers.utils.parseUnits("32.82", 30),
-  //     isTriggerOrder: false,
-  //     referralCode: undefined,
-  //     trigger: {
-  //       // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-  //       triggerPrice: ethers.utils.parseUnits("20000", 30),
-  //       triggerAboveThreshold: false,
-  //     },
-  //   },
-  //   position0
-  // );
-  // logObject("Trade Preview: ", tradePreview);
+  let market = supportedMarkets.find(
+    (m) => m.indexOrIdentifier.toLowerCase() === "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
+  )!;
+  // console.log({ market, supportedMarkets })
+  const tradePreview = await gs.getTradePreview(
+    w,
+    provider,
+    market,
+    {
+      type: "MARKET_INCREASE",
+      direction: "LONG",
+      inputCollateral: eth,
+      inputCollateralAmount: ethers.utils.parseUnits("0.01", eth.decimals),
+      sizeDelta: ethers.utils.parseUnits("40.35", 30),
+      isTriggerOrder: false,
+      referralCode: undefined,
+      trigger: {
+        triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+        // triggerPrice: ethers.utils.parseUnits("20000", 30),
+        triggerAboveThreshold: false,
+      },
+    },
+    undefined
+  );
+  logObject("Trade Preview: ", tradePreview);
 
   // const closePreview = await gs.getCloseTradePreview(
   //   w,
@@ -902,18 +950,28 @@ async function gmxService() {
   //   logObject("Position: ", p);
   // });
 
-  const mtdt = await gs.getDynamicMetadata(supportedMarkets[0], provider);
-  console.log(mtdt);
+  // const mtdt = await gs.getDynamicMetadata(supportedMarkets[0], provider);
+  // console.log(mtdt);
 }
 
 async function compositeService() {
-  const ss = new SynthetixV2Service(sdk, await signer.getAddress());
-  const gs = new GmxV1Service(await signer.getAddress());
+  const ss = new SynthetixV2Service(
+    sdk,
+    "0x89E369321619114e317a3121A2693f39728f51f1"
+  );
+  const gs = new GmxV1Service("0x89E369321619114e317a3121A2693f39728f51f1");
 
   const cs = new CompositeService(ss, gs);
 
-  let openMarkets = (await cs.getOpenMarkets())["ETH/USD"];
-  console.dir(openMarkets, { depth: 10 });
+  let openMarkets = await cs.getOpenMarkets();
+  console.dir(openMarkets["ETH/USD"], { depth: 10 });
+  return openMarkets;
+}
+
+async function testService() {
+  let b1 = parseUnits("1.1", 4);
+
+  console.log(b1.toString());
 }
 
 // synService()
@@ -923,7 +981,7 @@ async function compositeService() {
 //     process.exitCode = 1;
 //   });
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

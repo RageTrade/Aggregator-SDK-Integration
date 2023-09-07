@@ -8,7 +8,11 @@ import {
 } from "./chains";
 import { parseEther } from "ethers/lib/utils";
 import { Provider } from "@ethersproject/providers";
-import { Reader__factory, VaultReader__factory } from "../../../gmxV1Typechain";
+import {
+  IERC20__factory,
+  Reader__factory,
+  VaultReader__factory,
+} from "../../../gmxV1Typechain";
 import { ExtendedMarket, ExtendedPosition, Order } from "../../interface";
 import { logObject } from "../../common/helper";
 
@@ -1040,7 +1044,8 @@ export function getLiquidationPrice({
 
 export const MIN_PROFIT_TIME = 0;
 
-export const USDG_ADDRESS = getContract(ARBITRUM, "USDG");
+export const USDG_ADDRESS = getContract(ARBITRUM, "USDG")!;
+export const USDC_E_ADDRESS = getTokenBySymbol(ARBITRUM, "USDC.e").address;
 
 export const MAX_PRICE_DEVIATION_BASIS_POINTS = 750;
 export const DEFAULT_GAS_LIMIT = 1 * 1000 * 1000;
@@ -2004,6 +2009,350 @@ export const getCloseTradePreviewInternal = async (
   };
 };
 
+export function getTargetUsdgAmount(
+  token: TokenInfo,
+  usdgSupply: BigNumber,
+  totalTokenWeights: BigNumber
+) {
+  if (!token || !token.weight || !usdgSupply) {
+    return;
+  }
+
+  if (usdgSupply.eq(0)) {
+    return BigNumber.from(0);
+  }
+
+  return token.weight.mul(usdgSupply).div(totalTokenWeights);
+}
+
+export function getFeeBasisPoints(
+  token: TokenInfo | undefined,
+  tokenUsdgAmount: BigNumber | undefined,
+  usdgDelta: BigNumber,
+  feeBasisPoints: BigNumber,
+  taxBasisPoints: BigNumber,
+  increment: boolean,
+  usdgSupply: BigNumber,
+  totalTokenWeights: BigNumber
+) {
+  if (!token || !tokenUsdgAmount || !usdgSupply || !totalTokenWeights) {
+    return 0;
+  }
+
+  const initialAmount = tokenUsdgAmount;
+  let nextAmount = initialAmount.add(usdgDelta);
+  if (!increment) {
+    nextAmount = usdgDelta.gt(initialAmount)
+      ? BigNumber.from(0)
+      : initialAmount.sub(usdgDelta);
+  }
+
+  const targetAmount = getTargetUsdgAmount(
+    token,
+    usdgSupply,
+    totalTokenWeights
+  );
+  if (!targetAmount || targetAmount.eq(0)) {
+    return feeBasisPoints.toNumber();
+  }
+
+  const initialDiff = initialAmount.gt(targetAmount)
+    ? initialAmount.sub(targetAmount)
+    : targetAmount.sub(initialAmount);
+  const nextDiff = nextAmount.gt(targetAmount)
+    ? nextAmount.sub(targetAmount)
+    : targetAmount.sub(nextAmount);
+
+  if (nextDiff.lt(initialDiff)) {
+    const rebateBps = taxBasisPoints.mul(initialDiff).div(targetAmount);
+    return rebateBps.gt(feeBasisPoints)
+      ? 0
+      : feeBasisPoints.sub(rebateBps).toNumber();
+  }
+
+  let averageDiff = initialDiff.add(nextDiff).div(2);
+  if (averageDiff.gt(targetAmount)) {
+    averageDiff = targetAmount;
+  }
+  const taxBps = taxBasisPoints.mul(averageDiff).div(targetAmount);
+  return feeBasisPoints.add(taxBps).toNumber();
+}
+
+const adjustForDecimalsFactory = (n: number) => (number: any) => {
+  if (n === 0) {
+    return number;
+  }
+  if (n > 0) {
+    return number.mul(expandDecimals(1, n));
+  }
+  return number.div(expandDecimals(1, -n));
+};
+
+export function adjustForDecimals(
+  amount: BigNumber,
+  divDecimals: number,
+  mulDecimals: number
+) {
+  return amount
+    .mul(expandDecimals(1, mulDecimals))
+    .div(expandDecimals(1, divDecimals));
+}
+
+export function getSwapFeeBasisPoints(isStable: boolean | undefined) {
+  return isStable ? STABLE_SWAP_FEE_BASIS_POINTS : SWAP_FEE_BASIS_POINTS;
+}
+
+export function getMostAbundantStableToken(
+  chainId: number,
+  infoTokens: InfoTokens
+) {
+  const whitelistedTokens = getWhitelistedTokens(chainId);
+  let availableAmount;
+  let stableToken = whitelistedTokens.find((t) => t.isStable);
+
+  for (let i = 0; i < whitelistedTokens.length; i++) {
+    const info = getTokenInfo(infoTokens, whitelistedTokens[i].address);
+    if (!info.isStable || !info.availableAmount) {
+      continue;
+    }
+
+    const adjustedAvailableAmount = adjustForDecimals(
+      info.availableAmount,
+      info.decimals,
+      USD_DECIMALS
+    );
+    if (!availableAmount || adjustedAvailableAmount.gt(availableAmount)) {
+      availableAmount = adjustedAvailableAmount;
+      stableToken = info;
+    }
+  }
+
+  return stableToken as TokenInfo;
+}
+
+export function getNextToAmount(
+  chainId: number,
+  fromAmount: BigNumber | undefined,
+  fromTokenAddress: string,
+  toTokenAddress: string,
+  infoTokens: InfoTokens,
+  toTokenPriceUsd: BigNumber | undefined,
+  ratio: BigNumber | undefined,
+  usdgSupply: BigNumber,
+  totalTokenWeights: number,
+  forSwap: boolean
+) {
+  const defaultValue = { amount: BigNumber.from(0), feeBasisPoints: undefined };
+  if (!fromAmount || !fromTokenAddress || !toTokenAddress || !infoTokens) {
+    return defaultValue;
+  }
+
+  if (fromTokenAddress === toTokenAddress) {
+    return { amount: fromAmount, feeBasisPoints: undefined };
+  }
+
+  const fromToken = getTokenInfo(infoTokens, fromTokenAddress);
+  const toToken = getTokenInfo(infoTokens, toTokenAddress);
+
+  if (fromToken.isNative && toToken.isWrapped) {
+    return { amount: fromAmount, feeBasisPoints: undefined };
+  }
+
+  if (fromToken.isWrapped && toToken.isNative) {
+    return { amount: fromAmount, feeBasisPoints: undefined };
+  }
+
+  // the realtime price should be used if it is for a transaction to open / close a position
+  // or if the transaction involves doing a swap and opening / closing a position
+  // otherwise use the contract price instead of realtime price for swaps
+
+  let fromTokenMinPrice;
+  if (fromToken) {
+    fromTokenMinPrice = forSwap
+      ? fromToken.contractMinPrice
+      : fromToken.minPrice;
+  }
+
+  let toTokenMaxPrice;
+  if (toToken) {
+    toTokenMaxPrice = forSwap ? toToken.contractMaxPrice : toToken.maxPrice;
+  }
+
+  if (!fromTokenMinPrice || !toTokenMaxPrice) {
+    return defaultValue;
+  }
+
+  const adjustDecimals = adjustForDecimalsFactory(
+    toToken.decimals - fromToken.decimals
+  );
+
+  let toAmountBasedOnRatio = bigNumberify(0)!;
+  if (ratio && !ratio.isZero()) {
+    toAmountBasedOnRatio = fromAmount.mul(PRECISION).div(ratio);
+  }
+
+  if (toTokenAddress === USDG_ADDRESS) {
+    const feeBasisPoints = getSwapFeeBasisPoints(fromToken.isStable);
+
+    if (ratio && !ratio.isZero()) {
+      const toAmount = toAmountBasedOnRatio;
+      return {
+        amount: adjustDecimals(
+          toAmount
+            .mul(BASIS_POINTS_DIVISOR - feeBasisPoints)
+            .div(BASIS_POINTS_DIVISOR)
+        ),
+        feeBasisPoints,
+      };
+    }
+
+    const toAmount = fromAmount.mul(fromTokenMinPrice).div(PRECISION);
+    return {
+      amount: adjustDecimals(
+        toAmount
+          .mul(BASIS_POINTS_DIVISOR - feeBasisPoints)
+          .div(BASIS_POINTS_DIVISOR)
+      ),
+      feeBasisPoints,
+    };
+  }
+
+  if (fromTokenAddress === USDG_ADDRESS) {
+    const redemptionValue = toToken.redemptionAmount
+      ?.mul(toTokenPriceUsd || toTokenMaxPrice)
+      .div(expandDecimals(1, toToken.decimals));
+
+    if (redemptionValue && redemptionValue.gt(THRESHOLD_REDEMPTION_VALUE)) {
+      const feeBasisPoints = getSwapFeeBasisPoints(toToken.isStable);
+
+      const toAmount =
+        ratio && !ratio.isZero()
+          ? toAmountBasedOnRatio
+          : fromAmount
+              .mul(toToken.redemptionAmount!)
+              .div(expandDecimals(1, toToken.decimals));
+
+      return {
+        amount: adjustDecimals(
+          toAmount
+            .mul(BASIS_POINTS_DIVISOR - feeBasisPoints)
+            .div(BASIS_POINTS_DIVISOR)
+        ),
+        feeBasisPoints,
+      };
+    }
+
+    const expectedAmount = fromAmount;
+
+    const stableToken = getMostAbundantStableToken(chainId, infoTokens);
+    if (
+      !stableToken?.availableAmount ||
+      stableToken.availableAmount.lt(expectedAmount)
+    ) {
+      const toAmount =
+        ratio && !ratio.isZero()
+          ? toAmountBasedOnRatio
+          : fromAmount
+              .mul(toToken.redemptionAmount!)
+              .div(expandDecimals(1, toToken.decimals));
+      const feeBasisPoints = getSwapFeeBasisPoints(toToken.isStable);
+      return {
+        amount: adjustDecimals(
+          toAmount
+            .mul(BASIS_POINTS_DIVISOR - feeBasisPoints)
+            .div(BASIS_POINTS_DIVISOR)
+        ),
+        feeBasisPoints,
+      };
+    }
+
+    const feeBasisPoints0 = getSwapFeeBasisPoints(true);
+    const feeBasisPoints1 = getSwapFeeBasisPoints(false);
+
+    if (ratio && !ratio.isZero()) {
+      const toAmount = toAmountBasedOnRatio
+        .mul(BASIS_POINTS_DIVISOR - feeBasisPoints0 - feeBasisPoints1)
+        .div(BASIS_POINTS_DIVISOR);
+      return {
+        amount: adjustDecimals(toAmount),
+        path: [USDG_ADDRESS, stableToken.address, toToken.address],
+        feeBasisPoints: feeBasisPoints0 + feeBasisPoints1,
+      };
+    }
+
+    // get toAmount for USDG => stableToken
+    let toAmount = fromAmount.mul(PRECISION).div(stableToken.maxPrice!);
+    // apply USDG => stableToken fees
+    toAmount = toAmount
+      .mul(BASIS_POINTS_DIVISOR - feeBasisPoints0)
+      .div(BASIS_POINTS_DIVISOR);
+
+    // get toAmount for stableToken => toToken
+    toAmount = toAmount
+      .mul(stableToken.minPrice!)
+      .div(toTokenPriceUsd || toTokenMaxPrice);
+    // apply stableToken => toToken fees
+    toAmount = toAmount
+      .mul(BASIS_POINTS_DIVISOR - feeBasisPoints1)
+      .div(BASIS_POINTS_DIVISOR);
+
+    return {
+      amount: adjustDecimals(toAmount),
+      path: [USDG_ADDRESS, stableToken.address, toToken.address],
+      feeBasisPoints: feeBasisPoints0 + feeBasisPoints1,
+    };
+  }
+
+  const toAmount =
+    ratio && !ratio.isZero()
+      ? toAmountBasedOnRatio
+      : fromAmount
+          .mul(fromTokenMinPrice)
+          .div(toTokenPriceUsd || toTokenMaxPrice);
+
+  let usdgAmount = fromAmount.mul(fromTokenMinPrice).div(PRECISION);
+  usdgAmount = adjustForDecimals(usdgAmount, fromToken.decimals, USDG_DECIMALS);
+  const swapFeeBasisPoints =
+    fromToken.isStable && toToken.isStable
+      ? STABLE_SWAP_FEE_BASIS_POINTS
+      : SWAP_FEE_BASIS_POINTS;
+  const taxBasisPoints =
+    fromToken.isStable && toToken.isStable
+      ? STABLE_TAX_BASIS_POINTS
+      : TAX_BASIS_POINTS;
+  const feeBasisPoints0 = getFeeBasisPoints(
+    fromToken,
+    fromToken.usdgAmount,
+    usdgAmount,
+    BigNumber.from(swapFeeBasisPoints),
+    BigNumber.from(taxBasisPoints),
+    true,
+    usdgSupply,
+    BigNumber.from(totalTokenWeights)
+  );
+  const feeBasisPoints1 = getFeeBasisPoints(
+    toToken,
+    toToken.usdgAmount,
+    usdgAmount,
+    BigNumber.from(swapFeeBasisPoints),
+    BigNumber.from(taxBasisPoints),
+    false,
+    usdgSupply,
+    BigNumber.from(totalTokenWeights)
+  );
+  const feeBasisPoints =
+    feeBasisPoints0 > feeBasisPoints1 ? feeBasisPoints0 : feeBasisPoints1;
+
+  return {
+    amount: adjustDecimals(
+      toAmount
+        .mul(BASIS_POINTS_DIVISOR - feeBasisPoints)
+        .div(BASIS_POINTS_DIVISOR)
+    ),
+    feeBasisPoints,
+  };
+}
+
 export const getTradePreviewInternal = async (
   user: string,
   provider: Provider,
@@ -2017,6 +2366,7 @@ export const getTradePreviewInternal = async (
     getContract(ARBITRUM, "Reader")!,
     provider
   );
+  const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider);
 
   const marketPrice = BigNumber.from((await getMarketPrice(market)).value);
 
@@ -2104,11 +2454,29 @@ export const getTradePreviewInternal = async (
     toUsdMax!
   );
 
-  // TODO - add swap fees logic
   let swapFees = BigNumber.from(0);
+  const result = getNextToAmount(
+    ARBITRUM,
+    order.inputCollateralAmount, // collateralTokenAmount in collateral decimals
+    order.inputCollateral.address, // Address0 for Eth
+    order.direction == "LONG" ? market.marketToken!.address! : USDC_E_ADDRESS, // Address0 for Eth
+    infoTokens,
+    undefined,
+    undefined,
+    await usdgToken.totalSupply(),
+    100001,
+    false
+  );
+  if (result.feeBasisPoints && fromUsdMin) {
+    swapFees = fromUsdMin.mul(result.feeBasisPoints).div(BASIS_POINTS_DIVISOR);
+  }
+
+  // console.log("SwapFees: ", formatAmount(swapFees.toString(), 30));
+
   let positionFee = toUsdMax!
     .mul(MARGIN_FEE_BASIS_POINTS)
     .div(BASIS_POINTS_DIVISOR);
+  // console.log("PositionFees: ", formatAmount(positionFee.toString(), 30));
   let feesUsd = swapFees.add(positionFee);
   const fromUsdMinAfterFees =
     fromUsdMin?.sub(swapFees ?? 0).sub(positionFee ?? 0) || BigNumber.from(0);
