@@ -50,6 +50,7 @@ import {
   getTradePreviewInternal,
   getCloseTradePreviewInternal,
   getEditCollateralPreviewInternal,
+  GToken,
 } from "../configs/gmx/tokens";
 import { logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
@@ -1002,10 +1003,12 @@ export default class GmxV1Service implements IExchange {
     outputToken: Token | undefined
   ): Promise<ExtendedPosition> {
     return await getCloseTradePreviewInternal(
+      provider,
       position,
       closeSize,
       isTrigger,
       triggerPrice,
+      outputToken ? this.convertToGToken(outputToken) : undefined,
       this.convertToToken
     );
   }
@@ -1089,6 +1092,16 @@ export default class GmxV1Service implements IExchange {
     let token: Token = {
       address: inToken.address,
       decimals: inToken.decimals.toString(),
+      symbol: inToken.symbol,
+      name: inToken.name,
+    };
+    return token;
+  }
+
+  convertToGToken(inToken: Token): GToken {
+    let token: GToken = {
+      address: inToken.address,
+      decimals: Number(inToken.decimals),
       symbol: inToken.symbol,
       name: inToken.name,
     };

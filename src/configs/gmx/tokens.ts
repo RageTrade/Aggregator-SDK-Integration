@@ -16,7 +16,7 @@ import {
 import { ExtendedMarket, ExtendedPosition, Order } from "../../interface";
 import { logObject } from "../../common/helper";
 
-export type Token = {
+export type GToken = {
   name: string;
   symbol: string;
   baseSymbol?: string;
@@ -41,7 +41,7 @@ export type Token = {
   isPlatformToken?: boolean;
 };
 
-export type TokenInfo = Token & {
+export type TokenInfo = GToken & {
   hasMaxAvailableLong?: boolean;
   hasMaxAvailableShort?: boolean;
 
@@ -96,7 +96,7 @@ export type TokenPrices = {
   maxPrice: BigNumber;
 };
 
-export const TOKENS: { [chainId: number]: Token[] } = {
+export const TOKENS: { [chainId: number]: GToken[] } = {
   [ARBITRUM]: [
     {
       name: "Ethereum",
@@ -492,15 +492,15 @@ export const GLP_POOL_COLORS = {
   LINK: "#3256D6",
 };
 
-export const TOKENS_MAP: { [chainId: number]: { [address: string]: Token } } =
+export const TOKENS_MAP: { [chainId: number]: { [address: string]: GToken } } =
   {};
-export const V1_TOKENS: { [chainId: number]: Token[] } = {};
-export const V2_TOKENS: { [chainId: number]: Token[] } = {};
+export const V1_TOKENS: { [chainId: number]: GToken[] } = {};
+export const V2_TOKENS: { [chainId: number]: GToken[] } = {};
 export const TOKENS_BY_SYMBOL_MAP: {
-  [chainId: number]: { [symbol: string]: Token };
+  [chainId: number]: { [symbol: string]: GToken };
 } = {};
-export const WRAPPED_TOKENS_MAP: { [chainId: number]: Token } = {};
-export const NATIVE_TOKENS_MAP: { [chainId: number]: Token } = {};
+export const WRAPPED_TOKENS_MAP: { [chainId: number]: GToken } = {};
+export const NATIVE_TOKENS_MAP: { [chainId: number]: GToken } = {};
 
 const CHAIN_IDS = [ARBITRUM];
 
@@ -1149,9 +1149,9 @@ function setTokenUsingIndexPrices(
 }
 
 export function getInfoTokens(
-  tokens: Token[],
+  tokens: GToken[],
   tokenBalances: BigNumber[] | undefined,
-  whitelistedTokens: Token[],
+  whitelistedTokens: GToken[],
   vaultTokenInfo: BigNumber[] | undefined,
   fundingRateInfo: BigNumber[] | undefined,
   vaultPropsLength: number | undefined,
@@ -1886,11 +1886,53 @@ export const getEditCollateralPreviewInternal = async (
   };
 };
 
+function applySpread(amount: BigNumber, spread: BigNumber | undefined) {
+  if (!amount || !spread) {
+    return amount;
+  }
+  return amount.sub(amount.mul(spread).div(PRECISION));
+}
+
+export function getTokenAmountFromUsd(
+  infoTokens: InfoTokens,
+  tokenAddress: string,
+  usdAmount?: BigNumber,
+  opts: {
+    max?: boolean;
+    overridePrice?: BigNumber;
+  } = {}
+) {
+  if (!usdAmount) {
+    return;
+  }
+
+  if (tokenAddress === USDG_ADDRESS) {
+    return usdAmount.mul(expandDecimals(1, 18)).div(PRECISION);
+  }
+
+  const info: TokenInfo | undefined = getTokenInfo(infoTokens, tokenAddress);
+
+  if (!info) {
+    return;
+  }
+
+  const price =
+    opts.overridePrice || (opts.max ? info.maxPrice : info.minPrice);
+
+  if (!BigNumber.isBigNumber(price) || price.lte(0)) {
+    return;
+  }
+
+  return usdAmount.mul(expandDecimals(1, info.decimals)).div(price);
+}
+
 export const getCloseTradePreviewInternal = async (
+  provider: Provider,
   position: ExtendedPosition,
   closeSize: BigNumber,
   isTrigger: boolean,
   triggerPrice: BigNumber | undefined,
+  outputToken: GToken | undefined,
   convertToToken: any
 ): Promise<ExtendedPosition> => {
   let liquidationPrice: BigNumber | undefined;
@@ -1900,6 +1942,8 @@ export const getCloseTradePreviewInternal = async (
   let fromAmount = closeSize;
   let sizeDelta = fromAmount;
   let receiveUsd = BigNumber.from(0);
+  let receiveAmount = BigNumber.from(0);
+  let swapFee = BigNumber.from(0);
   let nextCollateral: BigNumber | undefined;
   let adjustedDelta = BigNumber.from(0);
   let collateralDelta = BigNumber.from(0);
@@ -1907,6 +1951,7 @@ export const getCloseTradePreviewInternal = async (
   let positionFee = getMarginFee(fromAmount);
   let fundingFee = position.borrowFee!;
   let nextLeverage;
+  const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider);
 
   liquidationPrice = getLiquidationPrice({
     size: position.size,
@@ -1963,6 +2008,50 @@ export const getCloseTradePreviewInternal = async (
     positionFee = getMarginFee(fromAmount);
   }
 
+  const { infoTokens } = await useInfoTokens(
+    provider,
+    ARBITRUM,
+    false,
+    undefined,
+    undefined
+  );
+
+  let collateralTokenInfo = await getTokenInfo(
+    infoTokens,
+    position.originalCollateralToken!
+  );
+
+  receiveUsd = applySpread(receiveUsd, collateralTokenInfo?.spread);
+
+  let convertedAmount = fromAmount
+    .mul(expandDecimals(1, Number(position.collateralToken.decimals)))
+    .div(collateralTokenInfo.maxPrice!);
+
+  // Calculate swap fees
+  if (!isTrigger && outputToken) {
+    const { feeBasisPoints } = getNextToAmount(
+      ARBITRUM,
+      convertedAmount,
+      position.originalCollateralToken!,
+      outputToken.address,
+      infoTokens,
+      undefined,
+      undefined,
+      await usdgToken.totalSupply(),
+      100001,
+      true
+    );
+
+    if (feeBasisPoints) {
+      swapFee = receiveUsd.mul(feeBasisPoints).div(BASIS_POINTS_DIVISOR);
+      console.log("SwapFees: ", formatAmount(swapFee.toString(), 30));
+      totalFees = totalFees.add(swapFee || bigNumberify(0));
+      receiveUsd = receiveUsd.sub(swapFee);
+    }
+    const swapToTokenInfo = getTokenInfo(infoTokens, outputToken.address);
+    receiveUsd = applySpread(receiveUsd, swapToTokenInfo?.spread);
+  }
+
   if (fromAmount) {
     if (!isClosing) {
       nextLiquidationPrice = getLiquidationPrice({
@@ -1994,6 +2083,25 @@ export const getCloseTradePreviewInternal = async (
     }
   }
 
+  // For Shorts trigger orders the collateral is a stable coin, it should not depend on the triggerPrice
+  if (isTrigger && position.direction == "LONG") {
+    receiveAmount = getTokenAmountFromUsd(
+      infoTokens,
+      outputToken ? outputToken.address : position.originalCollateralToken!,
+      receiveUsd,
+      // Not needed because we are allowing collateral swap
+      // {
+      //   overridePrice: triggerPrice,
+      // }
+    )!;
+  } else {
+    receiveAmount = getTokenAmountFromUsd(
+      infoTokens,
+      outputToken!.address,
+      receiveUsd
+    )!;
+  }
+
   return {
     indexOrIdentifier: "",
     leverage: isClosing ? BigNumber.from(0) : nextLeverage,
@@ -2006,6 +2114,8 @@ export const getCloseTradePreviewInternal = async (
     averageEntryPrice: position.averageEntryPrice,
     liqudationPrice: isClosing ? BigNumber.from(0) : nextLiquidationPrice,
     fee: totalFees,
+    receiveAmount: receiveAmount,
+    receiveUsd: receiveUsd,
   };
 };
 

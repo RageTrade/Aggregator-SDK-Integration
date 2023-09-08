@@ -133,6 +133,8 @@ export type ExtendedPosition = Position & {
   entryFundingRate?: BigNumber;
   cumulativeFundingRate?: BigNumber;
   protocolMetadata?: ProtocolMetadata;
+  receiveAmount?: BigNumber;
+  receiveUsd?: BigNumber;
 };
 
 export type Trade = ExtendedPosition & {

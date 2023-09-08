@@ -418,12 +418,13 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: tradePreview.fee,
-      leverage: order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
-        ? tradePreview.size
-            .mul(marketPrice.value)
-            .div(order.inputCollateralAmount)
-            .abs()
-        : undefined,
+      leverage:
+        order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
+          ? tradePreview.size
+              .mul(marketPrice.value)
+              .div(order.inputCollateralAmount)
+              .abs()
+          : undefined,
     };
   }
 
@@ -488,6 +489,7 @@ export default class SynthetixV2Service implements IExchange {
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!;
     const marketPrice = await this.getMarketPriceByAddress(marketAddress);
+    const isFullClose = closeSize.eq(position.size);
     await this.sdk.setProvider(provider);
 
     // because simulation is for only (partial) close position
@@ -514,9 +516,7 @@ export default class SynthetixV2Service implements IExchange {
     return {
       indexOrIdentifier: "",
       size: tradePreview.size.abs(),
-      collateral: closeSize.eq(position.size)
-        ? BigNumber.from(0)
-        : tradePreview.margin,
+      collateral: isFullClose ? BigNumber.from(0) : tradePreview.margin,
       collateralToken: this.sUsd,
       averageEntryPrice: tradePreview.price,
       liqudationPrice: tradePreview.liqPrice,
@@ -529,6 +529,8 @@ export default class SynthetixV2Service implements IExchange {
             .div(tradePreview.margin)
             .abs()
         : undefined,
+      receiveAmount: isFullClose ? tradePreview.margin : BigNumber.from(0),
+      receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0),
     };
   }
 
