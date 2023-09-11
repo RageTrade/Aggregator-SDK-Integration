@@ -1,4 +1,5 @@
 import { BigNumber, BigNumberish, UnsignedTransaction, ethers } from "ethers";
+import { AddressValidationAdditionalSessionData, AddressValidationSessionKeyData, ERC20ApprovalAddtionalSessionData, ERC20ApprovalSessionKeyData, GMXV1SessionKeyData, LifiSessionKeyData, NativeTokenSessionKeyData, SynthetixV2SessionKeyData } from "./tx-metadata-types";
 
 export type Provider = ethers.providers.Provider;
 
@@ -209,9 +210,15 @@ export type OpenMarkets = {
   [index: string]: Array<OpenMarketData>;
 };
 
+export type SessionKeyData = ERC20ApprovalSessionKeyData | GMXV1SessionKeyData | LifiSessionKeyData | SynthetixV2SessionKeyData | NativeTokenSessionKeyData | AddressValidationSessionKeyData
+
+export type AdditionalSessionData = ERC20ApprovalAddtionalSessionData | AddressValidationAdditionalSessionData | undefined
+
+export type UnsignedTxWithMetadata = { tx: UnsignedTransaction, sessionKeyData: SessionKeyData, addtionalSessionData: AdditionalSessionData }
+
 export interface IExchange {
   // something to indicate when setup should be called
-  setup(provider: Provider): Promise<UnsignedTransaction[]>;
+  setup(provider: Provider): Promise<UnsignedTxWithMetadata[]>;
 
   supportedNetworks(): readonly Network[];
 
@@ -221,19 +228,19 @@ export interface IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order
-  ): Promise<UnsignedTransaction[]>;
+  ): Promise<UnsignedTxWithMetadata[]>;
 
   updateOrder(
     provider: Provider,
     market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction[]>;
+  ): Promise<UnsignedTxWithMetadata[]>;
 
   cancelOrder(
     provider: Provider,
     market: ExtendedMarket | undefined,
     order: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction[]>;
+  ): Promise<UnsignedTxWithMetadata[]>;
 
   closePosition(
     provider: Provider,
@@ -243,7 +250,7 @@ export interface IExchange {
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined
-  ): Promise<UnsignedTransaction[]>;
+  ): Promise<UnsignedTxWithMetadata[]>;
 
   updatePositionMargin(
     provider: Provider,
@@ -251,7 +258,7 @@ export interface IExchange {
     marginAmount: BigNumber,
     isDeposit: boolean,
     transferToken: Token | undefined
-  ): Promise<UnsignedTransaction[]>;
+  ): Promise<UnsignedTxWithMetadata[]>;
 
   getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal>;
 

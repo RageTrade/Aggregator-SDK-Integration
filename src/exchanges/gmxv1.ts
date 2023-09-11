@@ -19,6 +19,7 @@ import {
   TRIGGER_TYPE,
   Provider,
   ViewError,
+  UnsignedTxWithMetadata,
 } from "../interface";
 import {
   IERC20__factory,
@@ -145,7 +146,7 @@ export default class GmxV1Service implements IExchange {
     }
   }
 
-  async setup(provider: Provider): Promise<UnsignedTransaction[]> {
+  async setup(provider: Provider): Promise<UnsignedTxWithMetadata[]> {
     const referralStorage = ReferralStorage__factory.connect(
       getContract(ARBITRUM, "ReferralStorage")!,
       provider
@@ -157,14 +158,16 @@ export default class GmxV1Service implements IExchange {
       return Promise.resolve([]);
     }
 
-    let txs: UnsignedTransaction[] = [];
+    let txs: UnsignedTxWithMetadata[] = [];
 
     // set referral code
     const setReferralCodeTx =
       await referralStorage.populateTransaction.setTraderReferralCodeByUser(
         this.REFERRAL_CODE
       );
-    txs.push(setReferralCodeTx);
+    txs.push({
+      tx: setReferralCodeTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined
+    });
 
     // approve router
     const router = Router__factory.connect(
@@ -174,13 +177,17 @@ export default class GmxV1Service implements IExchange {
     const approveOrderBookTx = await router.populateTransaction.approvePlugin(
       getContract(ARBITRUM, "OrderBook")!
     );
-    txs.push(approveOrderBookTx);
+    txs.push({
+      tx: approveOrderBookTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined
+    });
 
     const approvePositionRouterTx =
       await router.populateTransaction.approvePlugin(
         getContract(ARBITRUM, "PositionRouter")!
       );
-    txs.push(approvePositionRouterTx);
+    txs.push({
+      tx: approvePositionRouterTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined
+    });
 
     return txs;
   }
@@ -189,23 +196,23 @@ export default class GmxV1Service implements IExchange {
     tokenAddress: string,
     provider: Provider,
     allowanceAmount: BigNumber
-  ): Promise<UnsignedTransaction | undefined> {
+  ): Promise<UnsignedTxWithMetadata | undefined> {
     let token = IERC20__factory.connect(tokenAddress, provider);
+    const router = getContract(ARBITRUM, "Router")!;
 
     let allowance = await token.allowance(
       this.swAddr,
-      getContract(ARBITRUM, "Router")!
+      router
     );
 
     if (allowance.lt(allowanceAmount)) {
       let tx = await token.populateTransaction.approve(
-        getContract(ARBITRUM, "Router")!,
+        router,
         ethers.constants.MaxUint256
       );
-      return tx;
+      return { tx, sessionKeyData: { module: "ERC20_APPROVAL", chainId: ARBITRUM }, addtionalSessionData: { chainId: ARBITRUM, spender: router, token: tokenAddress } };
     }
 
-    return Promise.resolve(undefined);
   }
 
   supportedNetworks(): readonly Network[] {
@@ -281,8 +288,8 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order
-  ): Promise<UnsignedTransaction[]> {
-    let txs: UnsignedTransaction[] = [];
+  ): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = [];
 
     // approval tx
     if (
@@ -330,8 +337,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
+                order.inputCollateralAmount
+              )
               : this.EXECUTION_FEE,
         }
       );
@@ -399,7 +406,10 @@ export default class GmxV1Service implements IExchange {
           );
       }
     }
-    txs.push(createOrderTx!);
+
+    txs.push({
+      tx: createOrderTx!, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined
+    });
 
     return txs;
   }
@@ -408,7 +418,7 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction[]> {
+  ): Promise<UnsignedTxWithMetadata[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
       provider
@@ -435,14 +445,14 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [updateOrderTx];
+    return [{ tx: updateOrderTx, sessionKeyData: { module: "GMX_V1" }, addtionalSessionData: undefined }];
   }
 
   async cancelOrder(
     provider: Provider,
     market: Market | undefined,
     order: Partial<ExtendedOrder>
-  ): Promise<UnsignedTransaction[]> {
+  ): Promise<UnsignedTxWithMetadata[]> {
     const orderBook = OrderBook__factory.connect(
       getContract(ARBITRUM, "OrderBook")!,
       provider
@@ -462,7 +472,7 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [cancelOrderTx];
+    return [{ tx: cancelOrderTx, sessionKeyData: { module: "GMX_V1" }, addtionalSessionData: undefined }];
   }
 
   getOrder(
@@ -719,7 +729,7 @@ export default class GmxV1Service implements IExchange {
     marginAmount: BigNumber, // For deposit it's in token terms and for withdraw it's in USD terms (F/E)
     isDeposit: boolean,
     transferToken: Token
-  ): Promise<UnsignedTransaction[]> {
+  ): Promise<UnsignedTxWithMetadata[]> {
     const positionRouter = PositionRouter__factory.connect(
       getContract(ARBITRUM, "PositionRouter")!,
       provider
@@ -730,9 +740,10 @@ export default class GmxV1Service implements IExchange {
     let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
     let transferTokenString = this.getTokenAddressString(transferToken.address);
 
-    let marginTx: UnsignedTransaction;
     const path: string[] = [];
-    let txs: UnsignedTransaction[] = [];
+
+    let marginTx: UnsignedTransaction;
+    let txs: UnsignedTxWithMetadata[] = [];
 
     if (isDeposit) {
       //approve router for token spends
@@ -820,7 +831,7 @@ export default class GmxV1Service implements IExchange {
         );
     }
 
-    txs.push(marginTx);
+    txs.push({ tx: marginTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined });
 
     return txs;
   }
@@ -833,8 +844,8 @@ export default class GmxV1Service implements IExchange {
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined
-  ): Promise<UnsignedTransaction[]> {
-    let txs: UnsignedTransaction[] = [];
+  ): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = [];
     let indexAddress = this.getIndexTokenAddressFromPositionKey(
       position.indexOrIdentifier
     );
@@ -903,7 +914,7 @@ export default class GmxV1Service implements IExchange {
             value: this.EXECUTION_FEE,
           }
         );
-      txs.push(createOrderTx);
+      txs.push({ tx: createOrderTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined });
     } else {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
@@ -923,7 +934,7 @@ export default class GmxV1Service implements IExchange {
             value: this.EXECUTION_FEE,
           }
         );
-      txs.push(createOrderTx);
+      txs.push({ tx: createOrderTx, sessionKeyData: { module: "GMX_V1", sender: this.swAddr }, addtionalSessionData: undefined });
     }
 
     return txs;

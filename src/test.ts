@@ -17,7 +17,7 @@ import {
 } from "@kwenta/sdk/dist/types";
 import Wei, { wei } from "@synthetixio/wei";
 import SynthetixV2Service from "./exchanges/synthetixv2";
-import { Mode, OrderType } from "./interface";
+import { Mode, OrderType, UnsignedTxWithMetadata } from "./interface";
 import GmxV1Service from "./exchanges/gmxv1";
 import { getTokenBySymbol } from "./configs/gmx/tokens";
 import { ARBITRUM } from "./configs/gmx/chains";
@@ -125,7 +125,7 @@ async function createLongOrder(
   direction: "LONG" | "SHORT",
   triggerPrice: BigNumber,
   inputCollateral: string
-): Promise<UnsignedTransaction[]> {
+): Promise<UnsignedTxWithMetadata[]> {
   const createOrderTxs = await ss.createOrder(
     provider,
     {
@@ -177,7 +177,7 @@ async function getIdleMargins(ss: SynthetixV2Service) {
 
 async function cancelDelayedOffChainOrder(
   ss: SynthetixV2Service
-): Promise<UnsignedTransaction[]> {
+): Promise<UnsignedTxWithMetadata[]> {
   const cancelOrder = await ss.cancelOrder(
     provider,
     {
@@ -204,7 +204,7 @@ async function cancelDelayedOffChainOrder(
 async function createTransferMarginOrder(
   ss: SynthetixV2Service,
   amount: BigNumber
-): Promise<UnsignedTransaction[]> {
+): Promise<UnsignedTxWithMetadata[]> {
   const createOrder = await ss.createOrder(
     provider,
     {
