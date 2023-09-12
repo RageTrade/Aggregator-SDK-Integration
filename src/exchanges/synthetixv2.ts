@@ -233,8 +233,8 @@ export default class SynthetixV2Service implements IExchange {
         sizeDelta,
         wei(acceptablePrice)
       )) as UnsignedTransaction,
-      sessionKeyData: { sessionKey: DEFAULT_SESSION_KEY, type: "SNX_V2" },
-      additionalSessionData: undefined
+      type: "SNX_V2",
+      data: undefined
     });
 
     return txs;
@@ -262,8 +262,8 @@ export default class SynthetixV2Service implements IExchange {
           this.swAddr,
           true
         ),
-        sessionKeyData: { sessionKey: DEFAULT_SESSION_KEY, type: "SNX_V2" },
-        additionalSessionData: undefined
+        type: "SNX_V2",
+        data: undefined
       }
     ];
   }
@@ -933,7 +933,7 @@ export default class SynthetixV2Service implements IExchange {
       withdrawAmount
     )) as UnsignedTransaction;
 
-    return { tx: withdrawTx, sessionKeyData: { sessionKey: DEFAULT_SESSION_KEY, type: "SNX_V2" }, additionalSessionData: undefined } as UnsignedTxWithMetadata
+    return { tx: withdrawTx, type: "SNX_V2", data: undefined } as UnsignedTxWithMetadata
   }
 
   async formulateDepositTx(marketAddress: string, depositAmount: Wei) {
@@ -942,6 +942,6 @@ export default class SynthetixV2Service implements IExchange {
       depositAmount
     )) as UnsignedTransaction;
 
-    return { tx: depositTx, sessionKeyData: { sessionKey: DEFAULT_SESSION_KEY, type: "SNX_V2" }, additionalSessionData: undefined } as UnsignedTxWithMetadata
+    return { tx: depositTx, type: "SNX_V2", data: undefined } as UnsignedTxWithMetadata
   }
 }
