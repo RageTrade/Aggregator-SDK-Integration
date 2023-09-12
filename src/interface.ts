@@ -211,12 +211,12 @@ export type OpenMarkets = {
 };
 
 export type UnsignedTxWithMetadata =
-  { tx: UnsignedTransaction, sessionKeyData: ERC20ApprovalSessionKeyData, addtionalSessionData: ERC20ApprovalAddtionalSessionData } |
-  { tx: UnsignedTransaction, sessionKeyData: GMXV1SessionKeyData, addtionalSessionData: undefined } |
-  { tx: UnsignedTransaction, sessionKeyData: LifiSessionKeyData, addtionalSessionData: undefined } |
-  { tx: UnsignedTransaction, sessionKeyData: SynthetixV2SessionKeyData, addtionalSessionData: undefined } |
-  { tx: UnsignedTransaction, sessionKeyData: NativeTokenSessionKeyData, addtionalSessionData: undefined } |
-  { tx: UnsignedTransaction, sessionKeyData: AddressValidationSessionKeyData, addtionalSessionData: AddressValidationAdditionalSessionData }
+  { tx: UnsignedTransaction, sessionKeyData: ERC20ApprovalSessionKeyData & { type: "ERC20_APPROVAL" }, additionalSessionData: ERC20ApprovalAddtionalSessionData } |
+  { tx: UnsignedTransaction, sessionKeyData: GMXV1SessionKeyData & { type: "GMX_V1" }, additionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: LifiSessionKeyData & { type: "LIFI" }, additionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: SynthetixV2SessionKeyData & { type: "SNX_V2" }, additionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: NativeTokenSessionKeyData & { type: "NATIVE" }, additionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: AddressValidationSessionKeyData & { type: "ADDRESS" }, additionalSessionData: AddressValidationAdditionalSessionData }
 
 export const DEFAULT_SESSION_KEY = ethers.constants.AddressZero;
 
