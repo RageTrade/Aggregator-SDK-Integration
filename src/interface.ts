@@ -210,11 +210,15 @@ export type OpenMarkets = {
   [index: string]: Array<OpenMarketData>;
 };
 
-export type SessionKeyData = ERC20ApprovalSessionKeyData | GMXV1SessionKeyData | LifiSessionKeyData | SynthetixV2SessionKeyData | NativeTokenSessionKeyData | AddressValidationSessionKeyData
+export type UnsignedTxWithMetadata =
+  { tx: UnsignedTransaction, sessionKeyData: ERC20ApprovalSessionKeyData, addtionalSessionData: ERC20ApprovalAddtionalSessionData } |
+  { tx: UnsignedTransaction, sessionKeyData: GMXV1SessionKeyData, addtionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: LifiSessionKeyData, addtionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: SynthetixV2SessionKeyData, addtionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: NativeTokenSessionKeyData, addtionalSessionData: undefined } |
+  { tx: UnsignedTransaction, sessionKeyData: AddressValidationSessionKeyData, addtionalSessionData: AddressValidationAdditionalSessionData }
 
-export type AdditionalSessionData = ERC20ApprovalAddtionalSessionData | AddressValidationAdditionalSessionData | undefined
-
-export type UnsignedTxWithMetadata = { tx: UnsignedTransaction, sessionKeyData: SessionKeyData, addtionalSessionData: AdditionalSessionData }
+export const DEFAULT_SESSION_KEY = ethers.constants.AddressZero;
 
 export interface IExchange {
   // something to indicate when setup should be called

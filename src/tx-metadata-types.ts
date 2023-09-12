@@ -1,21 +1,12 @@
-export type ValidationModule =
-  "LIFI" |
-  "SNX_V2" |
-  "GMX_V1" |
-  "NATIVE_TOKEN" |
-  "ERC20_APPROVAL" |
-  "ADDRESS_VALIDATOR" |
-  "ADDRESS_SELECTOR_VALIDATOR"
-
-export interface BaseSessionModule {
-  module: ValidationModule
+export interface BaseSessionKeyData {
+  sessionKey: string
 }
 
 export interface BaseAdditionalSessionData {
   chainId: number
 }
 
-export interface ERC20ApprovalSessionKeyData extends BaseSessionModule {
+export interface ERC20ApprovalSessionKeyData extends BaseSessionKeyData {
   chainId: number
 }
 
@@ -24,30 +15,33 @@ export interface ERC20ApprovalAddtionalSessionData extends BaseAdditionalSession
   spender: string
 }
 
-export interface GMXV1SessionKeyData extends BaseSessionModule {
+export interface GMXV1SessionKeyData extends BaseSessionKeyData {
   sender: string
 }
 
 // No additional data for GMXV1
 
-export interface LifiSessionKeyData extends BaseSessionModule {
+export interface LifiSessionKeyData extends BaseSessionKeyData {
   sender: string
 }
 
 // No additional data for Lifi
 
-export interface SynthetixV2SessionKeyData extends BaseSessionModule { }
+export interface SynthetixV2SessionKeyData extends BaseSessionKeyData {
+}
 
 // No additional data for SynthetixV2
 
-export interface NativeTokenSessionKeyData extends BaseSessionModule {
+export interface NativeTokenSessionKeyData extends BaseSessionKeyData {
   recipient: string
   maxAmount: string
 }
 
 // No additional data for NativeToken
 
-export interface AddressValidationSessionKeyData extends BaseSessionModule { }
+export interface AddressValidationSessionKeyData extends BaseSessionKeyData {
+  chainId: number
+}
 
 export interface AddressValidationAdditionalSessionData extends BaseAdditionalSessionData {
   destinationAddress: string
