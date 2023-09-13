@@ -810,10 +810,10 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  // const allPositions = await gs.getAllPositions(
-  //   "0x89E369321619114e317a3121A2693f39728f51f1",
-  //   provider
-  // );
+  const allPositions = await gs.getAllPositions(
+    w,
+    provider
+  );
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject("Position: ", allPositions[i]);
   //   let positionOrders = await gs.getAllOrdersForPosition(
@@ -827,44 +827,44 @@ async function gmxService() {
   //   });
   // }
 
-  // let position0 = allPositions[0];
-  let market = supportedMarkets.find(
-    (m) => m.indexOrIdentifier.toLowerCase() === "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
-  )!;
-  // console.log({ market, supportedMarkets })
-  const tradePreview = await gs.getTradePreview(
-    w,
-    provider,
-    market,
-    {
-      type: "MARKET_INCREASE",
-      direction: "LONG",
-      inputCollateral: eth,
-      inputCollateralAmount: ethers.utils.parseUnits("0.01", eth.decimals),
-      sizeDelta: ethers.utils.parseUnits("40.35", 30),
-      isTriggerOrder: false,
-      referralCode: undefined,
-      trigger: {
-        triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-        // triggerPrice: ethers.utils.parseUnits("20000", 30),
-        triggerAboveThreshold: false,
-      },
-    },
-    undefined
-  );
-  logObject("Trade Preview: ", tradePreview);
-
-  // const closePreview = await gs.getCloseTradePreview(
+  let position0 = allPositions[0];
+  // let market = supportedMarkets.find(
+  //   (m) => m.indexOrIdentifier.toLowerCase() === "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
+  // )!;
+  // console.log({ market })
+  // const tradePreview = await gs.getTradePreview(
   //   w,
   //   provider,
-  //   position0,
-  //   position0.size.mul(50).div(100),
-  //   true,
-  //   ethers.utils.parseUnits("30000", 30),
-  //   true,
+  //   market,
+  //   {
+  //     type: "MARKET_INCREASE",
+  //     direction: "LONG",
+  //     inputCollateral: eth,
+  //     inputCollateralAmount: ethers.utils.parseUnits("0.01", eth.decimals),
+  //     sizeDelta: ethers.utils.parseUnits("40.35", 30),
+  //     isTriggerOrder: false,
+  //     referralCode: undefined,
+  //     trigger: {
+  //       triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+  //       // triggerPrice: ethers.utils.parseUnits("20000", 30),
+  //       triggerAboveThreshold: false,
+  //     },
+  //   },
   //   undefined
   // );
-  // logObject("Close Preview: ", closePreview);
+  // logObject("Trade Preview: ", tradePreview);
+
+  const closePreview = await gs.getCloseTradePreview(
+    w,
+    provider,
+    position0,
+    position0.size.mul(50).div(100),
+    true,
+    ethers.utils.parseUnits("30000", 30),
+    true,
+    usdc
+  );
+  logObject("Close Preview: ", closePreview);
 
   // const editCollateralPreview = await gs.getEditCollateralPreview(
   //   w,
@@ -981,7 +981,7 @@ async function testService() {
 //     process.exitCode = 1;
 //   });
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

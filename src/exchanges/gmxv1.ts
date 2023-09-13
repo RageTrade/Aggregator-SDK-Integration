@@ -988,6 +988,7 @@ export default class GmxV1Service implements IExchange {
       this.getMarketPrice,
       this.convertToToken,
       order,
+      BigNumber.from(this.EXECUTION_FEE),
       existingPosition
     );
   }
@@ -1006,6 +1007,7 @@ export default class GmxV1Service implements IExchange {
       provider,
       position,
       closeSize,
+      BigNumber.from(this.EXECUTION_FEE),
       isTrigger,
       triggerPrice,
       outputToken ? this.convertToGToken(outputToken) : undefined,
@@ -1025,7 +1027,8 @@ export default class GmxV1Service implements IExchange {
       position,
       marginDelta,
       isDeposit,
-      this.convertToToken
+      this.convertToToken,
+      BigNumber.from(this.EXECUTION_FEE)
     );
   }
 

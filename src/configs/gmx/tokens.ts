@@ -1787,7 +1787,8 @@ export const getEditCollateralPreviewInternal = async (
   position: ExtendedPosition,
   marginDelta: BigNumber,
   isDeposit: boolean,
-  convertToToken: any
+  convertToToken: any,
+  execFee: BigNumber
 ): Promise<ExtendedPosition> => {
   let collateralToken = position.collateralToken;
   let fundingFee = getFundingFee(position);
@@ -1871,6 +1872,14 @@ export const getEditCollateralPreviewInternal = async (
     averagePrice: position.averageEntryPrice,
   });
 
+  let executionFees = getUsd(
+    execFee,
+    getContract(ARBITRUM, "NATIVE_TOKEN")!,
+    false,
+    infoTokens
+  );
+  depositFeeUSD = depositFeeUSD.add(executionFees || BigNumber.from(0));
+
   return {
     indexOrIdentifier: "",
     leverage: nextLeverage,
@@ -1930,6 +1939,7 @@ export const getCloseTradePreviewInternal = async (
   provider: Provider,
   position: ExtendedPosition,
   closeSize: BigNumber,
+  execFee: BigNumber,
   isTrigger: boolean,
   triggerPrice: BigNumber | undefined,
   outputToken: GToken | undefined,
@@ -2088,7 +2098,7 @@ export const getCloseTradePreviewInternal = async (
     receiveAmount = getTokenAmountFromUsd(
       infoTokens,
       outputToken ? outputToken.address : position.originalCollateralToken!,
-      receiveUsd,
+      receiveUsd
       // Not needed because we are allowing collateral swap
       // {
       //   overridePrice: triggerPrice,
@@ -2101,6 +2111,14 @@ export const getCloseTradePreviewInternal = async (
       receiveUsd
     )!;
   }
+
+  let executionFees = getUsd(
+    execFee,
+    getContract(ARBITRUM, "NATIVE_TOKEN")!,
+    false,
+    infoTokens
+  );
+  totalFees = totalFees.add(executionFees || BigNumber.from(0));
 
   return {
     indexOrIdentifier: "",
@@ -2470,6 +2488,7 @@ export const getTradePreviewInternal = async (
   getMarketPrice: any,
   convertToToken: any,
   order: Order,
+  executionFee: BigNumber,
   existingPosition: ExtendedPosition | undefined
 ): Promise<ExtendedPosition> => {
   const reader = Reader__factory.connect(
@@ -2603,6 +2622,14 @@ export const getTradePreviewInternal = async (
       includeDelta: false,
     });
   }
+
+  let executionFees = getUsd(
+    executionFee,
+    getContract(ARBITRUM, "NATIVE_TOKEN")!,
+    false,
+    infoTokens
+  );
+  feesUsd = feesUsd.add(executionFees || BigNumber.from(0));
 
   const liquidationPrice = getLiquidationPrice({
     isLong: order.direction == "LONG",
