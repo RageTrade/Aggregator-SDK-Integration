@@ -849,13 +849,24 @@ export default class FuturesService {
 		}
 	) {
 		const marketInternal = this.getInternalFuturesMarket(marketAddress, marketKey)
+		const { PerpsV2MarketSettings } = this.sdk.context.multicallContracts
 
-		return await marketInternal.getTradePreview(
-			user,
-			tradeParams.sizeDelta.toBN(),
-			tradeParams.marginDelta.toBN(),
-			tradeParams.orderPrice.toBN()
-		)
+		const data = await Promise.all([
+			marketInternal.getTradePreview(
+				user,
+				tradeParams.sizeDelta.toBN(),
+				tradeParams.marginDelta.toBN(),
+				tradeParams.orderPrice.toBN()
+			),
+			this.sdk.context.multicallProvider.all([
+				PerpsV2MarketSettings!.minKeeperFee(),
+			])
+		])
+
+		return {
+			...data[0],
+			keeperFee: data[1][0] as BigNumber,
+		}
 	}
 
 	public async getCrossMarginKeeperBalance(account: string) {

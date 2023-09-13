@@ -42,7 +42,7 @@ import {
 } from "../common/helper";
 import { getExplorerUrl } from "../configs/gmx/chains";
 import { timer } from "execution-time-decorators";
-import { parseUnits } from "ethers/lib/utils";
+import { formatUnits, parseUnits } from "ethers/lib/utils";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -417,7 +417,7 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee,
+      fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage:
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
           ? tradePreview.size
@@ -456,8 +456,6 @@ export default class SynthetixV2Service implements IExchange {
         }
       );
 
-    // logObject("tradePreview", tradePreview);
-
     return {
       indexOrIdentifier: "",
       size: tradePreview.size.abs(),
@@ -467,7 +465,7 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee,
+      fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
             .mul(marketPrice.value)
@@ -522,7 +520,7 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee,
+      fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
             .mul(marketPrice.value)
