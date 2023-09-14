@@ -854,17 +854,17 @@ async function gmxService() {
   // );
   // logObject("Trade Preview: ", tradePreview);
 
-  const closePreview = await gs.getCloseTradePreview(
-    w,
-    provider,
-    position0,
-    position0.size.mul(50).div(100),
-    true,
-    ethers.utils.parseUnits("30000", 30),
-    true,
-    usdc
-  );
-  logObject("Close Preview: ", closePreview);
+  // const closePreview = await gs.getCloseTradePreview(
+  //   w,
+  //   provider,
+  //   position0,
+  //   position0.size.mul(50).div(100),
+  //   true,
+  //   ethers.utils.parseUnits("30000", 30),
+  //   true,
+  //   usdc
+  // );
+  // logObject("Close Preview: ", closePreview);
 
   // const editCollateralPreview = await gs.getEditCollateralPreview(
   //   w,
@@ -876,19 +876,19 @@ async function gmxService() {
   // );
   // logObject("editCollateralPreview: ", editCollateralPreview);
 
-  // let closePositionTxs = await gs.closePosition(
-  //   provider,
-  //   allPositions[0],
-  //   allPositions[0].size.mul(100).div(100),
-  //   // ethers.utils.parseUnits("10", 30),
-  //   false,
-  //   undefined,
-  //   undefined,
-  //   eth
-  // );
-  // closePositionTxs.forEach((tx) => {
-  //   logObject("Close position tx: ", tx);
-  // });
+  let closePositionTxs = await gs.closePosition(
+    provider,
+    allPositions[0],
+    allPositions[0].size.mul(100).div(100),
+    // ethers.utils.parseUnits("10", 30),
+    true,
+    ethers.utils.parseUnits("125936", 30),
+    true,
+    eth
+  );
+  closePositionTxs.forEach((tx) => {
+    logObject("Close position tx: ", tx);
+  });
   // await fireTxs(closePositionTxs);
 
   // let triggerClosePositionTxs = await gs.closePosition(
@@ -981,7 +981,7 @@ async function testService() {
 //     process.exitCode = 1;
 //   });
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

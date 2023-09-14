@@ -1935,6 +1935,22 @@ export function getTokenAmountFromUsd(
   return usdAmount.mul(expandDecimals(1, info.decimals)).div(price);
 }
 
+function shouldSwap(collateralToken: TokenInfo, receiveToken: TokenInfo) {
+  // If position collateral is WETH in contract, then position.collateralToken is { symbol: “ETH”, isNative: true, … }
+  // @see https://github.com/gmx-io/gmx-interface/blob/master/src/pages/Exchange/Exchange.js#L162
+  // meaning if collateralToken.isNative === true in reality position has WETH as a collateral
+  // and if collateralToken.isNative === true and receiveToken.isNative === true then position’s WETH will be unwrapped and user will receive native ETH
+  const isCollateralWrapped = collateralToken.isNative;
+
+  const isSameToken =
+    collateralToken.address === receiveToken.address ||
+    (isCollateralWrapped && receiveToken.isWrapped);
+
+  const isUnwrap = isCollateralWrapped && receiveToken.isNative;
+
+  return !isSameToken && !isUnwrap;
+}
+
 export const getCloseTradePreviewInternal = async (
   provider: Provider,
   position: ExtendedPosition,
@@ -2026,10 +2042,13 @@ export const getCloseTradePreviewInternal = async (
     undefined
   );
 
-  let collateralTokenInfo = await getTokenInfo(
+  let collateralTokenInfo = getTokenInfo(
     infoTokens,
     position.originalCollateralToken!
   );
+  let receiveTokenInfo = outputToken
+    ? getTokenInfo(infoTokens, outputToken.address)
+    : undefined;
 
   receiveUsd = applySpread(receiveUsd, collateralTokenInfo?.spread);
 
@@ -2120,6 +2139,43 @@ export const getCloseTradePreviewInternal = async (
   );
   totalFees = totalFees.add(executionFees || BigNumber.from(0));
 
+  let isNotEnoughReceiveTokenLiquidity = false;
+  let isCollateralPoolCapacityExceeded = false;
+
+  // Check swap limits (max in / max out)
+  if (
+    !isTrigger &&
+    receiveTokenInfo &&
+    shouldSwap(collateralTokenInfo, receiveTokenInfo)
+  ) {
+    isNotEnoughReceiveTokenLiquidity =
+      receiveTokenInfo.availableAmount!.lt(receiveAmount) ||
+      receiveTokenInfo.bufferAmount!.gt(
+        receiveTokenInfo.poolAmount!.sub(receiveAmount)
+      );
+
+    if (
+      collateralTokenInfo.maxUsdgAmount &&
+      collateralTokenInfo.maxUsdgAmount.gt(0) &&
+      collateralTokenInfo.usdgAmount &&
+      collateralTokenInfo.maxPrice
+    ) {
+      const usdgFromAmount = adjustForDecimals(
+        receiveUsd,
+        USD_DECIMALS,
+        USDG_DECIMALS
+      );
+      const nextUsdgAmount = collateralTokenInfo.usdgAmount.add(usdgFromAmount);
+
+      if (nextUsdgAmount.gt(collateralTokenInfo.maxUsdgAmount)) {
+        isCollateralPoolCapacityExceeded = true;
+      }
+    }
+  }
+
+  let isError =
+    isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded;
+
   return {
     indexOrIdentifier: "",
     leverage: isClosing ? BigNumber.from(0) : nextLeverage,
@@ -2134,6 +2190,8 @@ export const getCloseTradePreviewInternal = async (
     fee: totalFees,
     receiveAmount: receiveAmount,
     receiveUsd: receiveUsd,
+    isError: isError,
+    error: isError ? "Insufficient Liquidity for Collateral Swap" : "",
   };
 };
 
@@ -2583,12 +2641,15 @@ export const getTradePreviewInternal = async (
     toUsdMax!
   );
 
+  let marketCollateralToken =
+    order.direction == "LONG" ? market.marketToken!.address! : USDC_E_ADDRESS;
+
   let swapFees = BigNumber.from(0);
   const result = getNextToAmount(
     ARBITRUM,
     order.inputCollateralAmount, // collateralTokenAmount in collateral decimals
     order.inputCollateral.address, // Address0 for Eth
-    order.direction == "LONG" ? market.marketToken!.address! : USDC_E_ADDRESS, // Address0 for Eth
+    marketCollateralToken, // Address0 for Eth
     infoTokens,
     undefined,
     undefined,
@@ -2646,6 +2707,48 @@ export const getTradePreviewInternal = async (
     ? liquidationPrice
     : existingPosition?.liqudationPrice!;
 
+  let collateralTokenInfo = getTokenInfo(
+    infoTokens,
+    order.inputCollateral.address
+  );
+  let toTokenInfo = getTokenInfo(infoTokens, market.marketToken!.address);
+
+  let isNotEnoughReceiveTokenLiquidity = false;
+  let isCollateralPoolCapacityExceeded = false;
+
+  // Check swap limits (max in / max out)
+  if (
+    toTokenInfo &&
+    toTokenAmount &&
+    shouldSwap(collateralTokenInfo, toTokenInfo)
+  ) {
+    isNotEnoughReceiveTokenLiquidity =
+      toTokenInfo.availableAmount!.lt(toTokenAmount) ||
+      toTokenInfo.bufferAmount!.gt(toTokenInfo.poolAmount!.sub(toTokenAmount));
+
+    if (
+      collateralTokenInfo.maxUsdgAmount &&
+      collateralTokenInfo.maxUsdgAmount.gt(0) &&
+      collateralTokenInfo.usdgAmount &&
+      collateralTokenInfo.maxPrice &&
+      toUsdMax
+    ) {
+      const usdgFromAmount = adjustForDecimals(
+        toUsdMax,
+        USD_DECIMALS,
+        USDG_DECIMALS
+      );
+      const nextUsdgAmount = collateralTokenInfo.usdgAmount.add(usdgFromAmount);
+
+      if (nextUsdgAmount.gt(collateralTokenInfo.maxUsdgAmount)) {
+        isCollateralPoolCapacityExceeded = true;
+      }
+    }
+  }
+
+  let isError =
+    isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded;
+
   return {
     indexOrIdentifier: "",
     leverage: leverage,
@@ -2662,5 +2765,7 @@ export const getTradePreviewInternal = async (
     averageEntryPrice: nextAveragePrice,
     liqudationPrice: displayLiquidationPrice,
     fee: feesUsd,
+    isError: isError,
+    error: isError ? "Insufficient Liquidity for Collateral Swap" : "",
   };
 };

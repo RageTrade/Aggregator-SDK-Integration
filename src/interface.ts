@@ -135,6 +135,8 @@ export type ExtendedPosition = Position & {
   protocolMetadata?: ProtocolMetadata;
   receiveAmount?: BigNumber;
   receiveUsd?: BigNumber;
+  isError?: boolean;
+  error?: string;
 };
 
 export type Trade = ExtendedPosition & {
@@ -177,11 +179,11 @@ export type Order = {
   isTriggerOrder: Boolean;
   referralCode: string | undefined;
   trigger:
-  | {
-    triggerPrice: BigNumber;
-    triggerAboveThreshold: boolean;
-  }
-  | undefined;
+    | {
+        triggerPrice: BigNumber;
+        triggerAboveThreshold: boolean;
+      }
+    | undefined;
 } & CollateralData;
 
 export type ExtendedOrder = Order &
@@ -247,7 +249,10 @@ export interface IExchange {
 
   getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal>;
 
-  getDynamicMetadata(market: ExtendedMarket, provider?: Provider): Promise<DynamicMarketMetadata>;
+  getDynamicMetadata(
+    market: ExtendedMarket,
+    provider?: Provider
+  ): Promise<DynamicMarketMetadata>;
 
   // @dev There can be only 1 order per market per user for SNX
   getOrder(
