@@ -18,6 +18,7 @@ import {
   PROTOCOL_NAME,
   TRIGGER_TYPE,
   Provider,
+  ViewError,
 } from "../interface";
 import {
   IERC20__factory,
@@ -51,6 +52,7 @@ import {
   getCloseTradePreviewInternal,
   getEditCollateralPreviewInternal,
   GToken,
+  checkTradePathLiquidiytInternal,
 } from "../configs/gmx/tokens";
 import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
@@ -982,6 +984,21 @@ export default class GmxV1Service implements IExchange {
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {
     throw new Error("Method not implemented.");
+  }
+
+  async checkTradePathLiquidity(
+    user: string,
+    provider: Provider,
+    market: ExtendedMarket,
+    order: Order,
+    existingPosition: ExtendedPosition | undefined
+  ): Promise<ViewError> {
+    return await checkTradePathLiquidiytInternal(
+      provider,
+      market,
+      this.getMarketPrice,
+      order
+    );
   }
 
   async getTradePreview(

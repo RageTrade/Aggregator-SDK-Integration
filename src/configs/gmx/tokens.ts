@@ -13,7 +13,12 @@ import {
   Reader__factory,
   VaultReader__factory,
 } from "../../../gmxV1Typechain";
-import { ExtendedMarket, ExtendedPosition, Order } from "../../interface";
+import {
+  ExtendedMarket,
+  ExtendedPosition,
+  ViewError,
+  Order,
+} from "../../interface";
 import { logObject } from "../../common/helper";
 
 export type GToken = {
@@ -2538,6 +2543,85 @@ export function getNextToAmount(
     feeBasisPoints,
   };
 }
+
+export const checkTradePathLiquidiytInternal = async (
+  provider: Provider,
+  market: ExtendedMarket,
+  getMarketPrice: any,
+  order: Order
+): Promise<ViewError> => {
+  const data = await Promise.all([
+    useInfoTokens(provider, ARBITRUM, false, undefined, undefined),
+    getMarketPrice(market),
+  ]);
+
+  const { infoTokens } = data[0];
+  const marketPrice = BigNumber.from(data[1].value);
+
+  let collateralTokenInfo = getTokenInfo(
+    infoTokens,
+    order.inputCollateral.address
+  );
+  let toTokenInfo = getTokenInfo(infoTokens, market.marketToken!.address);
+
+  const toTokenAmount = order.sizeDelta
+    .mul(BigNumber.from(10).pow(market.marketToken!.decimals))
+    .div(
+      order.type == "MARKET_INCREASE"
+        ? marketPrice
+        : order.trigger!.triggerPrice!
+    );
+
+  const toUsdMax = getUsd(
+    toTokenAmount,
+    market.marketToken!.address,
+    true,
+    infoTokens,
+    order.type == "MARKET_INCREASE" ? MARKET : LIMIT,
+    order.trigger!.triggerPrice!
+  );
+
+  let isNotEnoughReceiveTokenLiquidity = false;
+  let isCollateralPoolCapacityExceeded = false;
+
+  // Check swap limits (max in / max out)
+  if (
+    toTokenInfo &&
+    toTokenAmount &&
+    shouldSwap(collateralTokenInfo, toTokenInfo)
+  ) {
+    isNotEnoughReceiveTokenLiquidity =
+      toTokenInfo.availableAmount!.lt(toTokenAmount) ||
+      toTokenInfo.bufferAmount!.gt(toTokenInfo.poolAmount!.sub(toTokenAmount));
+
+    if (
+      collateralTokenInfo.maxUsdgAmount &&
+      collateralTokenInfo.maxUsdgAmount.gt(0) &&
+      collateralTokenInfo.usdgAmount &&
+      collateralTokenInfo.maxPrice &&
+      toUsdMax
+    ) {
+      const usdgFromAmount = adjustForDecimals(
+        toUsdMax,
+        USD_DECIMALS,
+        USDG_DECIMALS
+      );
+      const nextUsdgAmount = collateralTokenInfo.usdgAmount.add(usdgFromAmount);
+
+      if (nextUsdgAmount.gt(collateralTokenInfo.maxUsdgAmount)) {
+        isCollateralPoolCapacityExceeded = true;
+      }
+    }
+  }
+
+  let isError =
+    isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded;
+
+  return {
+    isError: isError,
+    message: isError ? "Insufficient Liquidity for Collateral Swap" : "",
+  };
+};
 
 export const getTradePreviewInternal = async (
   user: string,

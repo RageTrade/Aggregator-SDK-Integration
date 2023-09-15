@@ -28,6 +28,11 @@ export type HistoricalOrderType =
 
 export type OrderDirection = "LONG" | "SHORT";
 
+export type ViewError = {
+  isError: boolean;
+  message: string;
+};
+
 export type Network = {
   name: string;
   chainId: number;
