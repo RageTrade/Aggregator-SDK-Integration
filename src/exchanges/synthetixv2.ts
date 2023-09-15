@@ -23,7 +23,7 @@ import {
   PROTOCOL_NAME,
   Provider,
   UnsignedTxWithMetadata,
-  DEFAULT_SESSION_KEY
+  DEFAULT_SESSION_KEY,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -234,7 +234,7 @@ export default class SynthetixV2Service implements IExchange {
         wei(acceptablePrice)
       )) as UnsignedTransaction,
       type: "SNX_V2",
-      data: undefined
+      data: undefined,
     });
 
     return txs;
@@ -263,8 +263,8 @@ export default class SynthetixV2Service implements IExchange {
           true
         ),
         type: "SNX_V2",
-        data: undefined
-      }
+        data: undefined,
+      },
     ];
   }
 
@@ -933,7 +933,11 @@ export default class SynthetixV2Service implements IExchange {
       withdrawAmount
     )) as UnsignedTransaction;
 
-    return { tx: withdrawTx, type: "SNX_V2", data: undefined } as UnsignedTxWithMetadata
+    return {
+      tx: withdrawTx,
+      type: "SNX_V2",
+      data: undefined,
+    } as UnsignedTxWithMetadata;
   }
 
   async formulateDepositTx(marketAddress: string, depositAmount: Wei) {
@@ -942,6 +946,10 @@ export default class SynthetixV2Service implements IExchange {
       depositAmount
     )) as UnsignedTransaction;
 
-    return { tx: depositTx, type: "SNX_V2", data: undefined } as UnsignedTxWithMetadata
+    return {
+      tx: depositTx,
+      type: "SNX_V2",
+      data: undefined,
+    } as UnsignedTxWithMetadata;
   }
 }
