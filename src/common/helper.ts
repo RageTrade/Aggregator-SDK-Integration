@@ -41,3 +41,15 @@ export function toNumberDecimal(
 export function formatN(value: BigNumber, decimals: number = 18): string {
   return ethers.utils.formatUnits(value, decimals);
 }
+
+export function applySlippage(
+  value: BigNumber,
+  slippage: string,
+  increment: boolean
+): BigNumber {
+  const BPS = 10000;
+  const slippageBPS = (BPS / 100) * Number(slippage);
+  return increment
+    ? value.add(value.mul(slippageBPS).div(BPS))
+    : value.sub(value.mul(slippageBPS).div(BPS));
+}

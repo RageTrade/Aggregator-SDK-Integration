@@ -39,6 +39,7 @@ import {
   getEnumEntryByValue,
   logObject,
   toNumberDecimal,
+  applySlippage,
 } from "../common/helper";
 import { getExplorerUrl } from "../configs/gmx/chains";
 import { timer } from "execution-time-decorators";
@@ -218,11 +219,20 @@ export default class SynthetixV2Service implements IExchange {
         ? wei(order.sizeDelta).neg()
         : wei(order.sizeDelta);
 
+    const acceptablePrice =
+      order.slippage && order.slippage != ""
+        ? applySlippage(
+            order.trigger?.triggerPrice!,
+            order.slippage,
+            order.direction == "LONG"
+          )
+        : order.trigger?.triggerPrice!;
+
     txs.push(
       (await this.sdk.futures.submitIsolatedMarginOrder(
         marketAddress,
         sizeDelta,
-        wei(order.trigger?.triggerPrice)
+        wei(acceptablePrice)
       )) as UnsignedTransaction
     );
 
@@ -311,6 +321,7 @@ export default class SynthetixV2Service implements IExchange {
           triggerPrice: fillPrice,
           triggerAboveThreshold: true,
         },
+        slippage: "1",
       }
     );
   }
@@ -560,6 +571,7 @@ export default class SynthetixV2Service implements IExchange {
       },
       inputCollateral: this.sUsd,
       inputCollateralAmount: orderData.commitDeposit.toBN(),
+      slippage: undefined,
     };
 
     const orderAction: OrderAction = { orderAction: "CREATE" };

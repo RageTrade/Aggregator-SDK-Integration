@@ -52,7 +52,7 @@ import {
   getEditCollateralPreviewInternal,
   GToken,
 } from "../configs/gmx/tokens";
-import { logObject, toNumberDecimal } from "../common/helper";
+import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
 
@@ -351,6 +351,15 @@ export default class GmxV1Service implements IExchange {
         }
       }
 
+      const acceptablePrice =
+        order.slippage && order.slippage != ""
+          ? applySlippage(
+              order.trigger?.triggerPrice!,
+              order.slippage,
+              order.direction == "LONG"
+            )
+          : order.trigger?.triggerPrice!;
+
       if (order.inputCollateral.address != ethers.constants.AddressZero) {
         createOrderTx =
           await positionRouter.populateTransaction.createIncreasePosition(
@@ -360,7 +369,7 @@ export default class GmxV1Service implements IExchange {
             0,
             order.sizeDelta,
             order.direction == "LONG" ? true : false,
-            order.trigger?.triggerPrice!,
+            acceptablePrice,
             this.EXECUTION_FEE,
             ethers.constants.HashZero, // Referral code set during setup()
             ethers.constants.AddressZero,
@@ -376,7 +385,7 @@ export default class GmxV1Service implements IExchange {
             0,
             order.sizeDelta,
             order.direction == "LONG" ? true : false,
-            order.trigger?.triggerPrice!,
+            acceptablePrice,
             this.EXECUTION_FEE,
             ethers.constants.HashZero, // Referral code set during setup()
             ethers.constants.AddressZero,
@@ -514,6 +523,7 @@ export default class GmxV1Service implements IExchange {
           triggerPrice: order.triggerPrice as BigNumber,
           triggerAboveThreshold: order.triggerAboveThreshold as boolean,
         },
+        slippage: undefined,
         ...{
           inputCollateral: collateralToken,
           inputCollateralAmount: collateralAmount,

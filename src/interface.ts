@@ -184,6 +184,7 @@ export type Order = {
         triggerAboveThreshold: boolean;
       }
     | undefined;
+  slippage: string | undefined;
 } & CollateralData;
 
 export type ExtendedOrder = Order &
