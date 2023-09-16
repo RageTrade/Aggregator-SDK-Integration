@@ -112,6 +112,7 @@ async function getTradePreview(
         triggerPrice: triggerPrice,
         triggerAboveThreshold: true,
       },
+      slippage: "1",
     },
     undefined
   );
@@ -159,6 +160,7 @@ async function createLongOrder(
         triggerPrice: triggerPrice,
         triggerAboveThreshold: true,
       },
+      slippage: "1",
     }
   );
 
@@ -237,6 +239,7 @@ async function createTransferMarginOrder(
         triggerPrice: BigNumber.from("2000"),
         triggerAboveThreshold: true,
       },
+      slippage: "1",
     }
   );
   logObject("Create Order: ", createOrder);
@@ -810,10 +813,7 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  const allPositions = await gs.getAllPositions(
-    w,
-    provider
-  );
+  const allPositions = await gs.getAllPositions(w, provider);
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject("Position: ", allPositions[i]);
   //   let positionOrders = await gs.getAllOrdersForPosition(
