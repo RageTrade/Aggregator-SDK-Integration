@@ -949,7 +949,7 @@ export default class GmxV1Service implements IExchange {
 
       let keeperFeesPaid = undefined;
 
-      if (params.feeBasisPoints) {
+      if (params.feeBasisPoints && params.sizeDelta) {
         keeperFeesPaid = BigNumber.from(params.sizeDelta)
           .mul(params.feeBasisPoints)
           .div(10_000);
@@ -959,7 +959,7 @@ export default class GmxV1Service implements IExchange {
         marketIdentifier: { indexOrIdentifier: each.id },
         timestamp: each.data.timestamp,
         operation: each.data.action,
-        sizeDelta: params.order?.sizeDelta || params.sizeDelta,
+        sizeDelta: params.order?.sizeDelta || params.sizeDelta || params.size,
         direction: isLong ? (isLong === true ? "LONG" : "SHORT") : isLong,
         price:
           params.order?.acceptablePrice ||
@@ -980,6 +980,63 @@ export default class GmxV1Service implements IExchange {
     }
 
     return trades;
+  }
+
+  async getLiquidationsHistory(
+    user: string,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<TradeHistory[]> {
+    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`;
+    const data = await (await fetch(url)).json();
+
+    const trades: TradeHistory[] = [];
+
+    for (const each of data) {
+      const params = JSON.parse(each.data.params);
+
+      const isLong = params.order?.isLong || params.isLong;
+
+      let keeperFeesPaid = undefined;
+
+      if (params.feeBasisPoints && params.sizeDelta) {
+        keeperFeesPaid = BigNumber.from(params.sizeDelta)
+          .mul(params.feeBasisPoints)
+          .div(10_000);
+      }
+
+      const t: TradeHistory = {
+        marketIdentifier: { indexOrIdentifier: each.id },
+        timestamp: each.data.timestamp,
+        operation: each.data.action,
+        sizeDelta: params.order?.sizeDelta || params.sizeDelta || params.size,
+        direction:
+          typeof isLong === "undefined"
+            ? isLong
+            : isLong === true
+            ? "LONG"
+            : "SHORT",
+        price:
+          params.order?.acceptablePrice ||
+          params.order?.triggerPrice ||
+          params.acceptablePrice ||
+          params.price ||
+          params.markPrice,
+        collateralDelta:
+          params.order?.collateralDelta ||
+          params.collateralDelta ||
+          BigNumber.from(0),
+        realisedPnl: BigNumber.from(0),
+        keeperFeesPaid: keeperFeesPaid || params.order?.executionFee,
+        isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
+        txHash: each.data.txhash,
+      };
+
+      trades.push(t);
+    }
+
+    return trades.filter((t) =>
+      t.operation.toLowerCase().includes("liquidate")
+    );
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {

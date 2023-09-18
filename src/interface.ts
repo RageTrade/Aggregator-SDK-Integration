@@ -303,6 +303,11 @@ export interface IExchange {
     openMarkers: OpenMarkets | undefined
   ): Promise<TradeHistory[]>;
 
+  getLiquidationsHistory(
+    user: string,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<TradeHistory[]>;
+
   getIdleMargins(
     user: string,
     openMarkets: OpenMarkets | undefined

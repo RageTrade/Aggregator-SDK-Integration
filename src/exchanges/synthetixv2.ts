@@ -749,6 +749,40 @@ export default class SynthetixV2Service implements IExchange {
     return trades;
   }
 
+  async getLiquidationsHistory(
+    user: string,
+    openMarkers: OpenMarkets | undefined
+  ): Promise<TradeHistory[]> {
+    let trades: TradeHistory[] = [];
+    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
+
+    let tradesHistory = await this.sdk.futures.getAllTrades(
+      user,
+      "isolated_margin",
+      1000
+    );
+
+    tradesHistory = tradesHistory.filter((t) => t.orderType == "Liquidation");
+
+    tradesHistory.forEach((t) => {
+      let market = markets.find((m) => m.asset == t.asset.toString())!;
+      trades.push({
+        marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
+        operation: t.orderType,
+        sizeDelta: t.size.toBN(),
+        collateralDelta: t.margin.toBN(),
+        price: t.price.toBN(),
+        timestamp: t.timestamp,
+        realisedPnl: t.pnl.toBN(),
+        direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
+        keeperFeesPaid: t.keeperFeesPaid.toBN(),
+        txHash: t.txnHash,
+      });
+    });
+
+    return trades;
+  }
+
   async getIdleMargins(
     user: string,
     openMarkets: OpenMarkets | undefined

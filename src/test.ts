@@ -448,6 +448,22 @@ async function synService() {
     "0x89E369321619114e317a3121A2693f39728f51f1"
   );
 
+  const tradeHistory = await ss.getTradesHistory(
+    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+    undefined
+  );
+  tradeHistory.forEach((t) => {
+    logObject("Trade History: ", t);
+  });
+
+  const liquidationsHistory = await ss.getLiquidationsHistory(
+    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+    undefined
+  );
+  liquidationsHistory.forEach((t) => {
+    logObject("Liq History: ", t);
+  });
+
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
   //   await sdk.futures.getIdleMarginInMarkets(w);
@@ -505,15 +521,15 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = "0.0612";
-  const direction = "LONG";
-  const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+  // const sizeDelta = "0.0612";
+  // const direction = "LONG";
+  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
-  const openMarkets = await compositeService();
-  const futureMarkets = await ss.getPartialFutureMarketsFromOpenMarkets(
-    openMarkets
-  );
-  const ethFutureMarket = futureMarkets.find((m) => m.marketKey == "sETHPERP")!;
+  // const openMarkets = await compositeService();
+  // const futureMarkets = await ss.getPartialFutureMarketsFromOpenMarkets(
+  //   openMarkets
+  // );
+  // const ethFutureMarket = futureMarkets.find((m) => m.marketKey == "sETHPERP")!;
 
   // const result = await ss.getAvailableSusdBalance("0x89E369321619114e317a3121A2693f39728f51f1", openMarkets)
   // console.log("Available Susd Balance: ", result.toString())
@@ -584,15 +600,15 @@ async function synService() {
 
   // let withdrawTxs = await ss.withdrawUnusedCollateral();
 
-  const fillPrice = await sdk.futures.getFillPrice(
-    marketAddress,
-    direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
-  );
+  // const fillPrice = await sdk.futures.getFillPrice(
+  //   marketAddress,
+  //   direction.includes("SHORT") ? wei(sizeDelta).neg() : wei(sizeDelta)
+  // );
 
-  const fillPriceBn = direction.includes("SHORT")
-    ? fillPrice.price.mul(99).div(100)
-    : fillPrice.price.mul(101).div(100);
-  console.log("Fill Price: ", fillPriceBn.toString());
+  // const fillPriceBn = direction.includes("SHORT")
+  //   ? fillPrice.price.mul(99).div(100)
+  //   : fillPrice.price.mul(101).div(100);
+  // console.log("Fill Price: ", fillPriceBn.toString());
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("getSimulatedIsolatedTradePreview");
@@ -610,16 +626,16 @@ async function synService() {
   //   console.log("\n\n\n");
   // }
 
-  const tradePreview = await getTradePreview(
-    "0x89E369321619114e317a3121A2693f39728f51f1",
-    ss,
-    sizeDelta,
-    "50",
-    direction,
-    ethers.utils.parseUnits("1650.187897946949", 18),
-    marketAddress
-  );
-  logObject("Trade Preview: ", tradePreview);
+  // const tradePreview = await getTradePreview(
+  //   "0x89E369321619114e317a3121A2693f39728f51f1",
+  //   ss,
+  //   sizeDelta,
+  //   "50",
+  //   direction,
+  //   ethers.utils.parseUnits("1650.187897946949", 18),
+  //   marketAddress
+  // );
+  // logObject("Trade Preview: ", tradePreview);
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -710,6 +726,12 @@ async function gmxService() {
   // });
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
+
+  const liquidationsHistory = await gs.getLiquidationsHistory(
+    "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+    undefined
+  );
+  console.log({ liquidationsHistory });
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -981,7 +1003,7 @@ async function testService() {
 //     process.exitCode = 1;
 //   });
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
