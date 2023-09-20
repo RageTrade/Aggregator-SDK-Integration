@@ -44,6 +44,7 @@ import {
 import { getExplorerUrl } from "../configs/gmx/chains";
 import { timer } from "execution-time-decorators";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
+import { getTokenPrice, getTokenPriceD } from "../configs/pyth/prices";
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10;
@@ -99,7 +100,9 @@ export default class SynthetixV2Service implements IExchange {
     name: string;
     chainId: number;
   }): Promise<ExtendedMarket[]> {
-    const markets = await this.sdk.futures.getProxiedMarkets();
+    const markets = (await this.sdk.futures.getProxiedMarkets()).filter(
+      (m) => !m.isSuspended
+    );
 
     let extendedMarkets: ExtendedMarket[] = [];
 
@@ -169,13 +172,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
     return {
-      value: (
-        await this.sdk.futures.getAssetPrice(
-          await this.getMarketAddress(market)
-        )
-      )
-        .toBN()
-        .toString(),
+      value: (await getTokenPriceD(market.asset!, 18)).toString(),
       decimals: 18,
     };
   }

@@ -290,25 +290,25 @@ async function withdrawAllMargin(ethMarket: FuturesMarket) {
   logObject("Withdraw all margin: ", withdrawAllMargin);
 }
 
-async function closePosition(ethMarket: FuturesMarket) {
-  try {
-    await cancelDelayedOrder(ethMarket!);
-  } catch (e) {
-    console.log("Error cancelling delayed order: ", e);
-  }
+// async function closePosition(ethMarket: FuturesMarket) {
+//   try {
+//     await cancelDelayedOrder(ethMarket!);
+//   } catch (e) {
+//     console.log("Error cancelling delayed order: ", e);
+//   }
 
-  const currentPosition = (await getFuturePositions(ethMarket!))[0];
-  const sizeInEther = currentPosition.position!.size!.neg().toString();
-  const itp = await isolatedTradePreview(ethMarket, sizeInEther);
-  console.log(
-    "itp.price: ",
-    itp.price.toString(),
-    "sizeInEther: ",
-    sizeInEther
-  );
-  // TODO - need to check how to get better desired price
-  await submitOrder(ethMarket!, wei(0), "-0.025");
-}
+//   const currentPosition = (await getFuturePositions(ethMarket!))[0];
+//   const sizeInEther = currentPosition.position!.size!.neg().toString();
+//   const itp = await isolatedTradePreview(ethMarket, sizeInEther);
+//   console.log(
+//     "itp.price: ",
+//     itp.price.toString(),
+//     "sizeInEther: ",
+//     sizeInEther
+//   );
+//   // TODO - need to check how to get better desired price
+//   await submitOrder(ethMarket!, wei(0), "-0.025");
+// }
 
 async function cancelDelayedOrder(ethMarket: FuturesMarket) {
   const cancelDelayedOrder = await sdk.futures.cancelDelayedOrder(
@@ -332,39 +332,39 @@ async function transferMargin(ethMarket: FuturesMarket, amount: string) {
   logObject("Transfer margin: ", transferMargin);
 }
 
-async function isolatedTradePreview(
-  ethMarket: FuturesMarket,
-  sizeInEther: string
-): Promise<{
-  fee: Wei;
-  liqPrice: Wei;
-  margin: Wei;
-  price: Wei;
-  size: Wei;
-  sizeDelta: Wei;
-  side: PositionSide;
-  leverage: Wei;
-  notionalValue: Wei;
-  status: number;
-  showStatus: boolean;
-  statusMessage: string;
-  priceImpact: Wei;
-  exceedsPriceProtection: boolean;
-}> {
-  const isolatedTradePreview = await sdk.futures.getIsolatedTradePreview(
-    ethMarket?.market!,
-    ethMarket?.marketKey!,
-    ContractOrderType.DELAYED_OFFCHAIN,
-    {
-      sizeDelta: wei(ethers.utils.parseEther(sizeInEther)),
-      price: wei("0"),
-      leverageSide: PositionSide.LONG,
-    }
-  );
-  logObject("Isolated trade preview: ", isolatedTradePreview);
+// async function isolatedTradePreview(
+//   ethMarket: FuturesMarket,
+//   sizeInEther: string
+// ): Promise<{
+//   fee: Wei;
+//   liqPrice: Wei;
+//   margin: Wei;
+//   price: Wei;
+//   size: Wei;
+//   sizeDelta: Wei;
+//   side: PositionSide;
+//   leverage: Wei;
+//   notionalValue: Wei;
+//   status: number;
+//   showStatus: boolean;
+//   statusMessage: string;
+//   priceImpact: Wei;
+//   exceedsPriceProtection: boolean;
+// }> {
+//   const isolatedTradePreview = await sdk.futures.getIsolatedTradePreview(
+//     ethMarket?.market!,
+//     ethMarket?.marketKey!,
+//     ContractOrderType.DELAYED_OFFCHAIN,
+//     {
+//       sizeDelta: wei(ethers.utils.parseEther(sizeInEther)),
+//       price: wei("0"),
+//       leverageSide: PositionSide.LONG,
+//     }
+//   );
+//   logObject("Isolated trade preview: ", isolatedTradePreview);
 
-  return isolatedTradePreview;
-}
+//   return isolatedTradePreview;
+// }
 
 async function submitOrder(
   ethMarket: FuturesMarket,
@@ -448,21 +448,21 @@ async function synService() {
     "0x89E369321619114e317a3121A2693f39728f51f1"
   );
 
-  const tradeHistory = await ss.getTradesHistory(
-    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
-    undefined
-  );
-  tradeHistory.forEach((t) => {
-    logObject("Trade History: ", t);
-  });
+  // const tradeHistory = await ss.getTradesHistory(
+  //   "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+  //   undefined
+  // );
+  // tradeHistory.forEach((t) => {
+  //   logObject("Trade History: ", t);
+  // });
 
-  const liquidationsHistory = await ss.getLiquidationsHistory(
-    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
-    undefined
-  );
-  liquidationsHistory.forEach((t) => {
-    logObject("Liq History: ", t);
-  });
+  // const liquidationsHistory = await ss.getLiquidationsHistory(
+  //   "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+  //   undefined
+  // );
+  // liquidationsHistory.forEach((t) => {
+  //   logObject("Liq History: ", t);
+  // });
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -476,12 +476,29 @@ async function synService() {
   // const allOrders = await ss.getAllOrders(w);
   // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  // const supportedNetworks = ss.supportedNetworks();
+  const supportedNetworks = ss.supportedNetworks();
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  const btcMarket = supportedMarkets.find(
+    (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
+  )!;
+  const btcPrice = await ss.getMarketPrice(btcMarket);
+  // console.log("BTC Price: ", ethers.utils.formatUnits(btcPrice.value, 18));
   // logObject("Supported Markets: ", supportedMarkets[0]);
-  // supportedMarkets.forEach((market) => logObject("Market: ", market));
+  for (const market of supportedMarkets) {
+    try {
+      let price = await ss.getMarketPrice(market);
+      console.log(
+        "Asset: ",
+        market.asset,
+        "Price: ",
+        ethers.utils.formatUnits(price.value, 18)
+      );
+    } catch (e) {
+      console.log("Asset: ", market.asset, "Error: ", e);
+    }
+  }
 
   // (await sdk.futures.getMarkets()).forEach(async (market) => {
   //   let price = await sdk.futures.getAssetPrice(market.market);
