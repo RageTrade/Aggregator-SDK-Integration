@@ -174,7 +174,7 @@ export default class SynthetixV2Service implements IExchange {
 
   async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
     return {
-      value: (await getTokenPriceD(market.asset!, 18)).toString(),
+      value: getTokenPriceD(market.asset!, 18).toString(),
       decimals: 18,
     };
   }

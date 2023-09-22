@@ -31,7 +31,11 @@ import CompositeService from "./common/compositeService";
 import { FuturesMarketKey } from "@kwenta/sdk/dist/types/futures";
 import { logObject } from "./common/helper";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
-import { getTokenPrice, getTokenPriceD, runQuery } from "./configs/pyth/prices";
+import {
+  getTokenPrice,
+  getTokenPriceD,
+  startStreaming,
+} from "./configs/pyth/prices";
 import { Connection } from "@solana/web3.js";
 
 config();
@@ -737,11 +741,23 @@ async function gmxService() {
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
+  const tradeHistory = await gs.getTradesHistory(
+    // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+    // "0xe4718282022518A2499dD73Fc767654095F198A5",
+    "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+    undefined
+  );
+  // console.dir({ tradeHistory }, { depth: 4 });
+  tradeHistory.forEach((t) => {
+    logObject("Trade History: ", t);
+  });
+
   const liquidationsHistory = await gs.getLiquidationsHistory(
     "0xC41427A0B49eB775E022E676F0412B12df1193a5",
     undefined
   );
-  console.log({ liquidationsHistory });
+  // console.dir({ liquidationsHistory }, { depth: 4 });
+  logObject("Liquidations History: ", liquidationsHistory[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -908,19 +924,19 @@ async function gmxService() {
   // );
   // logObject("editCollateralPreview: ", editCollateralPreview);
 
-  let closePositionTxs = await gs.closePosition(
-    provider,
-    allPositions[0],
-    allPositions[0].size.mul(100).div(100),
-    // ethers.utils.parseUnits("10", 30),
-    true,
-    ethers.utils.parseUnits("125936", 30),
-    true,
-    eth
-  );
-  closePositionTxs.forEach((tx) => {
-    logObject("Close position tx: ", tx);
-  });
+  // let closePositionTxs = await gs.closePosition(
+  //   provider,
+  //   allPositions[0],
+  //   allPositions[0].size.mul(100).div(100),
+  //   // ethers.utils.parseUnits("10", 30),
+  //   true,
+  //   ethers.utils.parseUnits("125936", 30),
+  //   true,
+  //   eth
+  // );
+  // closePositionTxs.forEach((tx) => {
+  //   logObject("Close position tx: ", tx);
+  // });
   // await fireTxs(closePositionTxs);
 
   // let triggerClosePositionTxs = await gs.closePosition(
@@ -1088,27 +1104,22 @@ async function testAutoRouter() {
     let gmxSizeDelta = ethers.utils.parseUnits(sizeDeltaUsd.toString(), 30);
     let synScale = BigNumber.from(10).pow(18);
     let gmxScale = BigNumber.from(10).pow(30);
-    // let btcPrice = await getTokenPriceD("BTC", 18);
-    console.time("runQuery");
-    const synMarketPrice = (await runQuery())!;
-    console.timeEnd("runQuery");
-    // console.log("BTC Price: ", formatUnits(btcPrice, 18));
-    let synSizeScale = BigNumber.from(10).pow(18 + 18);
+    const gmxMarketPrice = BigNumber.from(
+      (await gs.getMarketPrice(gmxBtcMarket)).value
+    );
+    // console.log("gmx Market Price: ", formatUnits(gmxMarketPrice, 30));
+    const synMarketPrice = BigNumber.from(
+      (await ss.getMarketPrice(synBtcMarket)).value
+    );
+    // console.log("syn Market Price: ", formatUnits(synMarketPrice, 18));
+
     let synSizeDelta = sizeDeltaUsd
       .mul(synScale)
       .mul(synScale)
       .div(synMarketPrice);
     // console.log("synSizeDelta", synSizeDelta.toString());
-    let direction: OrderDirection = "LONG";
 
-    const gmxMarketPrice = BigNumber.from(
-      (await gs.getMarketPrice(gmxBtcMarket)).value
-    );
-    // console.log("gmx Market Price: ", formatUnits(gmxMarketPrice, 30));
-    // const synMarketPrice = BigNumber.from(
-    //   (await ss.getMarketPrice(synBtcMarket)).value
-    // );
-    // console.log("syn Market Price: ", formatUnits(synMarketPrice, 18));
+    let direction: OrderDirection = "LONG";
 
     const previews = await Promise.all([
       gs.getTradePreview(
@@ -1208,9 +1219,13 @@ async function testAutoRouter() {
 }
 
 async function testPrice() {
-  console.time("getPrice");
-  await runQuery();
-  console.timeEnd("getPrice");
+  await delay(4000);
+
+  for (let i = 0; i < 1000; i++) {
+    const price = getTokenPriceD("BTC", 18);
+    console.log("Price: ", formatUnits(price.toString(), 18));
+    await delay(1000);
+  }
 }
 
 // async function priceWS() {
@@ -1245,9 +1260,10 @@ async function testPrice() {
 //   pythConnection.start();
 // }
 
+startStreaming();
+
 testAutoRouter()
-  .then(() => process.exit(0))
+  .then()
   .catch((error) => {
     console.error(error);
-    process.exit(1);
   });
