@@ -59,6 +59,7 @@ import {
 import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
+import { EthRequiredData } from "../tx-metadata-types";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -97,6 +98,10 @@ export default class GmxV1Service implements IExchange {
       };
       return tokenIn;
     });
+  private ZeroEthRequiredData: EthRequiredData = {
+    chainId: ARBITRUM,
+    ethRequired: BigNumber.from(0),
+  };
 
   constructor(_swAddr: string) {
     this.swAddr = _swAddr;
@@ -167,7 +172,9 @@ export default class GmxV1Service implements IExchange {
         this.REFERRAL_CODE
       );
     txs.push({
-      tx: setReferralCodeTx, type: "GMX_V1", data: undefined
+      tx: setReferralCodeTx,
+      type: "GMX_V1",
+      data: this.ZeroEthRequiredData,
     });
 
     // approve router
@@ -179,7 +186,9 @@ export default class GmxV1Service implements IExchange {
       getContract(ARBITRUM, "OrderBook")!
     );
     txs.push({
-      tx: approveOrderBookTx, type: "GMX_V1", data: undefined
+      tx: approveOrderBookTx,
+      type: "GMX_V1",
+      data: this.ZeroEthRequiredData,
     });
 
     const approvePositionRouterTx =
@@ -187,7 +196,9 @@ export default class GmxV1Service implements IExchange {
         getContract(ARBITRUM, "PositionRouter")!
       );
     txs.push({
-      tx: approvePositionRouterTx, type: "GMX_V1", data: undefined
+      tx: approvePositionRouterTx,
+      type: "GMX_V1",
+      data: this.ZeroEthRequiredData,
     });
 
     return txs;
@@ -201,19 +212,19 @@ export default class GmxV1Service implements IExchange {
     let token = IERC20__factory.connect(tokenAddress, provider);
     const router = getContract(ARBITRUM, "Router")!;
 
-    let allowance = await token.allowance(
-      this.swAddr,
-      router
-    );
+    let allowance = await token.allowance(this.swAddr, router);
 
     if (allowance.lt(allowanceAmount)) {
       let tx = await token.populateTransaction.approve(
         router,
         ethers.constants.MaxUint256
       );
-      return { tx, type: "ERC20_APPROVAL", data: { chainId: ARBITRUM, spender: router, token: tokenAddress } };
+      return {
+        tx,
+        type: "ERC20_APPROVAL",
+        data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+      };
     }
-
   }
 
   supportedNetworks(): readonly Network[] {
@@ -338,8 +349,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
+                  order.inputCollateralAmount
+                )
               : this.EXECUTION_FEE,
         }
       );
@@ -409,7 +420,9 @@ export default class GmxV1Service implements IExchange {
     }
 
     txs.push({
-      tx: createOrderTx!, type: "GMX_V1", data: undefined
+      tx: createOrderTx!,
+      type: "GMX_V1",
+      data: await this.getEthRequired(provider),
     });
 
     return txs;
@@ -446,7 +459,9 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [{ tx: updateOrderTx, type: "GMX_V1", data: undefined }];
+    return [
+      { tx: updateOrderTx, type: "GMX_V1", data: this.ZeroEthRequiredData },
+    ];
   }
 
   async cancelOrder(
@@ -473,7 +488,9 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [{ tx: cancelOrderTx, type: "GMX_V1", data: undefined }];
+    return [
+      { tx: cancelOrderTx, type: "GMX_V1", data: this.ZeroEthRequiredData },
+    ];
   }
 
   getOrder(
@@ -832,7 +849,11 @@ export default class GmxV1Service implements IExchange {
         );
     }
 
-    txs.push({ tx: marginTx, type: "GMX_V1", data: undefined });
+    txs.push({
+      tx: marginTx,
+      type: "GMX_V1",
+      data: await this.getEthRequired(provider),
+    });
 
     return txs;
   }
@@ -915,7 +936,11 @@ export default class GmxV1Service implements IExchange {
             value: this.EXECUTION_FEE,
           }
         );
-      txs.push({ tx: createOrderTx, type: "GMX_V1", data: undefined });
+      txs.push({
+        tx: createOrderTx,
+        type: "GMX_V1",
+        data: await this.getEthRequired(provider),
+      });
     } else {
       const orderBook = OrderBook__factory.connect(
         getContract(ARBITRUM, "OrderBook")!,
@@ -935,7 +960,11 @@ export default class GmxV1Service implements IExchange {
             value: this.EXECUTION_FEE,
           }
         );
-      txs.push({ tx: createOrderTx, type: "GMX_V1", data: undefined });
+      txs.push({
+        tx: createOrderTx,
+        type: "GMX_V1",
+        data: await this.getEthRequired(provider),
+      });
     }
 
     return txs;
@@ -1438,5 +1467,19 @@ export default class GmxV1Service implements IExchange {
     // });
 
     return [...increaseOrders, ...decreaseOrders];
+  }
+
+  async getEthRequired(provider: Provider): Promise<EthRequiredData> {
+    const ethBalance = await provider.getBalance(this.swAddr);
+    const ethRequired = BigNumber.from(this.EXECUTION_FEE);
+
+    if (ethBalance.lt(ethRequired)) {
+      return {
+        chainId: ARBITRUM,
+        ethRequired: ethRequired.sub(ethBalance),
+      };
+    } else {
+      return this.ZeroEthRequiredData;
+    }
   }
 }

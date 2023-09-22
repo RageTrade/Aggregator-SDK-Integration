@@ -1,5 +1,5 @@
 import { BigNumber, BigNumberish, UnsignedTransaction, ethers } from "ethers";
-import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from "./tx-metadata-types";
+import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData, EthRequiredData } from "./tx-metadata-types";
 
 export type Provider = ethers.providers.Provider;
 
@@ -212,7 +212,7 @@ export type OpenMarkets = {
 
 export type UnsignedTxWithMetadata =
   { tx: UnsignedTransaction, type: "ERC20_APPROVAL", data: ERC20ApprovalAddtionalSessionData } |
-  { tx: UnsignedTransaction, type: "GMX_V1", data: undefined } |
+  { tx: UnsignedTransaction, type: "GMX_V1", data: EthRequiredData } |
   { tx: UnsignedTransaction, type: "LIFI", data: undefined } |
   { tx: UnsignedTransaction, type: "SNX_V2", data: undefined } |
   { tx: UnsignedTransaction, type: "NATIVE", data: undefined } |
