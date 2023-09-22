@@ -11,7 +11,7 @@ import {
 } from '../types/futures'
 import { weiFromWei } from '../utils/number'
 
-export const RAGE_TRACKING_CODE = ethers.utils.formatBytes32String('rage')
+export const RAGE_TRACKING_CODE = "0x7261676500000000000000000000000000000000000000000000000000000000"
 
 // Defaults
 

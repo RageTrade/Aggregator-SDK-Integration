@@ -63,7 +63,7 @@ import { EthRequiredData } from "../tx-metadata-types";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
-    ethers.utils.toUtf8Bytes("RAGE"),
+    ethers.utils.toUtf8Bytes("ragetrade"),
     32
   );
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
