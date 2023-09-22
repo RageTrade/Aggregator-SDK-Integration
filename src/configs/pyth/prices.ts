@@ -1,8 +1,18 @@
-import type { PriceFeed } from "@pythnetwork/pyth-evm-js";
-import { EvmPriceServiceConnection } from "@pythnetwork/pyth-evm-js";
+import {
+  PriceStatus,
+  PythCluster,
+  PythHttpClient,
+  getPythClusterApiUrl,
+  getPythProgramKeyForCluster,
+} from "@pythnetwork/client";
+import {
+  PriceFeed,
+  PriceServiceConnection,
+} from "@pythnetwork/price-service-client";
 import { BigNumber, ethers } from "ethers";
+import { Connection } from "@solana/web3.js";
 
-const connection = new EvmPriceServiceConnection(
+const connection = new PriceServiceConnection(
   "https://xc-mainnet.pyth.network"
 );
 
@@ -95,13 +105,15 @@ export async function getPriceById(id: string): Promise<BigNumDecimals> {
 }
 
 export async function getTokenPrice(token: string): Promise<BigNumDecimals> {
-  if (!feeds) {
-    feeds = await connection.getLatestPriceFeeds(priceIds);
-  }
-
   if (token === "sUSD") return UnitPrice;
 
-  const feed = feeds?.find((f) => f.id === feedIdsByToken[token]);
+  // if (!feeds) {
+  const feed = (await connection.getLatestPriceFeeds([
+    feedIdsByToken[token],
+  ]))![0];
+  // }
+
+  // const feed = feeds?.find((f) => f.id === feedIdsByToken[token]);
 
   if (!feed) throw new Error(`Feed not found for ${token}`);
 
@@ -133,4 +145,32 @@ export async function getTokenPriceD(
       BigNumber.from(10).pow(18 - tokenPrice.decimals)
     );
   }
+}
+
+const PYTHNET_CLUSTER_NAME: PythCluster = "pythnet";
+const connection1 = new Connection(getPythClusterApiUrl(PYTHNET_CLUSTER_NAME));
+const pythPublicKey = getPythProgramKeyForCluster(PYTHNET_CLUSTER_NAME);
+const pythClient = new PythHttpClient(connection1, pythPublicKey);
+
+export async function runQuery(): Promise<BigNumber | undefined> {
+  const data = await pythClient.getData();
+
+  let btcSymbol = data.symbols.find((s) => s.includes("Crypto.BTC/USD"))!;
+
+  // for (const symbol of data.symbols) {
+  const price = data.productPrice.get(btcSymbol)!;
+
+  if (price.price && price.confidence) {
+    // tslint:disable-next-line:no-console
+    console.log(`${btcSymbol}: $${price.price} \xB1$${price.confidence}`);
+    return ethers.utils.parseEther(String(price.price!));
+  } else {
+    // tslint:disable-next-line:no-console
+    console.log(
+      `${btcSymbol}: price currently unavailable. status is ${
+        PriceStatus[price.status]
+      }`
+    );
+  }
+  // }
 }

@@ -11,6 +11,9 @@
   "dependencies": {
     "@ethersproject/providers": "^5.7.2",
     "@kwenta/sdk": "./sdk",
+    "@pythnetwork/client": "^2.19.0",
+    "@pythnetwork/price-service-client": "^1.7.0",
+    "@solana/web3.js": "^1.78.5",
     "@synthetixio/wei": "^2.74.4",
     "ethers": "^5.7.2"
   },

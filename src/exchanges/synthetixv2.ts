@@ -392,10 +392,13 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    existingPosition: ExtendedPosition | undefined
+    existingPosition: ExtendedPosition | undefined,
+    cachedMarketPrice?: BigNumber
   ): Promise<ExtendedPosition> {
     const marketAddress = await this.getMarketAddress(market);
-    const marketPrice = await this.getMarketPrice(market);
+    const marketPrice = cachedMarketPrice
+      ? cachedMarketPrice
+      : BigNumber.from((await this.getMarketPrice(market)).value);
     await this.sdk.setProvider(provider);
 
     const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([
@@ -437,7 +440,7 @@ export default class SynthetixV2Service implements IExchange {
       leverage:
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
           ? tradePreview.size
-              .mul(marketPrice.value)
+              .mul(marketPrice)
               .div(order.inputCollateralAmount)
               .abs()
           : undefined,
