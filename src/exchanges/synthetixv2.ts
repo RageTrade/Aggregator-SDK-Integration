@@ -742,6 +742,7 @@ export default class SynthetixV2Service implements IExchange {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
         marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
+        collateralToken: this.sUsd,
         operation: t.orderType,
         sizeDelta: t.size.toBN(),
         collateralDelta: t.margin.toBN(),
@@ -776,6 +777,7 @@ export default class SynthetixV2Service implements IExchange {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
         marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
+        collateralToken: this.sUsd,
         operation: t.orderType,
         sizeDelta: t.size.toBN(),
         collateralDelta: t.margin.toBN(),

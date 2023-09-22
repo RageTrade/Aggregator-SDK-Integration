@@ -984,39 +984,45 @@ export default class GmxV1Service implements IExchange {
     const trades: TradeHistory[] = [];
 
     for (const each of data) {
+      // filter out user requests and keep only executions
+      if (!each.data.action.toLowerCase().includes("-")) {
+        continue;
+      }
+
       const params = JSON.parse(each.data.params);
 
-      const isLong = params.order?.isLong || params.isLong;
+      const isLong = params.isLong as boolean;
 
       let keeperFeesPaid = undefined;
 
-      if (params.feeBasisPoints && params.sizeDelta) {
-        keeperFeesPaid = BigNumber.from(params.sizeDelta)
+      if (params.feeBasisPoints && (params.sizeDelta || params.size)) {
+        keeperFeesPaid = BigNumber.from(params.sizeDelta || params.size)
           .mul(params.feeBasisPoints)
           .div(10_000);
       }
 
+      let collateralToken = getToken(ARBITRUM, params.collateralToken);
+      let sizeDelta = BigNumber.from(params.sizeDelta || params.size);
+      let collateralDelta = BigNumber.from(
+        params.collateral || params.collateralDelta || BigNumber.from(0)
+      );
+
       const t: TradeHistory = {
-        marketIdentifier: { indexOrIdentifier: each.id },
+        marketIdentifier: { indexOrIdentifier: params.indexToken },
+        collateralToken: this.convertToToken(collateralToken),
         timestamp: each.data.timestamp,
         operation: each.data.action,
-        sizeDelta: params.order?.sizeDelta || params.sizeDelta || params.size,
-        direction: isLong ? (isLong === true ? "LONG" : "SHORT") : isLong,
-        price:
-          params.order?.acceptablePrice ||
-          params.order?.triggerPrice ||
-          params.acceptablePrice ||
-          params.price,
-        collateralDelta:
-          params.order?.collateralDelta ||
-          params.collateralDelta ||
-          BigNumber.from(0),
+        sizeDelta: sizeDelta,
+        direction: isLong ? "LONG" : "SHORT",
+        price: BigNumber.from(params.price || params.markPrice),
+        collateralDelta: collateralDelta,
         realisedPnl: BigNumber.from(0),
-        keeperFeesPaid: keeperFeesPaid || params.order?.executionFee,
+        keeperFeesPaid: BigNumber.from(
+          keeperFeesPaid || params.order?.executionFee
+        ),
         isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
         txHash: each.data.txhash,
       };
-
       trades.push(t);
     }
 
@@ -1025,57 +1031,9 @@ export default class GmxV1Service implements IExchange {
 
   async getLiquidationsHistory(
     user: string,
-    openMarkers: OpenMarkets | undefined
+    openMarkets: OpenMarkets | undefined
   ): Promise<TradeHistory[]> {
-    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`;
-    const data = await (await fetch(url)).json();
-
-    const trades: TradeHistory[] = [];
-
-    for (const each of data) {
-      const params = JSON.parse(each.data.params);
-
-      const isLong = params.order?.isLong || params.isLong;
-
-      let keeperFeesPaid = undefined;
-
-      if (params.feeBasisPoints && params.sizeDelta) {
-        keeperFeesPaid = BigNumber.from(params.sizeDelta)
-          .mul(params.feeBasisPoints)
-          .div(10_000);
-      }
-
-      const t: TradeHistory = {
-        marketIdentifier: { indexOrIdentifier: each.id },
-        timestamp: each.data.timestamp,
-        operation: each.data.action,
-        sizeDelta: params.order?.sizeDelta || params.sizeDelta || params.size,
-        direction:
-          typeof isLong === "undefined"
-            ? isLong
-            : isLong === true
-            ? "LONG"
-            : "SHORT",
-        price:
-          params.order?.acceptablePrice ||
-          params.order?.triggerPrice ||
-          params.acceptablePrice ||
-          params.price ||
-          params.markPrice,
-        collateralDelta:
-          params.order?.collateralDelta ||
-          params.collateralDelta ||
-          BigNumber.from(0),
-        realisedPnl: BigNumber.from(0),
-        keeperFeesPaid: keeperFeesPaid || params.order?.executionFee,
-        isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
-        txHash: each.data.txhash,
-      };
-
-      trades.push(t);
-    }
-
-    return trades.filter((t) =>
+    return (await this.getTradesHistory(user, openMarkets)).filter((t) =>
       t.operation.toLowerCase().includes("liquidate")
     );
   }
