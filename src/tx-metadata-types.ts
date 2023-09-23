@@ -13,6 +13,3 @@ export interface AddressValidationAdditionalSessionData extends BaseAdditionalSe
   destinationAddress: string
 }
 
-export interface EthRequiredData extends BaseAdditionalSessionData {
-  ethRequired: BigNumber
-}

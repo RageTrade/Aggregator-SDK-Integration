@@ -2,7 +2,6 @@ import { BigNumber, BigNumberish, UnsignedTransaction, ethers } from "ethers";
 import {
   AddressValidationAdditionalSessionData,
   ERC20ApprovalAddtionalSessionData,
-  EthRequiredData,
 } from "./tx-metadata-types";
 
 export type Provider = ethers.providers.Provider;
@@ -190,11 +189,11 @@ export type Order = {
   isTriggerOrder: Boolean;
   referralCode: string | undefined;
   trigger:
-    | {
-        triggerPrice: BigNumber;
-        triggerAboveThreshold: boolean;
-      }
-    | undefined;
+  | {
+    triggerPrice: BigNumber;
+    triggerAboveThreshold: boolean;
+  }
+  | undefined;
   slippage: string | undefined;
 } & CollateralData;
 
@@ -217,21 +216,21 @@ export type OpenMarkets = {
 
 export type UnsignedTxWithMetadata =
   | {
-      tx: UnsignedTransaction;
-      type: "ERC20_APPROVAL";
-      data: ERC20ApprovalAddtionalSessionData;
-    }
-  | { tx: UnsignedTransaction; type: "GMX_V1"; data: EthRequiredData }
-  | { tx: UnsignedTransaction; type: "LIFI"; data: undefined }
-  | { tx: UnsignedTransaction; type: "SNX_V2"; data: undefined }
-  | { tx: UnsignedTransaction; type: "NATIVE"; data: undefined }
+    tx: UnsignedTransaction;
+    type: "ERC20_APPROVAL";
+    data: ERC20ApprovalAddtionalSessionData,
+    ethRequierd?: BigNumber
+  }
+  | { tx: UnsignedTransaction; type: "GMX_V1"; data: undefined, ethRequired?: BigNumber }
+  | { tx: UnsignedTransaction; type: "LIFI"; data: undefined, ethRequired?: BigNumber }
+  | { tx: UnsignedTransaction; type: "SNX_V2"; data: undefined, ethRequired?: BigNumber }
+  | { tx: UnsignedTransaction; type: "NATIVE"; data: undefined, ethRequired?: BigNumber }
   | {
-      tx: UnsignedTransaction;
-      type: "ADDRESS";
-      data: AddressValidationAdditionalSessionData;
-    };
-
-export const DEFAULT_SESSION_KEY = ethers.constants.AddressZero;
+    tx: UnsignedTransaction;
+    type: "ADDRESS";
+    data: AddressValidationAdditionalSessionData;
+    ethRequierd?: BigNumber
+  };
 
 export interface IExchange {
   // something to indicate when setup should be called

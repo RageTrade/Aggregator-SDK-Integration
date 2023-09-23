@@ -20,7 +20,6 @@ import {
   Provider,
   ViewError,
   UnsignedTxWithMetadata,
-  DEFAULT_SESSION_KEY,
 } from "../interface";
 import {
   IERC20__factory,
@@ -59,7 +58,6 @@ import {
 import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
-import { EthRequiredData } from "../tx-metadata-types";
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = ethers.utils.hexZeroPad(
@@ -98,10 +96,6 @@ export default class GmxV1Service implements IExchange {
       };
       return tokenIn;
     });
-  private ZeroEthRequiredData: EthRequiredData = {
-    chainId: ARBITRUM,
-    ethRequired: BigNumber.from(0),
-  };
 
   constructor(_swAddr: string) {
     this.swAddr = _swAddr;
@@ -174,7 +168,7 @@ export default class GmxV1Service implements IExchange {
     txs.push({
       tx: setReferralCodeTx,
       type: "GMX_V1",
-      data: this.ZeroEthRequiredData,
+      data: undefined,
     });
 
     // approve router
@@ -188,7 +182,7 @@ export default class GmxV1Service implements IExchange {
     txs.push({
       tx: approveOrderBookTx,
       type: "GMX_V1",
-      data: this.ZeroEthRequiredData,
+      data: undefined,
     });
 
     const approvePositionRouterTx =
@@ -198,7 +192,7 @@ export default class GmxV1Service implements IExchange {
     txs.push({
       tx: approvePositionRouterTx,
       type: "GMX_V1",
-      data: this.ZeroEthRequiredData,
+      data: undefined,
     });
 
     return txs;
@@ -349,8 +343,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
+                order.inputCollateralAmount
+              )
               : this.EXECUTION_FEE,
         }
       );
@@ -375,10 +369,10 @@ export default class GmxV1Service implements IExchange {
       const acceptablePrice =
         order.slippage && order.slippage != ""
           ? applySlippage(
-              order.trigger?.triggerPrice!,
-              order.slippage,
-              order.direction == "LONG"
-            )
+            order.trigger?.triggerPrice!,
+            order.slippage,
+            order.direction == "LONG"
+          )
           : order.trigger?.triggerPrice!;
 
       if (order.inputCollateral.address != ethers.constants.AddressZero) {
@@ -422,7 +416,8 @@ export default class GmxV1Service implements IExchange {
     txs.push({
       tx: createOrderTx!,
       type: "GMX_V1",
-      data: await this.getEthRequired(provider),
+      data: undefined,
+      ethRequired: await this.getEthRequired(provider),
     });
 
     return txs;
@@ -460,7 +455,7 @@ export default class GmxV1Service implements IExchange {
     }
 
     return [
-      { tx: updateOrderTx, type: "GMX_V1", data: this.ZeroEthRequiredData },
+      { tx: updateOrderTx, type: "GMX_V1", data: undefined },
     ];
   }
 
@@ -489,7 +484,7 @@ export default class GmxV1Service implements IExchange {
     }
 
     return [
-      { tx: cancelOrderTx, type: "GMX_V1", data: this.ZeroEthRequiredData },
+      { tx: cancelOrderTx, type: "GMX_V1", data: undefined },
     ];
   }
 
@@ -852,7 +847,8 @@ export default class GmxV1Service implements IExchange {
     txs.push({
       tx: marginTx,
       type: "GMX_V1",
-      data: await this.getEthRequired(provider),
+      data: undefined,
+      ethRequired: await this.getEthRequired(provider),
     });
 
     return txs;
@@ -939,7 +935,8 @@ export default class GmxV1Service implements IExchange {
       txs.push({
         tx: createOrderTx,
         type: "GMX_V1",
-        data: await this.getEthRequired(provider),
+        data: undefined,
+        ethRequired: await this.getEthRequired(provider),
       });
     } else {
       const orderBook = OrderBook__factory.connect(
@@ -963,7 +960,8 @@ export default class GmxV1Service implements IExchange {
       txs.push({
         tx: createOrderTx,
         type: "GMX_V1",
-        data: await this.getEthRequired(provider),
+        data: undefined,
+        ethRequired: await this.getEthRequired(provider),
       });
     }
 
@@ -1427,17 +1425,10 @@ export default class GmxV1Service implements IExchange {
     return [...increaseOrders, ...decreaseOrders];
   }
 
-  async getEthRequired(provider: Provider): Promise<EthRequiredData> {
+  async getEthRequired(provider: Provider): Promise<BigNumber | undefined> {
     const ethBalance = await provider.getBalance(this.swAddr);
     const ethRequired = BigNumber.from(this.EXECUTION_FEE);
 
-    if (ethBalance.lt(ethRequired)) {
-      return {
-        chainId: ARBITRUM,
-        ethRequired: ethRequired.sub(ethBalance),
-      };
-    } else {
-      return this.ZeroEthRequiredData;
-    }
+    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
   }
 }

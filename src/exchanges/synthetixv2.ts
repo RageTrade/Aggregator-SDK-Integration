@@ -23,7 +23,6 @@ import {
   PROTOCOL_NAME,
   Provider,
   UnsignedTxWithMetadata,
-  DEFAULT_SESSION_KEY,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
