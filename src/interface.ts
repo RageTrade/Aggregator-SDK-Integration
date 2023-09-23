@@ -229,7 +229,7 @@ export type UnsignedTxWithMetadata =
     tx: UnsignedTransaction;
     type: "ADDRESS";
     data: AddressValidationAdditionalSessionData;
-    ethRequierd?: BigNumber
+    ethRequired?: BigNumber
   };
 
 export interface IExchange {
