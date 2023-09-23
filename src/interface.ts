@@ -219,7 +219,7 @@ export type UnsignedTxWithMetadata =
     tx: UnsignedTransaction;
     type: "ERC20_APPROVAL";
     data: ERC20ApprovalAddtionalSessionData,
-    ethRequierd?: BigNumber
+    ethRequired?: BigNumber
   }
   | { tx: UnsignedTransaction; type: "GMX_V1"; data: undefined, ethRequired?: BigNumber }
   | { tx: UnsignedTransaction; type: "LIFI"; data: undefined, ethRequired?: BigNumber }
