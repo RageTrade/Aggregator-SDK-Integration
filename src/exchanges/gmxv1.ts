@@ -60,10 +60,7 @@ import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
 
 export default class GmxV1Service implements IExchange {
-  private REFERRAL_CODE = ethers.utils.hexZeroPad(
-    ethers.utils.toUtf8Bytes("ragetrade"),
-    32
-  );
+  private REFERRAL_CODE = "0x7261676574726164650000000000000000000000000000000000000000000000"
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(
     ARBITRUM,
