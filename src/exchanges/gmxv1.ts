@@ -20,6 +20,7 @@ import {
   Provider,
   ViewError,
   UnsignedTxWithMetadata,
+  LiquidationHistory,
 } from "../interface";
 import {
   IERC20__factory,
@@ -59,13 +60,16 @@ import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
 import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
 
+// taken from contract Vault.sol
+const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
+
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = "0x7261676574726164650000000000000000000000000000000000000000000000"
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(
     ARBITRUM,
     "DECREASE_ORDER_EXECUTION_GAS_FEE"
-  )! as BigNumberish;
+  )! as BigNumber;
   private protocolIdentifier: PROTOCOL_NAME = "GMX_V1";
   private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
@@ -973,64 +977,106 @@ export default class GmxV1Service implements IExchange {
     user: string,
     _: OpenMarkets | undefined
   ): Promise<TradeHistory[]> {
-    let url = `${getServerBaseUrl(ARBITRUM)}/actions?account=${user}`;
-    const data = await (await fetch(url)).json();
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
+          trades(where: {account: "${user.toLowerCase()}"} ) {
+            id
+            key
+            fee
+            size
+            isLong
+            account
+            sizeDelta
+            timestamp
+            collateral
+            indexToken
+            realisedPnl
+            averagePrice
+            collateralToken
+          }
+        }
+      `,
+      }),
+    });
 
-    const trades: TradeHistory[] = [];
+    const resultJson = await results.json();
+    console.log({ resultJson: resultJson.data.trades })
 
-    for (const each of data) {
-      // filter out user requests and keep only executions
-      if (!each.data.action.toLowerCase().includes("-")) {
-        continue;
-      }
+    const tradeHistory: TradeHistory[] = []
 
-      const params = JSON.parse(each.data.params);
+    for (const each of resultJson.data.trades) {
 
-      const isLong = params.isLong as boolean;
-
-      let keeperFeesPaid = undefined;
-
-      if (params.feeBasisPoints && (params.sizeDelta || params.size)) {
-        keeperFeesPaid = BigNumber.from(params.sizeDelta || params.size)
-          .mul(params.feeBasisPoints)
-          .div(10_000);
-      }
-
-      let collateralToken = getToken(ARBITRUM, params.collateralToken);
-      let sizeDelta = BigNumber.from(params.sizeDelta || params.size);
-      let collateralDelta = BigNumber.from(
-        params.collateral || params.collateralDelta || BigNumber.from(0)
-      );
-
-      const t: TradeHistory = {
-        marketIdentifier: { indexOrIdentifier: params.indexToken },
-        collateralToken: this.convertToToken(collateralToken),
-        timestamp: each.data.timestamp,
-        operation: each.data.action,
-        sizeDelta: sizeDelta,
-        direction: isLong ? "LONG" : "SHORT",
-        price: BigNumber.from(params.price || params.markPrice),
-        collateralDelta: collateralDelta,
-        realisedPnl: BigNumber.from(0),
-        keeperFeesPaid: BigNumber.from(
-          keeperFeesPaid || params.order?.executionFee
-        ),
-        isTriggerAboveThreshold: params.order?.triggerAboveThreshold,
-        txHash: each.data.txhash,
-      };
-      trades.push(t);
+      tradeHistory.push({
+        marketIdentifier: each.indexToken,
+        collateralToken: each.collateralToken,
+        direction: each.isLong ? "LONG" : "SHORT",
+        size: BigNumber.from(each.size),
+        sizeDelta: BigNumber.from(each.sizeDelta),
+        price: BigNumber.from(each.averagePrice),
+        collateralDelta: BigNumber.from(each.collateral),
+        realisedPnl: BigNumber.from(each.realisedPnl),
+        keeperFee: this.EXECUTION_FEE,
+        positionFee: BigNumber.from(each.fee),
+        txHash: (each.id as string).split(":")[2],
+        timestamp: each.timestamp
+      })
     }
 
-    return trades;
+    return tradeHistory
   }
 
   async getLiquidationsHistory(
     user: string,
-    openMarkets: OpenMarkets | undefined
-  ): Promise<TradeHistory[]> {
-    return (await this.getTradesHistory(user, openMarkets)).filter((t) =>
-      t.operation.toLowerCase().includes("liquidate")
-    );
+    _: OpenMarkets | undefined
+  ): Promise<LiquidationHistory[]> {
+
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats', {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
+            liquidatedPositions(where: {account: "${user.toLowerCase()}"}) {
+              id
+              loss
+              size
+              isLong
+              markPrice
+              borrowFee
+              timestamp
+              collateral
+              indexToken
+              averagePrice
+              collateralToken
+            }
+          }
+      `,
+      }),
+    });
+
+    const resultJson = await results.json();
+
+    const liquidationHistory: LiquidationHistory[] = []
+
+    for (const each of resultJson.data.liquidatedPositions) {
+      liquidationHistory.push({
+        marketIdentifier: each.indexToken,
+        collateralToken: each.collateralToken,
+        liquidationPrice: BigNumber.from(each.markPrice),
+        sizeDelta: BigNumber.from(each.size),
+        collateralDelta: BigNumber.from(each.collateral),
+        direction: each.isLong ? "LONG" : "SHORT",
+        realisedPnl: BigNumber.from(each.loss),
+        liquidationFees: BigNumber.from(LIQUIDATION_FEE_USD),
+        remainingCollateral: BigNumber.from(0),
+        liqudationLeverage: BigNumber.from(10_000),
+        timestamp: each.timestamp
+      })
+    }
+
+    return liquidationHistory
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {

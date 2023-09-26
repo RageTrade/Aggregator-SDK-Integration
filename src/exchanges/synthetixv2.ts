@@ -23,6 +23,7 @@ import {
   PROTOCOL_NAME,
   Provider,
   UnsignedTxWithMetadata,
+  LiquidationHistory,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -220,10 +221,10 @@ export default class SynthetixV2Service implements IExchange {
     const acceptablePrice =
       order.slippage && order.slippage != ""
         ? applySlippage(
-            order.trigger?.triggerPrice!,
-            order.slippage,
-            order.direction == "LONG"
-          )
+          order.trigger?.triggerPrice!,
+          order.slippage,
+          order.direction == "LONG"
+        )
         : order.trigger?.triggerPrice!;
 
     txs.push({
@@ -439,9 +440,9 @@ export default class SynthetixV2Service implements IExchange {
       leverage:
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
           ? tradePreview.size
-              .mul(marketPrice)
-              .div(order.inputCollateralAmount)
-              .abs()
+            .mul(marketPrice)
+            .div(order.inputCollateralAmount)
+            .abs()
           : undefined,
     };
   }
@@ -486,9 +487,9 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
-            .mul(marketPrice.value)
-            .div(tradePreview.margin)
-            .abs()
+          .mul(marketPrice.value)
+          .div(tradePreview.margin)
+          .abs()
         : undefined,
     };
   }
@@ -541,9 +542,9 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
-            .mul(marketPrice.value)
-            .div(tradePreview.margin)
-            .abs()
+          .mul(marketPrice.value)
+          .div(tradePreview.margin)
+          .abs()
         : undefined,
       receiveAmount: isFullClose ? tradePreview.margin : BigNumber.from(0),
       receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0),
@@ -726,10 +727,10 @@ export default class SynthetixV2Service implements IExchange {
 
   async getTradesHistory(
     user: string,
-    openMarkers: OpenMarkets | undefined
+    openMarkets: OpenMarkets | undefined
   ): Promise<TradeHistory[]> {
     let trades: TradeHistory[] = [];
-    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
+    let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
     let tradesHistory = await this.sdk.futures.getAllTrades(
       user,
@@ -737,19 +738,22 @@ export default class SynthetixV2Service implements IExchange {
       1000
     );
 
+    tradesHistory = tradesHistory.filter((t) => t.orderType !== "Liquidation");
+
     tradesHistory.forEach((t) => {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
-        marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
-        collateralToken: this.sUsd,
-        operation: t.orderType,
+        marketIdentifier: market.indexOrIdentifier,
+        collateralToken: this.sUsd.address,
+        size: t.positionSize.toBN(),
         sizeDelta: t.size.toBN(),
         collateralDelta: t.margin.toBN(),
         price: t.price.toBN(),
         timestamp: t.timestamp,
         realisedPnl: t.pnl.toBN(),
         direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
-        keeperFeesPaid: t.keeperFeesPaid.toBN(),
+        keeperFee: t.keeperFeesPaid.toBN(),
+        positionFee: t.feesPaid.toBN(),
         txHash: t.txnHash,
       });
     });
@@ -760,8 +764,8 @@ export default class SynthetixV2Service implements IExchange {
   async getLiquidationsHistory(
     user: string,
     openMarkers: OpenMarkets | undefined
-  ): Promise<TradeHistory[]> {
-    let trades: TradeHistory[] = [];
+  ): Promise<LiquidationHistory[]> {
+    let trades: LiquidationHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
 
     let tradesHistory = await this.sdk.futures.getAllTrades(
@@ -775,16 +779,17 @@ export default class SynthetixV2Service implements IExchange {
     tradesHistory.forEach((t) => {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
-        marketIdentifier: { indexOrIdentifier: market.indexOrIdentifier },
-        collateralToken: this.sUsd,
-        operation: t.orderType,
+        marketIdentifier: market.indexOrIdentifier,
+        collateralToken: this.sUsd.address,
         sizeDelta: t.size.toBN(),
         collateralDelta: t.margin.toBN(),
-        price: t.price.toBN(),
+        remainingCollateral: t.margin.toBN(),
+        liqudationLeverage: BigNumber.from(market!.maxLeverage!.value).mul(10_000).div(10n ** BigInt(market!.maxLeverage!.decimals)),
+        liquidationPrice: t.price.toBN(),
         timestamp: t.timestamp,
         realisedPnl: t.pnl.toBN(),
         direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
-        keeperFeesPaid: t.keeperFeesPaid.toBN(),
+        liquidationFees: t.keeperFeesPaid.toBN().add(t.feesPaid.toBN()),
         txHash: t.txnHash,
       });
     });

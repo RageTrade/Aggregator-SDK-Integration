@@ -158,18 +158,33 @@ export type Trade = ExtendedPosition & {
   txLink?: string;
 };
 
-export type TradeHistory = {
-  marketIdentifier: MarketIdentifier;
-  collateralToken: Token;
-  timestamp: number;
-  operation: string;
+export type LiquidationHistory = {
+  marketIdentifier: MarketIdentifier['indexOrIdentifier'];
+  collateralToken: string;
+  liquidationPrice: BigNumber;
   sizeDelta: BigNumber;
-  direction?: OrderDirection;
+  direction: OrderDirection;
+  collateralDelta: BigNumber;
+  realisedPnl: BigNumber;
+  liquidationFees: BigNumber;
+  remainingCollateral: BigNumber;
+  liqudationLeverage: BigNumber;
+  timestamp: number;
+  txHash?: string;
+}
+
+export type TradeHistory = {
+  marketIdentifier: MarketIdentifier['indexOrIdentifier'];
+  collateralToken: string;
+  timestamp: number;
+  size: BigNumber;
+  sizeDelta: BigNumber;
+  direction: OrderDirection;
   price: BigNumber;
   collateralDelta: BigNumber;
   realisedPnl: BigNumber;
-  keeperFeesPaid?: BigNumber;
-  isTriggerAboveThreshold?: Boolean;
+  keeperFee: BigNumber;
+  positionFee: BigNumber;
   txHash: string;
 };
 
@@ -329,7 +344,7 @@ export interface IExchange {
   getLiquidationsHistory(
     user: string,
     openMarkers: OpenMarkets | undefined
-  ): Promise<TradeHistory[]>;
+  ): Promise<LiquidationHistory[]>;
 
   getIdleMargins(
     user: string,
