@@ -61,10 +61,11 @@ import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
 
 // taken from contract Vault.sol
-const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
+const LIQUIDATION_FEE_USD = BigNumber.from("5000000000000000000000000000000");
 
 export default class GmxV1Service implements IExchange {
-  private REFERRAL_CODE = "0x7261676574726164650000000000000000000000000000000000000000000000"
+  private REFERRAL_CODE =
+    "0x7261676574726164650000000000000000000000000000000000000000000000";
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(
     ARBITRUM,
@@ -113,7 +114,7 @@ export default class GmxV1Service implements IExchange {
 
     const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
 
-    const fundingRateInfoPromise = reader.getFundingRates(
+    const fundingRateInfo = await reader.getFundingRates(
       getContract(ARBITRUM, "Vault")!,
       nativeTokenAddress!,
       [market.marketToken?.address!]
@@ -124,7 +125,7 @@ export default class GmxV1Service implements IExchange {
       ARBITRUM,
       false,
       [BigNumber.from(0)],
-      await fundingRateInfoPromise
+      fundingRateInfo
     );
 
     const info = infoTokens[market.marketToken?.address!];
@@ -133,7 +134,7 @@ export default class GmxV1Service implements IExchange {
       oiLongUsd: info.guaranteedUsd!,
       oiShortUsd: info.globalShortSize!,
       fundingRate: BigNumber.from(0),
-      borrowRate: info.fundingRate,
+      borrowRate: fundingRateInfo[0],
       availableLiquidityLongUSD: info.maxAvailableLong,
       availableLiquidityShortUSD: info.maxAvailableShort,
       marketLimitUsd: BigNumber.from(0),
@@ -344,8 +345,8 @@ export default class GmxV1Service implements IExchange {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
               ? BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              )
+                  order.inputCollateralAmount
+                )
               : this.EXECUTION_FEE,
         }
       );
@@ -370,10 +371,10 @@ export default class GmxV1Service implements IExchange {
       const acceptablePrice =
         order.slippage && order.slippage != ""
           ? applySlippage(
-            order.trigger?.triggerPrice!,
-            order.slippage,
-            order.direction == "LONG"
-          )
+              order.trigger?.triggerPrice!,
+              order.slippage,
+              order.direction == "LONG"
+            )
           : order.trigger?.triggerPrice!;
 
       if (order.inputCollateral.address != ethers.constants.AddressZero) {
@@ -455,9 +456,7 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [
-      { tx: updateOrderTx, type: "GMX_V1", data: undefined },
-    ];
+    return [{ tx: updateOrderTx, type: "GMX_V1", data: undefined }];
   }
 
   async cancelOrder(
@@ -484,9 +483,7 @@ export default class GmxV1Service implements IExchange {
       throw new Error("Invalid order type");
     }
 
-    return [
-      { tx: cancelOrderTx, type: "GMX_V1", data: undefined },
-    ];
+    return [{ tx: cancelOrderTx, type: "GMX_V1", data: undefined }];
   }
 
   getOrder(
@@ -977,11 +974,13 @@ export default class GmxV1Service implements IExchange {
     user: string,
     _: OpenMarkets | undefined
   ): Promise<TradeHistory[]> {
-    const results = await fetch('https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `{
+    const results = await fetch(
+      "https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `{
           trades(where: {account: "${user.toLowerCase()}"} ) {
             id
             key
@@ -999,16 +998,16 @@ export default class GmxV1Service implements IExchange {
           }
         }
       `,
-      }),
-    });
+        }),
+      }
+    );
 
     const resultJson = await results.json();
-    console.log({ resultJson: resultJson.data.trades })
+    console.log({ resultJson: resultJson.data.trades });
 
-    const tradeHistory: TradeHistory[] = []
+    const tradeHistory: TradeHistory[] = [];
 
     for (const each of resultJson.data.trades) {
-
       tradeHistory.push({
         marketIdentifier: each.indexToken,
         collateralToken: each.collateralToken,
@@ -1021,23 +1020,24 @@ export default class GmxV1Service implements IExchange {
         keeperFee: this.EXECUTION_FEE,
         positionFee: BigNumber.from(each.fee),
         txHash: (each.id as string).split(":")[2],
-        timestamp: each.timestamp
-      })
+        timestamp: each.timestamp,
+      });
     }
 
-    return tradeHistory
+    return tradeHistory;
   }
 
   async getLiquidationsHistory(
     user: string,
     _: OpenMarkets | undefined
   ): Promise<LiquidationHistory[]> {
-
-    const results = await fetch('https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats', {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `{
+    const results = await fetch(
+      "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: `{
             liquidatedPositions(where: {account: "${user.toLowerCase()}"}) {
               id
               loss
@@ -1053,12 +1053,13 @@ export default class GmxV1Service implements IExchange {
             }
           }
       `,
-      }),
-    });
+        }),
+      }
+    );
 
     const resultJson = await results.json();
 
-    const liquidationHistory: LiquidationHistory[] = []
+    const liquidationHistory: LiquidationHistory[] = [];
 
     for (const each of resultJson.data.liquidatedPositions) {
       liquidationHistory.push({
@@ -1072,11 +1073,11 @@ export default class GmxV1Service implements IExchange {
         liquidationFees: BigNumber.from(LIQUIDATION_FEE_USD),
         remainingCollateral: BigNumber.from(0),
         liqudationLeverage: BigNumber.from(10_000),
-        timestamp: each.timestamp
-      })
+        timestamp: each.timestamp,
+      });
     }
 
-    return liquidationHistory
+    return liquidationHistory;
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {
@@ -1472,6 +1473,6 @@ export default class GmxV1Service implements IExchange {
     const ethBalance = await provider.getBalance(this.swAddr);
     const ethRequired = BigNumber.from(this.EXECUTION_FEE);
 
-    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
+    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1);
   }
 }
