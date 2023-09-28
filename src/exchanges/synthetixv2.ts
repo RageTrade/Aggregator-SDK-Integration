@@ -780,10 +780,10 @@ export default class SynthetixV2Service implements IExchange {
     );
 
     tradesHistory = tradesHistory.filter((t) => t.orderType == "Liquidation");
-    tradesHistory.sort((a, b) => a.timestamp - b.timestamp);
-    tradesHistory.forEach((t) => {
-      logObject("Liquidation: ", t);
-    });
+    // tradesHistory.sort((a, b) => a.timestamp - b.timestamp);
+    // tradesHistory.forEach((t) => {
+    //   logObject("Liquidation: ", t);
+    // });
 
     tradesHistory.forEach((t) => {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
@@ -804,6 +804,8 @@ export default class SynthetixV2Service implements IExchange {
         txHash: t.txnHash,
       });
     });
+
+    trades.sort((a, b) => b.timestamp - a.timestamp);
 
     return trades;
   }

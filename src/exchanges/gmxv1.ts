@@ -1067,7 +1067,7 @@ export default class GmxV1Service implements IExchange {
     );
 
     const resultJson = await results.json();
-    console.dir({ resultJson }, { depth: 10 });
+    // console.dir({ resultJson }, { depth: 10 });
 
     const tradeHistory: TradeHistory[] = [];
 
