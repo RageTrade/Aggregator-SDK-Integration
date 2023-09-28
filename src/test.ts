@@ -446,20 +446,22 @@ async function synService() {
   );
 
   // const tradeHistory = await ss.getTradesHistory(
-  //   "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+  //   // "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+  //   // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+  //   "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
   //   undefined
   // );
   // tradeHistory.forEach((t) => {
   //   logObject("Trade History: ", t);
   // });
 
-  // const liquidationsHistory = await ss.getLiquidationsHistory(
-  //   "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
-  //   undefined
-  // );
-  // liquidationsHistory.forEach((t) => {
-  //   logObject("Liq History: ", t);
-  // });
+  const liquidationsHistory = await ss.getLiquidationsHistory(
+    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
+    undefined
+  );
+  liquidationsHistory.forEach((t) => {
+    logObject("Liq History: ", t);
+  });
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -473,29 +475,32 @@ async function synService() {
   // const allOrders = await ss.getAllOrders(w);
   // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  const supportedNetworks = ss.supportedNetworks();
+  // const supportedNetworks = ss.supportedNetworks();
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
-  const btcMarket = supportedMarkets.find(
-    (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
-  )!;
-  const btcPrice = await ss.getMarketPrice(btcMarket);
+  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  // const btcMarket = supportedMarkets.find(
+  //   (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
+  // )!;
+  // const btcPrice = await ss.getMarketPrice(btcMarket);
+  // const dynamicMetadata = await ss.getDynamicMetadata(btcMarket);
+  // logObject("Dynamic Metadata: ", dynamicMetadata);
+
   // console.log("BTC Price: ", ethers.utils.formatUnits(btcPrice.value, 18));
   // logObject("Supported Markets: ", supportedMarkets[0]);
-  for (const market of supportedMarkets) {
-    try {
-      let price = await ss.getMarketPrice(market);
-      console.log(
-        "Asset: ",
-        market.asset,
-        "Price: ",
-        ethers.utils.formatUnits(price.value, 18)
-      );
-    } catch (e) {
-      console.log("Asset: ", market.asset, "Error: ", e);
-    }
-  }
+  // for (const market of supportedMarkets) {
+  //   try {
+  //     let price = await ss.getMarketPrice(market);
+  //     console.log(
+  //       "Asset: ",
+  //       market.asset,
+  //       "Price: ",
+  //       ethers.utils.formatUnits(price.value, 18)
+  //     );
+  //   } catch (e) {
+  //     console.log("Asset: ", market.asset, "Error: ", e);
+  //   }
+  // }
 
   // (await sdk.futures.getMarkets()).forEach(async (market) => {
   //   let price = await sdk.futures.getAssetPrice(market.market);
@@ -741,10 +746,20 @@ async function gmxService() {
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0]);
 
+  let btcMarket = supportedMarkets.find(
+    (m) =>
+      m.indexOrIdentifier.toLowerCase() ===
+      "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
+  )!;
+
+  // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
+  // logObject("Dynamic Metadata: ", dynamicMetadata);
+
   const tradeHistory = await gs.getTradesHistory(
     // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
     // "0xe4718282022518A2499dD73Fc767654095F198A5",
-    "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+    // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+    "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
     undefined
   );
   // console.dir({ tradeHistory }, { depth: 4 });
@@ -752,12 +767,12 @@ async function gmxService() {
     logObject("Trade History: ", t);
   });
 
-  const liquidationsHistory = await gs.getLiquidationsHistory(
-    "0xC41427A0B49eB775E022E676F0412B12df1193a5",
-    undefined
-  );
+  // const liquidationsHistory = await gs.getLiquidationsHistory(
+  //   "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  //   undefined
+  // );
   // console.dir({ liquidationsHistory }, { depth: 4 });
-  logObject("Liquidations History: ", liquidationsHistory[0]);
+  // logObject("Liquidations History: ", liquidationsHistory[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -861,7 +876,7 @@ async function gmxService() {
     address: ethers.constants.AddressZero,
   };
 
-  const allPositions = await gs.getAllPositions(w, provider);
+  // const allPositions = await gs.getAllPositions(w, provider);
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject("Position: ", allPositions[i]);
   //   let positionOrders = await gs.getAllOrdersForPosition(
@@ -875,7 +890,7 @@ async function gmxService() {
   //   });
   // }
 
-  let position0 = allPositions[0];
+  // let position0 = allPositions[0];
   // let market = supportedMarkets.find(
   //   (m) => m.indexOrIdentifier.toLowerCase() === "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
   // )!;
@@ -1262,8 +1277,8 @@ async function testPrice() {
 
 startStreaming();
 
-testAutoRouter()
-  .then()
+synService()
+  .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);
   });

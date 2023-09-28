@@ -221,10 +221,10 @@ export default class SynthetixV2Service implements IExchange {
     const acceptablePrice =
       order.slippage && order.slippage != ""
         ? applySlippage(
-          order.trigger?.triggerPrice!,
-          order.slippage,
-          order.direction == "LONG"
-        )
+            order.trigger?.triggerPrice!,
+            order.slippage,
+            order.direction == "LONG"
+          )
         : order.trigger?.triggerPrice!;
 
     txs.push({
@@ -440,9 +440,9 @@ export default class SynthetixV2Service implements IExchange {
       leverage:
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
           ? tradePreview.size
-            .mul(marketPrice)
-            .div(order.inputCollateralAmount)
-            .abs()
+              .mul(marketPrice)
+              .div(order.inputCollateralAmount)
+              .abs()
           : undefined,
     };
   }
@@ -487,9 +487,9 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
-          .mul(marketPrice.value)
-          .div(tradePreview.margin)
-          .abs()
+            .mul(marketPrice.value)
+            .div(tradePreview.margin)
+            .abs()
         : undefined,
     };
   }
@@ -542,9 +542,9 @@ export default class SynthetixV2Service implements IExchange {
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage: tradePreview.margin
         ? tradePreview.size
-          .mul(marketPrice.value)
-          .div(tradePreview.margin)
-          .abs()
+            .mul(marketPrice.value)
+            .div(tradePreview.margin)
+            .abs()
         : undefined,
       receiveAmount: isFullClose ? tradePreview.margin : BigNumber.from(0),
       receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0),
@@ -744,19 +744,24 @@ export default class SynthetixV2Service implements IExchange {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
         marketIdentifier: market.indexOrIdentifier,
-        collateralToken: this.sUsd.address,
-        size: t.positionSize.toBN(),
+        collateralToken: this.sUsd,
+        // size: t.positionSize.toBN(),
         sizeDelta: t.size.toBN(),
-        collateralDelta: t.margin.toBN(),
+        collateralDelta: t.positionClosed
+          ? t.margin.mul(-1).toBN()
+          : BigNumber.from(0),
         price: t.price.toBN(),
         timestamp: t.timestamp,
         realisedPnl: t.pnl.toBN(),
         direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
-        keeperFee: t.keeperFeesPaid.toBN(),
+        keeperFeesPaid: t.keeperFeesPaid.toBN(),
         positionFee: t.feesPaid.toBN(),
+        operation: t.side == PositionSide.LONG ? "Long" : "Short",
         txHash: t.txnHash,
       });
     });
+
+    trades.sort((a, b) => b.timestamp - a.timestamp);
 
     return trades;
   }
@@ -775,21 +780,27 @@ export default class SynthetixV2Service implements IExchange {
     );
 
     tradesHistory = tradesHistory.filter((t) => t.orderType == "Liquidation");
+    tradesHistory.sort((a, b) => a.timestamp - b.timestamp);
+    tradesHistory.forEach((t) => {
+      logObject("Liquidation: ", t);
+    });
 
     tradesHistory.forEach((t) => {
       let market = markets.find((m) => m.asset == t.asset.toString())!;
       trades.push({
         marketIdentifier: market.indexOrIdentifier,
-        collateralToken: this.sUsd.address,
-        sizeDelta: t.size.toBN(),
-        collateralDelta: t.margin.toBN(),
+        collateralToken: this.sUsd,
+        sizeClosed: t.size.abs().toBN(),
         remainingCollateral: t.margin.toBN(),
-        liqudationLeverage: BigNumber.from(market!.maxLeverage!.value).mul(10_000).div(10n ** BigInt(market!.maxLeverage!.decimals)),
+        liqudationLeverage: {
+          value: market!.maxLeverage!.value,
+          decimals: 18,
+        },
         liquidationPrice: t.price.toBN(),
         timestamp: t.timestamp,
         realisedPnl: t.pnl.toBN(),
-        direction: t.side == PositionSide.LONG ? "LONG" : "SHORT",
-        liquidationFees: t.keeperFeesPaid.toBN().add(t.feesPaid.toBN()),
+        direction: t.side == PositionSide.LONG ? "SHORT" : "LONG", // reverse because this is counter trade
+        liquidationFees: t.feesPaid.toBN(),
         txHash: t.txnHash,
       });
     });

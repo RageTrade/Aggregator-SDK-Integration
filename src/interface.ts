@@ -159,32 +159,32 @@ export type Trade = ExtendedPosition & {
 };
 
 export type LiquidationHistory = {
-  marketIdentifier: MarketIdentifier['indexOrIdentifier'];
-  collateralToken: string;
+  marketIdentifier: MarketIdentifier["indexOrIdentifier"];
+  collateralToken: Token;
   liquidationPrice: BigNumber;
-  sizeDelta: BigNumber;
+  sizeClosed: BigNumber;
   direction: OrderDirection;
-  collateralDelta: BigNumber;
   realisedPnl: BigNumber;
   liquidationFees: BigNumber;
   remainingCollateral: BigNumber;
-  liqudationLeverage: BigNumber;
+  liqudationLeverage: NumberDecimal;
   timestamp: number;
   txHash?: string;
-}
+};
 
 export type TradeHistory = {
-  marketIdentifier: MarketIdentifier['indexOrIdentifier'];
-  collateralToken: string;
+  marketIdentifier: MarketIdentifier["indexOrIdentifier"];
+  collateralToken: Token;
   timestamp: number;
-  size: BigNumber;
+  // size?: BigNumber; // final Size
   sizeDelta: BigNumber;
   direction: OrderDirection;
   price: BigNumber;
   collateralDelta: BigNumber;
-  realisedPnl: BigNumber;
-  keeperFee: BigNumber;
+  realisedPnl: BigNumber | undefined;
+  keeperFeesPaid: BigNumber;
   positionFee: BigNumber;
+  operation: "Open Long" | "Close Long" | "Open Short" | "Close Short" | "Long" | "Short";
   txHash: string;
 };
 
@@ -204,11 +204,11 @@ export type Order = {
   isTriggerOrder: Boolean;
   referralCode: string | undefined;
   trigger:
-  | {
-    triggerPrice: BigNumber;
-    triggerAboveThreshold: boolean;
-  }
-  | undefined;
+    | {
+        triggerPrice: BigNumber;
+        triggerAboveThreshold: boolean;
+      }
+    | undefined;
   slippage: string | undefined;
 } & CollateralData;
 
@@ -231,21 +231,41 @@ export type OpenMarkets = {
 
 export type UnsignedTxWithMetadata =
   | {
-    tx: UnsignedTransaction;
-    type: "ERC20_APPROVAL";
-    data: ERC20ApprovalAddtionalSessionData,
-    ethRequired?: BigNumber
-  }
-  | { tx: UnsignedTransaction; type: "GMX_V1"; data: undefined, ethRequired?: BigNumber }
-  | { tx: UnsignedTransaction; type: "LIFI"; data: undefined, ethRequired?: BigNumber }
-  | { tx: UnsignedTransaction; type: "SNX_V2"; data: undefined, ethRequired?: BigNumber }
-  | { tx: UnsignedTransaction; type: "NATIVE"; data: undefined, ethRequired?: BigNumber }
+      tx: UnsignedTransaction;
+      type: "ERC20_APPROVAL";
+      data: ERC20ApprovalAddtionalSessionData;
+      ethRequired?: BigNumber;
+    }
   | {
-    tx: UnsignedTransaction;
-    type: "ADDRESS";
-    data: AddressValidationAdditionalSessionData;
-    ethRequired?: BigNumber
-  };
+      tx: UnsignedTransaction;
+      type: "GMX_V1";
+      data: undefined;
+      ethRequired?: BigNumber;
+    }
+  | {
+      tx: UnsignedTransaction;
+      type: "LIFI";
+      data: undefined;
+      ethRequired?: BigNumber;
+    }
+  | {
+      tx: UnsignedTransaction;
+      type: "SNX_V2";
+      data: undefined;
+      ethRequired?: BigNumber;
+    }
+  | {
+      tx: UnsignedTransaction;
+      type: "NATIVE";
+      data: undefined;
+      ethRequired?: BigNumber;
+    }
+  | {
+      tx: UnsignedTransaction;
+      type: "ADDRESS";
+      data: AddressValidationAdditionalSessionData;
+      ethRequired?: BigNumber;
+    };
 
 export interface IExchange {
   // something to indicate when setup should be called

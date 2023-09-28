@@ -981,7 +981,7 @@ export default class GmxV1Service implements IExchange {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `{
-          trades(where: {account: "${user.toLowerCase()}"} ) {
+          trades(where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: asc ) {
             id
             key
             fee
@@ -995,6 +995,70 @@ export default class GmxV1Service implements IExchange {
             realisedPnl
             averagePrice
             collateralToken
+            status
+            increaseList {
+              id
+              key
+              account
+              collateralDelta
+              collateralToken
+              fee
+              indexToken
+              isLong
+              price
+              sizeDelta
+              timestamp
+            }
+            decreaseList {
+              id
+              key
+              account
+              collateralDelta
+              collateralToken
+              fee
+              indexToken
+              isLong
+              price
+              sizeDelta
+              timestamp
+            }
+            updateList {
+              id
+              key
+              realisedPnl
+              averagePrice
+              collateral
+              entryFundingRate
+              markPrice
+              reserveAmount
+              size
+              timestamp
+            }
+            closedPosition {
+              id
+              key
+              averagePrice
+              collateral
+              entryFundingRate
+              realisedPnl
+              reserveAmount
+              size
+              timestamp
+            }
+            liquidatedPosition {
+              id
+              key
+              account
+              collateral
+              collateralToken
+              indexToken
+              isLong
+              markPrice
+              realisedPnl
+              reserveAmount
+              size
+              timestamp
+            }
           }
         }
       `,
@@ -1003,26 +1067,88 @@ export default class GmxV1Service implements IExchange {
     );
 
     const resultJson = await results.json();
-    console.log({ resultJson: resultJson.data.trades });
+    console.dir({ resultJson }, { depth: 10 });
 
     const tradeHistory: TradeHistory[] = [];
 
     for (const each of resultJson.data.trades) {
-      tradeHistory.push({
-        marketIdentifier: each.indexToken,
-        collateralToken: each.collateralToken,
-        direction: each.isLong ? "LONG" : "SHORT",
-        size: BigNumber.from(each.size),
-        sizeDelta: BigNumber.from(each.sizeDelta),
-        price: BigNumber.from(each.averagePrice),
-        collateralDelta: BigNumber.from(each.collateral),
-        realisedPnl: BigNumber.from(each.realisedPnl),
-        keeperFee: this.EXECUTION_FEE,
-        positionFee: BigNumber.from(each.fee),
-        txHash: (each.id as string).split(":")[2],
-        timestamp: each.timestamp,
-      });
+      const increaseList = each.increaseList;
+      const decreaseList = each.decreaseList;
+      const updateList = each.updateList;
+      const closedPosition = each.closedPosition;
+
+      if (!!increaseList) {
+        for (const incTrade of increaseList) {
+          let txHash = (incTrade.id as string).split(":")[2];
+          let realisedPnl = undefined;
+
+          for (const update of updateList) {
+            if ((update.id as string).split(":")[2] == txHash) {
+              realisedPnl = BigNumber.from(update.realisedPnl);
+              break;
+            }
+          }
+
+          tradeHistory.push({
+            marketIdentifier: incTrade.indexToken,
+            collateralToken: this.convertToToken(
+              getToken(ARBITRUM, incTrade.collateralToken)
+            ),
+            direction: incTrade.isLong ? "LONG" : "SHORT",
+            sizeDelta: BigNumber.from(incTrade.sizeDelta),
+            price: BigNumber.from(incTrade.price),
+            collateralDelta: BigNumber.from(incTrade.collateralDelta),
+            realisedPnl: realisedPnl,
+            keeperFeesPaid: this.EXECUTION_FEE, // ether terms
+            positionFee: BigNumber.from(incTrade.fee), // does not include keeper fee
+            txHash: txHash,
+            timestamp: incTrade.timestamp as number,
+            operation: incTrade.isLong ? "Open Long" : "Open Short",
+          });
+        }
+      }
+
+      if (!!decreaseList) {
+        for (const decTrade of decreaseList) {
+          let txHash = (decTrade.id as string).split(":")[2];
+          let realisedPnl = undefined;
+
+          for (const update of updateList) {
+            if ((update.id as string).split(":")[2] == txHash) {
+              realisedPnl = BigNumber.from(update.realisedPnl);
+              break;
+            }
+          }
+          if (!!closedPosition) {
+            if ((closedPosition.id as string).split(":")[2] == txHash) {
+              realisedPnl = BigNumber.from(closedPosition.realisedPnl);
+              break;
+            }
+          }
+
+          tradeHistory.push({
+            marketIdentifier: decTrade.indexToken,
+            collateralToken: this.convertToToken(
+              getToken(ARBITRUM, decTrade.collateralToken)
+            ),
+            direction: decTrade.isLong ? "LONG" : "SHORT",
+            sizeDelta: BigNumber.from(decTrade.sizeDelta),
+            price: BigNumber.from(decTrade.price),
+            collateralDelta: BigNumber.from(decTrade.collateralDelta),
+            realisedPnl: realisedPnl,
+            keeperFeesPaid: this.EXECUTION_FEE, // ether terms
+            positionFee: BigNumber.from(decTrade.fee), // does not include keeper fee
+            txHash: txHash,
+            timestamp: decTrade.timestamp as number,
+            operation: decTrade.isLong ? "Close Long" : "Close Short",
+          });
+        }
+      }
     }
+
+    tradeHistory.sort((a, b) => {
+      return b.timestamp - a.timestamp;
+    });
 
     return tradeHistory;
   }
@@ -1064,18 +1190,27 @@ export default class GmxV1Service implements IExchange {
     for (const each of resultJson.data.liquidatedPositions) {
       liquidationHistory.push({
         marketIdentifier: each.indexToken,
-        collateralToken: each.collateralToken,
+        collateralToken: this.convertToToken(
+          getToken(ARBITRUM, each.collateralToken)
+        ),
         liquidationPrice: BigNumber.from(each.markPrice),
-        sizeDelta: BigNumber.from(each.size),
-        collateralDelta: BigNumber.from(each.collateral),
+        sizeClosed: BigNumber.from(each.size),
         direction: each.isLong ? "LONG" : "SHORT",
-        realisedPnl: BigNumber.from(each.loss),
+        realisedPnl: BigNumber.from(each.collateral).mul(-1),
         liquidationFees: BigNumber.from(LIQUIDATION_FEE_USD),
         remainingCollateral: BigNumber.from(0),
-        liqudationLeverage: BigNumber.from(10_000),
+        //100x
+        liqudationLeverage: {
+          value: "100000000",
+          decimals: 6,
+        },
         timestamp: each.timestamp,
       });
     }
+
+    liquidationHistory.sort((a, b) => {
+      return b.timestamp - a.timestamp;
+    });
 
     return liquidationHistory;
   }
