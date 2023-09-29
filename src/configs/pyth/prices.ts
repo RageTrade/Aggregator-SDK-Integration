@@ -26,7 +26,7 @@ function handleStreamingData(data: { id: string; p: number }) {
     }
     // console.dir({ prices }, { depth: 2 });
   } catch (e) {
-    console.error(`[stream] Error parsing streaming data:`);
+    // console.error(`[stream] Error parsing streaming data:`);
   }
 }
 
@@ -136,4 +136,4 @@ export function getTokenPriceD(token: string, decimals: number) {
   }
 }
 
-// startStreaming();
+startStreaming();
