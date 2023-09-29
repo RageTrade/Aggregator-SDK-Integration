@@ -5,7 +5,7 @@ import { NumberDecimal } from "../../interface";
 const streamingUrl =
   "https://benchmarks.pyth.network/v1/shims/tradingview/streaming";
 
-type PricesMap = Record<string, NumberDecimal>;
+type PricesMap = Record<string, NumberDecimal | null>;
 
 let prices: PricesMap = {};
 
@@ -26,7 +26,7 @@ function handleStreamingData(data: { id: string; p: number }) {
     }
     // console.dir({ prices }, { depth: 2 });
   } catch (e) {
-    // console.error(`[stream] Error parsing streaming data:`);
+    console.error(`[stream] Error parsing streaming data:`);
   }
 }
 
@@ -98,13 +98,15 @@ export type BigNumDecimals = {
   value: BigNumber;
 };
 
-export function getTokenPrice(token: string): BigNumDecimals {
+export function getTokenPrice(token: string) {
   if (token === "sUSD") return UnitPrice;
 
   if (token === "sETH") token = "ETH";
   if (token === "sBTC") token = "BTC";
 
   const price = prices[token];
+
+  if(!price) return 
 
   const decimals = price.decimals;
   const value = BigNumber.from(price.value);
@@ -116,8 +118,11 @@ export function getTokenPrice(token: string): BigNumDecimals {
   };
 }
 
-export function getTokenPriceD(token: string, decimals: number): BigNumber {
+export function getTokenPriceD(token: string, decimals: number) {
   const tokenPrice = getTokenPrice(token);
+
+  if(!tokenPrice) return null
+
   if (tokenPrice.decimals === decimals) {
     return tokenPrice.value;
   } else if (tokenPrice.decimals > decimals) {
@@ -131,4 +136,4 @@ export function getTokenPriceD(token: string, decimals: number): BigNumber {
   }
 }
 
-startStreaming();
+// startStreaming();

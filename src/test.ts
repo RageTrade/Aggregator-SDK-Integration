@@ -1124,6 +1124,8 @@ async function testAutoRouter() {
     );
     // console.log("gmx Market Price: ", formatUnits(gmxMarketPrice, 30));
     const synMarketPrice = BigNumber.from(
+        //TODO: handle undefined price
+        //@ts-ignore
       (await ss.getMarketPrice(synBtcMarket)).value
     );
     // console.log("syn Market Price: ", formatUnits(synMarketPrice, 18));
@@ -1184,6 +1186,8 @@ async function testAutoRouter() {
           slippage: "1",
         },
         undefined,
+        //TODO: handle undefined price
+        //@ts-ignore
         synMarketPrice
       ),
     ]);
@@ -1238,7 +1242,7 @@ async function testPrice() {
 
   for (let i = 0; i < 1000; i++) {
     const price = getTokenPriceD("BTC", 18);
-    console.log("Price: ", formatUnits(price.toString(), 18));
+    console.log("Price: ", formatUnits((price||0).toString(), 18));
     await delay(1000);
   }
 }

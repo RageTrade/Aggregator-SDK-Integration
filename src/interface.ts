@@ -311,7 +311,7 @@ export interface IExchange {
     transferToken: Token | undefined
   ): Promise<UnsignedTxWithMetadata[]>;
 
-  getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal>;
+  getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal | null>;
 
   getDynamicMetadata(
     market: ExtendedMarket,

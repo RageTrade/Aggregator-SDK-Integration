@@ -172,9 +172,12 @@ export default class SynthetixV2Service implements IExchange {
     };
   }
 
-  async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
+  async getMarketPrice(market: ExtendedMarket) {
+    const v = getTokenPriceD(market.asset!, 18)
+    if(!v) return null
+
     return {
-      value: getTokenPriceD(market.asset!, 18).toString(),
+      value: v.toString(),
       decimals: 18,
     };
   }
@@ -393,12 +396,10 @@ export default class SynthetixV2Service implements IExchange {
     market: ExtendedMarket,
     order: Order,
     existingPosition: ExtendedPosition | undefined,
-    cachedMarketPrice?: BigNumber
-  ): Promise<ExtendedPosition> {
+  ) {
     const marketAddress = await this.getMarketAddress(market);
-    const marketPrice = cachedMarketPrice
-      ? cachedMarketPrice
-      : BigNumber.from((await this.getMarketPrice(market)).value);
+    const marketPrice =  await this.getMarketPrice(market);
+
     await this.sdk.setProvider(provider);
 
     const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([
@@ -438,9 +439,9 @@ export default class SynthetixV2Service implements IExchange {
       status: tradePreview.status,
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage:
-        order.inputCollateralAmount && order.inputCollateralAmount.gt(0)
+        order.inputCollateralAmount && order.inputCollateralAmount.gt(0) && marketPrice
           ? tradePreview.size
-              .mul(marketPrice)
+              .mul(marketPrice.value)
               .div(order.inputCollateralAmount)
               .abs()
           : undefined,
