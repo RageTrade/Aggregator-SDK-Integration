@@ -448,20 +448,21 @@ async function synService() {
   // const tradeHistory = await ss.getTradesHistory(
   //   // "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
   //   // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
-  //   "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+  //   // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+  //   "0xf5433b068A87141C5e214931288942B2Ceb212b0",
   //   undefined
   // );
   // tradeHistory.forEach((t) => {
   //   logObject("Trade History: ", t);
   // });
 
-  const liquidationsHistory = await ss.getLiquidationsHistory(
-    "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
-    undefined
-  );
-  liquidationsHistory.forEach((t) => {
-    logObject("Liq History: ", t);
-  });
+  // const liquidationsHistory = await ss.getLiquidationsHistory(
+  //   "0xf5433b068A87141C5e214931288942B2Ceb212b0",
+  //   undefined
+  // );
+  // liquidationsHistory.forEach((t) => {
+  //   logObject("Liq History: ", t);
+  // });
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -475,10 +476,10 @@ async function synService() {
   // const allOrders = await ss.getAllOrders(w);
   // allOrders.forEach((o) => logObject("All Orders: ", o));
 
-  // const supportedNetworks = ss.supportedNetworks();
+  const supportedNetworks = ss.supportedNetworks();
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
-  // const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
+  const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0]);
   // const btcMarket = supportedMarkets.find(
   //   (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
   // )!;
@@ -540,9 +541,9 @@ async function synService() {
   //   }
   // }
 
-  // const sizeDelta = "0.0612";
-  // const direction = "LONG";
-  // const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
+  const sizeDelta = "0.0612";
+  const direction = "LONG";
+  const marketAddress = "0x2b3bb4c683bfc5239b029131eef3b1d214478d93";
 
   // const openMarkets = await compositeService();
   // const futureMarkets = await ss.getPartialFutureMarketsFromOpenMarkets(
@@ -645,16 +646,21 @@ async function synService() {
   //   console.log("\n\n\n");
   // }
 
-  // const tradePreview = await getTradePreview(
-  //   "0x89E369321619114e317a3121A2693f39728f51f1",
-  //   ss,
-  //   sizeDelta,
-  //   "50",
-  //   direction,
-  //   ethers.utils.parseUnits("1650.187897946949", 18),
-  //   marketAddress
-  // );
-  // logObject("Trade Preview: ", tradePreview);
+  const ethMarket = supportedMarkets.find(
+    (m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP
+  )!;
+
+  const tradePreview = await getTradePreview(
+    "0x89E369321619114e317a3121A2693f39728f51f1",
+    ss,
+    sizeDelta,
+    "50",
+    direction,
+    ethers.utils.parseUnits("1650.187897946949", 18),
+    ethMarket
+  );
+  logObject("Trade Preview: ", tradePreview);
+  logObject("PI: ", tradePreview.priceImpact!);
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -755,24 +761,25 @@ async function gmxService() {
   // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
   // logObject("Dynamic Metadata: ", dynamicMetadata);
 
-  const tradeHistory = await gs.getTradesHistory(
-    // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
-    // "0xe4718282022518A2499dD73Fc767654095F198A5",
-    // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
-    "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
-    undefined
-  );
-  // console.dir({ tradeHistory }, { depth: 4 });
-  tradeHistory.forEach((t) => {
-    logObject("Trade History: ", t);
-  });
-
-  // const liquidationsHistory = await gs.getLiquidationsHistory(
-  //   "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  // const tradeHistory = await gs.getTradesHistory(
+  //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  //   // "0xe4718282022518A2499dD73Fc767654095F198A5",
+  //   // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+  //   // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+  //   "0xf5433b068A87141C5e214931288942B2Ceb212b0",
   //   undefined
   // );
+  // console.dir({ tradeHistory }, { depth: 4 });
+  // tradeHistory.forEach((t) => {
+  //   logObject("Trade History: ", t);
+  // });
+
+  const liquidationsHistory = await gs.getLiquidationsHistory(
+    "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+    undefined
+  );
   // console.dir({ liquidationsHistory }, { depth: 4 });
-  // logObject("Liquidations History: ", liquidationsHistory[0]);
+  logObject("Liquidations History: ", liquidationsHistory[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);

@@ -19,7 +19,7 @@ import {
   ViewError,
   Order,
 } from "../../interface";
-import { logObject } from "../../common/helper";
+import { logObject, toNumberDecimal } from "../../common/helper";
 
 export type GToken = {
   name: string;
@@ -2853,5 +2853,6 @@ export const getTradePreviewInternal = async (
     fee: feesUsd,
     isError: isError,
     error: isError ? "Insufficient Liquidity for Collateral Swap" : "",
+    priceImpact: toNumberDecimal(BigNumber.from(0), 8),
   };
 };

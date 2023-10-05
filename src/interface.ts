@@ -120,7 +120,7 @@ export type ExtendedPosition = Position & {
   fee?: BigNumber;
   leverage?: BigNumber;
   status?: number;
-  priceImpact?: BigNumber;
+  priceImpact?: NumberDecimal;
   exceedsPriceProtection?: boolean;
   sizeDelta?: BigNumber;
   skewAdjustedPrice?: BigNumber;
@@ -184,7 +184,13 @@ export type TradeHistory = {
   realisedPnl: BigNumber | undefined;
   keeperFeesPaid: BigNumber;
   positionFee: BigNumber;
-  operation: "Open Long" | "Close Long" | "Open Short" | "Close Short" | "Long" | "Short";
+  operation:
+    | "Open Long"
+    | "Close Long"
+    | "Open Short"
+    | "Close Short"
+    | "Long"
+    | "Short";
   txHash: string;
 };
 

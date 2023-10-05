@@ -428,6 +428,16 @@ export default class SynthetixV2Service implements IExchange {
         }
       );
 
+    // We are using fillPrice instead of tradePreview.Price for priceimpact calculation
+    // because tradePreview.Price takes into account existing position also and gives final average price basis that
+    const fillPrice = await this.getFillPriceInternal(marketAddress, sizeDelta);
+    const priceImpactPer = marketPrice
+      .sub(fillPrice)
+      .abs()
+      .mul(100)
+      .mul(BigNumber.from(10).pow(18))
+      .div(marketPrice);
+
     return {
       indexOrIdentifier: "",
       size: tradePreview.size.abs(),
@@ -445,6 +455,7 @@ export default class SynthetixV2Service implements IExchange {
               .div(order.inputCollateralAmount)
               .abs()
           : undefined,
+      priceImpact: toNumberDecimal(priceImpactPer, 18),
     };
   }
 
