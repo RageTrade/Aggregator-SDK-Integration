@@ -173,8 +173,8 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getMarketPrice(market: ExtendedMarket) {
-    const v = getTokenPriceD(market.asset!, 18)
-    if(!v) return null
+    const v = getTokenPriceD(market.asset!, 18);
+    if (!v) return null;
 
     return {
       value: v.toString(),
@@ -395,10 +395,10 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    existingPosition: ExtendedPosition | undefined,
+    existingPosition: ExtendedPosition | undefined
   ) {
     const marketAddress = await this.getMarketAddress(market);
-    const marketPrice =  await this.getMarketPrice(market);
+    const marketPrice = await this.getMarketPrice(market);
 
     await this.sdk.setProvider(provider);
 
@@ -431,12 +431,13 @@ export default class SynthetixV2Service implements IExchange {
     // We are using fillPrice instead of tradePreview.Price for priceimpact calculation
     // because tradePreview.Price takes into account existing position also and gives final average price basis that
     const fillPrice = await this.getFillPriceInternal(marketAddress, sizeDelta);
-    const priceImpactPer = marketPrice
+    const mp = BigNumber.from(marketPrice!.value);
+    const priceImpactPer = mp
       .sub(fillPrice)
       .abs()
       .mul(100)
       .mul(BigNumber.from(10).pow(18))
-      .div(marketPrice);
+      .div(mp);
 
     return {
       indexOrIdentifier: "",
@@ -449,7 +450,9 @@ export default class SynthetixV2Service implements IExchange {
       status: tradePreview.status,
       fee: tradePreview.fee.add(tradePreview.keeperFee),
       leverage:
-        order.inputCollateralAmount && order.inputCollateralAmount.gt(0) && marketPrice
+        order.inputCollateralAmount &&
+        order.inputCollateralAmount.gt(0) &&
+        marketPrice
           ? tradePreview.size
               .mul(marketPrice.value)
               .div(order.inputCollateralAmount)
