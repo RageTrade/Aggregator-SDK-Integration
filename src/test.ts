@@ -761,25 +761,27 @@ async function gmxService() {
   // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
   // logObject("Dynamic Metadata: ", dynamicMetadata);
 
-  // const tradeHistory = await gs.getTradesHistory(
-  //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
-  //   // "0xe4718282022518A2499dD73Fc767654095F198A5",
-  //   // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
-  //   // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
-  //   "0xf5433b068A87141C5e214931288942B2Ceb212b0",
-  //   undefined
-  // );
-  // console.dir({ tradeHistory }, { depth: 4 });
-  // tradeHistory.forEach((t) => {
-  //   logObject("Trade History: ", t);
-  // });
-
-  const liquidationsHistory = await gs.getLiquidationsHistory(
-    "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  const tradeHistory = await gs.getTradesHistory(
+    // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+    // "0xe4718282022518A2499dD73Fc767654095F198A5",
+    // "0xd344b73Ac42e34bC8009d522657adE4346B72c9D",
+    // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+    "0xf5433b068A87141C5e214931288942B2Ceb212b0",
     undefined
   );
+  // console.dir({ tradeHistory }, { depth: 4 });
+  tradeHistory.forEach((t) => {
+    logObject("Trade History: ", t);
+  });
+  // console.log("Trade History To ", tradeHistory[0]);
+  // console.log("Trade History From ", tradeHistory[tradeHistory.length - 1]);
+
+  // const liquidationsHistory = await gs.getLiquidationsHistory(
+  //   "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  //   undefined
+  // );
   // console.dir({ liquidationsHistory }, { depth: 4 });
-  logObject("Liquidations History: ", liquidationsHistory[0]);
+  // logObject("Liquidations History: ", liquidationsHistory[0]);
 
   // supportedMarkets.forEach((m) => {
   //   logObject("Supported Market: ", m);
@@ -1131,8 +1133,8 @@ async function testAutoRouter() {
     );
     // console.log("gmx Market Price: ", formatUnits(gmxMarketPrice, 30));
     const synMarketPrice = BigNumber.from(
-        //TODO: handle undefined price
-        //@ts-ignore
+      //TODO: handle undefined price
+      //@ts-ignore
       (await ss.getMarketPrice(synBtcMarket)).value
     );
     // console.log("syn Market Price: ", formatUnits(synMarketPrice, 18));
@@ -1249,7 +1251,7 @@ async function testPrice() {
 
   for (let i = 0; i < 1000; i++) {
     const price = getTokenPriceD("BTC", 18);
-    console.log("Price: ", formatUnits((price||0).toString(), 18));
+    console.log("Price: ", formatUnits((price || 0).toString(), 18));
     await delay(1000);
   }
 }
@@ -1288,7 +1290,7 @@ async function testPrice() {
 
 startStreaming();
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error);

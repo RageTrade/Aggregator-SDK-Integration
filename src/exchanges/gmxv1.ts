@@ -1099,7 +1099,7 @@ export default class GmxV1Service implements IExchange {
             price: BigNumber.from(incTrade.price),
             collateralDelta: BigNumber.from(incTrade.collateralDelta),
             realisedPnl: realisedPnl,
-            keeperFeesPaid: this.EXECUTION_FEE, // ether terms
+            keeperFeesPaid: BigNumber.from(0),
             positionFee: BigNumber.from(incTrade.fee), // does not include keeper fee
             txHash: txHash,
             timestamp: incTrade.timestamp as number,
@@ -1136,7 +1136,7 @@ export default class GmxV1Service implements IExchange {
             price: BigNumber.from(decTrade.price),
             collateralDelta: BigNumber.from(decTrade.collateralDelta),
             realisedPnl: realisedPnl,
-            keeperFeesPaid: this.EXECUTION_FEE, // ether terms
+            keeperFeesPaid: BigNumber.from(0), // ether terms
             positionFee: BigNumber.from(decTrade.fee), // does not include keeper fee
             txHash: txHash,
             timestamp: decTrade.timestamp as number,
@@ -1149,6 +1149,49 @@ export default class GmxV1Service implements IExchange {
     tradeHistory.sort((a, b) => {
       return b.timestamp - a.timestamp;
     });
+
+    let from = new Date(tradeHistory[tradeHistory.length - 1].timestamp * 1000);
+    from.setUTCHours(0, 0, 0, 0);
+    const fromTS = from.getTime() / 1000;
+
+    let to = new Date(tradeHistory[0].timestamp * 1000);
+    to.setUTCHours(24, 0, 0, 0);
+    const toTS = to.getTime() / 1000;
+
+    try {
+      type BenchmarkData = {
+        t: number[];
+        o: number[];
+      };
+
+      let pricesData: BenchmarkData;
+
+      const ethPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.ETH/USD&resolution=D&from=${fromTS}&to=${toTS}`;
+      pricesData = await fetch(ethPriceUrl).then((d) => d.json());
+      let priceMap = new Array<number>();
+
+      for (const i in pricesData.t) {
+        priceMap.push(pricesData.o[i]);
+      }
+      // console.log("PriceMapLength: ", priceMap.length, "Price map: ", priceMap);
+
+      for (const each of tradeHistory) {
+        const ts = each.timestamp;
+        const days = Math.floor((ts - fromTS) / 86400);
+        const etherPrice = ethers.utils.parseUnits(
+          priceMap[days].toString(),
+          18
+        );
+        const PRECISION = BigNumber.from(10).pow(30);
+
+        each.keeperFeesPaid = this.EXECUTION_FEE.mul(PRECISION)
+          .mul(etherPrice)
+          .div(ethers.constants.WeiPerEther)
+          .div(ethers.constants.WeiPerEther);
+      }
+    } catch (e) {
+      console.log("<Gmx trade history> Error fetching price data: ", e);
+    }
 
     return tradeHistory;
   }
