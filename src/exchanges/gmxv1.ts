@@ -21,6 +21,8 @@ import {
   ViewError,
   UnsignedTxWithMetadata,
   LiquidationHistory,
+  PaginatedRes,
+  PageOptions,
 } from "../interface";
 import {
   IERC20__factory,
@@ -56,7 +58,12 @@ import {
   GToken,
   checkTradePathLiquidiytInternal,
 } from "../configs/gmx/tokens";
-import { applySlippage, logObject, toNumberDecimal } from "../common/helper";
+import {
+  applySlippage,
+  getPaginatedResponse,
+  logObject,
+  toNumberDecimal,
+} from "../common/helper";
 import { timer } from "execution-time-decorators";
 import { parseUnits } from "ethers/lib/utils";
 
@@ -497,8 +504,10 @@ export default class GmxV1Service implements IExchange {
   // @timer()
   async getAllOrders(
     user: string,
-    provider: Provider
-  ): Promise<ExtendedOrder[]> {
+    provider: Provider,
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     const eos: ExtendedOrder[] = [];
 
     // TODO - Filter the market orders
@@ -563,7 +572,7 @@ export default class GmxV1Service implements IExchange {
       });
     });
 
-    return eos;
+    return getPaginatedResponse(eos, pageOptions);
   }
 
   getMarketOrders(
@@ -587,7 +596,11 @@ export default class GmxV1Service implements IExchange {
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
-    return (await this.getAllOrders(user, provider)).filter(
+    const allOrders = (
+      await this.getAllOrders(user, provider, undefined, undefined)
+    ).result as ExtendedOrder[];
+
+    return allOrders.filter(
       (order) =>
         order.marketToken!.address == position.indexToken!.address &&
         order.direction == position.direction
@@ -596,8 +609,10 @@ export default class GmxV1Service implements IExchange {
 
   async getAllPositions(
     user: string,
-    provider: Provider
-  ): Promise<ExtendedPosition[]> {
+    provider: Provider,
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     const reader = Reader__factory.connect(
       getContract(ARBITRUM, "Reader")!,
       provider
@@ -731,7 +746,7 @@ export default class GmxV1Service implements IExchange {
 
     // console.log(extPositions)
 
-    return extPositions;
+    return getPaginatedResponse(extPositions, pageOptions);
   }
 
   async updatePositionMargin(
@@ -972,8 +987,9 @@ export default class GmxV1Service implements IExchange {
 
   async getTradesHistory(
     user: string,
-    _: OpenMarkets | undefined
-  ): Promise<TradeHistory[]> {
+    _: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     const results = await fetch(
       "https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum",
       {
@@ -1193,13 +1209,14 @@ export default class GmxV1Service implements IExchange {
       console.log("<Gmx trade history> Error fetching price data: ", e);
     }
 
-    return tradeHistory;
+    return getPaginatedResponse(tradeHistory, pageOptions);
   }
 
   async getLiquidationsHistory(
     user: string,
-    _: OpenMarkets | undefined
-  ): Promise<LiquidationHistory[]> {
+    _: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     const results = await fetch(
       "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats",
       {
@@ -1255,7 +1272,7 @@ export default class GmxV1Service implements IExchange {
       return b.timestamp - a.timestamp;
     });
 
-    return liquidationHistory;
+    return getPaginatedResponse(liquidationHistory, pageOptions);
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {
