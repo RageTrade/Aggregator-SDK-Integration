@@ -24,6 +24,8 @@ import {
   Provider,
   UnsignedTxWithMetadata,
   LiquidationHistory,
+  PageOptions,
+  PaginatedRes,
 } from "../interface";
 import Wei, { wei } from "@synthetixio/wei";
 import {
@@ -42,6 +44,7 @@ import {
   logObject,
   toNumberDecimal,
   applySlippage,
+  getPaginatedResponse,
 } from "../common/helper";
 import { getExplorerUrl } from "../configs/gmx/chains";
 import { timer } from "execution-time-decorators";
@@ -615,8 +618,9 @@ export default class SynthetixV2Service implements IExchange {
   async getAllOrders(
     user: string,
     provider: Provider,
-    openMarkets: OpenMarkets | undefined
-  ): Promise<Array<ExtendedOrder>> {
+    openMarkets: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     throw new Error("Method not implemented.");
     // let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
@@ -690,8 +694,9 @@ export default class SynthetixV2Service implements IExchange {
   async getAllPositions(
     user: string,
     provider: Provider,
-    openMarkets: OpenMarkets | undefined
-  ): Promise<ExtendedPosition[]> {
+    openMarkets: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     let extendedPositions: ExtendedPosition[] = [];
 
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
@@ -737,13 +742,14 @@ export default class SynthetixV2Service implements IExchange {
     //   logObject("Extended position: ", p);
     // });
 
-    return extendedPositions;
+    return getPaginatedResponse(extendedPositions, pageOptions);
   }
 
   async getTradesHistory(
     user: string,
-    openMarkets: OpenMarkets | undefined
-  ): Promise<TradeHistory[]> {
+    openMarkets: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     let trades: TradeHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
@@ -778,13 +784,14 @@ export default class SynthetixV2Service implements IExchange {
 
     trades.sort((a, b) => b.timestamp - a.timestamp);
 
-    return trades;
+    return getPaginatedResponse(trades, pageOptions);
   }
 
   async getLiquidationsHistory(
     user: string,
-    openMarkers: OpenMarkets | undefined
-  ): Promise<LiquidationHistory[]> {
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes> {
     let trades: LiquidationHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
 
@@ -822,7 +829,7 @@ export default class SynthetixV2Service implements IExchange {
 
     trades.sort((a, b) => b.timestamp - a.timestamp);
 
-    return trades;
+    return getPaginatedResponse(trades, pageOptions);
   }
 
   async getIdleMargins(

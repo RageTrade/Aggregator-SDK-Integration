@@ -1,5 +1,5 @@
 import { BigNumber, ethers } from "ethers";
-import { NumberDecimal } from "../interface";
+import { NumberDecimal, PageOptions, PaginatedRes } from "../interface";
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
   myEnum: T,
@@ -52,4 +52,26 @@ export function applySlippage(
   return increment
     ? value.add(value.mul(slippageBPS).div(BPS))
     : value.sub(value.mul(slippageBPS).div(BPS));
+}
+
+export function getPaginatedResponse<T>(
+  data: Array<T>,
+  pageOptions: PageOptions | undefined
+): PaginatedRes {
+  if (pageOptions) {
+    const { skip, limit } = pageOptions;
+
+    const startIndex = skip;
+    let endIndex = startIndex + limit;
+
+    return {
+      result: data.slice(startIndex, endIndex),
+      maxItemsCount: data.length,
+    };
+  }
+
+  return {
+    result: data,
+    maxItemsCount: data.length,
+  };
 }

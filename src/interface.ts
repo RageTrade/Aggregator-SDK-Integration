@@ -273,6 +273,16 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber;
     };
 
+export type PaginatedRes = {
+  result: any;
+  maxItemsCount: number;
+};
+
+export type PageOptions = {
+  limit: number;
+  skip: number;
+};
+
 export interface IExchange {
   // something to indicate when setup should be called
   setup(provider: Provider): Promise<UnsignedTxWithMetadata[]>;
@@ -334,8 +344,9 @@ export interface IExchange {
   getAllOrders(
     user: string,
     provider: Provider,
-    openMarkers: OpenMarkets | undefined
-  ): Promise<Array<ExtendedOrder>>;
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes>;
 
   getAllOrdersForPosition(
     user: string,
@@ -359,18 +370,21 @@ export interface IExchange {
   getAllPositions(
     user: string,
     provider: Provider,
-    openMarkers: OpenMarkets | undefined
-  ): Promise<ExtendedPosition[]>;
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes>;
 
   getTradesHistory(
     user: string,
-    openMarkers: OpenMarkets | undefined
-  ): Promise<TradeHistory[]>;
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes>;
 
   getLiquidationsHistory(
     user: string,
-    openMarkers: OpenMarkets | undefined
-  ): Promise<LiquidationHistory[]>;
+    openMarkers: OpenMarkets | undefined,
+    pageOptions: PageOptions | undefined
+  ): Promise<PaginatedRes>;
 
   getIdleMargins(
     user: string,
