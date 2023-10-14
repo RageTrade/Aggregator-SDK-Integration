@@ -507,7 +507,7 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<ExtendedOrder>> {
     const eos: ExtendedOrder[] = [];
 
     // TODO - Filter the market orders
@@ -612,7 +612,7 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<ExtendedPosition>> {
     const reader = Reader__factory.connect(
       getContract(ARBITRUM, "Reader")!,
       provider
@@ -989,7 +989,7 @@ export default class GmxV1Service implements IExchange {
     user: string,
     _: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<TradeHistory>> {
     const results = await fetch(
       "https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum",
       {
@@ -1216,7 +1216,7 @@ export default class GmxV1Service implements IExchange {
     user: string,
     _: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<LiquidationHistory>> {
     const results = await fetch(
       "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats",
       {

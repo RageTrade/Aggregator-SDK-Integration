@@ -620,7 +620,7 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     openMarkets: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<ExtendedOrder>> {
     throw new Error("Method not implemented.");
     // let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
@@ -696,7 +696,7 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     openMarkets: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<ExtendedPosition>> {
     let extendedPositions: ExtendedPosition[] = [];
 
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
@@ -749,7 +749,7 @@ export default class SynthetixV2Service implements IExchange {
     user: string,
     openMarkets: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<TradeHistory>> {
     let trades: TradeHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets);
 
@@ -791,7 +791,7 @@ export default class SynthetixV2Service implements IExchange {
     user: string,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes> {
+  ): Promise<PaginatedRes<LiquidationHistory>> {
     let trades: LiquidationHistory[] = [];
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers);
 

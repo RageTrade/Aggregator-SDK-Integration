@@ -273,8 +273,8 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber;
     };
 
-export type PaginatedRes = {
-  result: any;
+export type PaginatedRes<T> = {
+  result: T[];
   maxItemsCount: number;
 };
 
@@ -346,7 +346,7 @@ export interface IExchange {
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes>;
+  ): Promise<PaginatedRes<ExtendedOrder>>;
 
   getAllOrdersForPosition(
     user: string,
@@ -372,19 +372,19 @@ export interface IExchange {
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes>;
+  ): Promise<PaginatedRes<ExtendedPosition>>;
 
   getTradesHistory(
     user: string,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes>;
+  ): Promise<PaginatedRes<TradeHistory>>;
 
   getLiquidationsHistory(
     user: string,
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes>;
+  ): Promise<PaginatedRes<LiquidationHistory>>;
 
   getIdleMargins(
     user: string,

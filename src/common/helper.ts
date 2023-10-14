@@ -57,7 +57,7 @@ export function applySlippage(
 export function getPaginatedResponse<T>(
   data: Array<T>,
   pageOptions: PageOptions | undefined
-): PaginatedRes {
+): PaginatedRes<T> {
   if (pageOptions) {
     const { skip, limit } = pageOptions;
 
