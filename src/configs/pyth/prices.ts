@@ -20,7 +20,7 @@ function handleStreamingData(data: { id: string; p: number }) {
 
     if (symbolBase === "USD") {
       prices[symbol] = {
-        value: ethers.utils.parseUnits(String(p), 30).toString(),
+        value: ethers.utils.parseUnits(p.toFixed(18), 30).toString(),
         decimals: 30,
       };
     }
@@ -106,7 +106,7 @@ export function getTokenPrice(token: string) {
 
   const price = prices[token];
 
-  if(!price) return 
+  if (!price) return;
 
   const decimals = price.decimals;
   const value = BigNumber.from(price.value);
@@ -121,7 +121,7 @@ export function getTokenPrice(token: string) {
 export function getTokenPriceD(token: string, decimals: number) {
   const tokenPrice = getTokenPrice(token);
 
-  if(!tokenPrice) return null
+  if (!tokenPrice) return null;
 
   if (tokenPrice.decimals === decimals) {
     return tokenPrice.value;
