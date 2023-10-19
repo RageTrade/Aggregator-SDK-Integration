@@ -1809,6 +1809,9 @@ export const getEditCollateralPreviewInternal = async (
   });
 
   let fromAmount = marginDelta;
+  fromAmount = isDeposit
+    ? fromAmount
+    : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)));
   let convertedAmount: BigNumber;
 
   const { infoTokens } = await useInfoTokens(
