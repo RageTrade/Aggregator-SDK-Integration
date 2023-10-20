@@ -997,7 +997,7 @@ export default class GmxV1Service implements IExchange {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `{
-          trades(where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: asc ) {
+          trades(where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: desc ) {
             id
             key
             fee
