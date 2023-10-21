@@ -1129,6 +1129,7 @@ export default class GmxV1Service implements IExchange {
         for (const decTrade of decreaseList) {
           let txHash = (decTrade.id as string).split(":")[2];
           let realisedPnl = undefined;
+          let collateralDelta = BigNumber.from(decTrade.collateralDelta);
 
           for (const update of updateList) {
             if ((update.id as string).split(":")[2] == txHash) {
@@ -1139,6 +1140,7 @@ export default class GmxV1Service implements IExchange {
           if (!!closedPosition) {
             if ((closedPosition.id as string).split(":")[2] == txHash) {
               realisedPnl = BigNumber.from(closedPosition.realisedPnl);
+              collateralDelta = BigNumber.from(each.collateral);
             }
           }
 
@@ -1150,7 +1152,7 @@ export default class GmxV1Service implements IExchange {
             direction: decTrade.isLong ? "LONG" : "SHORT",
             sizeDelta: BigNumber.from(decTrade.sizeDelta),
             price: BigNumber.from(decTrade.price),
-            collateralDelta: BigNumber.from(decTrade.collateralDelta),
+            collateralDelta: collateralDelta,
             realisedPnl: realisedPnl,
             keeperFeesPaid: BigNumber.from(0), // ether terms
             positionFee: BigNumber.from(decTrade.fee), // does not include keeper fee
