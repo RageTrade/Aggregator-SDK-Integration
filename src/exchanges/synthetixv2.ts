@@ -767,10 +767,10 @@ export default class SynthetixV2Service implements IExchange {
         marketIdentifier: market.indexOrIdentifier,
         collateralToken: this.sUsd,
         // size: t.positionSize.toBN(),
-        sizeDelta: t.size.toBN(),
+        sizeDelta: t.size.toBN().abs(),
         collateralDelta: t.positionClosed
           ? t.margin.mul(-1).toBN()
-          : BigNumber.from(0),
+          : t.margin.toBN(),
         price: t.price.toBN(),
         timestamp: t.timestamp,
         realisedPnl: t.pnl.toBN(),
