@@ -997,7 +997,7 @@ export default class GmxV1Service implements IExchange {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           query: `{
-          trades(where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: desc ) {
+          trades(first: 1000, where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: desc ) {
             id
             key
             fee
@@ -1084,6 +1084,7 @@ export default class GmxV1Service implements IExchange {
 
     const resultJson = await results.json();
     // console.dir({ resultJson }, { depth: 10 });
+    // console.log(resultJson.data.trades.length)
 
     const tradeHistory: TradeHistory[] = [];
 
