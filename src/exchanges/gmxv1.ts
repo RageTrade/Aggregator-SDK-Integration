@@ -1096,6 +1096,8 @@ export default class GmxV1Service implements IExchange {
 
       if (!!increaseList) {
         for (const incTrade of increaseList) {
+          if (BigNumber.from(incTrade.sizeDelta).eq(0)) continue; // Add collateral trades
+
           let txHash = (incTrade.id as string).split(":")[2];
           let realisedPnl = undefined;
 
@@ -1127,6 +1129,8 @@ export default class GmxV1Service implements IExchange {
 
       if (!!decreaseList) {
         for (const decTrade of decreaseList) {
+          if (BigNumber.from(decTrade.sizeDelta).eq(0)) continue; // Remove collateral trades
+
           let txHash = (decTrade.id as string).split(":")[2];
           let realisedPnl = undefined;
           let collateralDelta = BigNumber.from(decTrade.collateralDelta);
