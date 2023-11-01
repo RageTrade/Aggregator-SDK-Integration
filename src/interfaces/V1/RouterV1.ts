@@ -173,7 +173,7 @@ export type PositionInfo = PositionData & {
   protocolId: ProtocolId;
 };
 
-export type GmxPositionInfo = PositionInfo & {
+export type GmxV1PositionInfo = PositionInfo & {
   originalCollateralToken: Token; // can be inferred from market and direction ??
   pnlWithoutFees: AmountInfo;
   closeFee: AmountInfo;
@@ -189,7 +189,7 @@ export type GmxPositionInfo = PositionInfo & {
   fees: AmountInfo;
 };
 
-export type SynPositionInfo = PositionInfo & {
+export type SynV2PositionInfo = PositionInfo & {
   marketAddress: string; // can be taken from marketId
 };
 
@@ -371,7 +371,7 @@ export interface RouterV1 {
 
   getAllOrdersForPosition(
     wallet: string,
-    positionInfo: GmxPositionInfo | SynPositionInfo,
+    positionInfo: GmxV1PositionInfo | SynV2PositionInfo,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<OrderInfo>>;
 
