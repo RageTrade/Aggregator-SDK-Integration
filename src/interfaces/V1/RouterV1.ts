@@ -5,15 +5,16 @@ import {
   ERC20ApprovalAddtionalSessionData,
 } from "../../tx-metadata-types";
 
-// might be able to remove LIMIT_DECREASE and MARKET_DECREASE
-export type OrderType = // check for Trigger Order type and modify accordingly
-  "LIMIT_INCREASE" | "LIMIT_DECREASE" | "MARKET_INCREASE" | "MARKET_DECREASE";
+export type AmountInfo = {
+  amount: FixedNumber;
+  isTokenAmount: boolean;
+};
 
-export type CreateOrderType = "LIMIT" | "MARKET"; // By increase increase
+export type CreateOrderType = "LIMIT" | "MARKET";
 
 export type CloseOrderType = "STOP_LOSS" | "TAKE_PROFIT" | "MARKET";
 
-export type OrderTYpe = CreateOrderType | CloseOrderType;
+export type OrderType = CreateOrderType | CloseOrderType;
 
 export type OrderAction = "CREATE" | "UPDATE" | "CANCEL";
 
@@ -56,8 +57,8 @@ export type Market = {
 export type GenericStaticMarketMetadata = {
   maxLeverage: FixedNumber;
   minLeverage: FixedNumber;
-  minInitialMargin: FixedNumber;
-  minPositionSize: FixedNumber;
+  minInitialMargin: AmountInfo;
+  minPositionSize: AmountInfo;
 };
 
 // Move to exchange specific file
@@ -77,10 +78,10 @@ export type StaticMarketMetadata =
     };
 
 export type GenericDynamicMarketMetadata = {
-  oiLongUsd: FixedNumber;
-  oiShortUsd: FixedNumber;
-  availableLiquidityLongUSD: FixedNumber;
-  availableLiquidityShortUSD: FixedNumber;
+  oiLong: AmountInfo;
+  oiShort: AmountInfo;
+  availableLiquidityLong: AmountInfo;
+  availableLiquidityShort: AmountInfo;
 };
 
 export type FundingBasedDynamicMarketMetadata = GenericDynamicMarketMetadata & {
@@ -112,8 +113,8 @@ export type TriggerData = {
 
 export type TradeData = {
   direction: TradeDirection;
-  sizeDelta: FixedNumber;
-  marginDelta: FixedNumber;
+  sizeDelta: AmountInfo;
+  marginDelta: AmountInfo;
 };
 
 export type OrderData = TradeData & {
@@ -136,12 +137,12 @@ export type CreateOrder = OrderData &
 
 export type UpdateOrder = OrderData &
   OrderIdentifier & {
-    type: OrderTYpe;
+    type: OrderType;
   };
 
 export type OrderInfo = OrderData &
   OrderIdentifier &
-  OrderTYpe &
+  OrderType &
   CollateralData & {
     marketId: Market["marketId"]; // Global id
     protocolId: ProtocolId;
@@ -149,17 +150,17 @@ export type OrderInfo = OrderData &
 
 // for SNX v2, orderIdentifier is same as marketIdentifier
 export type CancelOrder = OrderIdentifier & {
-  type: OrderTYpe;
+  type: OrderType;
 };
 
 export type PositionData = {
   posId: string;
-  size: FixedNumber;
-  margin: FixedNumber;
-  accessibleMargin: FixedNumber;
+  size: AmountInfo;
+  margin: AmountInfo;
+  accessibleMargin: AmountInfo;
   avgEntryPrice: FixedNumber;
   cumulativeFunding: FixedNumber;
-  unrealizedPnl: FixedNumber;
+  unrealizedPnl: AmountInfo;
   liquidationPrice: FixedNumber;
   leverage: FixedNumber;
   direction: TradeDirection;
@@ -174,18 +175,18 @@ export type PositionInfo = PositionData & {
 
 export type GmxPositionInfo = PositionInfo & {
   originalCollateralToken: Token; // can be inferred from market and direction ??
-  pnlWithoutFees: FixedNumber;
-  closeFee: FixedNumber;
-  swapFee: FixedNumber;
-  borrowFee: FixedNumber;
-  positionFee: FixedNumber;
-  collateralAfterFee: FixedNumber;
-  delta: FixedNumber;
+  pnlWithoutFees: AmountInfo;
+  closeFee: AmountInfo;
+  swapFee: AmountInfo;
+  borrowFee: AmountInfo;
+  positionFee: AmountInfo;
+  collateralAfterFee: AmountInfo;
+  delta: AmountInfo;
   hasProfit: boolean;
   entryFundingRate: FixedNumber;
   cumulativeFundingRate: FixedNumber;
   lastUpdatedAt: number;
-  fees: FixedNumber;
+  fees: AmountInfo;
 };
 
 export type SynPositionInfo = PositionInfo & {
@@ -197,9 +198,9 @@ export type HistoricalTradeInfo = TradeData &
     marketId: Market["marketId"]; // Global id
     timestamp: number;
     price: FixedNumber;
-    realizedPnl: FixedNumber;
-    keeperFeesPaid: FixedNumber;
-    positionFee: FixedNumber;
+    realizedPnl: AmountInfo;
+    keeperFeesPaid: AmountInfo;
+    positionFee: AmountInfo;
     operationType: TradeOperationType;
     txHash: string;
   };
@@ -208,24 +209,24 @@ export type LiquidationInfo = CollateralData & {
   marketId: Market["marketId"]; // Global id
   liquidationPrice: FixedNumber;
   direction: TradeDirection;
-  sizeClosed: FixedNumber;
-  realizedPnl: FixedNumber;
-  liquidationFees: FixedNumber;
-  remainingCollateral: FixedNumber;
+  sizeClosed: AmountInfo;
+  realizedPnl: AmountInfo;
+  liquidationFees: AmountInfo;
+  remainingCollateral: AmountInfo;
   liqudationLeverage: FixedNumber;
   timestamp: number;
   txHash: string | undefined; // currently undefined for snx
 };
 
 export type ClosePositionData = {
-  closeSize: FixedNumber;
+  closeSize: AmountInfo;
   type: CloseOrderType;
   triggerData: TriggerData | undefined;
   outputCollateral: Token | undefined;
 };
 
 export type UpdatePositionMarginData = CollateralData & {
-  margin: FixedNumber;
+  margin: AmountInfo;
   isDeposit: boolean;
 };
 
@@ -236,11 +237,11 @@ export type ErrorData = {
 
 export type PreviewInfo = CollateralData & {
   leverage: FixedNumber;
-  size: FixedNumber;
-  margin: FixedNumber;
+  size: AmountInfo;
+  margin: AmountInfo;
   avgEntryPrice: FixedNumber;
   liqudationPrice: FixedNumber;
-  fee: FixedNumber;
+  fee: AmountInfo;
 } & ErrorData;
 
 export type OpenTradePreviewInfo = PreviewInfo & {
@@ -248,7 +249,7 @@ export type OpenTradePreviewInfo = PreviewInfo & {
 };
 
 export type CloseTradePreviewInfo = PreviewInfo & {
-  receiveMargin: FixedNumber;
+  receiveMargin: AmountInfo;
 };
 
 export type PageOptions = {
@@ -353,7 +354,7 @@ export interface RouterV1 {
     Array<
       CollateralData & {
         marketId: Market["marketId"];
-        amount: FixedNumber;
+        amount: AmountInfo;
       }
     >
   >;
@@ -401,7 +402,7 @@ export interface RouterV1 {
   getUpdateMarginPreview(
     wallet: string,
     marketId: Market["marketId"], // Global id
-    marginDelta: FixedNumber,
+    marginDelta: AmountInfo,
     isDeposit: boolean,
     existingPos: PositionInfo | undefined
   ): Promise<PreviewInfo>;
