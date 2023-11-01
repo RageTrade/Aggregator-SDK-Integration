@@ -71,6 +71,10 @@ export type StaticMarketMetadata =
   | {
       protocolId: "SYNTHETIXV2";
       data: SynV2StaticMarketMetadata;
+    }
+  | {
+      protocolId: "PERV2";
+      data: GenericStaticMarketMetadata;
     };
 
 export type GenericDynamicMarketMetadata = {
