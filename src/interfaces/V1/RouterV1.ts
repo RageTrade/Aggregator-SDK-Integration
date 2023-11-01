@@ -4,6 +4,7 @@ import {
   AddressValidationAdditionalSessionData,
   ERC20ApprovalAddtionalSessionData,
 } from "../../tx-metadata-types";
+import { Token } from "../../common/tokens";
 
 export type AmountInfo = {
   amount: FixedNumber;
@@ -18,7 +19,7 @@ export type OrderType = CreateOrderType | CloseOrderType;
 
 export type OrderAction = "CREATE" | "UPDATE" | "CANCEL";
 
-export type ProtocolId = "GMXV1" | "SYNTHETIXV2";
+export type ProtocolId = "GMXV1" | "SYNTHETIXV2" | "PERV2";
 
 export type TradeOperationType =
   | "Open Long"
@@ -31,13 +32,6 @@ export type TradeOperationType =
 export type Network = {
   name: string;
   chainId: number;
-};
-
-export type Token = {
-  name: string;
-  symbol: string;
-  decimals: number;
-  address: string;
 };
 
 export type Protocol = {

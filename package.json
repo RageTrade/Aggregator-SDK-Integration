@@ -16,7 +16,9 @@
     "@solana/web3.js": "^1.78.5",
     "@synthetixio/wei": "^2.74.4",
     "ethers": "^5.7.2",
-    "ethers-v6": "npm:ethers@6.8.0"
+    "ethers-v6": "npm:ethers@6.8.0",
+    "perennial-sdk-ts": "^0.1.7",
+    "viem": "^1.18.1"
   },
   "version": "1.0.0",
   "license": "MIT"
