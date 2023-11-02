@@ -65,34 +65,24 @@ export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
 
 export type StaticMarketMetadata =
   | {
-      protocolId: "GMXV1";
-      data: GenericStaticMarketMetadata;
-    }
+    protocolId: "GMXV1";
+    data: GenericStaticMarketMetadata;
+  }
   | {
-      protocolId: "SYNTHETIXV2";
-      data: SynV2StaticMarketMetadata;
-    }
+    protocolId: "SYNTHETIXV2";
+    data: SynV2StaticMarketMetadata;
+  }
   | {
-      protocolId: "PERV2";
-      data: GenericStaticMarketMetadata;
-    };
+    protocolId: "PERV2";
+    data: GenericStaticMarketMetadata;
+  };
 
-export type GenericDynamicMarketMetadata = {
+export type DynamicMarketMetadata = {
   oiLong: AmountInfo;
   oiShort: AmountInfo;
   availableLiquidityLong: AmountInfo;
   availableLiquidityShort: AmountInfo;
 };
-
-export type DynamicMarketMetadata =
-  | {
-      protocolId: "GMXV1";
-      data: GenericStaticMarketMetadata;
-    }
-  | {
-      protocolId: "SYNTHETIXV2";
-      data: GenericStaticMarketMetadata;
-    };
 
 export type MarketInfo = Market & StaticMarketMetadata & Protocol;
 
@@ -256,41 +246,47 @@ export type PaginatedRes<T> = {
 
 export type UnsignedTxWithMetadata =
   | {
-      tx: UnsignedTransaction;
-      type: "ERC20_APPROVAL";
-      data: ERC20ApprovalAddtionalSessionData;
-      ethRequired?: BigNumber;
-    }
+    tx: UnsignedTransaction;
+    type: "ERC20_APPROVAL";
+    data: ERC20ApprovalAddtionalSessionData;
+    ethRequired?: BigNumber;
+  }
   | {
-      tx: UnsignedTransaction;
-      type: "GMX_V1";
-      data: undefined;
-      ethRequired?: BigNumber;
-    }
+    tx: UnsignedTransaction;
+    type: "GMX_V1";
+    data: undefined;
+    ethRequired?: BigNumber;
+  }
   | {
-      tx: UnsignedTransaction;
-      type: "LIFI";
-      data: undefined;
-      ethRequired?: BigNumber;
-    }
+    tx: UnsignedTransaction;
+    type: "LIFI";
+    data: undefined;
+    ethRequired?: BigNumber;
+  }
   | {
-      tx: UnsignedTransaction;
-      type: "SNX_V2";
-      data: undefined;
-      ethRequired?: BigNumber;
-    }
+    tx: UnsignedTransaction;
+    type: "SNX_V2";
+    data: undefined;
+    ethRequired?: BigNumber;
+  }
   | {
-      tx: UnsignedTransaction;
-      type: "NATIVE";
-      data: undefined;
-      ethRequired?: BigNumber;
-    }
+    tx: UnsignedTransaction;
+    type: "NATIVE";
+    data: undefined;
+    ethRequired?: BigNumber;
+  }
   | {
-      tx: UnsignedTransaction;
-      type: "ADDRESS";
-      data: AddressValidationAdditionalSessionData;
-      ethRequired?: BigNumber;
-    };
+    tx: UnsignedTransaction;
+    type: "ADDRESS";
+    data: AddressValidationAdditionalSessionData;
+    ethRequired?: BigNumber;
+  }
+  | {
+    tx: UnsignedTransaction;
+    type: "PER_V2";
+    data: undefined;
+    ethRequired?: BigNumber;
+  };
 
 export interface RouterV1 {
   ///// Setup api //////
