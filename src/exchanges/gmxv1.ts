@@ -282,12 +282,23 @@ export default class GmxV1Service implements IExchange {
 
     const tokenAddressString = this.getTokenAddressString(order.inputCollateral.address)
 
-    let createOrderTx: UnsignedTransaction
-    if (order.type == 'LIMIT_INCREASE') {
-      const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
+    let createOrderTx: UnsignedTransaction;
+    let extraEthReq = BigNumber.from(0);
+    if (order.type == "LIMIT_INCREASE") {
+      const orderBook = OrderBook__factory.connect(
+        getContract(ARBITRUM, "OrderBook")!,
+        provider
+      );
 
       const path: string[] = []
       path.push(tokenAddressString)
+
+      const isEthCollateral =
+        order.inputCollateral.address == ethers.constants.AddressZero;
+
+      if (isEthCollateral) {
+        extraEthReq = order.inputCollateralAmount;
+      }
 
       createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
         path,
@@ -300,12 +311,11 @@ export default class GmxV1Service implements IExchange {
         order.trigger?.triggerPrice!,
         !(order.direction == 'LONG'),
         this.EXECUTION_FEE,
-        order.inputCollateral.address == ethers.constants.AddressZero,
+        isEthCollateral,
         {
-          value:
-            order.inputCollateral.address == ethers.constants.AddressZero
-              ? BigNumber.from(this.EXECUTION_FEE).add(order.inputCollateralAmount)
-              : this.EXECUTION_FEE
+          value: isEthCollateral
+            ? this.EXECUTION_FEE.add(order.inputCollateralAmount)
+            : this.EXECUTION_FEE,
         }
       )
     } else if (order.type == 'MARKET_INCREASE') {
@@ -345,20 +355,23 @@ export default class GmxV1Service implements IExchange {
           }
         )
       } else {
-        createOrderTx = await positionRouter.populateTransaction.createIncreasePositionETH(
-          path,
-          market.indexOrIdentifier,
-          0,
-          order.sizeDelta,
-          order.direction == 'LONG' ? true : false,
-          acceptablePrice,
-          this.EXECUTION_FEE,
-          ethers.constants.HashZero, // Referral code set during setup()
-          ethers.constants.AddressZero,
-          {
-            value: BigNumber.from(this.EXECUTION_FEE).add(order.inputCollateralAmount)
-          }
-        )
+        extraEthReq = order.inputCollateralAmount;
+
+        createOrderTx =
+          await positionRouter.populateTransaction.createIncreasePositionETH(
+            path,
+            market.indexOrIdentifier,
+            0,
+            order.sizeDelta,
+            order.direction == "LONG" ? true : false,
+            acceptablePrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE.add(order.inputCollateralAmount),
+            }
+          );
       }
     }
 
@@ -366,8 +379,8 @@ export default class GmxV1Service implements IExchange {
       tx: createOrderTx!,
       type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider)
-    })
+      ethRequired: await this.getEthRequired(provider, extraEthReq),
+    });
 
     return txs
   }
@@ -654,8 +667,9 @@ export default class GmxV1Service implements IExchange {
 
     const path: string[] = []
 
-    let marginTx: UnsignedTransaction
-    let txs: UnsignedTxWithMetadata[] = []
+    let marginTx: UnsignedTransaction;
+    let txs: UnsignedTxWithMetadata[] = [];
+    let extraEthReq = BigNumber.from(0);
 
     if (isDeposit) {
       //approve router for token spends
@@ -673,6 +687,8 @@ export default class GmxV1Service implements IExchange {
       }
 
       if (transferToken.address == ethers.constants.AddressZero) {
+        extraEthReq = marginAmount;
+        
         marginTx = await positionRouter.populateTransaction.createIncreasePositionETH(
           path,
           indexAddress,
@@ -734,8 +750,8 @@ export default class GmxV1Service implements IExchange {
       tx: marginTx,
       type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider)
-    })
+      ethRequired: await this.getEthRequired(provider, extraEthReq),
+    });
 
     return txs
   }
@@ -1142,7 +1158,7 @@ export default class GmxV1Service implements IExchange {
       this.getMarketPrice,
       this.convertToToken,
       order,
-      BigNumber.from(this.EXECUTION_FEE),
+      this.EXECUTION_FEE,
       existingPosition
     )
   }
@@ -1161,7 +1177,7 @@ export default class GmxV1Service implements IExchange {
       provider,
       position,
       closeSize,
-      BigNumber.from(this.EXECUTION_FEE),
+      this.EXECUTION_FEE,
       isTrigger,
       triggerPrice,
       outputToken ? this.convertToGToken(outputToken) : undefined,
@@ -1182,8 +1198,8 @@ export default class GmxV1Service implements IExchange {
       marginDelta,
       isDeposit,
       this.convertToToken,
-      BigNumber.from(this.EXECUTION_FEE)
-    )
+      this.EXECUTION_FEE
+    );
   }
 
   getPositionKey(
@@ -1427,9 +1443,12 @@ export default class GmxV1Service implements IExchange {
     return [...increaseOrders, ...decreaseOrders]
   }
 
-  async getEthRequired(provider: Provider): Promise<BigNumber | undefined> {
-    const ethBalance = await provider.getBalance(this.swAddr)
-    const ethRequired = BigNumber.from(this.EXECUTION_FEE)
+  async getEthRequired(
+    provider: Provider,
+    extraEthReq: BigNumber = BigNumber.from(0)
+  ): Promise<BigNumber | undefined> {
+    const ethBalance = await provider.getBalance(this.swAddr);
+    const ethRequired = this.EXECUTION_FEE.add(extraEthReq);
 
     if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
   }
