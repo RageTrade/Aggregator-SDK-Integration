@@ -53,8 +53,6 @@ export type GenericStaticMarketMetadata = {
   minLeverage: FixedNumber;
   minInitialMargin: AmountInfo;
   minPositionSize: AmountInfo;
-  longRate: FixedNumber;
-  shortRate: FixedNumber;
 };
 
 // Move to exchange specific file
@@ -82,6 +80,8 @@ export type DynamicMarketMetadata = {
   oiShort: AmountInfo;
   availableLiquidityLong: AmountInfo;
   availableLiquidityShort: AmountInfo;
+  longRate: FixedNumber;
+  shortRate: FixedNumber;
 };
 
 export type MarketInfo = Market & StaticMarketMetadata & Protocol;
@@ -359,7 +359,7 @@ export interface RouterV1 {
 
   getAllOrdersForPosition(
     wallet: string,
-    positionInfo: GmxV1PositionInfo | SynV2PositionInfo,
+    positionInfo: PositionInfo,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<OrderInfo>>;
 
