@@ -10,9 +10,9 @@ export type AmountInfo = {
   isTokenAmount: boolean;
 };
 
-export type CreateOrderType = "LIMIT" | "MARKET";
+export type CreateOrderType = "LIMIT" | "MARKET"; // IncreasePosition
 
-export type CloseOrderType = "STOP_LOSS" | "TAKE_PROFIT" | "MARKET";
+export type CloseOrderType = "STOP_LOSS" | "TAKE_PROFIT" | "MARKET"; // ClosePosition
 
 export type OrderType = CreateOrderType | CloseOrderType;
 
@@ -59,6 +59,8 @@ export type GenericStaticMarketMetadata = {
   minLeverage: FixedNumber;
   minInitialMargin: AmountInfo;
   minPositionSize: AmountInfo;
+  longRate: FixedNumber;
+  shortRate: FixedNumber;
 };
 
 // Move to exchange specific file
@@ -84,22 +86,14 @@ export type GenericDynamicMarketMetadata = {
   availableLiquidityShort: AmountInfo;
 };
 
-export type FundingBasedDynamicMarketMetadata = GenericDynamicMarketMetadata & {
-  fundingRate: FixedNumber;
-};
-
-export type BorrowBasedDynamicMarketMetadata = GenericDynamicMarketMetadata & {
-  borrowRate: FixedNumber;
-};
-
 export type DynamicMarketMetadata =
   | {
       protocolId: "GMXV1";
-      data: BorrowBasedDynamicMarketMetadata;
+      data: GenericStaticMarketMetadata;
     }
   | {
       protocolId: "SYNTHETIXV2";
-      data: FundingBasedDynamicMarketMetadata;
+      data: GenericStaticMarketMetadata;
     };
 
 export type MarketInfo = Market & StaticMarketMetadata & Protocol;
