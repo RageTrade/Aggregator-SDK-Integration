@@ -16,26 +16,26 @@ import {
   PositionSide,
 } from "@kwenta/sdk/dist/types";
 import Wei, { wei } from "@synthetixio/wei";
-import SynthetixV2Service from "./exchanges/synthetixv2";
+import SynthetixV2Service from "../src/exchanges/synthetixv2";
 import {
   ExtendedMarket,
   Mode,
   OrderDirection,
   OrderType,
   UnsignedTxWithMetadata,
-} from "./interface";
-import GmxV1Service from "./exchanges/gmxv1";
-import { formatAmount, getTokenBySymbol } from "./configs/gmx/tokens";
-import { ARBITRUM } from "./configs/gmx/chains";
-import CompositeService from "./common/compositeService";
+} from "../src/interface";
+import GmxV1Service from "../src/exchanges/gmxv1";
+import { formatAmount, getTokenBySymbol } from "../src/configs/gmx/tokens";
+import { ARBITRUM } from "../src/configs/gmx/chains";
+import CompositeService from "../src/common/compositeService";
 import { FuturesMarketKey } from "@kwenta/sdk/dist/types/futures";
-import { logObject } from "./common/helper";
+import { logObject } from "../src/common/helper";
 import { formatUnits, parseUnits } from "ethers/lib/utils";
 import {
   getTokenPrice,
   getTokenPriceD,
   startStreaming,
-} from "./configs/pyth/prices";
+} from "../src/configs/pyth/prices";
 import { Connection } from "@solana/web3.js";
 
 config();

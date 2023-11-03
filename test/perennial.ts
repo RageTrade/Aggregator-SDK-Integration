@@ -1,4 +1,4 @@
-import PerennialV2Service from "./src/exchanges/perennialv2";
+import PerennialV2Service from "../src/exchanges/perennialv2";
 
 async function main() {
     const service = new PerennialV2Service()
