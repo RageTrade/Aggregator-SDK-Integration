@@ -32,7 +32,7 @@ import {
   Reader__factory,
   ReferralStorage__factory,
   Router__factory,
-} from "../../gmxV1Typechain";
+} from "../../typechain/gmx-v1/";
 import { getContract } from "../configs/gmx/contracts";
 import { ARBITRUM, getConstant } from "../configs/gmx/chains";
 import {

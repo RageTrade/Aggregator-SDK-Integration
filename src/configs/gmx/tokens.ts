@@ -12,7 +12,7 @@ import {
   IERC20__factory,
   Reader__factory,
   VaultReader__factory,
-} from "../../../gmxV1Typechain";
+} from "../../../typechain/gmx-v1";
 import {
   ExtendedMarket,
   ExtendedPosition,
@@ -912,7 +912,7 @@ function applyPendingChanges(position: any, pendingPositions: any) {
     pendingPositions[key].updatedAt &&
     pendingPositions[key].pendingChanges &&
     pendingPositions[key].updatedAt + PENDING_POSITION_VALID_DURATION >
-      Date.now()
+    Date.now()
   ) {
     const { pendingChanges } = pendingPositions[key];
     if (pendingChanges.size && position.size.eq(pendingChanges.size)) {
@@ -1233,11 +1233,11 @@ export function getInfoTokens(
 
       token.availableUsd = token.isStable
         ? token.poolAmount
-            .mul(token.minPrice)
-            .div(expandDecimals(1, token.decimals))
+          .mul(token.minPrice)
+          .div(expandDecimals(1, token.decimals))
         : token.availableAmount
-            .mul(token.minPrice)
-            .div(expandDecimals(1, token.decimals));
+          .mul(token.minPrice)
+          .div(expandDecimals(1, token.decimals));
 
       token.maxAvailableLong = bigNumberify(0)!;
       token.hasMaxAvailableLong = false;
@@ -1258,7 +1258,7 @@ export function getInfoTokens(
 
       token.maxLongCapacity =
         token.maxGlobalLongSize.gt(0) &&
-        token.maxGlobalLongSize.lt(token.availableUsd.add(token.guaranteedUsd))
+          token.maxGlobalLongSize.lt(token.availableUsd.add(token.guaranteedUsd))
           ? token.maxGlobalLongSize
           : token.availableUsd.add(token.guaranteedUsd);
 
@@ -1461,7 +1461,7 @@ export function getPositions(
       updatedPositions[key] &&
       updatedPositions[key].updatedAt &&
       updatedPositions[key].updatedAt + UPDATED_POSITION_VALID_DURATION >
-        Date.now()
+      Date.now()
     ) {
       const updatedPosition = updatedPositions[key];
       position.size = updatedPosition.size;
@@ -2425,8 +2425,8 @@ export function getNextToAmount(
         ratio && !ratio.isZero()
           ? toAmountBasedOnRatio
           : fromAmount
-              .mul(toToken.redemptionAmount!)
-              .div(expandDecimals(1, toToken.decimals));
+            .mul(toToken.redemptionAmount!)
+            .div(expandDecimals(1, toToken.decimals));
 
       return {
         amount: adjustDecimals(
@@ -2449,8 +2449,8 @@ export function getNextToAmount(
         ratio && !ratio.isZero()
           ? toAmountBasedOnRatio
           : fromAmount
-              .mul(toToken.redemptionAmount!)
-              .div(expandDecimals(1, toToken.decimals));
+            .mul(toToken.redemptionAmount!)
+            .div(expandDecimals(1, toToken.decimals));
       const feeBasisPoints = getSwapFeeBasisPoints(toToken.isStable);
       return {
         amount: adjustDecimals(
@@ -2503,8 +2503,8 @@ export function getNextToAmount(
     ratio && !ratio.isZero()
       ? toAmountBasedOnRatio
       : fromAmount
-          .mul(fromTokenMinPrice)
-          .div(toTokenPriceUsd || toTokenMaxPrice);
+        .mul(fromTokenMinPrice)
+        .div(toTokenPriceUsd || toTokenMaxPrice);
 
   let usdgAmount = fromAmount.mul(fromTokenMinPrice).div(PRECISION);
   usdgAmount = adjustForDecimals(usdgAmount, fromToken.decimals, USDG_DECIMALS);
