@@ -67,10 +67,10 @@ export default class PerennialV2Service {
                 longCollateral: [this.getToken(assetMetadata.quoteCurrency)],
                 shortCollateral: [this.getToken(assetMetadata.quoteCurrency)],
                 supportedOrderTypes: {
-                    LIMIT_INCREASE: true,
-                    LIMIT_DECREASE: true,
-                    MARKET_INCREASE: true,
-                    MARKET_DECREASE: true,
+                    LIMIT: true,
+                    MARKET: true,
+                    STOP_LOSS: true,
+                    TAKE_PROFIT: true
                 },
                 supportedOrderActions: {
                     CREATE: true,
@@ -80,8 +80,8 @@ export default class PerennialV2Service {
                 data: {
                     minLeverage: FixedNumber.fromString('0',30),
                     maxLeverage: FixedNumber.fromString((1000000/Number(value.riskParameter.margin)).toString(),30),
-                    minInitialMargin: FixedNumber.fromString('10',6),
-                    minPositionSize: FixedNumber.fromString('0',6),
+                    minInitialMargin: {amount:FixedNumber.fromString('10',6), isTokenAmount: false},
+                    minPositionSize: {amount:FixedNumber.fromString('0',6), isTokenAmount: false},
                 }
             })
         }
@@ -95,7 +95,7 @@ export default class PerennialV2Service {
         marketId: String, // Global id
         order: CreateOrder
     ): Promise<UnsignedTxWithMetadata[]> {
-        
+
         // await modifyPosition(this.publicClient,)
         return Promise.resolve([])
     }

@@ -390,8 +390,8 @@ export interface RouterV1 {
   getUpdateMarginPreview(
     wallet: string,
     marketId: Market["marketId"], // Global id
-    marginDelta: AmountInfo,
     isDeposit: boolean,
+    marginDelta: AmountInfo,
     existingPos: PositionInfo | undefined
   ): Promise<PreviewInfo>;
 }
