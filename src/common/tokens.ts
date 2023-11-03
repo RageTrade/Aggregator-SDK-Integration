@@ -3,14 +3,14 @@ import { arbitrum, optimism } from 'viem/chains'
 type Maybe<T> = T | undefined
 
 export interface Token {
-    symbol: string
-    name: string
-    decimals: number
-    address: {
-      [arbitrum.id]: Maybe<`0x${string}`>
-      [optimism.id]: Maybe<`0x${string}`>
-    }
+  symbol: string
+  name: string
+  decimals: number
+  address: {
+    [arbitrum.id]: Maybe<`0x${string}`>
+    [optimism.id]: Maybe<`0x${string}`>
   }
+}
 
 export const tokens = {
   ETH: {

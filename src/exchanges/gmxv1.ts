@@ -1,4 +1,4 @@
-import { UnsignedTransaction, BigNumberish, ethers, BigNumber } from "ethers";
+import { UnsignedTransaction, BigNumberish, ethers, BigNumber } from 'ethers'
 import {
   CollateralData,
   DynamicMarketMetadata,
@@ -22,8 +22,8 @@ import {
   UnsignedTxWithMetadata,
   LiquidationHistory,
   PaginatedRes,
-  PageOptions,
-} from "../interface";
+  PageOptions
+} from '../interface'
 import {
   IERC20__factory,
   OrderBookReader__factory,
@@ -31,10 +31,10 @@ import {
   PositionRouter__factory,
   Reader__factory,
   ReferralStorage__factory,
-  Router__factory,
-} from "../../typechain/gmx-v1/";
-import { getContract } from "../configs/gmx/contracts";
-import { ARBITRUM, getConstant } from "../configs/gmx/chains";
+  Router__factory
+} from '../../typechain/gmx-v1/'
+import { getContract } from '../configs/gmx/contracts'
+import { ARBITRUM, getConstant } from '../configs/gmx/chains'
 import {
   V1_TOKENS,
   getPositionQuery,
@@ -56,33 +56,24 @@ import {
   getCloseTradePreviewInternal,
   getEditCollateralPreviewInternal,
   GToken,
-  checkTradePathLiquidiytInternal,
-} from "../configs/gmx/tokens";
-import {
-  applySlippage,
-  getPaginatedResponse,
-  logObject,
-  toNumberDecimal,
-} from "../common/helper";
-import { timer } from "execution-time-decorators";
-import { parseUnits } from "ethers/lib/utils";
+  checkTradePathLiquidiytInternal
+} from '../configs/gmx/tokens'
+import { applySlippage, getPaginatedResponse, logObject, toNumberDecimal } from '../common/helper'
+import { timer } from 'execution-time-decorators'
+import { parseUnits } from 'ethers/lib/utils'
 
 // taken from contract Vault.sol
-const LIQUIDATION_FEE_USD = BigNumber.from("5000000000000000000000000000000");
+const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 
 export default class GmxV1Service implements IExchange {
-  private REFERRAL_CODE =
-    "0x7261676574726164650000000000000000000000000000000000000000000000";
+  private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
-  private EXECUTION_FEE = getConstant(
-    ARBITRUM,
-    "DECREASE_ORDER_EXECUTION_GAS_FEE"
-  )! as BigNumber;
-  private protocolIdentifier: PROTOCOL_NAME = "GMX_V1";
-  private nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN")!;
-  private shortTokenAddress = getTokenBySymbol(ARBITRUM, "USDC.e")!.address;
-  private swAddr: string;
-  private whitelistedTokens = getWhitelistedTokens(ARBITRUM);
+  private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber
+  private protocolIdentifier: PROTOCOL_NAME = 'GMX_V1'
+  private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
+  private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
+  private swAddr: string
+  private whitelistedTokens = getWhitelistedTokens(ARBITRUM)
   private indexTokens = this.whitelistedTokens
     .filter((token) => !token.isStable && !token.isWrapped)
     .map((token) => {
@@ -90,10 +81,10 @@ export default class GmxV1Service implements IExchange {
         address: token.address,
         decimals: token.decimals.toString(),
         symbol: token.symbol,
-        name: token.name,
-      };
-      return tokenIn;
-    });
+        name: token.name
+      }
+      return tokenIn
+    })
   private collateralTokens = this.whitelistedTokens
     .filter((token) => !token.isTempHidden)
     .map((token) => {
@@ -101,41 +92,27 @@ export default class GmxV1Service implements IExchange {
         address: token.address,
         decimals: token.decimals.toString(),
         symbol: token.symbol,
-        name: token.name,
-      };
-      return tokenIn;
-    });
+        name: token.name
+      }
+      return tokenIn
+    })
 
   constructor(_swAddr: string) {
-    this.swAddr = _swAddr;
+    this.swAddr = _swAddr
   }
 
-  async getDynamicMetadata(
-    market: ExtendedMarket,
-    provider: Provider
-  ): Promise<DynamicMarketMetadata> {
-    const reader = Reader__factory.connect(
-      getContract(ARBITRUM, "Reader")!,
-      provider
-    );
+  async getDynamicMetadata(market: ExtendedMarket, provider: Provider): Promise<DynamicMarketMetadata> {
+    const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
 
-    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
+    const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
 
-    const fundingRateInfo = await reader.getFundingRates(
-      getContract(ARBITRUM, "Vault")!,
-      nativeTokenAddress!,
-      [market.marketToken?.address!]
-    );
+    const fundingRateInfo = await reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, [
+      market.marketToken?.address!
+    ])
 
-    const { infoTokens } = await useInfoTokens(
-      provider,
-      ARBITRUM,
-      false,
-      [BigNumber.from(0)],
-      fundingRateInfo
-    );
+    const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, [BigNumber.from(0)], fundingRateInfo)
 
-    const info = infoTokens[market.marketToken?.address!];
+    const info = infoTokens[market.marketToken?.address!]
 
     return {
       oiLongUsd: info.guaranteedUsd!,
@@ -145,66 +122,54 @@ export default class GmxV1Service implements IExchange {
       availableLiquidityLongUSD: info.maxAvailableLong,
       availableLiquidityShortUSD: info.maxAvailableShort,
       marketLimitUsd: BigNumber.from(0),
-      marketLimitNative: BigNumber.from(0),
-    };
+      marketLimitNative: BigNumber.from(0)
+    }
   }
 
   invariant(condition: any, errorMsg: string | undefined) {
     if (!condition) {
-      throw new Error(errorMsg);
+      throw new Error(errorMsg)
     }
   }
 
   async setup(provider: Provider): Promise<UnsignedTxWithMetadata[]> {
-    const referralStorage = ReferralStorage__factory.connect(
-      getContract(ARBITRUM, "ReferralStorage")!,
-      provider
-    );
+    const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, provider)
 
     // Check if user has already setup
-    const code = await referralStorage.traderReferralCodes(this.swAddr);
+    const code = await referralStorage.traderReferralCodes(this.swAddr)
     if (code != ethers.constants.HashZero) {
-      return Promise.resolve([]);
+      return Promise.resolve([])
     }
 
-    let txs: UnsignedTxWithMetadata[] = [];
+    let txs: UnsignedTxWithMetadata[] = []
 
     // set referral code
-    const setReferralCodeTx =
-      await referralStorage.populateTransaction.setTraderReferralCodeByUser(
-        this.REFERRAL_CODE
-      );
+    const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(this.REFERRAL_CODE)
     txs.push({
       tx: setReferralCodeTx,
-      type: "GMX_V1",
-      data: undefined,
-    });
+      type: 'GMX_V1',
+      data: undefined
+    })
 
     // approve router
-    const router = Router__factory.connect(
-      getContract(ARBITRUM, "Router")!,
-      provider
-    );
-    const approveOrderBookTx = await router.populateTransaction.approvePlugin(
-      getContract(ARBITRUM, "OrderBook")!
-    );
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, provider)
+    const approveOrderBookTx = await router.populateTransaction.approvePlugin(getContract(ARBITRUM, 'OrderBook')!)
     txs.push({
       tx: approveOrderBookTx,
-      type: "GMX_V1",
-      data: undefined,
-    });
+      type: 'GMX_V1',
+      data: undefined
+    })
 
-    const approvePositionRouterTx =
-      await router.populateTransaction.approvePlugin(
-        getContract(ARBITRUM, "PositionRouter")!
-      );
+    const approvePositionRouterTx = await router.populateTransaction.approvePlugin(
+      getContract(ARBITRUM, 'PositionRouter')!
+    )
     txs.push({
       tx: approvePositionRouterTx,
-      type: "GMX_V1",
-      data: undefined,
-    });
+      type: 'GMX_V1',
+      data: undefined
+    })
 
-    return txs;
+    return txs
   }
 
   async getApproveRouterSpendTx(
@@ -212,39 +177,36 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     allowanceAmount: BigNumber
   ): Promise<UnsignedTxWithMetadata | undefined> {
-    let token = IERC20__factory.connect(tokenAddress, provider);
-    const router = getContract(ARBITRUM, "Router")!;
+    let token = IERC20__factory.connect(tokenAddress, provider)
+    const router = getContract(ARBITRUM, 'Router')!
 
-    let allowance = await token.allowance(this.swAddr, router);
+    let allowance = await token.allowance(this.swAddr, router)
 
     if (allowance.lt(allowanceAmount)) {
-      let tx = await token.populateTransaction.approve(
-        router,
-        ethers.constants.MaxUint256
-      );
+      let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
       return {
         tx,
-        type: "ERC20_APPROVAL",
-        data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
-      };
+        type: 'ERC20_APPROVAL',
+        data: { chainId: ARBITRUM, spender: router, token: tokenAddress }
+      }
     }
   }
 
   supportedNetworks(): readonly Network[] {
-    const networks: Network[] = [];
+    const networks: Network[] = []
     networks.push({
-      name: "arbitrum",
-      chainId: ARBITRUM,
-    });
-    return networks;
+      name: 'arbitrum',
+      chainId: ARBITRUM
+    })
+    return networks
   }
 
   async supportedMarkets(network: Network): Promise<ExtendedMarket[]> {
-    let markets: ExtendedMarket[] = [];
+    let markets: ExtendedMarket[] = []
 
     this.indexTokens.forEach((indexToken) => {
       markets.push({
-        mode: "ASYNC",
+        mode: 'ASYNC',
         longCollateral: this.collateralTokens,
         shortCollateral: this.collateralTokens,
         supportedOrderTypes: {
@@ -253,62 +215,58 @@ export default class GmxV1Service implements IExchange {
           MARKET_INCREASE: true,
           MARKET_DECREASE: true,
           DEPOSIT: false,
-          WITHDRAW: false,
+          WITHDRAW: false
         },
         supportedOrderActions: {
           CREATE: true,
           UPDATE: true,
-          CANCEL: true,
+          CANCEL: true
         },
         asset: indexToken.symbol,
         indexOrIdentifier: this.getTokenAddress(indexToken),
         marketToken: indexToken,
-        minLeverage: toNumberDecimal(parseUnits("1.1", 4), 4),
-        maxLeverage: toNumberDecimal(parseUnits("50", 4), 4),
-        minInitialMargin: toNumberDecimal(BigNumber.from("0"), 30),
+        minLeverage: toNumberDecimal(parseUnits('1.1', 4), 4),
+        maxLeverage: toNumberDecimal(parseUnits('50', 4), 4),
+        minInitialMargin: toNumberDecimal(BigNumber.from('0'), 30),
         protocolName: this.protocolIdentifier,
-        minPositionSize: toNumberDecimal(parseUnits("10", 30), 30),
-      });
-    });
+        minPositionSize: toNumberDecimal(parseUnits('10', 30), 30)
+      })
+    })
 
-    return markets;
+    return markets
   }
 
   async getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal> {
-    const indexPricesUrl = getServerUrl(ARBITRUM, "/prices");
-    const response = await fetch(indexPricesUrl);
-    const jsonResponse = await response.json();
+    const indexPricesUrl = getServerUrl(ARBITRUM, '/prices')
+    const response = await fetch(indexPricesUrl)
+    const jsonResponse = await response.json()
     // console.dir(jsonResponse, { depth: 10 });
 
-    const indexPrice = jsonResponse[market.indexOrIdentifier];
+    const indexPrice = jsonResponse[market.indexOrIdentifier]
 
     return {
       value: bigNumberify(indexPrice)!.toString(),
-      decimals: USD_DECIMALS,
-    };
+      decimals: USD_DECIMALS
+    }
   }
 
   async getMarketPriceByIndexAddress(indexAddr: string): Promise<BigNumber> {
-    const indexPricesUrl = getServerUrl(ARBITRUM, "/prices");
-    const response = await fetch(indexPricesUrl);
-    const jsonResponse = await response.json();
+    const indexPricesUrl = getServerUrl(ARBITRUM, '/prices')
+    const response = await fetch(indexPricesUrl)
+    const jsonResponse = await response.json()
     // console.dir(jsonResponse, { depth: 10 });
 
-    const indexPrice = jsonResponse[indexAddr];
+    const indexPrice = jsonResponse[indexAddr]
 
-    return bigNumberify(indexPrice)!;
+    return bigNumberify(indexPrice)!
   }
 
-  async createOrder(
-    provider: Provider,
-    market: ExtendedMarket,
-    order: Order
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = [];
+  async createOrder(provider: Provider, market: ExtendedMarket, order: Order): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
 
     // approval tx
     if (
-      (order.type == "LIMIT_INCREASE" || order.type == "MARKET_INCREASE") &&
+      (order.type == 'LIMIT_INCREASE' || order.type == 'MARKET_INCREASE') &&
       order.inputCollateral.address != ethers.constants.AddressZero
     ) {
       //approve router for token spends
@@ -316,25 +274,20 @@ export default class GmxV1Service implements IExchange {
         order.inputCollateral.address,
         provider,
         order.inputCollateralAmount!
-      );
+      )
       if (approvalTx) {
-        txs.push(approvalTx);
+        txs.push(approvalTx)
       }
     }
 
-    const tokenAddressString = this.getTokenAddressString(
-      order.inputCollateral.address
-    );
+    const tokenAddressString = this.getTokenAddressString(order.inputCollateral.address)
 
-    let createOrderTx: UnsignedTransaction;
-    if (order.type == "LIMIT_INCREASE") {
-      const orderBook = OrderBook__factory.connect(
-        getContract(ARBITRUM, "OrderBook")!,
-        provider
-      );
+    let createOrderTx: UnsignedTransaction
+    if (order.type == 'LIMIT_INCREASE') {
+      const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
 
-      const path: string[] = [];
-      path.push(tokenAddressString);
+      const path: string[] = []
+      path.push(tokenAddressString)
 
       createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
         path,
@@ -343,93 +296,80 @@ export default class GmxV1Service implements IExchange {
         0,
         order.sizeDelta,
         market.indexOrIdentifier,
-        order.direction == "LONG" ? true : false,
+        order.direction == 'LONG' ? true : false,
         order.trigger?.triggerPrice!,
-        !(order.direction == "LONG"),
+        !(order.direction == 'LONG'),
         this.EXECUTION_FEE,
         order.inputCollateral.address == ethers.constants.AddressZero,
         {
           value:
             order.inputCollateral.address == ethers.constants.AddressZero
-              ? BigNumber.from(this.EXECUTION_FEE).add(
-                  order.inputCollateralAmount
-                )
-              : this.EXECUTION_FEE,
+              ? BigNumber.from(this.EXECUTION_FEE).add(order.inputCollateralAmount)
+              : this.EXECUTION_FEE
         }
-      );
-    } else if (order.type == "MARKET_INCREASE") {
-      const positionRouter = PositionRouter__factory.connect(
-        getContract(ARBITRUM, "PositionRouter")!,
-        provider
-      );
+      )
+    } else if (order.type == 'MARKET_INCREASE') {
+      const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, provider)
 
-      const path: string[] = [];
-      path.push(tokenAddressString);
-      if (order.direction == "LONG") {
+      const path: string[] = []
+      path.push(tokenAddressString)
+      if (order.direction == 'LONG') {
         if (tokenAddressString != market.indexOrIdentifier) {
-          path.push(market.indexOrIdentifier);
+          path.push(market.indexOrIdentifier)
         }
       } else {
         if (tokenAddressString != this.shortTokenAddress) {
-          path.push(this.shortTokenAddress);
+          path.push(this.shortTokenAddress)
         }
       }
 
       const acceptablePrice =
-        order.slippage && order.slippage != ""
-          ? applySlippage(
-              order.trigger?.triggerPrice!,
-              order.slippage,
-              order.direction == "LONG"
-            )
-          : order.trigger?.triggerPrice!;
+        order.slippage && order.slippage != ''
+          ? applySlippage(order.trigger?.triggerPrice!, order.slippage, order.direction == 'LONG')
+          : order.trigger?.triggerPrice!
 
       if (order.inputCollateral.address != ethers.constants.AddressZero) {
-        createOrderTx =
-          await positionRouter.populateTransaction.createIncreasePosition(
-            path,
-            market.indexOrIdentifier,
-            order.inputCollateralAmount,
-            0,
-            order.sizeDelta,
-            order.direction == "LONG" ? true : false,
-            acceptablePrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: this.EXECUTION_FEE,
-            }
-          );
+        createOrderTx = await positionRouter.populateTransaction.createIncreasePosition(
+          path,
+          market.indexOrIdentifier,
+          order.inputCollateralAmount,
+          0,
+          order.sizeDelta,
+          order.direction == 'LONG' ? true : false,
+          acceptablePrice,
+          this.EXECUTION_FEE,
+          ethers.constants.HashZero, // Referral code set during setup()
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE
+          }
+        )
       } else {
-        createOrderTx =
-          await positionRouter.populateTransaction.createIncreasePositionETH(
-            path,
-            market.indexOrIdentifier,
-            0,
-            order.sizeDelta,
-            order.direction == "LONG" ? true : false,
-            acceptablePrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: BigNumber.from(this.EXECUTION_FEE).add(
-                order.inputCollateralAmount
-              ),
-            }
-          );
+        createOrderTx = await positionRouter.populateTransaction.createIncreasePositionETH(
+          path,
+          market.indexOrIdentifier,
+          0,
+          order.sizeDelta,
+          order.direction == 'LONG' ? true : false,
+          acceptablePrice,
+          this.EXECUTION_FEE,
+          ethers.constants.HashZero, // Referral code set during setup()
+          ethers.constants.AddressZero,
+          {
+            value: BigNumber.from(this.EXECUTION_FEE).add(order.inputCollateralAmount)
+          }
+        )
       }
     }
 
     txs.push({
       tx: createOrderTx!,
-      type: "GMX_V1",
+      type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider),
-    });
+      ethRequired: await this.getEthRequired(provider)
+    })
 
-    return txs;
+    return txs
   }
 
   async updateOrder(
@@ -437,33 +377,30 @@ export default class GmxV1Service implements IExchange {
     market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>
   ): Promise<UnsignedTxWithMetadata[]> {
-    const orderBook = OrderBook__factory.connect(
-      getContract(ARBITRUM, "OrderBook")!,
-      provider
-    );
+    const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
 
-    let updateOrderTx;
+    let updateOrderTx
 
-    if (updatedOrder.type! == "LIMIT_INCREASE") {
+    if (updatedOrder.type! == 'LIMIT_INCREASE') {
       updateOrderTx = await orderBook.populateTransaction.updateIncreaseOrder(
         updatedOrder.orderIdentifier!,
         updatedOrder.sizeDelta!,
         updatedOrder.trigger?.triggerPrice!,
         updatedOrder.trigger?.triggerAboveThreshold!
-      );
-    } else if (updatedOrder.type! == "LIMIT_DECREASE") {
+      )
+    } else if (updatedOrder.type! == 'LIMIT_DECREASE') {
       updateOrderTx = await orderBook.populateTransaction.updateDecreaseOrder(
         updatedOrder.orderIdentifier!,
         updatedOrder.inputCollateralAmount!,
         updatedOrder.sizeDelta!,
         updatedOrder.trigger?.triggerPrice!,
         updatedOrder.trigger?.triggerAboveThreshold!
-      );
+      )
     } else {
-      throw new Error("Invalid order type");
+      throw new Error('Invalid order type')
     }
 
-    return [{ tx: updateOrderTx, type: "GMX_V1", data: undefined }];
+    return [{ tx: updateOrderTx, type: 'GMX_V1', data: undefined }]
   }
 
   async cancelOrder(
@@ -471,34 +408,23 @@ export default class GmxV1Service implements IExchange {
     market: Market | undefined,
     order: Partial<ExtendedOrder>
   ): Promise<UnsignedTxWithMetadata[]> {
-    const orderBook = OrderBook__factory.connect(
-      getContract(ARBITRUM, "OrderBook")!,
-      provider
-    );
+    const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
 
-    let cancelOrderTx;
+    let cancelOrderTx
 
-    if (order.type! == "LIMIT_INCREASE") {
-      cancelOrderTx = await orderBook.populateTransaction.cancelIncreaseOrder(
-        order.orderIdentifier!
-      );
-    } else if (order.type! == "LIMIT_DECREASE") {
-      cancelOrderTx = await orderBook.populateTransaction.cancelDecreaseOrder(
-        order.orderIdentifier!
-      );
+    if (order.type! == 'LIMIT_INCREASE') {
+      cancelOrderTx = await orderBook.populateTransaction.cancelIncreaseOrder(order.orderIdentifier!)
+    } else if (order.type! == 'LIMIT_DECREASE') {
+      cancelOrderTx = await orderBook.populateTransaction.cancelDecreaseOrder(order.orderIdentifier!)
     } else {
-      throw new Error("Invalid order type");
+      throw new Error('Invalid order type')
     }
 
-    return [{ tx: cancelOrderTx, type: "GMX_V1", data: undefined }];
+    return [{ tx: cancelOrderTx, type: 'GMX_V1', data: undefined }]
   }
 
-  getOrder(
-    user: string,
-    orderIdentifier: BigNumberish,
-    market: ExtendedMarket
-  ): Promise<ExtendedOrder> {
-    throw new Error("Method not implemented.");
+  getOrder(user: string, orderIdentifier: BigNumberish, market: ExtendedMarket): Promise<ExtendedOrder> {
+    throw new Error('Method not implemented.')
   }
 
   // @timer()
@@ -508,86 +434,73 @@ export default class GmxV1Service implements IExchange {
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<ExtendedOrder>> {
-    const eos: ExtendedOrder[] = [];
+    const eos: ExtendedOrder[] = []
 
     // TODO - Filter the market orders
-    const orders = await this.getAccountOrders(user, provider);
+    const orders = await this.getAccountOrders(user, provider)
     orders.forEach((order) => {
-      let isIncrease = order.type == "Increase";
-      let collateralToken;
-      let collateralAmount;
+      let isIncrease = order.type == 'Increase'
+      let collateralToken
+      let collateralAmount
       if (isIncrease) {
-        collateralToken = this.convertToToken(
-          getToken(ARBITRUM, order.purchaseToken)
-        );
-        collateralAmount = order.purchaseTokenAmount as BigNumber;
+        collateralToken = this.convertToToken(getToken(ARBITRUM, order.purchaseToken))
+        collateralAmount = order.purchaseTokenAmount as BigNumber
       } else {
-        collateralToken = this.convertToToken(
-          getToken(ARBITRUM, order.collateralToken)
-        );
-        collateralAmount = order.collateralDelta as BigNumber;
+        collateralToken = this.convertToToken(getToken(ARBITRUM, order.collateralToken))
+        collateralAmount = order.collateralDelta as BigNumber
       }
 
-      let isTp = false;
-      let isSl = false;
-      let triggerType: TRIGGER_TYPE;
+      let isTp = false
+      let isSl = false
+      let triggerType: TRIGGER_TYPE
       if (!isIncrease) {
         if (order.isLong) {
-          isTp = order.triggerAboveThreshold as boolean;
+          isTp = order.triggerAboveThreshold as boolean
         } else {
-          isTp = !order.triggerAboveThreshold as boolean;
+          isTp = !order.triggerAboveThreshold as boolean
         }
-        isSl = !isTp;
-        triggerType = isTp ? "TAKE_PROFIT" : "STOP_LOSS";
+        isSl = !isTp
+        triggerType = isTp ? 'TAKE_PROFIT' : 'STOP_LOSS'
       } else {
-        triggerType = "NONE";
+        triggerType = 'NONE'
       }
 
       eos.push({
-        orderAction: "CREATE",
+        orderAction: 'CREATE',
         orderIdentifier: order.index as number,
-        type: order.type == "Increase" ? "LIMIT_INCREASE" : "LIMIT_DECREASE",
-        direction: order.isLong ? "LONG" : "SHORT",
+        type: order.type == 'Increase' ? 'LIMIT_INCREASE' : 'LIMIT_DECREASE',
+        direction: order.isLong ? 'LONG' : 'SHORT',
         sizeDelta: order.sizeDelta as BigNumber,
         referralCode: undefined,
-        isTriggerOrder: order.type == "Decrease",
+        isTriggerOrder: order.type == 'Decrease',
         trigger: {
           triggerPrice: order.triggerPrice as BigNumber,
-          triggerAboveThreshold: order.triggerAboveThreshold as boolean,
+          triggerAboveThreshold: order.triggerAboveThreshold as boolean
         },
         slippage: undefined,
         ...{
           inputCollateral: collateralToken,
-          inputCollateralAmount: collateralAmount,
+          inputCollateralAmount: collateralAmount
         },
         ...{
           indexOrIdentifier: order.indexToken as string,
-          marketToken: this.convertToToken(
-            getToken(ARBITRUM, order.indexToken as string)
-          ),
+          marketToken: this.convertToToken(getToken(ARBITRUM, order.indexToken as string)),
           ...{
-            triggerType: triggerType,
-          },
-        },
-      });
-    });
+            triggerType: triggerType
+          }
+        }
+      })
+    })
 
-    return getPaginatedResponse(eos, pageOptions);
+    return getPaginatedResponse(eos, pageOptions)
   }
 
-  getMarketOrders(
-    user: string,
-    market: ExtendedMarket
-  ): Promise<ExtendedOrder[]> {
-    throw new Error("Method not implemented.");
+  getMarketOrders(user: string, market: ExtendedMarket): Promise<ExtendedOrder[]> {
+    throw new Error('Method not implemented.')
   }
 
-  getPosition(
-    positionIdentifier: string,
-    market: ExtendedMarket,
-    user?: string
-  ): Promise<ExtendedPosition> {
-    throw new Error("Method not implemented.");
+  getPosition(positionIdentifier: string, market: ExtendedMarket, user?: string): Promise<ExtendedPosition> {
+    throw new Error('Method not implemented.')
   }
 
   async getAllOrdersForPosition(
@@ -596,15 +509,11 @@ export default class GmxV1Service implements IExchange {
     position: ExtendedPosition,
     openMarkers: OpenMarkets | undefined
   ): Promise<Array<ExtendedOrder>> {
-    const allOrders = (
-      await this.getAllOrders(user, provider, undefined, undefined)
-    ).result as ExtendedOrder[];
+    const allOrders = (await this.getAllOrders(user, provider, undefined, undefined)).result as ExtendedOrder[]
 
     return allOrders.filter(
-      (order) =>
-        order.marketToken!.address == position.indexToken!.address &&
-        order.direction == position.direction
-    );
+      (order) => order.marketToken!.address == position.indexToken!.address && order.direction == position.direction
+    )
   }
 
   async getAllPositions(
@@ -613,60 +522,51 @@ export default class GmxV1Service implements IExchange {
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<ExtendedPosition>> {
-    const reader = Reader__factory.connect(
-      getContract(ARBITRUM, "Reader")!,
-      provider
-    );
+    const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
 
-    const nativeTokenAddress = getContract(ARBITRUM, "NATIVE_TOKEN");
+    const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
 
-    const whitelistedTokens = V1_TOKENS[ARBITRUM];
-    const tokenAddresses = whitelistedTokens.map((x) => x.address);
+    const whitelistedTokens = V1_TOKENS[ARBITRUM]
+    const tokenAddresses = whitelistedTokens.map((x) => x.address)
 
     const positionQuery = getPositionQuery(
       whitelistedTokens as {
-        address: string;
-        isStable: boolean;
-        isWrapped: boolean;
+        address: string
+        isStable: boolean
+        isWrapped: boolean
       }[],
       nativeTokenAddress!
-    );
+    )
 
     // console.log(positionQuery)
 
     const positionDataPromise = reader.getPositions(
-      getContract(ARBITRUM, "Vault")!,
+      getContract(ARBITRUM, 'Vault')!,
       user,
       positionQuery.collateralTokens,
       positionQuery.indexTokens,
       positionQuery.isLong
-    );
+    )
 
-    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses);
+    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses)
 
     // console.log(tokenBalances)
 
     const fundingRateInfoPromise = reader.getFundingRates(
-      getContract(ARBITRUM, "Vault")!,
+      getContract(ARBITRUM, 'Vault')!,
       nativeTokenAddress!,
       tokenAddresses
-    );
+    )
 
     // console.log(fundingRateInfo)
 
     const [positionData, tokenBalances, fundingRateInfo] = await Promise.all([
       positionDataPromise,
       tokenBalancesPromise,
-      fundingRateInfoPromise,
-    ]);
+      fundingRateInfoPromise
+    ])
 
-    const { infoTokens } = await useInfoTokens(
-      provider,
-      ARBITRUM,
-      false,
-      tokenBalances,
-      fundingRateInfo
-    );
+    const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, tokenBalances, fundingRateInfo)
 
     // console.log(infoTokens)
 
@@ -680,16 +580,14 @@ export default class GmxV1Service implements IExchange {
       ethers.utils.getAddress(user),
       undefined,
       undefined
-    );
+    )
 
-    let extPositions: ExtendedPosition[] = [];
+    let extPositions: ExtendedPosition[] = []
 
     for (const pos of positions) {
-      const maxAmount: BigNumber = pos.collateralAfterFee
-        .sub(MIN_ORDER_USD)
-        .gt(0)
+      const maxAmount: BigNumber = pos.collateralAfterFee.sub(MIN_ORDER_USD).gt(0)
         ? pos.collateralAfterFee.sub(MIN_ORDER_USD)
-        : bigNumberify(0);
+        : bigNumberify(0)
 
       // console.log({ maxAmount });
 
@@ -700,30 +598,23 @@ export default class GmxV1Service implements IExchange {
         averageEntryPrice: pos.averagePrice,
         cumulativeFunding: pos.fundingFee,
         lastUpdatedAtTimestamp: pos.lastIncreasedTime,
-        unrealizedPnl: pos.hasProfitAfterFees
-          ? pos.pendingDeltaAfterFees
-          : pos.pendingDeltaAfterFees.mul(-1),
+        unrealizedPnl: pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1),
         liqudationPrice: getLiquidationPrice({
           size: pos.size,
           collateral: pos.collateral,
           averagePrice: pos.averagePrice,
           isLong: pos.isLong,
-          fundingFee: pos.fundingFee,
+          fundingFee: pos.fundingFee
         }),
         fee: pos.totalFees,
         accessibleMargin: maxAmount,
         leverage: pos.leverage,
         exceedsPriceProtection: pos.hasLowCollateral,
-        direction: pos.isLong ? "LONG" : "SHORT",
+        direction: pos.isLong ? 'LONG' : 'SHORT',
         originalCollateralToken: pos.originalCollateralToken,
-        indexToken: this.convertToToken(
-          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(pos.key))
-        ),
+        indexToken: this.convertToToken(getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(pos.key))),
         collateralToken: this.convertToToken(
-          getToken(
-            ARBITRUM,
-            this.getCollateralTokenAddressFromPositionKey(pos.key)
-          )
+          getToken(ARBITRUM, this.getCollateralTokenAddressFromPositionKey(pos.key))
         ),
         pnlwithoutfees: pos.delta,
         closeFee: pos.closingFee,
@@ -737,16 +628,16 @@ export default class GmxV1Service implements IExchange {
         entryFundingRate: pos.entryFundingRate,
         cumulativeFundingRate: pos.cumulativeFundingRate,
         protocolMetadata: {
-          protocolName: this.protocolIdentifier,
-        },
-      };
+          protocolName: this.protocolIdentifier
+        }
+      }
 
-      extPositions.push(extP);
+      extPositions.push(extP)
     }
 
     // console.log(extPositions)
 
-    return getPaginatedResponse(extPositions, pageOptions);
+    return getPaginatedResponse(extPositions, pageOptions)
   }
 
   async updatePositionMargin(
@@ -756,115 +647,97 @@ export default class GmxV1Service implements IExchange {
     isDeposit: boolean,
     transferToken: Token
   ): Promise<UnsignedTxWithMetadata[]> {
-    const positionRouter = PositionRouter__factory.connect(
-      getContract(ARBITRUM, "PositionRouter")!,
-      provider
-    );
-    let indexAddress = this.getIndexTokenAddressFromPositionKey(
-      position.indexOrIdentifier
-    );
-    let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
-    let transferTokenString = this.getTokenAddressString(transferToken.address);
+    const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, provider)
+    let indexAddress = this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)
+    let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress)
+    let transferTokenString = this.getTokenAddressString(transferToken.address)
 
-    const path: string[] = [];
+    const path: string[] = []
 
-    let marginTx: UnsignedTransaction;
-    let txs: UnsignedTxWithMetadata[] = [];
+    let marginTx: UnsignedTransaction
+    let txs: UnsignedTxWithMetadata[] = []
 
     if (isDeposit) {
       //approve router for token spends
       if (transferToken.address !== ethers.constants.AddressZero) {
-        let approvalTx = await this.getApproveRouterSpendTx(
-          transferToken.address,
-          provider,
-          marginAmount
-        );
-        if (approvalTx) txs.push(approvalTx);
+        let approvalTx = await this.getApproveRouterSpendTx(transferToken.address, provider, marginAmount)
+        if (approvalTx) txs.push(approvalTx)
       }
 
-      fillPrice =
-        position.direction == "LONG"
-          ? fillPrice.mul(101).div(100)
-          : fillPrice.mul(99).div(100);
+      fillPrice = position.direction == 'LONG' ? fillPrice.mul(101).div(100) : fillPrice.mul(99).div(100)
 
       if (transferTokenString !== position.collateralToken.address) {
-        path.push(transferTokenString, position.collateralToken.address);
+        path.push(transferTokenString, position.collateralToken.address)
       } else {
-        path.push(position.collateralToken.address);
+        path.push(position.collateralToken.address)
       }
 
       if (transferToken.address == ethers.constants.AddressZero) {
-        marginTx =
-          await positionRouter.populateTransaction.createIncreasePositionETH(
-            path,
-            indexAddress,
-            0,
-            BigNumber.from(0),
-            position.direction == "LONG" ? true : false,
-            fillPrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount),
-            }
-          );
+        marginTx = await positionRouter.populateTransaction.createIncreasePositionETH(
+          path,
+          indexAddress,
+          0,
+          BigNumber.from(0),
+          position.direction == 'LONG' ? true : false,
+          fillPrice,
+          this.EXECUTION_FEE,
+          ethers.constants.HashZero, // Referral code set during setup()
+          ethers.constants.AddressZero,
+          {
+            value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount)
+          }
+        )
       } else {
-        marginTx =
-          await positionRouter.populateTransaction.createIncreasePosition(
-            path,
-            indexAddress,
-            marginAmount,
-            0,
-            BigNumber.from(0),
-            position.direction == "LONG" ? true : false,
-            fillPrice,
-            this.EXECUTION_FEE,
-            ethers.constants.HashZero, // Referral code set during setup()
-            ethers.constants.AddressZero,
-            {
-              value: BigNumber.from(this.EXECUTION_FEE),
-            }
-          );
-      }
-    } else {
-      path.push(position.collateralToken.address);
-      if (transferTokenString !== position.collateralToken.address) {
-        path.push(transferTokenString);
-      }
-
-      fillPrice =
-        position.direction == "LONG"
-          ? fillPrice.mul(99).div(100)
-          : fillPrice.mul(101).div(100);
-
-      marginTx =
-        await positionRouter.populateTransaction.createDecreasePosition(
+        marginTx = await positionRouter.populateTransaction.createIncreasePosition(
           path,
           indexAddress,
           marginAmount,
-          BigNumber.from(0),
-          position.direction == "LONG" ? true : false,
-          this.swAddr,
-          fillPrice,
           0,
+          BigNumber.from(0),
+          position.direction == 'LONG' ? true : false,
+          fillPrice,
           this.EXECUTION_FEE,
-          transferToken.address == ethers.constants.AddressZero,
+          ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE,
+            value: BigNumber.from(this.EXECUTION_FEE)
           }
-        );
+        )
+      }
+    } else {
+      path.push(position.collateralToken.address)
+      if (transferTokenString !== position.collateralToken.address) {
+        path.push(transferTokenString)
+      }
+
+      fillPrice = position.direction == 'LONG' ? fillPrice.mul(99).div(100) : fillPrice.mul(101).div(100)
+
+      marginTx = await positionRouter.populateTransaction.createDecreasePosition(
+        path,
+        indexAddress,
+        marginAmount,
+        BigNumber.from(0),
+        position.direction == 'LONG' ? true : false,
+        this.swAddr,
+        fillPrice,
+        0,
+        this.EXECUTION_FEE,
+        transferToken.address == ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        {
+          value: this.EXECUTION_FEE
+        }
+      )
     }
 
     txs.push({
       tx: marginTx,
-      type: "GMX_V1",
+      type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider),
-    });
+      ethRequired: await this.getEthRequired(provider)
+    })
 
-    return txs;
+    return txs
   }
 
   async closePosition(
@@ -876,113 +749,86 @@ export default class GmxV1Service implements IExchange {
     triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = [];
-    let indexAddress = this.getIndexTokenAddressFromPositionKey(
-      position.indexOrIdentifier
-    );
+    let txs: UnsignedTxWithMetadata[] = []
+    let indexAddress = this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)
 
     if (!isTrigger) {
-      let remainingSize = position.size.sub(closeSize);
+      let remainingSize = position.size.sub(closeSize)
 
       // close all related tp/sl orders if order.sizeDelta > remaining size
-      const orders = (
-        await this.getAllOrdersForPosition(
-          this.swAddr,
-          provider,
-          position,
-          undefined
-        )
-      ).filter(
-        (order) =>
-          order.triggerType != "NONE" && order.sizeDelta > remainingSize
-      );
+      const orders = (await this.getAllOrdersForPosition(this.swAddr, provider, position, undefined)).filter(
+        (order) => order.triggerType != 'NONE' && order.sizeDelta > remainingSize
+      )
       for (const order of orders) {
-        const cancelOrderTx = await this.cancelOrder(
-          provider,
-          undefined,
-          order
-        );
-        txs.push(...cancelOrderTx);
+        const cancelOrderTx = await this.cancelOrder(provider, undefined, order)
+        txs.push(...cancelOrderTx)
       }
 
       // close position
-      let collateralOutAddr = outputToken
-        ? outputToken.address
-        : position.originalCollateralToken;
+      let collateralOutAddr = outputToken ? outputToken.address : position.originalCollateralToken
 
-      let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress);
+      let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress)
 
-      fillPrice =
-        position.direction == "LONG"
-          ? fillPrice.mul(99).div(100)
-          : fillPrice.mul(101).div(100);
+      fillPrice = position.direction == 'LONG' ? fillPrice.mul(99).div(100) : fillPrice.mul(101).div(100)
 
-      const positionRouter = PositionRouter__factory.connect(
-        getContract(ARBITRUM, "PositionRouter")!,
-        provider
-      );
+      const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, provider)
 
-      const path: string[] = [];
-      path.push(position.collateralToken.address);
+      const path: string[] = []
+      path.push(position.collateralToken.address)
       if (collateralOutAddr !== position.collateralToken.address) {
-        path.push(this.getTokenAddressString(collateralOutAddr!));
+        path.push(this.getTokenAddressString(collateralOutAddr!))
       }
 
-      let createOrderTx =
-        await positionRouter.populateTransaction.createDecreasePosition(
-          path,
-          indexAddress,
-          BigNumber.from(0),
-          closeSize,
-          position.direction! == "LONG" ? true : false,
-          this.swAddr,
-          fillPrice,
-          0,
-          this.EXECUTION_FEE,
-          collateralOutAddr == ethers.constants.AddressZero,
-          ethers.constants.AddressZero,
-          {
-            value: this.EXECUTION_FEE,
-          }
-        );
+      let createOrderTx = await positionRouter.populateTransaction.createDecreasePosition(
+        path,
+        indexAddress,
+        BigNumber.from(0),
+        closeSize,
+        position.direction! == 'LONG' ? true : false,
+        this.swAddr,
+        fillPrice,
+        0,
+        this.EXECUTION_FEE,
+        collateralOutAddr == ethers.constants.AddressZero,
+        ethers.constants.AddressZero,
+        {
+          value: this.EXECUTION_FEE
+        }
+      )
       txs.push({
         tx: createOrderTx,
-        type: "GMX_V1",
+        type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(provider),
-      });
+        ethRequired: await this.getEthRequired(provider)
+      })
     } else {
-      const orderBook = OrderBook__factory.connect(
-        getContract(ARBITRUM, "OrderBook")!,
-        provider
-      );
+      const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
 
-      let createOrderTx =
-        await orderBook.populateTransaction.createDecreaseOrder(
-          indexAddress,
-          closeSize,
-          position.originalCollateralToken!,
-          BigNumber.from(0), // in USD e30
-          position.direction == "LONG" ? true : false,
-          triggerPrice!,
-          triggerAboveThreshold!,
-          {
-            value: this.EXECUTION_FEE,
-          }
-        );
+      let createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
+        indexAddress,
+        closeSize,
+        position.originalCollateralToken!,
+        BigNumber.from(0), // in USD e30
+        position.direction == 'LONG' ? true : false,
+        triggerPrice!,
+        triggerAboveThreshold!,
+        {
+          value: this.EXECUTION_FEE
+        }
+      )
       txs.push({
         tx: createOrderTx,
-        type: "GMX_V1",
+        type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(provider),
-      });
+        ethRequired: await this.getEthRequired(provider)
+      })
     }
 
-    return txs;
+    return txs
   }
 
   getMarketPositions(user: string, market: string): Promise<Position[]> {
-    throw new Error("Method not implemented.");
+    throw new Error('Method not implemented.')
   }
 
   async getTradesHistory(
@@ -990,13 +836,11 @@ export default class GmxV1Service implements IExchange {
     _: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<TradeHistory>> {
-    const results = await fetch(
-      "https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `{
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{
           trades(first: 1000, where: {account: "${user.toLowerCase()}"}, orderBy: timestamp, orderDirection: desc ) {
             id
             key
@@ -1077,43 +921,40 @@ export default class GmxV1Service implements IExchange {
             }
           }
         }
-      `,
-        }),
-      }
-    );
+      `
+      })
+    })
 
-    const resultJson = await results.json();
+    const resultJson = await results.json()
     // console.dir({ resultJson }, { depth: 10 });
     // console.log(resultJson.data.trades.length)
 
-    const tradeHistory: TradeHistory[] = [];
+    const tradeHistory: TradeHistory[] = []
 
     for (const each of resultJson.data.trades) {
-      const increaseList = each.increaseList;
-      const decreaseList = each.decreaseList;
-      const updateList = each.updateList;
-      const closedPosition = each.closedPosition;
+      const increaseList = each.increaseList
+      const decreaseList = each.decreaseList
+      const updateList = each.updateList
+      const closedPosition = each.closedPosition
 
       if (!!increaseList) {
         for (const incTrade of increaseList) {
-          if (BigNumber.from(incTrade.sizeDelta).eq(0)) continue; // Add collateral trades
+          if (BigNumber.from(incTrade.sizeDelta).eq(0)) continue // Add collateral trades
 
-          let txHash = (incTrade.id as string).split(":")[2];
-          let realisedPnl = undefined;
+          let txHash = (incTrade.id as string).split(':')[2]
+          let realisedPnl = undefined
 
           for (const update of updateList) {
-            if ((update.id as string).split(":")[2] == txHash) {
-              realisedPnl = BigNumber.from(update.realisedPnl);
-              break;
+            if ((update.id as string).split(':')[2] == txHash) {
+              realisedPnl = BigNumber.from(update.realisedPnl)
+              break
             }
           }
 
           tradeHistory.push({
             marketIdentifier: incTrade.indexToken,
-            collateralToken: this.convertToToken(
-              getToken(ARBITRUM, incTrade.collateralToken)
-            ),
-            direction: incTrade.isLong ? "LONG" : "SHORT",
+            collateralToken: this.convertToToken(getToken(ARBITRUM, incTrade.collateralToken)),
+            direction: incTrade.isLong ? 'LONG' : 'SHORT',
             sizeDelta: BigNumber.from(incTrade.sizeDelta),
             price: BigNumber.from(incTrade.price),
             collateralDelta: BigNumber.from(incTrade.collateralDelta),
@@ -1122,38 +963,36 @@ export default class GmxV1Service implements IExchange {
             positionFee: BigNumber.from(incTrade.fee), // does not include keeper fee
             txHash: txHash,
             timestamp: incTrade.timestamp as number,
-            operation: incTrade.isLong ? "Open Long" : "Open Short",
-          });
+            operation: incTrade.isLong ? 'Open Long' : 'Open Short'
+          })
         }
       }
 
       if (!!decreaseList) {
         for (const decTrade of decreaseList) {
-          if (BigNumber.from(decTrade.sizeDelta).eq(0)) continue; // Remove collateral trades
+          if (BigNumber.from(decTrade.sizeDelta).eq(0)) continue // Remove collateral trades
 
-          let txHash = (decTrade.id as string).split(":")[2];
-          let realisedPnl = undefined;
-          let collateralDelta = BigNumber.from(decTrade.collateralDelta);
+          let txHash = (decTrade.id as string).split(':')[2]
+          let realisedPnl = undefined
+          let collateralDelta = BigNumber.from(decTrade.collateralDelta)
 
           for (const update of updateList) {
-            if ((update.id as string).split(":")[2] == txHash) {
-              realisedPnl = BigNumber.from(update.realisedPnl);
-              break;
+            if ((update.id as string).split(':')[2] == txHash) {
+              realisedPnl = BigNumber.from(update.realisedPnl)
+              break
             }
           }
           if (!!closedPosition) {
-            if ((closedPosition.id as string).split(":")[2] == txHash) {
-              realisedPnl = BigNumber.from(closedPosition.realisedPnl);
-              collateralDelta = BigNumber.from(each.collateral);
+            if ((closedPosition.id as string).split(':')[2] == txHash) {
+              realisedPnl = BigNumber.from(closedPosition.realisedPnl)
+              collateralDelta = BigNumber.from(each.collateral)
             }
           }
 
           tradeHistory.push({
             marketIdentifier: decTrade.indexToken,
-            collateralToken: this.convertToToken(
-              getToken(ARBITRUM, decTrade.collateralToken)
-            ),
-            direction: decTrade.isLong ? "LONG" : "SHORT",
+            collateralToken: this.convertToToken(getToken(ARBITRUM, decTrade.collateralToken)),
+            direction: decTrade.isLong ? 'LONG' : 'SHORT',
             sizeDelta: BigNumber.from(decTrade.sizeDelta),
             price: BigNumber.from(decTrade.price),
             collateralDelta: collateralDelta,
@@ -1162,64 +1001,59 @@ export default class GmxV1Service implements IExchange {
             positionFee: BigNumber.from(decTrade.fee), // does not include keeper fee
             txHash: txHash,
             timestamp: decTrade.timestamp as number,
-            operation: decTrade.isLong ? "Close Long" : "Close Short",
-          });
+            operation: decTrade.isLong ? 'Close Long' : 'Close Short'
+          })
         }
       }
     }
 
     tradeHistory.sort((a, b) => {
-      return b.timestamp - a.timestamp;
-    });
+      return b.timestamp - a.timestamp
+    })
 
     if (tradeHistory.length > 0) {
-      let from = new Date(
-        tradeHistory[tradeHistory.length - 1].timestamp * 1000
-      );
-      from.setUTCHours(0, 0, 0, 0);
-      const fromTS = from.getTime() / 1000;
+      let from = new Date(tradeHistory[tradeHistory.length - 1].timestamp * 1000)
+      from.setUTCHours(0, 0, 0, 0)
+      const fromTS = from.getTime() / 1000
 
-      let to = new Date(tradeHistory[0].timestamp * 1000);
-      to.setUTCHours(24, 0, 0, 0);
-      const toTS = to.getTime() / 1000;
+      let to = new Date(tradeHistory[0].timestamp * 1000)
+      to.setUTCHours(24, 0, 0, 0)
+      const toTS = to.getTime() / 1000
 
       try {
         type BenchmarkData = {
-          t: number[];
-          o: number[];
-        };
+          t: number[]
+          o: number[]
+        }
 
-        let pricesData: BenchmarkData;
+        let pricesData: BenchmarkData
 
-        const ethPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.ETH/USD&resolution=D&from=${fromTS}&to=${toTS}`;
-        pricesData = await fetch(ethPriceUrl).then((d) => d.json());
-        let priceMap = new Array<number>();
+        const ethPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.ETH/USD&resolution=D&from=${fromTS}&to=${toTS}`
+        pricesData = await fetch(ethPriceUrl).then((d) => d.json())
+        let priceMap = new Array<number>()
 
         for (const i in pricesData.t) {
-          priceMap.push(pricesData.o[i]);
+          priceMap.push(pricesData.o[i])
         }
         // console.log("PriceMapLength: ", priceMap.length, "Price map: ", priceMap);
 
         for (const each of tradeHistory) {
-          const ts = each.timestamp;
-          const days = Math.floor((ts - fromTS) / 86400);
-          const etherPrice = ethers.utils.parseUnits(
-            priceMap[days].toString(),
-            18
-          );
-          const PRECISION = BigNumber.from(10).pow(30);
+          const ts = each.timestamp
+          const days = Math.floor((ts - fromTS) / 86400)
+          const etherPrice = ethers.utils.parseUnits(priceMap[days].toString(), 18)
+          const PRECISION = BigNumber.from(10).pow(30)
 
           each.keeperFeesPaid = this.EXECUTION_FEE.mul(PRECISION)
             .mul(etherPrice)
             .div(ethers.constants.WeiPerEther)
-            .div(ethers.constants.WeiPerEther);
+            .div(ethers.constants.WeiPerEther)
         }
       } catch (e) {
-        console.log("<Gmx trade history> Error fetching price data: ", e);
+        console.log('<Gmx trade history> Error fetching price data: ', e)
       }
     }
 
-    return getPaginatedResponse(tradeHistory, pageOptions);
+    return getPaginatedResponse(tradeHistory, pageOptions)
   }
 
   async getLiquidationsHistory(
@@ -1227,13 +1061,11 @@ export default class GmxV1Service implements IExchange {
     _: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<LiquidationHistory>> {
-    const results = await fetch(
-      "https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          query: `{
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{
             liquidatedPositions(where: {account: "${user.toLowerCase()}"}) {
               id
               loss
@@ -1248,45 +1080,42 @@ export default class GmxV1Service implements IExchange {
               collateralToken
             }
           }
-      `,
-        }),
-      }
-    );
+      `
+      })
+    })
 
-    const resultJson = await results.json();
+    const resultJson = await results.json()
 
-    const liquidationHistory: LiquidationHistory[] = [];
+    const liquidationHistory: LiquidationHistory[] = []
 
     for (const each of resultJson.data.liquidatedPositions) {
       liquidationHistory.push({
         marketIdentifier: each.indexToken,
-        collateralToken: this.convertToToken(
-          getToken(ARBITRUM, each.collateralToken)
-        ),
+        collateralToken: this.convertToToken(getToken(ARBITRUM, each.collateralToken)),
         liquidationPrice: BigNumber.from(each.markPrice),
         sizeClosed: BigNumber.from(each.size),
-        direction: each.isLong ? "LONG" : "SHORT",
+        direction: each.isLong ? 'LONG' : 'SHORT',
         realisedPnl: BigNumber.from(each.collateral).mul(-1),
         liquidationFees: BigNumber.from(LIQUIDATION_FEE_USD),
         remainingCollateral: BigNumber.from(0),
         //100x
         liqudationLeverage: {
-          value: "100000000",
-          decimals: 6,
+          value: '100000000',
+          decimals: 6
         },
-        timestamp: each.timestamp,
-      });
+        timestamp: each.timestamp
+      })
     }
 
     liquidationHistory.sort((a, b) => {
-      return b.timestamp - a.timestamp;
-    });
+      return b.timestamp - a.timestamp
+    })
 
-    return getPaginatedResponse(liquidationHistory, pageOptions);
+    return getPaginatedResponse(liquidationHistory, pageOptions)
   }
 
   getIdleMargins(user: string): Promise<(MarketIdentifier & CollateralData)[]> {
-    throw new Error("Method not implemented.");
+    throw new Error('Method not implemented.')
   }
 
   async checkTradePathLiquidity(
@@ -1296,12 +1125,7 @@ export default class GmxV1Service implements IExchange {
     order: Order,
     existingPosition: ExtendedPosition | undefined
   ): Promise<ViewError> {
-    return await checkTradePathLiquidiytInternal(
-      provider,
-      market,
-      this.getMarketPrice,
-      order
-    );
+    return await checkTradePathLiquidiytInternal(provider, market, this.getMarketPrice, order)
   }
 
   async getTradePreview(
@@ -1320,7 +1144,7 @@ export default class GmxV1Service implements IExchange {
       order,
       BigNumber.from(this.EXECUTION_FEE),
       existingPosition
-    );
+    )
   }
 
   async getCloseTradePreview(
@@ -1342,7 +1166,7 @@ export default class GmxV1Service implements IExchange {
       triggerPrice,
       outputToken ? this.convertToGToken(outputToken) : undefined,
       this.convertToToken
-    );
+    )
   }
 
   async getEditCollateralPreview(
@@ -1359,7 +1183,7 @@ export default class GmxV1Service implements IExchange {
       isDeposit,
       this.convertToToken,
       BigNumber.from(this.EXECUTION_FEE)
-    );
+    )
   }
 
   getPositionKey(
@@ -1370,65 +1194,50 @@ export default class GmxV1Service implements IExchange {
     nativeTokenAddress?: string
   ) {
     const tokenAddress0 =
-      collateralTokenAddress === ethers.constants.AddressZero
-        ? nativeTokenAddress
-        : collateralTokenAddress;
-    const tokenAddress1 =
-      indexTokenAddress === ethers.constants.AddressZero
-        ? nativeTokenAddress
-        : indexTokenAddress;
-    return account + ":" + tokenAddress0 + ":" + tokenAddress1 + ":" + isLong;
+      collateralTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : collateralTokenAddress
+    const tokenAddress1 = indexTokenAddress === ethers.constants.AddressZero ? nativeTokenAddress : indexTokenAddress
+    return account + ':' + tokenAddress0 + ':' + tokenAddress1 + ':' + isLong
   }
 
-  getPositionContractKey(
-    account: string,
-    collateralToken: string,
-    indexToken: string,
-    isLong: boolean
-  ) {
+  getPositionContractKey(account: string, collateralToken: string, indexToken: string, isLong: boolean) {
     return ethers.utils.solidityKeccak256(
-      ["address", "address", "address", "bool"],
+      ['address', 'address', 'address', 'bool'],
       [account, collateralToken, indexToken, isLong]
-    );
+    )
   }
 
   //////// HELPERS //////////
 
   getTokenAddress(token: Token): string {
     if (token.address === ethers.constants.AddressZero) {
-      return this.nativeTokenAddress;
+      return this.nativeTokenAddress
     }
-    return token.address;
+    return token.address
   }
 
   getTokenAddressString(tokenAddress: string): string {
     if (tokenAddress === ethers.constants.AddressZero) {
-      return this.nativeTokenAddress;
+      return this.nativeTokenAddress
     }
-    return tokenAddress;
+    return tokenAddress
   }
 
   getIndexTokenAddressFromPositionKey(positionKey: string): string {
-    return positionKey.split(":")[2];
+    return positionKey.split(':')[2]
   }
 
   getCollateralTokenAddressFromPositionKey(positionKey: string): string {
-    return positionKey.split(":")[1];
+    return positionKey.split(':')[1]
   }
 
-  convertToToken(inToken: {
-    address: string;
-    decimals: number;
-    symbol: string;
-    name: string;
-  }): Token {
+  convertToToken(inToken: { address: string; decimals: number; symbol: string; name: string }): Token {
     let token: Token = {
       address: inToken.address,
       decimals: inToken.decimals.toString(),
       symbol: inToken.symbol,
-      name: inToken.name,
-    };
-    return token;
+      name: inToken.name
+    }
+    return token
   }
 
   convertToGToken(inToken: Token): GToken {
@@ -1436,121 +1245,92 @@ export default class GmxV1Service implements IExchange {
       address: inToken.address,
       decimals: Number(inToken.decimals),
       symbol: inToken.symbol,
-      name: inToken.name,
-    };
-    return token;
+      name: inToken.name
+    }
+    return token
   }
 
   ////////// HELPERS ////////////
   // @timer()
   async getAccountOrders(account: string, provider: Provider) {
-    const orderBookAddress = getContract(ARBITRUM, "OrderBook")!;
-    const orderBookReaderAddress = getContract(ARBITRUM, "OrderBookReader")!;
+    const orderBookAddress = getContract(ARBITRUM, 'OrderBook')!
+    const orderBookReaderAddress = getContract(ARBITRUM, 'OrderBookReader')!
 
-    const orderBookContract = OrderBook__factory.connect(
-      orderBookAddress,
-      provider
-    );
-    const orderBookReaderContract = OrderBookReader__factory.connect(
-      orderBookReaderAddress,
-      provider
-    );
+    const orderBookContract = OrderBook__factory.connect(orderBookAddress, provider)
+    const orderBookReaderContract = OrderBookReader__factory.connect(orderBookReaderAddress, provider)
 
     const fetchIndexesFromServer = () => {
-      const ordersIndexesUrl = `${getServerBaseUrl(
-        ARBITRUM
-      )}/orders_indices?account=${account}`;
+      const ordersIndexesUrl = `${getServerBaseUrl(ARBITRUM)}/orders_indices?account=${account}`
       return fetch(ordersIndexesUrl)
         .then(async (res) => {
-          const json = await res.json();
+          const json = await res.json()
           const ret: {
             [index: string]: Array<{
-              _type: string;
-              val: string;
-            }>;
-          } = {};
+              _type: string
+              val: string
+            }>
+          } = {}
           for (const key of Object.keys(json)) {
             ret[key.toLowerCase()] = json[key]
               .map((val: { value: string }) => parseInt(val.value))
-              .sort((a: number, b: number) => a - b);
+              .sort((a: number, b: number) => a - b)
           }
 
           // console.dir(ret, { depth: 10 });
-          return ret;
+          return ret
         })
-        .catch(() => ({ swap: [], increase: [], decrease: [] }));
-    };
+        .catch(() => ({ swap: [], increase: [], decrease: [] }))
+    }
 
     const fetchLastIndexes = async () => {
       const [increase, decrease] = await Promise.all([
         (await orderBookContract.increaseOrdersIndex(account)).toNumber(),
-        (await orderBookContract.increaseOrdersIndex(account)).toNumber(),
-      ]);
+        (await orderBookContract.increaseOrdersIndex(account)).toNumber()
+      ])
 
-      return { increase, decrease };
-    };
+      return { increase, decrease }
+    }
 
     const getRange = (to: number, from?: number) => {
-      const LIMIT = 10;
-      const _indexes: number[] = [];
-      from = from || Math.max(to - LIMIT, 0);
+      const LIMIT = 10
+      const _indexes: number[] = []
+      from = from || Math.max(to - LIMIT, 0)
       for (let i = to - 1; i >= from; i--) {
-        _indexes.push(i);
+        _indexes.push(i)
       }
-      return _indexes;
-    };
+      return _indexes
+    }
 
     const getIndexes = (knownIndexes: number[], lastIndex: number) => {
       if (knownIndexes.length === 0) {
-        return getRange(lastIndex);
+        return getRange(lastIndex)
       }
-      return [
-        ...knownIndexes,
-        ...getRange(lastIndex, knownIndexes[knownIndexes.length - 1] + 1).sort(
-          (a, b) => b - a
-        ),
-      ];
-    };
+      return [...knownIndexes, ...getRange(lastIndex, knownIndexes[knownIndexes.length - 1] + 1).sort((a, b) => b - a)]
+    }
 
     const getIncreaseOrders = async (
       knownIndexes: number[],
       lastIndex: number,
-      parseFunc: (
-        arg1: [ethers.BigNumber[], string[]],
-        arg2: string,
-        arg3: number[]
-      ) => any[]
+      parseFunc: (arg1: [ethers.BigNumber[], string[]], arg2: string, arg3: number[]) => any[]
     ) => {
-      const indexes = getIndexes(knownIndexes, lastIndex);
-      const ordersData = await orderBookReaderContract.getIncreaseOrders(
-        orderBookAddress,
-        account,
-        indexes
-      );
-      const orders = parseFunc(ordersData, account, indexes);
+      const indexes = getIndexes(knownIndexes, lastIndex)
+      const ordersData = await orderBookReaderContract.getIncreaseOrders(orderBookAddress, account, indexes)
+      const orders = parseFunc(ordersData, account, indexes)
 
-      return orders;
-    };
+      return orders
+    }
 
     const getDecreaseOrders = async (
       knownIndexes: number[],
       lastIndex: number,
-      parseFunc: (
-        arg1: [ethers.BigNumber[], string[]],
-        arg2: string,
-        arg3: number[]
-      ) => any[]
+      parseFunc: (arg1: [ethers.BigNumber[], string[]], arg2: string, arg3: number[]) => any[]
     ) => {
-      const indexes = getIndexes(knownIndexes, lastIndex);
-      const ordersData = await orderBookReaderContract.getDecreaseOrders(
-        orderBookAddress,
-        account,
-        indexes
-      );
-      const orders = parseFunc(ordersData, account, indexes);
+      const indexes = getIndexes(knownIndexes, lastIndex)
+      const ordersData = await orderBookReaderContract.getDecreaseOrders(orderBookAddress, account, indexes)
+      const orders = parseFunc(ordersData, account, indexes)
 
-      return orders;
-    };
+      return orders
+    }
 
     function _parseOrdersData(
       ordersData: [ethers.BigNumber[], string[]],
@@ -1561,34 +1341,32 @@ export default class GmxV1Service implements IExchange {
       addressPropsLength: number
     ) {
       if (!ordersData) {
-        return [];
+        return []
       }
-      const [uintProps, addressProps] = ordersData;
-      const count = uintProps.length / uintPropsLength;
+      const [uintProps, addressProps] = ordersData
+      const count = uintProps.length / uintPropsLength
 
-      const orders: any[] = [];
+      const orders: any[] = []
       for (let i = 0; i < count; i++) {
         const sliced = addressProps
           .slice(addressPropsLength * i, addressPropsLength * (i + 1))
           .map((prop) => prop as any)
-          .concat(
-            uintProps.slice(uintPropsLength * i, uintPropsLength * (i + 1))
-          );
+          .concat(uintProps.slice(uintPropsLength * i, uintPropsLength * (i + 1)))
 
         if (
           (sliced[0] as string) === ethers.constants.AddressZero &&
           (sliced[1] as string) === ethers.constants.AddressZero
         ) {
-          continue;
+          continue
         }
 
-        const order = extractor(sliced);
-        order.index = indexes[i];
-        order.account = account;
-        orders.push(order);
+        const order = extractor(sliced)
+        order.index = indexes[i]
+        order.account = account
+        orders.push(order)
       }
 
-      return orders;
+      return orders
     }
 
     function parseDecreaseOrdersData(
@@ -1597,7 +1375,7 @@ export default class GmxV1Service implements IExchange {
       indexes: number[]
     ) {
       const extractor = (sliced: any[]) => {
-        const isLong = sliced[4].toString() === "1";
+        const isLong = sliced[4].toString() === '1'
         return {
           collateralToken: sliced[0] as string,
           indexToken: sliced[1] as string,
@@ -1605,18 +1383,11 @@ export default class GmxV1Service implements IExchange {
           sizeDelta: sliced[3] as BigNumber,
           isLong,
           triggerPrice: sliced[5] as BigNumber,
-          triggerAboveThreshold: sliced[6].toString() === "1",
-          type: "Decrease",
-        };
-      };
-      return _parseOrdersData(
-        decreaseOrdersData,
-        account,
-        indexes,
-        extractor,
-        5,
-        2
-      );
+          triggerAboveThreshold: sliced[6].toString() === '1',
+          type: 'Decrease'
+        }
+      }
+      return _parseOrdersData(decreaseOrdersData, account, indexes, extractor, 5, 2)
     }
 
     function parseIncreaseOrdersData(
@@ -1625,7 +1396,7 @@ export default class GmxV1Service implements IExchange {
       indexes: number[]
     ) {
       const extractor = (sliced: any[]) => {
-        const isLong = sliced[5].toString() === "1";
+        const isLong = sliced[5].toString() === '1'
         return {
           purchaseToken: sliced[0] as string,
           collateralToken: sliced[1] as string,
@@ -1634,36 +1405,18 @@ export default class GmxV1Service implements IExchange {
           sizeDelta: sliced[4] as BigNumber,
           isLong,
           triggerPrice: sliced[6] as BigNumber,
-          triggerAboveThreshold: sliced[7].toString() === "1",
-          type: "Increase",
-        };
-      };
-      return _parseOrdersData(
-        increaseOrdersData,
-        account,
-        indexes,
-        extractor,
-        5,
-        3
-      );
+          triggerAboveThreshold: sliced[7].toString() === '1',
+          type: 'Increase'
+        }
+      }
+      return _parseOrdersData(increaseOrdersData, account, indexes, extractor, 5, 3)
     }
 
-    const [serverIndexes, lastIndexes]: any = await Promise.all([
-      fetchIndexesFromServer(),
-      fetchLastIndexes(),
-    ]);
+    const [serverIndexes, lastIndexes]: any = await Promise.all([fetchIndexesFromServer(), fetchLastIndexes()])
     const [increaseOrders = [], decreaseOrders = []] = await Promise.all([
-      getIncreaseOrders(
-        serverIndexes.increase,
-        lastIndexes.increase,
-        parseIncreaseOrdersData
-      ),
-      getDecreaseOrders(
-        serverIndexes.decrease,
-        lastIndexes.decrease,
-        parseDecreaseOrdersData
-      ),
-    ]);
+      getIncreaseOrders(serverIndexes.increase, lastIndexes.increase, parseIncreaseOrdersData),
+      getDecreaseOrders(serverIndexes.decrease, lastIndexes.decrease, parseDecreaseOrdersData)
+    ])
     // increaseOrders.forEach((io: any) => {
     //   logObject("io", io);
     // });
@@ -1671,13 +1424,13 @@ export default class GmxV1Service implements IExchange {
     //   logObject("do", dor);
     // });
 
-    return [...increaseOrders, ...decreaseOrders];
+    return [...increaseOrders, ...decreaseOrders]
   }
 
   async getEthRequired(provider: Provider): Promise<BigNumber | undefined> {
-    const ethBalance = await provider.getBalance(this.swAddr);
-    const ethRequired = BigNumber.from(this.EXECUTION_FEE);
+    const ethBalance = await provider.getBalance(this.swAddr)
+    const ethRequired = BigNumber.from(this.EXECUTION_FEE)
 
-    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1);
+    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
   }
 }

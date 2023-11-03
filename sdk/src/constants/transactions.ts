@@ -2,16 +2,9 @@
 
 import { TransactionEventCode } from '../types/transactions'
 
-export const TRANSACTION_EVENTS: TransactionEventCode[] = [
-	'txSent',
-	'txConfirmed',
-	'txFailed',
-	'txError',
-]
+export const TRANSACTION_EVENTS: TransactionEventCode[] = ['txSent', 'txConfirmed', 'txFailed', 'txError']
 
-export const TRANSACTION_EVENTS_MAP = Object.fromEntries(
-	TRANSACTION_EVENTS.map((event) => [event, event])
-)
+export const TRANSACTION_EVENTS_MAP = Object.fromEntries(TRANSACTION_EVENTS.map((event) => [event, event]))
 
 export const DEFAULT_GAS_BUFFER = 5000
 

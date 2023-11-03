@@ -19,16 +19,16 @@ export const DEFAULT_TOKEN_DECIMALS = 18
 export type FUTURES_FIAT = 'EUR' | 'JPY' | 'USD' | 'AUD' | 'GBP' | 'CHF'
 
 export const FIAT_SYNTHS: Set<CurrencyKey | FUTURES_FIAT> = new Set([
-	'sEUR',
-	'sJPY',
-	'sUSD',
-	'sAUD',
-	'sGBP',
-	'sCHF',
-	'EUR',
-	'JPY',
-	'USD',
-	'AUD',
-	'GBP',
-	'CHF',
+  'sEUR',
+  'sJPY',
+  'sUSD',
+  'sAUD',
+  'sGBP',
+  'sCHF',
+  'EUR',
+  'JPY',
+  'USD',
+  'AUD',
+  'GBP',
+  'CHF'
 ])

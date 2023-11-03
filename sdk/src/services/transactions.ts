@@ -13,171 +13,161 @@ import { NetworkIdByName } from '../types/common'
 import { Emitter } from '../types/transactions'
 import { createEmitter, getRevertReason } from '../utils/transactions'
 
-const OVMGasPriceOracle = getContractFactory('OVM_GasPriceOracle').attach(
-	predeploys.OVM_GasPriceOracle
-)
+const OVMGasPriceOracle = getContractFactory('OVM_GasPriceOracle').attach(predeploys.OVM_GasPriceOracle)
 
-const contractAbi = JSON.parse(
-	OVMGasPriceOracle.interface.format(ethers.utils.FormatTypes.json) as string
-)
+const contractAbi = JSON.parse(OVMGasPriceOracle.interface.format(ethers.utils.FormatTypes.json) as string)
 
 const DEFAULT_GAS_BUFFER = 0.2
 
 export default class TransactionsService {
-	private sdk: KwentaSDK
+  private sdk: KwentaSDK
 
-	constructor(sdk: KwentaSDK) {
-		this.sdk = sdk
-	}
+  constructor(sdk: KwentaSDK) {
+    this.sdk = sdk
+  }
 
-	// Copied over from: https://github.com/Synthetixio/js-monorepo
-	hash(transactionHash: string): Emitter {
-		const emitter = createEmitter()
-		setTimeout(() => this.watchTransaction(transactionHash, emitter), 5)
-		return emitter
-	}
+  // Copied over from: https://github.com/Synthetixio/js-monorepo
+  hash(transactionHash: string): Emitter {
+    const emitter = createEmitter()
+    setTimeout(() => this.watchTransaction(transactionHash, emitter), 5)
+    return emitter
+  }
 
-	watchTransaction(transactionHash: string, emitter: Emitter): void {
-		emitter.emit(TRANSACTION_EVENTS_MAP.txSent, { transactionHash })
-		this.sdk.context.provider
-			.waitForTransaction(transactionHash)
-			.then(({ status, blockNumber, transactionHash }) => {
-				if (status === 1) {
-					emitter.emit(TRANSACTION_EVENTS_MAP.txConfirmed, {
-						status,
-						blockNumber,
-						transactionHash,
-					})
-				} else {
-					setTimeout(() => {
-						this.sdk.context.provider.getNetwork().then(({ chainId }) => {
-							try {
-								getRevertReason({
-									txHash: transactionHash,
-									networkId: chainId,
-									blockNumber,
-									provider: this.sdk.context.provider,
-								}).then((revertReason) =>
-									emitter.emit(TRANSACTION_EVENTS_MAP.txFailed, {
-										transactionHash,
-										failureReason: revertReason,
-									})
-								)
-							} catch (e) {
-								emitter.emit(TRANSACTION_EVENTS_MAP.txFailed, {
-									transactionHash,
-									failureReason: 'Transaction reverted for an unknown reason',
-								})
-							}
-						})
-					}, 5000)
-				}
-			})
-	}
+  watchTransaction(transactionHash: string, emitter: Emitter): void {
+    emitter.emit(TRANSACTION_EVENTS_MAP.txSent, { transactionHash })
+    this.sdk.context.provider.waitForTransaction(transactionHash).then(({ status, blockNumber, transactionHash }) => {
+      if (status === 1) {
+        emitter.emit(TRANSACTION_EVENTS_MAP.txConfirmed, {
+          status,
+          blockNumber,
+          transactionHash
+        })
+      } else {
+        setTimeout(() => {
+          this.sdk.context.provider.getNetwork().then(({ chainId }) => {
+            try {
+              getRevertReason({
+                txHash: transactionHash,
+                networkId: chainId,
+                blockNumber,
+                provider: this.sdk.context.provider
+              }).then((revertReason) =>
+                emitter.emit(TRANSACTION_EVENTS_MAP.txFailed, {
+                  transactionHash,
+                  failureReason: revertReason
+                })
+              )
+            } catch (e) {
+              emitter.emit(TRANSACTION_EVENTS_MAP.txFailed, {
+                transactionHash,
+                failureReason: 'Transaction reverted for an unknown reason'
+              })
+            }
+          })
+        }, 5000)
+      }
+    })
+  }
 
-	public createContractTxn(
-		contract: ethers.Contract,
-		method: string,
-		args: any[],
-		txnOptions: Partial<ethers.providers.TransactionRequest> = {},
-		options?: { gasLimitBuffer?: number }
-	) {
-		const txn = {
-			to: contract.address,
-			data: contract.interface.encodeFunctionData(method, args),
-			value: BigNumber.from(0),
-			...txnOptions,
-		}
+  public createContractTxn(
+    contract: ethers.Contract,
+    method: string,
+    args: any[],
+    txnOptions: Partial<ethers.providers.TransactionRequest> = {},
+    options?: { gasLimitBuffer?: number }
+  ) {
+    const txn = {
+      to: contract.address,
+      data: contract.interface.encodeFunctionData(method, args),
+      value: BigNumber.from(0),
+      ...txnOptions
+    }
 
-		return this.createEVMTxn(txn, options)
-	}
+    return this.createEVMTxn(txn, options)
+  }
 
-	public async getContractTxn(
-		contract: ethers.Contract,
-		method: string,
-		args: any[],
-		txnOptions: Partial<ethers.providers.TransactionRequest> = {},
-		options?: { gasLimitBuffer?: number }
-	) {
-		const tx1 = await contract.populateTransaction[method](...args, {
-			gasLimit: 2000000
-		});
-		tx1.value = BigNumber.from(0);
+  public async getContractTxn(
+    contract: ethers.Contract,
+    method: string,
+    args: any[],
+    txnOptions: Partial<ethers.providers.TransactionRequest> = {},
+    options?: { gasLimitBuffer?: number }
+  ) {
+    const tx1 = await contract.populateTransaction[method](...args, {
+      gasLimit: 2000000
+    })
+    tx1.value = BigNumber.from(0)
 
-		if (!tx1.gasLimit) {
-			const newGasLimit = await this.estimateGas(tx1)
-			tx1.gasLimit = wei(newGasLimit ?? 0, 9)
-				.mul(1 + (options?.gasLimitBuffer || DEFAULT_GAS_BUFFER))
-				.toBN()
-		}
+    if (!tx1.gasLimit) {
+      const newGasLimit = await this.estimateGas(tx1)
+      tx1.gasLimit = wei(newGasLimit ?? 0, 9)
+        .mul(1 + (options?.gasLimitBuffer || DEFAULT_GAS_BUFFER))
+        .toBN()
+    }
 
-		return tx1
-	}
+    return tx1
+  }
 
-	public async createEVMTxn(txn: ethers.providers.TransactionRequest, options?: any) {
-		const execTxn = clone(txn)
+  public async createEVMTxn(txn: ethers.providers.TransactionRequest, options?: any) {
+    const execTxn = clone(txn)
 
-		if (!execTxn.gasLimit) {
-			const newGasLimit = await this.estimateGas(execTxn)
-			execTxn.gasLimit = wei(newGasLimit ?? 0, 9)
-				.mul(1 + (options?.gasLimitBuffer || DEFAULT_GAS_BUFFER))
-				.toBN()
-		}
+    if (!execTxn.gasLimit) {
+      const newGasLimit = await this.estimateGas(execTxn)
+      execTxn.gasLimit = wei(newGasLimit ?? 0, 9)
+        .mul(1 + (options?.gasLimitBuffer || DEFAULT_GAS_BUFFER))
+        .toBN()
+    }
 
-		const txnData = await this.sdk.context.signer.sendTransaction(execTxn)
+    const txnData = await this.sdk.context.signer.sendTransaction(execTxn)
 
-		return txnData
-	}
+    return txnData
+  }
 
-	public createSynthetixTxn(
-		contractName: ContractName,
-		method: string,
-		args: any[],
-		txnOptions: Partial<ethers.providers.TransactionRequest> = {},
-		options?: any
-	) {
-		const contract = this.sdk.context.contracts[contractName]
+  public createSynthetixTxn(
+    contractName: ContractName,
+    method: string,
+    args: any[],
+    txnOptions: Partial<ethers.providers.TransactionRequest> = {},
+    options?: any
+  ) {
+    const contract = this.sdk.context.contracts[contractName]
 
-		if (!contract) {
-			throw new Error(sdkErrors.UNSUPPORTED_NETWORK)
-		}
+    if (!contract) {
+      throw new Error(sdkErrors.UNSUPPORTED_NETWORK)
+    }
 
-		return this.createContractTxn(contract, method, args, txnOptions, options)
-	}
+    return this.createContractTxn(contract, method, args, txnOptions, options)
+  }
 
-	public async estimateGas(txn: ethers.providers.TransactionRequest) {
-		return this.sdk.context.signer.estimateGas(
-			omit(txn, ['gasPrice', 'maxPriorityFeePerGas', 'maxFeePerGas'])
-		)
-	}
+  public async estimateGas(txn: ethers.providers.TransactionRequest) {
+    return this.sdk.context.signer.estimateGas(omit(txn, ['gasPrice', 'maxPriorityFeePerGas', 'maxFeePerGas']))
+  }
 
-	public async getOptimismLayerOneFees(txn?: ethers.providers.TransactionRequest) {
-		if (!txn || !this.sdk.context.signer) return null
+  public async getOptimismLayerOneFees(txn?: ethers.providers.TransactionRequest) {
+    if (!txn || !this.sdk.context.signer) return null
 
-		const isNotOvm =
-			this.sdk.context.networkId !== NetworkIdByName['mainnet-ovm'] &&
-			this.sdk.context.networkId !== NetworkIdByName['kovan-ovm'] &&
-			this.sdk.context.networkId !== NetworkIdByName['goerli-ovm']
+    const isNotOvm =
+      this.sdk.context.networkId !== NetworkIdByName['mainnet-ovm'] &&
+      this.sdk.context.networkId !== NetworkIdByName['kovan-ovm'] &&
+      this.sdk.context.networkId !== NetworkIdByName['goerli-ovm']
 
-		if (isNotOvm) {
-			return null
-		}
+    if (isNotOvm) {
+      return null
+    }
 
-		const OptimismGasPriceOracleContract = new ethers.Contract(
-			OVMGasPriceOracle.address,
-			contractAbi,
-			this.sdk.context.signer
-		)
+    const OptimismGasPriceOracleContract = new ethers.Contract(
+      OVMGasPriceOracle.address,
+      contractAbi,
+      this.sdk.context.signer
+    )
 
-		const cleanedTxn = omit(txn, ['from', 'maxPriorityFeePerGas', 'maxFeePerGas'])
-		const serializedTxn = ethers.utils.serializeTransaction(
-			cleanedTxn as ethers.UnsignedTransaction
-		)
+    const cleanedTxn = omit(txn, ['from', 'maxPriorityFeePerGas', 'maxFeePerGas'])
+    const serializedTxn = ethers.utils.serializeTransaction(cleanedTxn as ethers.UnsignedTransaction)
 
-		return wei(await OptimismGasPriceOracleContract.getL1Fee(serializedTxn))
-	}
+    return wei(await OptimismGasPriceOracleContract.getL1Fee(serializedTxn))
+  }
 
-	public getGasPrice() {
-		return getEthGasPrice(this.sdk.context.networkId, this.sdk.context.provider)
-	}
+  public getGasPrice() {
+    return getEthGasPrice(this.sdk.context.networkId, this.sdk.context.provider)
+  }
 }

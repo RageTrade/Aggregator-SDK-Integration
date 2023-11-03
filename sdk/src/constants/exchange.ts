@@ -5,53 +5,43 @@ import { FuturesMarketKey } from '../types/futures'
 export const CG_BASE_API_URL = 'https://api.coingecko.com/api/v3'
 
 export const PROTOCOLS =
-	'OPTIMISM_UNISWAP_V3,OPTIMISM_SYNTHETIX,OPTIMISM_SYNTHETIX_WRAPPER,OPTIMISM_ONE_INCH_LIMIT_ORDER,OPTIMISM_ONE_INCH_LIMIT_ORDER_V2,OPTIMISM_CURVE,OPTIMISM_BALANCER_V2,OPTIMISM_VELODROME,OPTIMISM_KYBERSWAP_ELASTIC'
+  'OPTIMISM_UNISWAP_V3,OPTIMISM_SYNTHETIX,OPTIMISM_SYNTHETIX_WRAPPER,OPTIMISM_ONE_INCH_LIMIT_ORDER,OPTIMISM_ONE_INCH_LIMIT_ORDER_V2,OPTIMISM_CURVE,OPTIMISM_BALANCER_V2,OPTIMISM_VELODROME,OPTIMISM_KYBERSWAP_ELASTIC'
 
 export const FILTERED_TOKENS = ['0x4922a015c4407f87432b179bb209e125432e4a2a']
 export const DEFAULT_BUFFER = 0.2
 
 export const ADDITIONAL_MARKETS = new Set<string>([
-	FuturesMarketKey.sAPEPERP,
-	FuturesMarketKey.sDYDXPERP,
-	FuturesMarketKey.sXAUPERP,
-	FuturesMarketKey.sXAGPERP,
+  FuturesMarketKey.sAPEPERP,
+  FuturesMarketKey.sDYDXPERP,
+  FuturesMarketKey.sXAUPERP,
+  FuturesMarketKey.sXAGPERP
 ])
 
 export const CRYPTO_CURRENCY = [
-	'KNC',
-	'COMP',
-	'REN',
-	'LEND',
-	'SNX',
-	'BTC',
-	'ETH',
-	'XRP',
-	'BCH',
-	'LTC',
-	'EOS',
-	'BNB',
-	'XTZ',
-	'XMR',
-	'ADA',
-	'LINK',
-	'TRX',
-	'DASH',
-	'ETC',
+  'KNC',
+  'COMP',
+  'REN',
+  'LEND',
+  'SNX',
+  'BTC',
+  'ETH',
+  'XRP',
+  'BCH',
+  'LTC',
+  'EOS',
+  'BNB',
+  'XTZ',
+  'XMR',
+  'ADA',
+  'LINK',
+  'TRX',
+  'DASH',
+  'ETC'
 ]
 
 export const CRYPTO_CURRENCY_MAP = keyBy(CRYPTO_CURRENCY)
 
-export const ATOMIC_EXCHANGES_L1 = [
-	'sBTC',
-	'sETH',
-	'sEUR',
-	'sUSD',
-	'sCHF',
-	'sJPY',
-	'sAUD',
-	'sGBP',
-	'sKRW',
-]
+export const ATOMIC_EXCHANGES_L1 = ['sBTC', 'sETH', 'sEUR', 'sUSD', 'sCHF', 'sJPY', 'sAUD', 'sGBP', 'sKRW']
 
 // For coingecko API
 export const ETH_COINGECKO_ADDRESS = '0x4200000000000000000000000000000000000006'

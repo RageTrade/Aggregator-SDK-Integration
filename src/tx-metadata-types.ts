@@ -1,4 +1,4 @@
-import { BigNumber } from "ethers"
+import { BigNumber } from 'ethers'
 
 export interface BaseAdditionalSessionData {
   chainId: number
@@ -12,4 +12,3 @@ export interface ERC20ApprovalAddtionalSessionData extends BaseAdditionalSession
 export interface AddressValidationAdditionalSessionData extends BaseAdditionalSessionData {
   destinationAddress: string
 }
-

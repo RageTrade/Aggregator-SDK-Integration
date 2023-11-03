@@ -4,8 +4,8 @@ import { BigNumber } from 'ethers'
 export const DEFAULT_NUMBER_OF_FUTURES_FEE: number = 9999
 
 export const EPOCH_START: Record<number, number> = {
-	420: 1665878400,
-	10: 1668556800,
+  420: 1665878400,
+  10: 1668556800
 }
 
 export const WEEK = 604800
