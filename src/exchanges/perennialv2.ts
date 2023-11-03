@@ -1,6 +1,6 @@
 import { AssetMetadata, QuoteCurrency, SupportedAsset, fetchMarketSnapshots2, modifyPosition } from 'perennial-sdk-ts'
 import { Market, Network, Provider, UnsignedTxWithMetadata } from '../interface'
-import { CreateOrder, MarketInfo } from '../interfaces/V1/RouterV1'
+import { CreateOrder, MarketInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { http, createPublicClient, Address, PublicClient, zeroAddress } from 'viem'
 
 import { arbitrum } from 'viem/chains'

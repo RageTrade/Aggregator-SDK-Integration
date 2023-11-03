@@ -31,7 +31,6 @@ export type Protocol = {
 
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
-  protocolMarketId: string // Unique identifier for the market within the protocol Hash(Index:Long:Short for gmxV2)
   indexToken: Token
   longCollateral: Token[]
   shortCollateral: Token[]
@@ -85,6 +84,7 @@ export type TriggerData = {
 }
 
 export type TradeData = {
+  marketId: Market['marketId']
   direction: TradeDirection
   sizeDelta: AmountInfo
   marginDelta: AmountInfo
@@ -117,7 +117,6 @@ export type OrderInfo = OrderData &
   OrderIdentifier &
   OrderType &
   CollateralData & {
-    marketId: Market['marketId'] // Global id
     protocolId: ProtocolId
   }
 
@@ -127,6 +126,7 @@ export type CancelOrder = OrderIdentifier & {
 }
 
 export type PositionData = {
+  marketId: Market['marketId']
   posId: string
   size: AmountInfo
   margin: AmountInfo
@@ -142,7 +142,6 @@ export type PositionData = {
 }
 
 export type PositionInfo = PositionData & {
-  marketId: Market['marketId'] // Global id
   protocolId: ProtocolId
 }
 
@@ -168,7 +167,6 @@ export type SynV2PositionInfo = PositionInfo & {
 
 export type HistoricalTradeInfo = TradeData &
   CollateralData & {
-    marketId: Market['marketId'] // Global id
     timestamp: number
     price: FixedNumber
     realizedPnl: AmountInfo
@@ -179,7 +177,7 @@ export type HistoricalTradeInfo = TradeData &
   }
 
 export type LiquidationInfo = CollateralData & {
-  marketId: Market['marketId'] // Global id
+  marketId: Market['marketId']
   liquidationPrice: FixedNumber
   direction: TradeDirection
   sizeClosed: AmountInfo
@@ -209,6 +207,7 @@ export type ErrorData = {
 }
 
 export type PreviewInfo = CollateralData & {
+  marketId: Market['marketId']
   leverage: FixedNumber
   size: AmountInfo
   margin: AmountInfo
@@ -279,51 +278,34 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
     }
 
-export interface RouterV1 {
+export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
   setup(swAddr: string): Promise<void>
 
   ///// Network api //////
   supportedNetworks(): Network[]
 
-  ///// Protocol api //////
-  supportedProtocols(): Protocol[]
-
   ///// Market api's //////
   supportedMarkets(networks: Network[] | undefined): Promise<MarketInfo[]>
 
-  getMarketPrice(marketId: Market['marketId']): Promise<FixedNumber>
+  getMarketPrices(marketIds: Market['marketId'][]): Promise<FixedNumber[]>
 
-  getMarketInfo(marketId: Market['marketId']): Promise<MarketInfo>
+  getMarketsInfo(marketIds: Market['marketId'][]): Promise<MarketInfo[]>
 
-  getDynamicMarketMetadata(marketId: Market['marketId']): Promise<DynamicMarketMetadata>
+  getDynamicMarketMetadata(marketIds: Market['marketId'][]): Promise<DynamicMarketMetadata[]>
 
   ///// Action api's //////
-  createIncreaseOrder(
-    marketId: Market['marketId'], // Global id
-    orderData: CreateOrder
-  ): Promise<UnsignedTxWithMetadata[]>
+  increasePosition(orderData: CreateOrder[]): Promise<UnsignedTxWithMetadata[]>
 
-  updateOrder(
-    marketId: Market['marketId'], // Global id
-    orderData: UpdateOrder
-  ): Promise<UnsignedTxWithMetadata[]>
+  updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]>
 
-  cancelOrder(
-    marketId: Market['marketId'], // Global id
-    orderData: CancelOrder
-  ): Promise<UnsignedTxWithMetadata[]>
+  cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]>
 
-  closePosition(
-    marketId: Market['marketId'], // Global id
-    positionInfo: PositionInfo,
-    closePositionData: ClosePositionData
-  ): Promise<UnsignedTxWithMetadata[]>
+  closePosition(positionInfo: PositionInfo[], closePositionData: ClosePositionData[]): Promise<UnsignedTxWithMetadata[]>
 
   updatePositionMargin(
-    marketId: Market['marketId'], // Global id
-    positionInfo: PositionInfo,
-    updatePositionMarginData: UpdatePositionMarginData
+    positionInfo: PositionInfo[],
+    updatePositionMarginData: UpdatePositionMarginData[]
   ): Promise<UnsignedTxWithMetadata[]>
 
   ///// Fetching api's //////
@@ -342,9 +324,9 @@ export interface RouterV1 {
 
   getAllOrdersForPosition(
     wallet: string,
-    positionInfo: PositionInfo,
+    positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes<OrderInfo>>
+  ): Promise<PaginatedRes<Record<PositionData['posId'], OrderInfo>>>
 
   getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>>
 
@@ -352,23 +334,20 @@ export interface RouterV1 {
 
   getOpenTradePreview(
     wallet: string,
-    marketId: Market['marketId'], // Global id
-    orderData: CreateOrder,
-    existingPos: PositionInfo | undefined
-  ): Promise<OpenTradePreviewInfo>
+    orderData: CreateOrder[],
+    existingPos: Array<PositionInfo | undefined>
+  ): Promise<OpenTradePreviewInfo[]>
 
   getCloseTradePreview(
     wallet: string,
-    marketId: Market['marketId'], // Global id
-    positionInfo: PositionInfo,
-    closePositionData: ClosePositionData
-  ): Promise<CloseTradePreviewInfo>
+    positionInfo: PositionInfo[],
+    closePositionData: ClosePositionData[]
+  ): Promise<CloseTradePreviewInfo[]>
 
   getUpdateMarginPreview(
     wallet: string,
-    marketId: Market['marketId'], // Global id
-    isDeposit: boolean,
-    marginDelta: AmountInfo,
-    existingPos: PositionInfo | undefined
-  ): Promise<PreviewInfo>
+    isDeposit: boolean[],
+    marginDelta: AmountInfo[],
+    existingPos: Array<PositionInfo | undefined>
+  ): Promise<PreviewInfo[]>
 }
