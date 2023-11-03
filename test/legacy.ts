@@ -19,7 +19,6 @@ import { FuturesMarketKey } from '@kwenta/sdk/dist/types/futures'
 import { logObject } from '../src/common/helper'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD, startStreaming } from '../src/configs/pyth/prices'
-import { Connection } from '@solana/web3.js'
 
 config()
 

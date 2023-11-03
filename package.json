@@ -18,7 +18,6 @@
     "@kwenta/sdk": "./sdk",
     "@pythnetwork/client": "^2.19.0",
     "@pythnetwork/price-service-client": "^1.7.0",
-    "@solana/web3.js": "^1.78.5",
     "@synthetixio/wei": "^2.74.4",
     "ethers": "^5.7.2",
     "ethers-v6": "npm:ethers@6.8.0",
