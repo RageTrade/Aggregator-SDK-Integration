@@ -1,5 +1,8 @@
 {
   "name": "perp-aggregator-sdk",
+  "scripts": {
+    "fmt": "prettier --write src sdk test"
+  },
   "devDependencies": {
     "@types/node": "^20.4.6",
     "dotenv": "^16.3.1",
