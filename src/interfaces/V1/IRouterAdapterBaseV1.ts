@@ -19,7 +19,7 @@ export type OrderType = CreateOrderType | CloseOrderType
 
 export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 
-export type ProtocolId = keyof typeof protocols
+export type ProtocolId = 'GMXV1' | 'SYNTHETIXV2' | 'PERV2' | 'GMXV2'
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
@@ -44,6 +44,7 @@ export type GenericStaticMarketMetadata = {
   minPositionSize: AmountInfo
 }
 
+<<<<<<< HEAD
 // Move to exchange specific file
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
   address: string
@@ -64,6 +65,29 @@ export type StaticMarketMetadata =
     data: GenericStaticMarketMetadata
   }
 
+||||||| parent of 016731a (feat: gmxV2 supported Markets and tokens)
+// Move to exchange specific file
+export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
+  address: string
+  asset: string // check if can be removed
+}
+
+export type StaticMarketMetadata =
+  | {
+      protocolId: 'GMXV1'
+      data: GenericStaticMarketMetadata
+    }
+  | {
+      protocolId: 'SYNTHETIXV2'
+      data: SynV2StaticMarketMetadata
+    }
+  | {
+      protocolId: 'PERV2'
+      data: GenericStaticMarketMetadata
+    }
+
+=======
+>>>>>>> 016731a (feat: gmxV2 supported Markets and tokens)
 export type DynamicMarketMetadata = {
   oiLong: AmountInfo
   oiShort: AmountInfo
@@ -73,7 +97,7 @@ export type DynamicMarketMetadata = {
   shortRate: FixedNumber
 }
 
-export type MarketInfo = Market & StaticMarketMetadata & Protocol
+export type MarketInfo = Market & GenericStaticMarketMetadata & Protocol
 
 export type TradeDirection = 'LONG' | 'SHORT'
 

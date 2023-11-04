@@ -1,6 +1,6 @@
 import { arbitrum, optimism } from 'viem/chains'
 
-type Maybe<T> = T | undefined
+export type Maybe<T> = T | undefined
 
 export interface Token {
   symbol: string

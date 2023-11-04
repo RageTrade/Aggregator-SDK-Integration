@@ -1,5 +1,7 @@
 import { BigNumber, ethers } from 'ethers'
 import { NumberDecimal, PageOptions, PaginatedRes } from '../interface'
+import { AmountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { FixedNumber } from 'ethers-v6'
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
   myEnum: T,
@@ -13,7 +15,7 @@ function keys(obj: object) {
   return Object.keys(obj) as Array<keyof Object>
 }
 
-export function logObject(title: string, obj: object) {
+export function logObject(title: string = '', obj: object) {
   console.log(
     title,
     keys(obj).map((key) => key + ': ' + (obj[key] ? obj[key].toString() : ''))
@@ -61,5 +63,17 @@ export function getPaginatedResponse<T>(data: Array<T>, pageOptions: PageOptions
   return {
     result: data,
     maxItemsCount: data.length
+  }
+}
+
+export function toAmountInfo(
+  val: BigNumber,
+  valDecimals: number,
+  isTokens: boolean,
+  outDecimals: number = valDecimals
+): AmountInfo {
+  return {
+    amount: FixedNumber.fromValue(val.toString(), valDecimals, outDecimals),
+    isTokenAmount: isTokens
   }
 }
