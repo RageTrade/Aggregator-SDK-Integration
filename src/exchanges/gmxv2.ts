@@ -103,9 +103,21 @@ export default class GmxV2Service implements IAdapterV1 {
   getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
     throw new Error('Method not implemented.')
   }
-  getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
-    throw new Error('Method not implemented.')
+
+  async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
+    const allMarketsInfo = await this.supportedMarkets(this.supportedNetworks())
+
+    const marketsInfo: MarketInfo[] = []
+    for (const mId of marketIds) {
+      const marketInfo = allMarketsInfo.find((m) => m.marketId === mId)
+      if (marketInfo === undefined) throw new Error(`Market ${mId} not found`)
+
+      marketsInfo.push(marketInfo)
+    }
+
+    return marketsInfo
   }
+
   getDynamicMarketMetadata(marketIds: string[]): Promise<DynamicMarketMetadata[]> {
     throw new Error('Method not implemented.')
   }

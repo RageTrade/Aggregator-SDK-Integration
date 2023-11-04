@@ -12,8 +12,17 @@ async function testSupportedMarkets() {
   console.dir({ res }, { depth: 4 })
 }
 
+async function testGetMarketsInfo() {
+  const mIds = [
+    '0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c:GMXV2:42161',
+    '0xe2fEDb9e6139a182B98e7C2688ccFa3e9A53c665:GMXV2:42161'
+  ]
+  const res = await ex.getMarketsInfo(mIds)
+  console.dir({ res }, { depth: 4 })
+}
+
 async function test() {
-  await testSupportedMarkets()
+  await testGetMarketsInfo()
 }
 
 test()
