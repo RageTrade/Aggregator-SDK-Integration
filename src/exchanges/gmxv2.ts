@@ -32,7 +32,7 @@ import { BigNumber, ethers } from 'ethers'
 import { ZERO } from '../common/constants'
 import { logObject, toAmountInfo } from '../common/helper'
 import { arbitrum } from 'viem/chains'
-import { GMX_V2_COLLATERAL_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2Tokens'
+import { GMX_V2_COLLATERAL_TOKENS, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2Tokens'
 import { parseUnits } from 'ethers/lib/utils'
 
 export default class GmxV2Service implements IAdapterV1 {
@@ -100,8 +100,32 @@ export default class GmxV2Service implements IAdapterV1 {
     return marketsInfo
   }
 
-  getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
-    throw new Error('Method not implemented.')
+  async getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
+    const marketsInfo = await this.getMarketsInfo(marketIds)
+    const prices: FixedNumber[] = []
+
+    const pricesUrl = `https://arbitrum-api.gmxinfra.io/prices/tickers`
+    const pricesRes = await fetch(pricesUrl)
+    const resJson = (await pricesRes.json()) as Array<{ [key: string]: string }>
+
+    for (const mInfo of marketsInfo) {
+      const tokenInfo = resJson.find(
+        (p) => p.tokenAddress.toLowerCase() === this.convertNative(mInfo.indexToken.address[42161]!).toLowerCase()
+      )
+      if (tokenInfo === undefined) throw new Error(`Price for ${mInfo.indexToken.symbol} not found`)
+
+      const priceDecimals = getGmxV2TokenByAddress(mInfo.indexToken.address[42161]!).priceDecimals
+
+      const minPrice = tokenInfo.minPrice
+      const maxPrice = tokenInfo.maxPrice
+
+      // get mid price for calculations and display on f/e
+      const price = BigNumber.from(minPrice).add(BigNumber.from(maxPrice)).div(2)
+
+      prices.push(FixedNumber.fromValue(price.toString(), priceDecimals))
+    }
+
+    return prices
   }
 
   async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
@@ -238,5 +262,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private getProtocolMarketId(globalMarketId: string): string {
     return globalMarketId.split(':')[0]
+  }
+
+  private convertNative(address: string) {
+    return address === ethers.constants.AddressZero ? GMX_V2_TOKENS['WETH'].address[42161]! : address
   }
 }
