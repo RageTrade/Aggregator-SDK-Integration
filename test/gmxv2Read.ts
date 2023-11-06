@@ -31,7 +31,7 @@ async function testMarketPrices() {
 }
 
 async function test() {
-  await testMarketPrices()
+  await testGetAllPositions()
 }
 
 test()

@@ -1802,7 +1802,6 @@ export const getCloseTradePreviewInternal = async (
   }
 
   totalFees = totalFees.add(positionFee || BigNumber.from(0)).add(fundingFee || BigNumber.from(0))
-
   ;({ receiveUsd, nextCollateral } = calculateNextCollateralAndReceiveUsd(
     position.collateral,
     nextHasProfit,

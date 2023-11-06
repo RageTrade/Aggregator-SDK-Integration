@@ -1,4 +1,4 @@
-import { Token } from '../common/tokens'
+import { Token } from '../../common/tokens'
 import { arbitrum, optimism } from 'viem/chains'
 import { ethers } from 'ethers'
 
