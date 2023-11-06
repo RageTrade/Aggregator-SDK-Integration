@@ -38,14 +38,6 @@ import { accountPositionListKey, hashedPositionKey } from '../configs/gmxv2/data
 import { ContractMarketPrices } from '../configs/gmxv2/types'
 import { getPositionKey } from '../configs/gmxv2/utils'
 
-type CachedMarkets = Record<
-  string,
-  {
-    marketInfo: MarketInfo
-    // market: Reader.Market.PropsStructOutput
-  }
->
-
 export default class GmxV2Service implements IAdapterV1 {
   private DATASTORE_ADDR = '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8'
   private READER_ADDR = '0xf60becbba223EEA9495Da3f606753867eC10d139'
@@ -193,13 +185,6 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getAllPositions(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<PositionInfo>> {
     const indexes = this.getStartEndIndex(pageOptions)
-    const allPositions = await this.reader.getAccountPositions(this.DATASTORE_ADDR, wallet, indexes.start, indexes.end)
-
-    // allPositions.forEach((pos) => {
-    //   logObject('pos Address', pos.addresses)
-    //   logObject('pos Numbers', pos.numbers)
-    //   logObject('pos flags', pos.flags)
-    // })
 
     const keyHash = accountPositionListKey(wallet)
     const positionKeys = await this.datastore.getBytes32ValuesAt(keyHash, indexes.start, indexes.end)
@@ -215,18 +200,6 @@ export default class GmxV2Service implements IAdapterV1 {
     )
 
     console.dir({ protocolPositionsData }, { depth: 4 })
-
-    // let posInfos: PositionInfo[] = []
-    // for (const pos of allPositions) {
-    //   const posInfo: PositionInfo = {
-    //     protocolId: 'GMXV2',
-    //     marketId: pos.addresses.market,
-    //     posId: pos.addresses.market,
-    //     size: toAmountInfo(pos.numbers.sizeInUsd, 18, false),
-    //     margin: toAmountInfo(pos.numbers.collateralAmount, 18, false),
-
-    //   }
-    // }
 
     throw new Error('Method not implemented.')
   }
