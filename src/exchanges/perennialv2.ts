@@ -50,31 +50,31 @@ export default class PerennialV2Service {
     for (const key of marketKeys) {
       const value = snapshot.market[key as keyof typeof snapshot.market]
       const assetMetadata = AssetMetadata[value.asset]
-      marketInfoList.push({
-        marketId: `${arbitrum.id}-PERV2-${value.market}`,
-        protocolId: 'PERV2',
-        protocolMarketId: value.market,
-        indexToken: this.getToken(value.asset),
-        longCollateral: [this.getToken(assetMetadata.quoteCurrency)],
-        shortCollateral: [this.getToken(assetMetadata.quoteCurrency)],
-        supportedOrderTypes: {
-          LIMIT: true,
-          MARKET: true,
-          STOP_LOSS: true,
-          TAKE_PROFIT: true
-        },
-        supportedOrderActions: {
-          CREATE: true,
-          UPDATE: true,
-          CANCEL: true
-        },
-        data: {
-          minLeverage: FixedNumber.fromString('0', 30),
-          maxLeverage: FixedNumber.fromString((1000000 / Number(value.riskParameter.margin)).toString(), 30),
-          minInitialMargin: { amount: FixedNumber.fromString('10', 6), isTokenAmount: false },
-          minPositionSize: { amount: FixedNumber.fromString('0', 6), isTokenAmount: false }
-        }
-      })
+      // marketInfoList.push({
+      //   marketId: `${arbitrum.id}-PERV2-${value.market}`,
+      //   protocolId: 'PERV2',
+      //   protocolMarketId: value.market,
+      //   indexToken: this.getToken(value.asset),
+      //   longCollateral: [this.getToken(assetMetadata.quoteCurrency)],
+      //   shortCollateral: [this.getToken(assetMetadata.quoteCurrency)],
+      //   supportedOrderTypes: {
+      //     LIMIT: true,
+      //     MARKET: true,
+      //     STOP_LOSS: true,
+      //     TAKE_PROFIT: true
+      //   },
+      //   supportedOrderActions: {
+      //     CREATE: true,
+      //     UPDATE: true,
+      //     CANCEL: true
+      //   },
+      //   data: {
+      //     minLeverage: FixedNumber.fromString('0', 30),
+      //     maxLeverage: FixedNumber.fromString((1000000 / Number(value.riskParameter.margin)).toString(), 30),
+      //     minInitialMargin: { amount: FixedNumber.fromString('10', 6), isTokenAmount: false },
+      //     minPositionSize: { amount: FixedNumber.fromString('0', 6), isTokenAmount: false }
+      //   }
+      // })
     }
 
     return marketInfoList
