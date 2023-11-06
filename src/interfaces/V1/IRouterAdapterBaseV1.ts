@@ -168,26 +168,6 @@ export type PositionInfo = PositionData & {
   protocolId: ProtocolId
 }
 
-export type GmxV1PositionInfo = PositionInfo & {
-  originalCollateralToken: Token // can be inferred from market and direction ??
-  pnlWithoutFees: AmountInfo
-  closeFee: AmountInfo
-  swapFee: AmountInfo
-  borrowFee: AmountInfo
-  positionFee: AmountInfo
-  collateralAfterFee: AmountInfo
-  delta: AmountInfo
-  hasProfit: boolean
-  entryFundingRate: FixedNumber
-  cumulativeFundingRate: FixedNumber
-  lastUpdatedAt: number
-  fees: AmountInfo
-}
-
-export type SynV2PositionInfo = PositionInfo & {
-  marketAddress: string // can be taken from marketId
-}
-
 export type HistoricalTradeInfo = TradeData &
   CollateralData & {
     timestamp: number
