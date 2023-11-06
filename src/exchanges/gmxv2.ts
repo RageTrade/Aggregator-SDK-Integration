@@ -62,8 +62,8 @@ export default class GmxV2Service implements IAdapterV1 {
       const market: Market = {
         marketId: this.getGlobalMarketId(mProp.marketToken, 'GMXV2', arbitrum.id),
         indexToken: getGmxV2TokenByAddress(mProp.indexToken),
-        longCollateral: GMX_V2_COLLATERAL_TOKENS,
-        shortCollateral: GMX_V2_COLLATERAL_TOKENS,
+        longCollateral: [getGmxV2TokenByAddress(mProp.longToken)],
+        shortCollateral: [getGmxV2TokenByAddress(mProp.shortToken)],
         supportedOrderTypes: {
           LIMIT: true,
           MARKET: true,
