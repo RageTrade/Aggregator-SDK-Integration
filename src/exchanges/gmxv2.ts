@@ -40,6 +40,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private READER = '0xf60becbba223EEA9495Da3f606753867eC10d139'
   private provider = rpc[42161]
   private reader = Reader__factory.connect(this.READER, this.provider)
+  private cachedMarkets: MarketInfo[] = []
 
   setup(swAddr: string): Promise<void> {
     throw new Error('Method not implemented.')
@@ -55,6 +56,9 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async supportedMarkets(networks: Network[] | undefined): Promise<MarketInfo[]> {
+    // get from cache if available
+    if (this.cachedMarkets.length > 0) return this.cachedMarkets
+
     const marketProps = await this.reader.getMarkets(this.DATASTORE, 0, 1000)
 
     const marketsInfo: MarketInfo[] = []
@@ -96,6 +100,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
       marketsInfo.push(marketInfo)
     }
+
+    this.cachedMarkets = marketsInfo
 
     return marketsInfo
   }
