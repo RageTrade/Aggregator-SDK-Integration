@@ -2,6 +2,8 @@ import { FixedNumber } from 'ethers-v6'
 import { BigNumber, UnsignedTransaction } from 'ethers'
 import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from '../../tx-metadata-types'
 import { Token } from '../../common/tokens'
+import { Chain } from 'viem'
+import { arbitrum, optimism } from 'viem/chains'
 
 export type AmountInfo = {
   amount: FixedNumber
@@ -20,17 +22,13 @@ export type ProtocolId = 'GMXV1' | 'SYNTHETIXV2' | 'PERV2'
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
-export type Network = {
-  name: string
-  chainId: number
-}
-
 export type Protocol = {
   protocolId: ProtocolId
 }
 
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
+  chain: Chain
   indexToken: Token
   longCollateral: Token[]
   shortCollateral: Token[]
@@ -53,17 +51,17 @@ export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
 
 export type StaticMarketMetadata =
   | {
-      protocolId: 'GMXV1'
-      data: GenericStaticMarketMetadata
-    }
+    protocolId: 'GMXV1'
+    data: GenericStaticMarketMetadata
+  }
   | {
-      protocolId: 'SYNTHETIXV2'
-      data: SynV2StaticMarketMetadata
-    }
+    protocolId: 'SYNTHETIXV2'
+    data: SynV2StaticMarketMetadata
+  }
   | {
-      protocolId: 'PERV2'
-      data: GenericStaticMarketMetadata
-    }
+    protocolId: 'PERV2'
+    data: GenericStaticMarketMetadata
+  }
 
 export type DynamicMarketMetadata = {
   oiLong: AmountInfo
@@ -236,57 +234,57 @@ export type PaginatedRes<T> = {
 
 export type UnsignedTxWithMetadata =
   | {
-      tx: UnsignedTransaction
-      type: 'ERC20_APPROVAL'
-      data: ERC20ApprovalAddtionalSessionData
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'ERC20_APPROVAL'
+    data: ERC20ApprovalAddtionalSessionData
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'GMX_V1'
-      data: undefined
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'GMX_V1'
+    data: undefined
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'LIFI'
-      data: undefined
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'LIFI'
+    data: undefined
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'SNX_V2'
-      data: undefined
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'SNX_V2'
+    data: undefined
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'NATIVE'
-      data: undefined
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'NATIVE'
+    data: undefined
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'ADDRESS'
-      data: AddressValidationAdditionalSessionData
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'ADDRESS'
+    data: AddressValidationAdditionalSessionData
+    ethRequired?: BigNumber
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'PER_V2'
-      data: undefined
-      ethRequired?: BigNumber
-    }
+    tx: UnsignedTransaction
+    type: 'PER_V2'
+    data: undefined
+    ethRequired?: BigNumber
+  }
 
 export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
   setup(swAddr: string): Promise<void>
 
   ///// Network api //////
-  supportedNetworks(): Network[]
+  supportedChains(): Chain[]
 
   ///// Market api's //////
-  supportedMarkets(networks: Network[] | undefined): Promise<MarketInfo[]>
+  supportedMarkets(chains: Chain[] | undefined): Promise<MarketInfo[]>
 
   getMarketPrices(marketIds: Market['marketId'][]): Promise<FixedNumber[]>
 
