@@ -27,24 +27,63 @@ import {
   GenericStaticMarketMetadata
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
-import { DataStore__factory, Reader, Reader__factory } from '../../typechain/gmx-v2'
+import {
+  DataStore__factory,
+  Reader,
+  Reader__factory,
+  ExchangeRouter__factory,
+  IERC20__factory
+} from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
 import { ZERO } from '../common/constants'
-import { logObject, toAmountInfo } from '../common/helper'
+import { applySlippage, toAmountInfo } from '../common/helper'
 import { arbitrum } from 'viem/chains'
-import { GMX_V2_COLLATERAL_TOKENS, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
+import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { parseUnits } from 'ethers/lib/utils'
 import { accountPositionListKey, hashedPositionKey } from '../configs/gmxv2/dataStore'
 import { ContractMarketPrices } from '../configs/gmxv2/types'
 import { getPositionKey } from '../configs/gmxv2/utils'
+import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderDirection } from '../interface'
+import { tokens } from '../common/tokens'
+
+export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
+export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00121')
+
+export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
+
+enum SolidityOrderType {
+  MarketSwap,
+  LimitSwap,
+  MarketIncrease,
+  LimitIncrease,
+  MarketDecrease,
+  LimitDecrease,
+  StopLossDecrease,
+  Liquidation
+}
+
+enum DecreasePositionSwapType {
+  NoSwap,
+  SwapPnlTokenToCollateralToken,
+  SwapCollateralTokenToPnlToken
+}
 
 export default class GmxV2Service implements IAdapterV1 {
-  private DATASTORE_ADDR = '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8'
   private READER_ADDR = '0xf60becbba223EEA9495Da3f606753867eC10d139'
+  private DATASTORE_ADDR = '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8'
+  private EXCHANGE_ROUTER = '0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8'
+
+  private ROUTER_ADDR = '0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6'
+  private ORDER_VAULT_ADDR = '0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5'
   private REFERRAL_STORAGE_ADDR = '0xe6fab3f0c7199b0d34d7fbe83394fc0e0d06e99d'
+
   private provider = rpc[42161]
+
   private reader = Reader__factory.connect(this.READER_ADDR, this.provider)
   private datastore = DataStore__factory.connect(this.DATASTORE_ADDR, this.provider)
+  private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
+
   private cachedMarkets: Record<
     string,
     {
@@ -53,8 +92,11 @@ export default class GmxV2Service implements IAdapterV1 {
     }
   > = {}
 
+  private _smartWallet: string | undefined
+
   setup(swAddr: string): Promise<void> {
-    throw new Error('Method not implemented.')
+    this._smartWallet = ethers.utils.getAddress(swAddr)
+    return Promise.resolve()
   }
 
   supportedNetworks(): Network[] {
@@ -141,15 +183,13 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
-    const allMarketsInfo = await this.supportedMarkets(this.supportedNetworks())
-
     const marketsInfo: MarketInfo[] = []
-    // TODO - optimize
+
     for (const mId of marketIds) {
-      const marketInfo = allMarketsInfo.find((m) => m.marketId === mId)
+      const marketInfo = this.cachedMarkets[mId]
       if (marketInfo === undefined) throw new Error(`Market ${mId} not found`)
 
-      marketsInfo.push(marketInfo)
+      marketsInfo.push(marketInfo.marketInfo)
     }
 
     return marketsInfo
@@ -158,21 +198,183 @@ export default class GmxV2Service implements IAdapterV1 {
   getDynamicMarketMetadata(marketIds: string[]): Promise<DynamicMarketMetadata[]> {
     throw new Error('Method not implemented.')
   }
-  increasePosition(orderData: CreateOrder[]): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+
+  async _approveIfNeeded(token: string, amount: bigint): Promise<UnsignedTxWithMetadata | undefined> {
+    if (token == ethers.constants.AddressZero) return
+
+    const tokenContract = IERC20__factory.connect(token, this.provider)
+
+    const allowance = await tokenContract.allowance(this._smartWallet!, this.ROUTER_ADDR)
+
+    if (allowance.gt(amount)) return
+
+    const tx = await tokenContract.populateTransaction.approve(this.ROUTER_ADDR, amount)
+
+    return {
+      tx: tx,
+      type: 'ERC20_APPROVAL',
+      data: {
+        token: token,
+        spender: this.ROUTER_ADDR,
+        chainId: 42161
+      }
+    }
   }
+
+  _mapOrderType(orderType: OrderType, orderDirection: OrderDirection) {
+    const mapping: Record<string, Record<string, number>> = {
+      LONG: {
+        LIMIT: SolidityOrderType.LimitIncrease,
+        MARKET: SolidityOrderType.MarketIncrease,
+        STOP_LOSS: SolidityOrderType.StopLossDecrease,
+        TAKE_PROFIT: SolidityOrderType.LimitDecrease
+      },
+      SHORT: {
+        LIMIT: SolidityOrderType.LimitIncrease,
+        MARKET: SolidityOrderType.MarketIncrease,
+        STOP_LOSS: SolidityOrderType.StopLossDecrease,
+        TAKE_PROFIT: SolidityOrderType.LimitDecrease
+      }
+    }
+
+    return mapping[orderDirection][orderType]
+  }
+
+  ///// Action api's //////
+
+  async increasePosition(orderData: CreateOrder[]): Promise<UnsignedTxWithMetadata[]> {
+    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
+
+    const txs: UnsignedTxWithMetadata[] = []
+
+    // checks for min collateral, min leverage should be done in preview or f/e
+
+    for (const od of orderData) {
+      // get market details
+      const mkt = this.cachedMarkets[od.marketId]
+
+      const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
+
+      const price = (await this.getMarketPrices([od.marketId]))[0]
+
+      let resolvedTriggerPrice = ethers.constants.Zero;
+
+      if (od.triggerData) {
+        // ensure type is limit
+        if (od.type !== 'LIMIT') throw new Error('trigger data supplied with non-limit order')
+
+        // caller needs to ensure trigger price is in 18 decimals
+        // trigger direction (above or below) is implicit from contract logic during increase
+        resolvedTriggerPrice = BigNumber.from(od.triggerData.triggerPrice.value)
+          .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+          .div(BigNumber.from(10).pow(indexToken.decimals))
+      }
+
+      // calculate acceptable price for trade
+      const acceptablePrice = applySlippage(
+        od.triggerData ? resolvedTriggerPrice : BigNumber.from(price.value),
+        od.slippage ?? DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE,
+        od.direction == 'LONG'
+      )
+
+      // prepare calldata
+      let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
+        addresses: {
+          receiver: this._smartWallet,
+          callbackContract: ethers.constants.AddressZero,
+          uiFeeReceiver: ethers.constants.AddressZero,
+          market: mkt.market.marketToken,
+          initialCollateralToken:
+            od.collateral.symbol === 'ETH' ? tokens.WETH.address[42161]! : od.collateral.address[42161]!,
+          swapPath: []
+        },
+        numbers: {
+          sizeDeltaUsd: od.sizeDelta.amount.value,
+          initialCollateralDeltaAmount: od.marginDelta.amount.value,
+          triggerPrice: resolvedTriggerPrice,
+          acceptablePrice: acceptablePrice,
+          executionFee: DEFAULT_EXEUCTION_FEE,
+          callbackGasLimit: ethers.constants.Zero,
+          minOutputAmount: ethers.constants.Zero
+        },
+        orderType: this._mapOrderType(od.type, od.direction),
+        decreasePositionSwapType: DecreasePositionSwapType.NoSwap,
+        isLong: od.direction == 'LONG',
+        shouldUnwrapNativeToken: true,
+        referralCode: REFERRAL_CODE
+      })
+
+      // set tx value for eth and execution fees
+      orderTx.value = DEFAULT_EXEUCTION_FEE
+
+      let requiresErc20Token = true
+
+      if (od.collateral.symbol === 'ETH') {
+        orderTx.value = BigNumber.from(od.marginDelta.amount.value).add(orderTx.value)
+        requiresErc20Token = false
+      }
+
+      // check if collateral token has enough amount approved
+      const approvalTx = await this._approveIfNeeded(od.collateral.address[42161]!, od.marginDelta.amount.value)
+      if (approvalTx) txs.push(approvalTx)
+
+      const multicallData: string[] = []
+
+      // create send native token tx
+      const sendNativeTx = await this.exchangeRouter.populateTransaction.sendWnt(
+        this.ORDER_VAULT_ADDR,
+        orderTx.value
+      )
+      multicallData.push(sendNativeTx.data!)
+
+      let sendErc20Tx
+
+      // create send token tx
+      if (requiresErc20Token) {
+        sendErc20Tx = await this.exchangeRouter.populateTransaction.sendTokens(
+          od.collateral.address[42161]!,
+          this.ORDER_VAULT_ADDR,
+          od.marginDelta.amount.value
+        )
+        multicallData.push(sendErc20Tx.data!)
+      }
+
+      multicallData.push(orderTx.data!)
+
+      // encode as multicall
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall(multicallData, {
+        value: orderTx.value
+      })
+
+      // add metadata for txs
+      txs.push({
+        tx: multicallEncoded,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
+
+    return txs
+  }
+
   updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    const txs: UnsignedTxWithMetadata[] = []
+    return Promise.resolve(txs)
   }
+
   cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    const txs: UnsignedTxWithMetadata[] = []
+    return Promise.resolve(txs)
   }
+
   closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[]
   ): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    const txs: UnsignedTxWithMetadata[] = []
+    return Promise.resolve(txs)
   }
+
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[]

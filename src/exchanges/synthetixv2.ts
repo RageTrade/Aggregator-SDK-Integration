@@ -190,7 +190,7 @@ export default class SynthetixV2Service implements IExchange {
 
     const acceptablePrice =
       order.slippage && order.slippage != ''
-        ? applySlippage(order.trigger?.triggerPrice!, order.slippage, order.direction == 'LONG')
+        ? applySlippage(order.trigger?.triggerPrice!, Number(order.slippage), order.direction == 'LONG')
         : order.trigger?.triggerPrice!
 
     txs.push({

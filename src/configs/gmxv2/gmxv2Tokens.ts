@@ -6,7 +6,7 @@ const tokens = [
   {
     symbol: 'ETH',
     address: ethers.constants.AddressZero,
-    decimals: 12,
+    decimals: 18,
     priceDecimals: 12
   },
   {

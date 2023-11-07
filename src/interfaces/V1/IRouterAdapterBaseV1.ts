@@ -44,29 +44,6 @@ export type GenericStaticMarketMetadata = {
   minPositionSize: AmountInfo
 }
 
-<<<<<<< HEAD
-// Move to exchange specific file
-export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
-  address: string
-  asset: string // check if can be removed
-}
-
-export type StaticMarketMetadata =
-  | {
-    protocolId: 'GMXV1'
-    data: GenericStaticMarketMetadata
-  }
-  | {
-    protocolId: 'SYNTHETIXV2'
-    data: SynV2StaticMarketMetadata
-  }
-  | {
-    protocolId: 'PERV2'
-    data: GenericStaticMarketMetadata
-  }
-
-||||||| parent of 016731a (feat: gmxV2 supported Markets and tokens)
-// Move to exchange specific file
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
   address: string
   asset: string // check if can be removed
@@ -86,8 +63,6 @@ export type StaticMarketMetadata =
       data: GenericStaticMarketMetadata
     }
 
-=======
->>>>>>> 016731a (feat: gmxV2 supported Markets and tokens)
 export type DynamicMarketMetadata = {
   oiLong: AmountInfo
   oiShort: AmountInfo
@@ -128,7 +103,7 @@ export type OrderIdentifier = {
 export type CreateOrder = OrderData &
   CollateralData & {
     type: CreateOrderType
-    slippage: string | undefined
+    slippage: number | undefined
   }
 
 export type UpdateOrder = OrderData &
@@ -276,7 +251,7 @@ export type UnsignedTxWithMetadata =
   }
   | {
     tx: UnsignedTransaction
-    type: 'PER_V2'
+    type: 'GMX_V2'
     data: undefined
     ethRequired?: BigNumber
   }

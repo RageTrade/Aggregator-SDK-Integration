@@ -325,7 +325,7 @@ export default class GmxV1Service implements IExchange {
 
       const acceptablePrice =
         order.slippage && order.slippage != ''
-          ? applySlippage(order.trigger?.triggerPrice!, order.slippage, order.direction == 'LONG')
+          ? applySlippage(order.trigger?.triggerPrice!, Number(order.slippage), order.direction == 'LONG')
           : order.trigger?.triggerPrice!
 
       if (order.inputCollateral.address != ethers.constants.AddressZero) {
