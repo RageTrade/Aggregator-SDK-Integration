@@ -545,9 +545,9 @@ export function getPositionQuery(
   tokens: { address: string; isStable: boolean; isWrapped: boolean }[],
   nativeTokenAddress: string
 ) {
-  const collateralTokens = []
-  const indexTokens = []
-  const isLong = []
+  const collateralTokens: string[] = []
+  const indexTokens: string[] = []
+  const isLong: boolean[] = []
 
   for (let i = 0; i < tokens.length; i++) {
     const token = tokens[i]

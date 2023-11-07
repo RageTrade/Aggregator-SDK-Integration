@@ -10,7 +10,7 @@ const ethMarketId = '0x70d95587d40A2caf56bd97485aB3Eec10Bee6336:GMXV2:42161'
 
 async function testGetAllPositions() {
   const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
-  console.log({ res })
+  console.dir({ res: res.result[0] }, { depth: 4 })
 }
 
 async function testSupportedMarkets() {

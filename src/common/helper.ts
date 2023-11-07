@@ -1,4 +1,4 @@
-import { BigNumber, ethers } from 'ethers'
+import { BigNumber, BigNumberish, ethers } from 'ethers'
 import { NumberDecimal, PageOptions, PaginatedRes } from '../interface'
 import { AmountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { FixedNumber } from 'ethers-v6'
@@ -76,4 +76,21 @@ export function toAmountInfo(
     amount: FixedNumber.fromValue(val.toString(), valDecimals, outDecimals),
     isTokenAmount: isTokens
   }
+}
+
+export function getByKey<T>(obj?: { [key: string]: T }, key?: string): T | undefined {
+  if (!obj || !key) return undefined
+
+  return obj[key]
+}
+
+export function expandDecimals(n: BigNumberish, decimals: number): BigNumber {
+  return BigNumber.from(n).mul(BigNumber.from(10).pow(decimals))
+}
+
+export function isHashZero(value) {
+  return value === ethers.constants.HashZero
+}
+export function isAddressZero(value) {
+  return value === ethers.constants.AddressZero
 }

@@ -36,16 +36,18 @@ import {
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
 import { ZERO } from '../common/constants'
-import { applySlippage, toAmountInfo } from '../common/helper'
-import { arbitrum } from 'viem/chains'
-import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
-import { parseUnits } from 'ethers/lib/utils'
-import { accountPositionListKey, hashedPositionKey } from '../configs/gmxv2/dataStore'
-import { ContractMarketPrices } from '../configs/gmxv2/types'
-import { getPositionKey } from '../configs/gmxv2/utils'
 import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection } from '../interface'
 import { tokens } from '../common/tokens'
+import { applySlippage, getPaginatedResponse, toAmountInfo } from '../common/helper'
+import { arbitrum } from 'viem/chains'
+import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
+import { parseUnits } from 'ethers/lib/utils'
+import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
+import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
+import { useMarketsInfo } from '../configs/gmxv2/markets/useMarketsInfo'
+import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
+import { ARBITRUM } from '../configs/gmx/chains'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00121')
@@ -76,7 +78,6 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private ROUTER_ADDR = '0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6'
   private ORDER_VAULT_ADDR = '0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5'
-  private REFERRAL_STORAGE_ADDR = '0xe6fab3f0c7199b0d34d7fbe83394fc0e0d06e99d'
 
   private provider = rpc[42161]
 
@@ -84,6 +85,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private datastore = DataStore__factory.connect(this.DATASTORE_ADDR, this.provider)
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
+  private minCollateralUsd = parseUnits('10', 30)
   private cachedMarkets: Record<
     string,
     {
@@ -140,8 +142,8 @@ export default class GmxV2Service implements IAdapterV1 {
       const staticMetadata: GenericStaticMarketMetadata = {
         maxLeverage: FixedNumber.fromValue(5),
         minLeverage: FixedNumber.fromValue('11', 1),
-        minInitialMargin: toAmountInfo(parseUnits('10', 18), 18, false),
-        minPositionSize: toAmountInfo(parseUnits('11', 18), 18, false)
+        minInitialMargin: toAmountInfo(this.minCollateralUsd, 30, false),
+        minPositionSize: toAmountInfo(parseUnits('11', 30), 30, false)
       }
 
       const protocol: Protocol = {
@@ -257,7 +259,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const price = (await this.getMarketPrices([od.marketId]))[0]
 
-      let resolvedTriggerPrice = ethers.constants.Zero;
+      let resolvedTriggerPrice = ethers.constants.Zero
 
       if (od.triggerData) {
         // ensure type is limit
@@ -321,10 +323,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const multicallData: string[] = []
 
       // create send native token tx
-      const sendNativeTx = await this.exchangeRouter.populateTransaction.sendWnt(
-        this.ORDER_VAULT_ADDR,
-        orderTx.value
-      )
+      const sendNativeTx = await this.exchangeRouter.populateTransaction.sendWnt(this.ORDER_VAULT_ADDR, orderTx.value)
       multicallData.push(sendNativeTx.data!)
 
       let sendErc20Tx
@@ -386,24 +385,41 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async getAllPositions(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<PositionInfo>> {
-    const indexes = this.getStartEndIndex(pageOptions)
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
+      marketsInfoData,
+      tokensData,
+      pricesUpdatedAt,
+      showPnlInLeverage: false,
+      account: wallet
+    })
 
-    const keyHash = accountPositionListKey(wallet)
-    const positionKeys = await this.datastore.getBytes32ValuesAt(keyHash, indexes.start, indexes.end)
-    const marketIds = await Promise.all(positionKeys.map((k) => this.getMarketIdFromContractPositionKey(k, wallet)))
-    const marketPrices = await this.getContractMarketPrices(marketIds)
+    const positionsInfo: PositionInfo[] = []
+    const positionsData = Object.values(positionsInfoData!)
+    for (const posData of positionsData) {
+      positionsInfo.push({
+        marketId: this.getGlobalMarketId(posData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
+        posId: posData.key,
+        size: toAmountInfo(posData.sizeInUsd, 30, false),
+        margin: toAmountInfo(posData.remainingCollateralUsd, 30, false),
+        accessibleMargin: toAmountInfo(posData.remainingCollateralUsd.sub(this.minCollateralUsd), 30, false),
+        avgEntryPrice: FixedNumber.fromValue(posData.entryPrice!.toString(), 30, 30),
+        cumulativeFunding: FixedNumber.fromValue(
+          posData.pendingFundingFeesUsd.add(posData.pendingBorrowingFeesUsd).toString(),
+          30,
+          30
+        ),
+        unrealizedPnl: toAmountInfo(posData.pnlAfterFees, 30, false),
+        liquidationPrice: FixedNumber.fromValue(posData.liquidationPrice!.toString(), 30, 30),
+        leverage: FixedNumber.fromValue(posData.leverage!.toString(), 4, 4),
+        direction: posData.isLong ? 'LONG' : 'SHORT',
+        collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
+        indexToken: getGmxV2TokenByAddress(posData.indexToken.address),
+        protocolId: 'GMXV2'
+      })
+    }
 
-    const protocolPositionsData = await this.reader.getAccountPositionInfoList(
-      this.DATASTORE_ADDR,
-      this.REFERRAL_STORAGE_ADDR,
-      positionKeys,
-      marketPrices,
-      ethers.constants.AddressZero
-    )
-
-    console.dir({ protocolPositionsData }, { depth: 4 })
-
-    throw new Error('Method not implemented.')
+    return getPaginatedResponse(positionsInfo, pageOptions)
   }
 
   getAllOrders(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<OrderInfo>> {
@@ -557,8 +573,6 @@ export default class GmxV2Service implements IAdapterV1 {
 
       for (const collateralAddress of collaterals) {
         for (const isLong of [true, false]) {
-          const positionKey = getPositionKey(account, marketToken, collateralAddress, isLong)
-
           const derivedContractPositionKey = hashedPositionKey(account, marketToken, collateralAddress, isLong)
 
           if (derivedContractPositionKey === contractPositionKey) {

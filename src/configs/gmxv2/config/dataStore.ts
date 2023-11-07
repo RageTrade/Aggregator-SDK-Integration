@@ -1,5 +1,5 @@
 import { BigNumber } from 'ethers'
-import { hashData, hashString } from './hash'
+import { hashData, hashString } from '../hash'
 
 export const POSITION_IMPACT_FACTOR_KEY = hashString('POSITION_IMPACT_FACTOR')
 export const MAX_POSITION_IMPACT_FACTOR_KEY = hashString('MAX_POSITION_IMPACT_FACTOR')

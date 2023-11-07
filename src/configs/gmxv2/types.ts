@@ -1,16 +1,82 @@
 import { BigNumber } from 'ethers'
 
-export type ContractMarketPrices = {
-  indexTokenPrice: {
-    min: BigNumber
-    max: BigNumber
-  }
-  longTokenPrice: {
-    min: BigNumber
-    max: BigNumber
-  }
-  shortTokenPrice: {
-    min: BigNumber
-    max: BigNumber
-  }
+export type Token = {
+  name: string
+  symbol: string
+  assetSymbol?: string
+  baseSymbol?: string
+  decimals: number
+  address: string
+  priceDecimals?: number
+  wrappedAddress?: string
+  coingeckoUrl?: string
+  explorerUrl?: string
+  reservesUrl?: string
+  imageUrl?: string
+
+  isUsdg?: boolean
+  isNative?: boolean
+  isWrapped?: boolean
+  isShortable?: boolean
+  isStable?: boolean
+  isSynthetic?: boolean
+  isTempHidden?: boolean
+  isChartDisabled?: boolean
+  isV1Available?: boolean
+  isPlatformToken?: boolean
+}
+
+export type TokenInfo = Token & {
+  hasMaxAvailableLong?: boolean
+  hasMaxAvailableShort?: boolean
+
+  usdgAmount?: BigNumber
+  maxUsdgAmount?: BigNumber
+
+  poolAmount?: BigNumber
+  bufferAmount?: BigNumber
+  managedAmount?: BigNumber
+  managedUsd?: BigNumber
+  availableAmount?: BigNumber
+  availableUsd?: BigNumber
+  guaranteedUsd?: BigNumber
+  redemptionAmount?: BigNumber
+  reservedAmount?: BigNumber
+
+  balance?: BigNumber
+
+  weight?: BigNumber
+
+  maxPrice?: BigNumber
+  maxPrimaryPrice?: BigNumber
+
+  minPrice?: BigNumber
+  minPrimaryPrice?: BigNumber
+
+  contractMaxPrice?: BigNumber
+  contractMinPrice?: BigNumber
+
+  spread?: BigNumber
+
+  cumulativeFundingRate?: BigNumber
+  fundingRate?: BigNumber
+
+  globalShortSize?: BigNumber
+
+  maxAvailableLong?: BigNumber
+  maxAvailableShort?: BigNumber
+
+  maxGlobalLongSize?: BigNumber
+  maxGlobalShortSize?: BigNumber
+
+  maxLongCapacity?: BigNumber
+}
+
+export type InfoTokens = {
+  [key: string]: TokenInfo
+}
+
+export type TokenPrices = {
+  minPrice: BigNumber
+  maxPrice: BigNumber
 }
