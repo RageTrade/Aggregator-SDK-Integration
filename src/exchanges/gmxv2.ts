@@ -257,7 +257,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
-      const price = (await this.getMarketPrices([od.marketId]))[0]
+      const price = BigNumber.from((await this.getMarketPrices([od.marketId]))[0].value)
+        .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+        // dividing by 18 because internal prices are 1e18 precision
+        .div(BigNumber.from(10).pow(18))
 
       let resolvedTriggerPrice = ethers.constants.Zero
 
@@ -269,12 +272,12 @@ export default class GmxV2Service implements IAdapterV1 {
         // trigger direction (above or below) is implicit from contract logic during increase
         resolvedTriggerPrice = BigNumber.from(od.triggerData.triggerPrice.value)
           .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
-          .div(BigNumber.from(10).pow(indexToken.decimals))
+          .div(BigNumber.from(10).pow(18))
       }
 
       // calculate acceptable price for trade
       const acceptablePrice = applySlippage(
-        od.triggerData ? resolvedTriggerPrice : BigNumber.from(price.value),
+        od.triggerData ? resolvedTriggerPrice : BigNumber.from(price),
         od.slippage ?? DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE,
         od.direction == 'LONG'
       )
@@ -356,31 +359,105 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]> {
+  async updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
-    return Promise.resolve(txs)
+
+    for (const od of orderData) {
+      // get order details
+      const order = await this.reader.getOrder(this.DATASTORE_ADDR, od.orderId)
+      if (!order) throw new Error('order not found for updating')
+
+      // check if order can be updated (size delta, trigger price, acceptablePrice) & order type
+      if (
+        order.numbers.orderType === SolidityOrderType.MarketIncrease ||
+        order.numbers.orderType === SolidityOrderType.MarketDecrease
+      ) {
+        throw new Error('cannot update market order')
+      }
+
+      // trigger price must be passed since it is not market order
+      if (!od.triggerData) throw new Error('trigger price not provided')
+
+      // take new size delta, trigger price and acceptable price & ignore rest
+      const mkt = this.cachedMarkets[od.marketId]
+
+      const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
+
+      const triggerPrice = BigNumber.from(od.triggerData.triggerPrice.value)
+        .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+        .div(BigNumber.from(10).pow(18))
+
+      // calculate acceptable price for trade
+      const acceptablePrice = applySlippage(triggerPrice, DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE, od.direction == 'LONG')
+
+      // populate update calldata (shouldn't require sending additional collateral or modifying size)
+      // size delta should be in usd terms 1e30
+      const orderTx = await this.exchangeRouter.populateTransaction.updateOrder(
+        od.orderId,
+        od.sizeDelta.amount.value,
+        acceptablePrice,
+        triggerPrice,
+        ethers.constants.Zero
+      )
+
+      // encode as multicall
+      // no msg.value for now but eth can be supplied to unfreeeze frozen orders
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall([orderTx.data!])
+
+      // add metadata for txs
+      txs.push({
+        tx: multicallEncoded,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
+
+    return txs
   }
 
-  cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]> {
+  async cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
-    return Promise.resolve(txs)
+
+    for (const od of orderData) {
+      // get order details
+      const order = await this.reader.getOrder(this.DATASTORE_ADDR, od.orderId)
+      if (!order) throw new Error('order not found for updating')
+
+      const orderTx = await this.exchangeRouter.populateTransaction.cancelOrder(od.orderId)
+
+      // encode as multicall
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall([orderTx.data!])
+
+      // add metadata for txs
+      txs.push({
+        tx: multicallEncoded,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
+
+    return txs
   }
 
-  closePosition(
+  async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[]
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
-    return Promise.resolve(txs)
+
+    return txs
   }
 
-  updatePositionMargin(
+  async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[]
   ): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    const txs: UnsignedTxWithMetadata[] = []
+
+    return txs
   }
-  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: string; amount: FixedNumber })[]> {
+
+  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: string; amount: AmountInfo })[]> {
     throw new Error('Method not implemented.')
   }
 

@@ -1,6 +1,6 @@
 import { FixedNumber, parseEther, parseUnits } from 'ethers-v6'
 import GmxV2Service from '../src/exchanges/gmxv2'
-import { CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { CancelOrder, CreateOrder, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { tokens } from '../src/common/tokens'
 
 const ex = new GmxV2Service()
@@ -35,6 +35,8 @@ async function testMarketPrices() {
 
 async function increasePosition() {
   const orders: CreateOrder[] = []
+  const updateOrders: UpdateOrder[] = []
+  const cancelOrders: CancelOrder[] = []
 
   await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
   await ex.supportedMarkets(ex.supportedNetworks())
@@ -124,14 +126,36 @@ async function increasePosition() {
   //   type: 'LIMIT',
   //   marketId: xrpMarketId,
   //   direction: 'SHORT',
-  //   sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30), 30), isTokenAmount: false },
+  //   sizeDelta: { amount: FixedNumber.fromValue(parseUnits('204', 30), 30), isTokenAmount: false },
   //   marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02'), 18), isTokenAmount: true },
   //   collateral: tokens.ETH,
-  //   triggerData: { triggerPrice: FixedNumber.fromValue(parseEther('1800'), 18), triggerAboveThreshold: true },
+  //   triggerData: { triggerPrice: FixedNumber.fromValue(parseEther('1'), 18), triggerAboveThreshold: true },
   //   slippage: 2
   // })
 
-  // console.log(await ex.increasePosition(orders))
+  // console.dir(await ex.increasePosition(orders), { depth: 4 })
+
+  // updateOrders.push({
+  //   type: "LIMIT",
+  //   orderId: "0xfe9f545ed33253d24046db903c42c247fb35c817da1f1e13f2d8813abdd2d535",
+  //   triggerData: {
+  //     triggerAboveThreshold: true,
+  //     triggerPrice: FixedNumber.fromString('204', 'fixed128x18'),
+  //   },
+  //   marketId: xrpMarketId,
+  //   sizeDelta: { amount: FixedNumber.fromString('204', 'fixed128x30'), isTokenAmount: false },
+  //   direction: 'SHORT',
+  //   marginDelta: { amount: FixedNumber.fromValue(0), isTokenAmount: true }
+  // })
+
+  // console.dir(await ex.updateOrder(updateOrders), { depth: 4 })
+
+  // cancelOrders.push({
+  //   orderId: "0xfe9f545ed33253d24046db903c42c247fb35c817da1f1e13f2d8813abdd2d535",
+  //   type: "LIMIT"
+  // })
+  //
+  // console.dir(await ex.cancelOrder(cancelOrders), { depth: 4 })
 }
 
 async function test() {
