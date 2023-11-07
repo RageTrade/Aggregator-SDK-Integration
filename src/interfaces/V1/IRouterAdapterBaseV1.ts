@@ -4,6 +4,7 @@ import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionDa
 import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
+import { protocols } from '../../common/protocols'
 
 export type AmountInfo = {
   amount: FixedNumber
@@ -18,7 +19,7 @@ export type OrderType = CreateOrderType | CloseOrderType
 
 export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 
-export type ProtocolId = 'GMXV1' | 'SYNTHETIXV2' | 'PERV2'
+export type ProtocolId = keyof typeof protocols
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
