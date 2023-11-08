@@ -9,9 +9,9 @@ import { decodeReferralCode, encodeReferralCode } from '../utils'
 import { getReferralsGraphClient } from '../../lib/subgraph'
 import { basisPointsToFloat } from '../../lib/numbers'
 import { contractFetcher } from '../../lib/contracts/contractFetcher'
-import { rpc } from 'viem/utils'
 import { ARBITRUM } from '../../../gmx/chains'
 import { isAddressZero, isHashZero } from '../../../../common/helper'
+import { rpc } from '../../../../common/provider'
 
 // export * from './useReferralsData'
 
