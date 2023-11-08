@@ -1,35 +1,35 @@
-import { BigNumber } from "ethers";
-import { Token } from "../types";
+import { BigNumber } from 'ethers'
+import { Token } from '../types'
 
 export type TokenPrices = {
-  minPrice: BigNumber;
-  maxPrice: BigNumber;
-};
+  minPrice: BigNumber
+  maxPrice: BigNumber
+}
 
 export type TokenData = Token & {
-  prices: TokenPrices;
-  balance?: BigNumber;
-  totalSupply?: BigNumber;
-};
+  prices: TokenPrices
+  balance?: BigNumber
+  totalSupply?: BigNumber
+}
 
 export type TokensRatio = {
-  ratio: BigNumber;
-  largestToken: Token;
-  smallestToken: Token;
-};
+  ratio: BigNumber
+  largestToken: Token
+  smallestToken: Token
+}
 
 export type TokenBalancesData = {
-  [tokenAddress: string]: BigNumber;
-};
+  [tokenAddress: string]: BigNumber
+}
 
 export type TokenPricesData = {
-  [address: string]: TokenPrices;
-};
+  [address: string]: TokenPrices
+}
 
 export type TokensAllowanceData = {
-  [tokenAddress: string]: BigNumber;
-};
+  [tokenAddress: string]: BigNumber
+}
 
 export type TokensData = {
-  [address: string]: TokenData;
-};
+  [address: string]: TokenData
+}
