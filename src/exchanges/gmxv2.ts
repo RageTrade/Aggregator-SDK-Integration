@@ -1,7 +1,6 @@
 import { FixedNumber } from 'ethers-v6'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
-  Network,
   MarketInfo,
   DynamicMarketMetadata,
   CreateOrder,
@@ -40,7 +39,7 @@ import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection } from '../interface'
 import { tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, toAmountInfo } from '../common/helper'
-import { arbitrum } from 'viem/chains'
+import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { parseUnits } from 'ethers/lib/utils'
 import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
@@ -48,6 +47,7 @@ import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
 import { useMarketsInfo } from '../configs/gmxv2/markets/useMarketsInfo'
 import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
 import { ARBITRUM } from '../configs/gmx/chains'
+import { chains } from 'perennial-sdk-ts'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00121')
@@ -101,16 +101,20 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve()
   }
 
-  supportedNetworks(): Network[] {
-    const networks: Network[] = []
-    networks.push({
-      name: 'arbitrum',
-      chainId: 42161
-    })
-    return networks
+  // supportedNetworks(): Network[] {
+  //   const networks: Network[] = []
+  //   networks.push({
+  //     name: 'arbitrum',
+  //     chainId: 42161
+  //   })
+  //   return networks
+  // }
+
+  supportedChains(): Chain[] {
+    return [chains[42161]]
   }
 
-  async supportedMarkets(networks: Network[] | undefined): Promise<MarketInfo[]> {
+  async supportedMarkets(networks: Chain[] | undefined): Promise<MarketInfo[]> {
     // get from cache if available
     if (Object.keys(this.cachedMarkets).length > 0) return Object.values(this.cachedMarkets).map((m) => m.marketInfo)
 
@@ -123,6 +127,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const market: Market = {
         marketId: this.getGlobalMarketId(mProp.marketToken, 'GMXV2', arbitrum.id),
+        chain: chains[42161],
         indexToken: getGmxV2TokenByAddress(mProp.indexToken),
         longCollateral: [longToken, shortToken],
         shortCollateral: [longToken, shortToken],
@@ -457,7 +462,7 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: string; amount: AmountInfo })[]> {
+  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: Market['marketId']; amount: FixedNumber })[]> {
     throw new Error('Method not implemented.')
   }
 
@@ -560,7 +565,7 @@ export default class GmxV2Service implements IAdapterV1 {
     }
   }
 
-  private getGlobalMarketId(protocolMarketId: string, protocolId: ProtocolId, chainId: Network['chainId']): string {
+  private getGlobalMarketId(protocolMarketId: string, protocolId: ProtocolId, chainId: Chain['id']): string {
     return protocolMarketId + ':' + protocolId + ':' + chainId
   }
 
@@ -636,7 +641,7 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   private async getMarketIdFromContractPositionKey(contractPositionKey: string, account: string): Promise<string> {
-    const allMarkets = await this.supportedMarkets(this.supportedNetworks())
+    const allMarkets = await this.supportedMarkets(this.supportedChains())
 
     for (const market of allMarkets) {
       const marketToken = this.getMarketTokenFromMarketId(market.marketId)

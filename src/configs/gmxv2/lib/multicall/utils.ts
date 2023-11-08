@@ -176,7 +176,7 @@ export class Multicall {
     response.forEach((res: ResponseType, i: number) => {
       const { contractKey, callKey } = originalKeys[i]
 
-      if (status === 'success') {
+      if (res.status === 'success') {
         let values: any
 
         if (Array.isArray(res.result) || typeof res.result === 'object') {

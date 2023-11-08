@@ -14,7 +14,7 @@ async function testGetAllPositions() {
 }
 
 async function testSupportedMarkets() {
-  const res = await ex.supportedMarkets(ex.supportedNetworks())
+  const res = await ex.supportedMarkets(ex.supportedChains())
   console.dir({ res }, { depth: 4 })
 }
 
@@ -25,7 +25,7 @@ async function testGetMarketsInfo() {
 }
 
 async function testMarketPrices() {
-  const markets = await ex.supportedMarkets(ex.supportedNetworks())
+  const markets = await ex.supportedMarkets(ex.supportedChains())
 
   for (const m of markets) {
     const price = await ex.getMarketPrices([m.marketId])
@@ -39,7 +39,7 @@ async function increasePosition() {
   const cancelOrders: CancelOrder[] = []
 
   await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  await ex.supportedMarkets(ex.supportedNetworks())
+  await ex.supportedMarkets(ex.supportedChains())
 
   // pass size delta in usd terms and margin delta in token terms
 
