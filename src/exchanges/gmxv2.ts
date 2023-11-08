@@ -536,6 +536,7 @@ export default class GmxV2Service implements IAdapterV1 {
   }
   getUpdateMarginPreview(
     wallet: string,
+    marketIds: Market['marketId'][],
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
     existingPos: (PositionInfo | undefined)[]
