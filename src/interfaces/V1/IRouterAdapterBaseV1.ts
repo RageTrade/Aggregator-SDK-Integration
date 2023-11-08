@@ -40,8 +40,8 @@ export type Market = {
 export type GenericStaticMarketMetadata = {
   maxLeverage: FixedNumber
   minLeverage: FixedNumber
-  minInitialMargin: AmountInfo // +
-  minPositionSize: AmountInfo // +
+  minInitialMargin: FixedNumber
+  minPositionSize: FixedNumber
 }
 
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
@@ -64,10 +64,10 @@ export type StaticMarketMetadata =
     }
 
 export type DynamicMarketMetadata = {
-  oiLong: AmountInfo // +
-  oiShort: AmountInfo // +
-  availableLiquidityLong: AmountInfo // +
-  availableLiquidityShort: AmountInfo // +
+  oiLong: FixedNumber
+  oiShort: FixedNumber
+  availableLiquidityLong: FixedNumber
+  availableLiquidityShort: FixedNumber
   longRate: FixedNumber
   shortRate: FixedNumber
 }
@@ -112,9 +112,7 @@ export type UpdateOrder = OrderData &
   }
 
 export type OrderInfo = OrderData &
-  OrderIdentifier &
-  OrderType &
-  CollateralData & {
+  OrderIdentifier & { orderType: OrderType } & CollateralData & {
     protocolId: ProtocolId
   }
 
@@ -131,7 +129,7 @@ export type PositionData = {
   accessibleMargin: AmountInfo
   avgEntryPrice: FixedNumber
   cumulativeFunding: FixedNumber
-  unrealizedPnl: AmountInfo // +
+  unrealizedPnl: FixedNumber
   liquidationPrice: FixedNumber
   leverage: FixedNumber
   direction: TradeDirection
@@ -147,9 +145,9 @@ export type HistoricalTradeInfo = TradeData &
   CollateralData & {
     timestamp: number
     price: FixedNumber
-    realizedPnl: AmountInfo // +
-    keeperFeesPaid: AmountInfo // +
-    positionFee: AmountInfo // +
+    realizedPnl: FixedNumber
+    keeperFeesPaid: FixedNumber
+    positionFee: FixedNumber
     operationType: TradeOperationType
     txHash: string
   }
@@ -159,8 +157,8 @@ export type LiquidationInfo = CollateralData & {
   liquidationPrice: FixedNumber
   direction: TradeDirection
   sizeClosed: AmountInfo
-  realizedPnl: AmountInfo // +
-  liquidationFees: AmountInfo // +
+  realizedPnl: FixedNumber
+  liquidationFees: FixedNumber
   remainingCollateral: AmountInfo
   liqudationLeverage: FixedNumber
   timestamp: number
@@ -191,7 +189,7 @@ export type PreviewInfo = CollateralData & {
   margin: AmountInfo
   avgEntryPrice: FixedNumber
   liqudationPrice: FixedNumber
-  fee: AmountInfo // +
+  fee: FixedNumber
 } & ErrorData
 
 export type OpenTradePreviewInfo = PreviewInfo & {
@@ -291,7 +289,7 @@ export interface IRouterAdapterBaseV1 {
     Array<
       CollateralData & {
         marketId: Market['marketId']
-        amount: AmountInfo // + - Always token terms
+        amount: FixedNumber // Always token terms
       }
     >
   >
@@ -304,7 +302,7 @@ export interface IRouterAdapterBaseV1 {
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes<Record<PositionData['posId'], OrderInfo>>>
+  ): Promise<PaginatedRes<Record<PositionData['posId'], OrderInfo[]>>>
 
   getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>>
 

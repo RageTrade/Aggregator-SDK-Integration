@@ -140,10 +140,10 @@ export default class GmxV2Service implements IAdapterV1 {
       }
 
       const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: FixedNumber.fromValue(5),
-        minLeverage: FixedNumber.fromValue('11', 1),
-        minInitialMargin: toAmountInfo(this.minCollateralUsd, 30, false),
-        minPositionSize: toAmountInfo(parseUnits('11', 30), 30, false)
+        maxLeverage: FixedNumber.fromValue('50000', 4, 4),
+        minLeverage: FixedNumber.fromValue('11000', 4, 4),
+        minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
+        minPositionSize: FixedNumber.fromValue(parseUnits('11', 30).toString(), 30, 30)
       }
 
       const protocol: Protocol = {
@@ -178,7 +178,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // get mid price for calculations and display on f/e
       const price = BigNumber.from(tokenPrice.minPrice).add(BigNumber.from(tokenPrice.maxPrice)).div(2)
 
-      prices.push(FixedNumber.fromValue(price.toString(), tokenPrice.priceDecimals))
+      prices.push(FixedNumber.fromValue(price.toString(), tokenPrice.priceDecimals, 30))
     }
 
     return prices
@@ -380,7 +380,7 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
   }
-  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: string; amount: AmountInfo })[]> {
+  getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: string; amount: FixedNumber })[]> {
     throw new Error('Method not implemented.')
   }
 
@@ -409,7 +409,7 @@ export default class GmxV2Service implements IAdapterV1 {
           30,
           30
         ),
-        unrealizedPnl: toAmountInfo(posData.pnlAfterFees, 30, false),
+        unrealizedPnl: FixedNumber.fromValue(posData.pnlAfterFees.toString(), 30, 30),
         liquidationPrice: FixedNumber.fromValue(posData.liquidationPrice!.toString(), 30, 30),
         leverage: FixedNumber.fromValue(posData.leverage!.toString(), 4, 4),
         direction: posData.isLong ? 'LONG' : 'SHORT',
@@ -429,7 +429,7 @@ export default class GmxV2Service implements IAdapterV1 {
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes<Record<string, OrderInfo>>> {
+  ): Promise<PaginatedRes<Record<string, OrderInfo[]>>> {
     throw new Error('Method not implemented.')
   }
   getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
