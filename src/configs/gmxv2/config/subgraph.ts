@@ -1,6 +1,6 @@
 import { ARBITRUM, ARBITRUM_GOERLI, AVALANCHE, AVALANCHE_FUJI, ETH_MAINNET } from '../../gmx/chains'
 
-const SUBGRAPH_URLS = {
+const SUBGRAPH_URLS: any = {
   [ARBITRUM]: {
     stats: 'https://subgraph.satsuma-prod.com/3b2ced13c8d9/gmx/gmx-arbitrum-stats/api',
     referrals: 'https://subgraph.satsuma-prod.com/3b2ced13c8d9/gmx/gmx-arbitrum-referrals/api',

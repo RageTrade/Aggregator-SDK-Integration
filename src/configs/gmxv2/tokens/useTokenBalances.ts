@@ -16,7 +16,7 @@ export async function useTokenBalances(chainId: number, wallet: string): Promise
   const { data } = await useMulticall(chainId, 'useTokenBalances', {
     key: account ? [account] : null,
     request: () =>
-      getV2Tokens(chainId).reduce((acc, token) => {
+      getV2Tokens(chainId).reduce((acc: any, token) => {
         // Skip synthetic tokens
         if (token.isSynthetic) return acc
 

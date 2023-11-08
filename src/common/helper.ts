@@ -88,9 +88,9 @@ export function expandDecimals(n: BigNumberish, decimals: number): BigNumber {
   return BigNumber.from(n).mul(BigNumber.from(10).pow(decimals))
 }
 
-export function isHashZero(value) {
+export function isHashZero(value: string) {
   return value === ethers.constants.HashZero
 }
-export function isAddressZero(value) {
+export function isAddressZero(value: string) {
   return value === ethers.constants.AddressZero
 }

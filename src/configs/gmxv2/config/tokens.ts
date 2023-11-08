@@ -964,7 +964,7 @@ export function convertTokenAddress(chainId: number, address: string, convertTo?
   return address
 }
 
-export function getNormalizedTokenSymbol(tokenSymbol) {
+export function getNormalizedTokenSymbol(tokenSymbol: string) {
   if (['WBTC', 'WETH', 'WAVAX'].includes(tokenSymbol)) {
     return tokenSymbol.substr(1)
   } else if (tokenSymbol === 'BTC.b') {

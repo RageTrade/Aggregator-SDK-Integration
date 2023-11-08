@@ -93,7 +93,7 @@ export async function usePositions(
     parseResponse: (res) => {
       const positions = res.data.reader.positions.returnValues
 
-      return positions.reduce((positionsMap: PositionsData, positionInfo, i) => {
+      return positions.reduce((positionsMap: PositionsData, positionInfo: any, i: number) => {
         const { position, fees } = positionInfo
         const { addresses, numbers, flags, data } = position
         const { account, market: marketAddress, collateralToken: collateralTokenAddress } = addresses

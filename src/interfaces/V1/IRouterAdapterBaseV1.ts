@@ -40,8 +40,8 @@ export type Market = {
 export type GenericStaticMarketMetadata = {
   maxLeverage: FixedNumber
   minLeverage: FixedNumber
-  minInitialMargin: AmountInfo
-  minPositionSize: AmountInfo
+  minInitialMargin: AmountInfo // +
+  minPositionSize: AmountInfo // +
 }
 
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
@@ -64,10 +64,10 @@ export type StaticMarketMetadata =
     }
 
 export type DynamicMarketMetadata = {
-  oiLong: AmountInfo
-  oiShort: AmountInfo
-  availableLiquidityLong: AmountInfo
-  availableLiquidityShort: AmountInfo
+  oiLong: AmountInfo // +
+  oiShort: AmountInfo // +
+  availableLiquidityLong: AmountInfo // +
+  availableLiquidityShort: AmountInfo // +
   longRate: FixedNumber
   shortRate: FixedNumber
 }
@@ -131,7 +131,7 @@ export type PositionData = {
   accessibleMargin: AmountInfo
   avgEntryPrice: FixedNumber
   cumulativeFunding: FixedNumber
-  unrealizedPnl: AmountInfo
+  unrealizedPnl: AmountInfo // +
   liquidationPrice: FixedNumber
   leverage: FixedNumber
   direction: TradeDirection
@@ -147,9 +147,9 @@ export type HistoricalTradeInfo = TradeData &
   CollateralData & {
     timestamp: number
     price: FixedNumber
-    realizedPnl: AmountInfo
-    keeperFeesPaid: AmountInfo
-    positionFee: AmountInfo
+    realizedPnl: AmountInfo // +
+    keeperFeesPaid: AmountInfo // +
+    positionFee: AmountInfo // +
     operationType: TradeOperationType
     txHash: string
   }
@@ -159,8 +159,8 @@ export type LiquidationInfo = CollateralData & {
   liquidationPrice: FixedNumber
   direction: TradeDirection
   sizeClosed: AmountInfo
-  realizedPnl: AmountInfo
-  liquidationFees: AmountInfo
+  realizedPnl: AmountInfo // +
+  liquidationFees: AmountInfo // +
   remainingCollateral: AmountInfo
   liqudationLeverage: FixedNumber
   timestamp: number
@@ -191,7 +191,7 @@ export type PreviewInfo = CollateralData & {
   margin: AmountInfo
   avgEntryPrice: FixedNumber
   liqudationPrice: FixedNumber
-  fee: AmountInfo
+  fee: AmountInfo // +
 } & ErrorData
 
 export type OpenTradePreviewInfo = PreviewInfo & {
@@ -291,7 +291,7 @@ export interface IRouterAdapterBaseV1 {
     Array<
       CollateralData & {
         marketId: Market['marketId']
-        amount: AmountInfo
+        amount: AmountInfo // + - Always token terms
       }
     >
   >

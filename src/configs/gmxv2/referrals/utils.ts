@@ -15,7 +15,7 @@ export function decodeReferralCode(hexCode?: string) {
   }
 }
 
-export function encodeReferralCode(code) {
+export function encodeReferralCode(code: string) {
   let final = code.replace(/[^\w_]/g, '') // replace everything other than numbers, string  and underscor to ''
   if (final.length > MAX_REFERRAL_CODE_LENGTH) {
     return ethers.constants.HashZero

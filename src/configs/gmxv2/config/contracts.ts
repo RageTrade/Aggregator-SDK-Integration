@@ -10,7 +10,7 @@ export const XGMT_EXCLUDED_ACCOUNTS = [
   '0xffd0a93b4362052a336a7b22494f1b77018dd34b'
 ]
 
-const CONTRACTS = {
+const CONTRACTS: any = {
   [ARBITRUM_GOERLI]: {
     // arbitrum testnet
     Vault: AddressZero,

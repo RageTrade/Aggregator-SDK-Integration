@@ -20,7 +20,7 @@ export const REFERRAL_CODE_KEY = 'GMX-referralCode'
 
 export async function useUserReferralInfo(
   chainId: number,
-  account?: string | null,
+  account: string,
   skipLocalReferralCode = false
 ): Promise<UserReferralInfo | undefined> {
   const { userReferralCode, userReferralCodeString, attachedOnChain, referralCodeForTxn } = await useUserReferralCode(
@@ -28,6 +28,10 @@ export async function useUserReferralInfo(
     account,
     skipLocalReferralCode
   )
+
+  if (!userReferralCode) {
+    return undefined
+  }
 
   const { codeOwner } = await useCodeOwner(chainId, account, userReferralCode)
   const { affiliateTier: tierId } = await useAffiliateTier(chainId, codeOwner)
@@ -60,7 +64,7 @@ export async function useUserReferralInfo(
   }
 }
 
-export async function useAffiliateTier(chainId, account) {
+export async function useAffiliateTier(chainId: number, account: string) {
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
   const { data: affiliateTier, mutate: mutateReferrerTier } = (await contractFetcher(ReferralStorage)(
     account && [`ReferralStorage:referrerTiers`, chainId, referralStorageAddress, 'referrerTiers', account]
@@ -85,7 +89,7 @@ export async function useTiers(chainId: number, tierLevel?: BigNumberish) {
   }
 }
 
-export async function getReferralCodeOwner(chainId, referralCode) {
+export async function getReferralCodeOwner(chainId: number, referralCode: string) {
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
   const provider = rpc[ARBITRUM]
   const contract = new ethers.Contract(referralStorageAddress, ReferralStorage.abi, provider)
@@ -93,7 +97,7 @@ export async function getReferralCodeOwner(chainId, referralCode) {
   return codeOwner
 }
 
-export async function useUserReferralCode(chainId, account, skipLocalReferralCode = false) {
+export async function useUserReferralCode(chainId: number, account: string, skipLocalReferralCode = false) {
   // TODO - modify to use localStorage for referral code
   const localStorageCode = '0x7261676574726164650000000000000000000000000000000000000000000000'
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
@@ -122,7 +126,12 @@ export async function useUserReferralCode(chainId, account, skipLocalReferralCod
   }
 }
 
-function useUserReferralCodeInternal(skipLocalReferralCode, onChainCode, localStorageCodeOwner, localStorageCode) {
+function useUserReferralCodeInternal(
+  skipLocalReferralCode: boolean,
+  onChainCode: string,
+  localStorageCodeOwner: string,
+  localStorageCode: string
+) {
   let attachedOnChain = false
   let userReferralCode: string | undefined = undefined
   let userReferralCodeString: string | undefined = undefined
@@ -147,7 +156,7 @@ function useUserReferralCodeInternal(skipLocalReferralCode, onChainCode, localSt
   }
 }
 
-export async function useReferrerTier(chainId, account) {
+export async function useReferrerTier(chainId: number, account: string) {
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
   const validAccount = isAddress(account) ? account : null
   const { data: referrerTier, mutate: mutateReferrerTier } = (await contractFetcher(ReferralStorage)(
@@ -160,7 +169,7 @@ export async function useReferrerTier(chainId, account) {
   }
 }
 
-export async function useCodeOwner(chainId, account, code) {
+export async function useCodeOwner(chainId: number, account: string, code: string) {
   console.log({ account, code })
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
   const { data: codeOwner, mutate: mutateCodeOwner } = (await contractFetcher(ReferralStorage)(
@@ -173,7 +182,7 @@ export async function useCodeOwner(chainId, account, code) {
   }
 }
 
-export async function useReferrerDiscountShare(chainId, owner) {
+export async function useReferrerDiscountShare(chainId: number, owner: string) {
   const referralStorageAddress = getContract(chainId, 'ReferralStorage')
   const { data: discountShare, mutate: mutateDiscountShare } = (await contractFetcher(ReferralStorage)(
     owner && [
@@ -191,7 +200,7 @@ export async function useReferrerDiscountShare(chainId, owner) {
   }
 }
 
-export async function validateReferralCodeExists(referralCode, chainId) {
+export async function validateReferralCodeExists(referralCode: string, chainId: number) {
   const referralCodeBytes32 = encodeReferralCode(referralCode)
   const referralCodeOwner = await getReferralCodeOwner(chainId, referralCodeBytes32)
   return !isAddressZero(referralCodeOwner)

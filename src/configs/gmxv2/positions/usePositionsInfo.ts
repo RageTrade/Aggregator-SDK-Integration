@@ -19,6 +19,7 @@ import { getPriceImpactForPosition } from '../fees/utils/priceImpact'
 import { getPositionFee } from '../fees/utils'
 import { getBasisPoints } from '../lib/numbers'
 import { useUserReferralInfo } from '../referrals/hooks'
+import { UserReferralInfo } from '../referrals/types'
 
 type PositionsInfoResult = {
   positionsInfoData?: PositionsInfoData
@@ -40,7 +41,7 @@ export async function usePositionsInfo(
 
   const { positionsData } = await usePositions(chainId, p)
   const { minCollateralUsd } = await usePositionsConstants(chainId)
-  let userReferralInfo = undefined
+  let userReferralInfo: UserReferralInfo | undefined = undefined
   // TODO - modify to use referral code
   // const userReferralInfo = await useUserReferralInfo(chainId, account, skipLocalReferralCode)
 

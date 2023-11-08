@@ -33,7 +33,7 @@ export async function useMarkets(chainId: number): Promise<MarketsResult> {
     }),
     parseResponse: (res) => {
       return res.data.reader.markets.returnValues.reduce(
-        (acc: { marketsData: MarketsData; marketsAddresses: string[] }, marketValues) => {
+        (acc: { marketsData: MarketsData; marketsAddresses: string[] }, marketValues: any) => {
           try {
             const indexToken = getToken(chainId, convertTokenAddress(chainId, marketValues.indexToken, 'native'))
             const longToken = getToken(chainId, marketValues.longToken)

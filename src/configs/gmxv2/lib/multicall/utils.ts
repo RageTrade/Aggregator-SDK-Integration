@@ -10,11 +10,11 @@ export const MAX_TIMEOUT = 20000
 
 const ARBITRUM = 42161
 
-const CHAIN_BY_CHAIN_ID = {
+const CHAIN_BY_CHAIN_ID: any = {
   [ARBITRUM]: arbitrum
 }
 
-const BATCH_CONFIGS = {
+const BATCH_CONFIGS: any = {
   [ARBITRUM]: {
     http: {
       batchSize: 0, // disable batches, here batchSize is the number of eth_calls in a batch
@@ -38,6 +38,8 @@ export async function executeMulticall(
 
   return multicall?.call(request, MAX_TIMEOUT)
 }
+
+type ResponseType = { result: any; status: any; error: any }
 
 export class Multicall {
   static instances: {
@@ -171,16 +173,16 @@ export class Multicall {
       data: {}
     }
 
-    response.forEach(({ result, status, error }, i) => {
+    response.forEach((res: ResponseType, i: number) => {
       const { contractKey, callKey } = originalKeys[i]
 
       if (status === 'success') {
         let values: any
 
-        if (Array.isArray(result) || typeof result === 'object') {
-          values = result
+        if (Array.isArray(res.result) || typeof res.result === 'object') {
+          values = res.result
         } else {
-          values = [result]
+          values = [res.result]
         }
 
         multicallResult.data[contractKey] = multicallResult.data[contractKey] || {}
@@ -194,7 +196,7 @@ export class Multicall {
         multicallResult.success = false
 
         multicallResult.errors[contractKey] = multicallResult.errors[contractKey] || {}
-        multicallResult.errors[contractKey][callKey] = error
+        multicallResult.errors[contractKey][callKey] = res.error
 
         multicallResult.data[contractKey] = multicallResult.data[contractKey] || {}
         multicallResult.data[contractKey][callKey] = {
@@ -202,7 +204,7 @@ export class Multicall {
           callKey,
           returnValues: [],
           success: false,
-          error: error
+          error: res.error
         }
       }
     })

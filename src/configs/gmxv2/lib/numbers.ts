@@ -188,11 +188,11 @@ export function basisPointsToFloat(basisPoints: BigNumber) {
   return basisPoints.mul(PRECISION).div(BASIS_POINTS_DIVISOR)
 }
 
-export function roundToTwoDecimals(n) {
+export function roundToTwoDecimals(n: number) {
   return Math.round(n * 100) / 100
 }
 
-export function sumBigNumbers(...args) {
+export function sumBigNumbers(...args: any[]) {
   return args.filter((value) => !isNaN(Number(value))).reduce((acc, value) => acc.add(value || 0), BigNumber.from(0))
 }
 

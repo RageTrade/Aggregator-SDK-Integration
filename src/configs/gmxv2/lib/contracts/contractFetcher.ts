@@ -23,7 +23,7 @@ export const contractFetcher =
 
     let shouldCallFallback = true
 
-    const handleFallback = async (resolve, reject, error) => {
+    const handleFallback = async (resolve: any, reject: any, error: any) => {
       if (!shouldCallFallback) {
         return
       }
@@ -49,8 +49,8 @@ export const contractFetcher =
       })
 
       fallbackContractCall
-        .then((result) => resolve(result))
-        .catch((e) => {
+        .then((result: any) => resolve(result))
+        .catch((e: any) => {
           // eslint-disable-next-line no-console
           console.error('fallback fetcher error', id, contractInfo.contractName, method, e)
           reject(e)
@@ -59,11 +59,11 @@ export const contractFetcher =
 
     return new Promise(async (resolve, reject) => {
       contractCall
-        .then((result) => {
+        .then((result: any) => {
           shouldCallFallback = false
           resolve(result)
         })
-        .catch((e) => {
+        .catch((e: any) => {
           // eslint-disable-next-line no-console
           console.error('fetcher error', id, contractInfo.contractName, method, e)
           handleFallback(resolve, reject, e)
@@ -75,20 +75,30 @@ export const contractFetcher =
     })
   }
 
-function getContractCall({ provider, contractInfo, arg0, arg1, method, params, additionalArgs }) {
-  if (ethers.utils.isAddress(arg0)) {
-    const address = arg0
-    const contract = new ethers.Contract(address, contractInfo.abi, provider)
+type ContractCallType = {
+  provider: any
+  contractInfo: any
+  arg0: any
+  arg1: any
+  method: any
+  params: any
+  additionalArgs: any
+}
 
-    if (additionalArgs) {
-      return contract[method](...params.concat(additionalArgs))
+function getContractCall(call: ContractCallType) {
+  if (ethers.utils.isAddress(call.arg0)) {
+    const address = call.arg0
+    const contract = new ethers.Contract(address, call.contractInfo.abi, call.provider)
+
+    if (call.additionalArgs) {
+      return contract[call.method](call.params.concat(call.additionalArgs))
     }
-    return contract[method](...params)
+    return contract[call.method](call.params)
   }
 
-  if (!provider) {
+  if (!call.provider) {
     return
   }
 
-  return provider[method](arg1, ...params)
+  return call.provider[call.method](call.arg1, call.params)
 }

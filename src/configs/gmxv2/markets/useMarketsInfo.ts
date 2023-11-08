@@ -348,7 +348,7 @@ export async function useMarketsInfo(chainId: number, wallet: string): Promise<M
           }
         })
       }, {}),
-    parseResponse: (res) => {
+    parseResponse: (res: any) => {
       return marketsAddresses!.reduce((acc: MarketsInfoData, marketAddress) => {
         const readerErrors = res.errors[`${marketAddress}-reader`]
         const dataStoreErrors = res.errors[`${marketAddress}-dataStore`]
