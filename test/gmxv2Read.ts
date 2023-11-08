@@ -2,6 +2,7 @@ import { FixedNumber, parseEther, parseUnits } from 'ethers-v6'
 import GmxV2Service from '../src/exchanges/gmxv2'
 import { CancelOrder, CreateOrder, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { tokens } from '../src/common/tokens'
+import { logObject } from '../src/common/helper'
 
 const ex = new GmxV2Service()
 
@@ -158,8 +159,22 @@ async function increasePosition() {
   // console.dir(await ex.cancelOrder(cancelOrders), { depth: 4 })
 }
 
+async function testGetAllOrders() {
+  const res = await ex.getAllOrders('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
+  // console.dir({ res: res.result[0] }, { depth: 4 })
+  res.result.forEach((o) => {
+    console.dir({ o }, { depth: 3 })
+  })
+}
+
+async function testGetAllOrdersForPosition() {
+  const positions = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result
+  const res = await ex.getAllOrdersForPosition('0x2f88a09ed4174750a464576FE49E586F90A34820', positions, undefined)
+  console.dir({ res: res }, { depth: 4 })
+}
+
 async function test() {
-  await increasePosition()
+  await testGetAllOrdersForPosition()
 }
 
 test()

@@ -305,7 +305,7 @@ export interface IRouterAdapterBaseV1 {
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes<Record<PositionData['posId'], OrderInfo[]>>>
+  ): Promise<Record<PositionData['posId'], PaginatedRes<OrderInfo>>>
 
   getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>>
 

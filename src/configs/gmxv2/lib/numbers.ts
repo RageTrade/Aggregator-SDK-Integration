@@ -3,6 +3,10 @@ import { BASIS_POINTS_DIVISOR } from '../config/factors'
 
 export const PRECISION = expandDecimals(1, 30)
 export const USD_DECIMALS = 30
+const MAX_EXCEEDING_THRESHOLD = '1000000000'
+const MIN_EXCEEDING_THRESHOLD = '0.01'
+export const TRIGGER_PREFIX_ABOVE = '>'
+export const TRIGGER_PREFIX_BELOW = '<'
 
 export function bigNumberify(n?: BigNumberish) {
   try {
@@ -200,4 +204,96 @@ export function removeTrailingZeros(amount: string | number) {
   const amountWithoutZeros = Number(amount)
   if (!amountWithoutZeros) return amount
   return amountWithoutZeros
+}
+
+function getLimitedDisplay(
+  amount: BigNumber,
+  tokenDecimals: number,
+  opts: { maxThreshold?: string; minThreshold?: string } = {}
+) {
+  const { maxThreshold = MAX_EXCEEDING_THRESHOLD, minThreshold = MIN_EXCEEDING_THRESHOLD } = opts
+  const max = expandDecimals(maxThreshold, tokenDecimals)
+  const min = ethers.utils.parseUnits(minThreshold, tokenDecimals)
+  const absAmount = amount.abs()
+
+  if (absAmount.eq(0)) {
+    return {
+      symbol: '',
+      value: absAmount
+    }
+  }
+
+  const symbol = absAmount.gt(max) ? TRIGGER_PREFIX_ABOVE : absAmount.lt(min) ? TRIGGER_PREFIX_BELOW : ''
+  const value = absAmount.gt(max) ? max : absAmount.lt(min) ? min : absAmount
+
+  return {
+    symbol,
+    value
+  }
+}
+
+export function formatTokenAmount(
+  amount?: BigNumber,
+  tokenDecimals?: number,
+  symbol?: string,
+  opts: {
+    showAllSignificant?: boolean
+    displayDecimals?: number
+    fallbackToZero?: boolean
+    useCommas?: boolean
+    minThreshold?: string
+    maxThreshold?: string
+  } = {}
+) {
+  const {
+    displayDecimals = 4,
+    showAllSignificant = false,
+    fallbackToZero = false,
+    useCommas = false,
+    minThreshold = '0',
+    maxThreshold
+  } = opts
+
+  const symbolStr = symbol ? ` ${symbol}` : ''
+
+  if (!amount || !tokenDecimals) {
+    if (fallbackToZero) {
+      amount = BigNumber.from(0)
+      tokenDecimals = displayDecimals
+    } else {
+      return undefined
+    }
+  }
+
+  let amountStr: string
+
+  if (showAllSignificant) {
+    amountStr = formatAmountFree(amount, tokenDecimals, tokenDecimals)
+  } else {
+    const exceedingInfo = getLimitedDisplay(amount, tokenDecimals, { maxThreshold, minThreshold })
+    const symbol = exceedingInfo.symbol ? `${exceedingInfo.symbol} ` : ''
+    amountStr = `${symbol}${formatAmount(exceedingInfo.value, tokenDecimals, displayDecimals, useCommas)}`
+  }
+
+  return `${amountStr}${symbolStr}`
+}
+
+export function formatUsd(
+  usd?: BigNumber,
+  opts: { fallbackToZero?: boolean; displayDecimals?: number; maxThreshold?: string; minThreshold?: string } = {}
+) {
+  const { fallbackToZero = false, displayDecimals = 2 } = opts
+
+  if (!usd) {
+    if (fallbackToZero) {
+      usd = BigNumber.from(0)
+    } else {
+      return undefined
+    }
+  }
+
+  const exceedingInfo = getLimitedDisplay(usd, USD_DECIMALS, opts)
+  const sign = usd.lt(0) ? '-' : ''
+  const displayUsd = formatAmount(exceedingInfo.value, USD_DECIMALS, displayDecimals, true)
+  return `${exceedingInfo.symbol}${exceedingInfo.symbol ? ' ' : ''}${sign}$${displayUsd}`
 }

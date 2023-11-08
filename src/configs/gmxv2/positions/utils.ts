@@ -226,3 +226,9 @@ export function getPositionValueUsd(p: { indexToken: Token; sizeInTokens: BigNum
 
   return convertToUsd(sizeInTokens, indexToken.decimals, markPrice)!
 }
+
+export function parsePositionKey(positionKey: string) {
+  const [account, marketAddress, collateralAddress, isLong] = positionKey.split(':')
+
+  return { account, marketAddress, collateralAddress, isLong: isLong === 'true' }
+}

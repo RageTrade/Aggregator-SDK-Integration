@@ -23,7 +23,9 @@ import {
   ProtocolId,
   Market,
   Protocol,
-  GenericStaticMarketMetadata
+  GenericStaticMarketMetadata,
+  OrderData,
+  OrderIdentifier
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -38,7 +40,7 @@ import { ZERO } from '../common/constants'
 import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection } from '../interface'
 import { tokens } from '../common/tokens'
-import { applySlippage, getPaginatedResponse, toAmountInfo } from '../common/helper'
+import { applySlippage, getPaginatedResponse, logObject, toAmountInfo } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { parseUnits } from 'ethers/lib/utils'
@@ -48,6 +50,10 @@ import { useMarketsInfo } from '../configs/gmxv2/markets/useMarketsInfo'
 import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
 import { ARBITRUM } from '../configs/gmx/chains'
 import { chains } from 'perennial-sdk-ts'
+import { useOrdersInfo } from '../configs/gmxv2/orders/useOrdersInfo'
+import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
+import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
+import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00121')
@@ -101,15 +107,6 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve()
   }
 
-  // supportedNetworks(): Network[] {
-  //   const networks: Network[] = []
-  //   networks.push({
-  //     name: 'arbitrum',
-  //     chainId: 42161
-  //   })
-  //   return networks
-  // }
-
   supportedChains(): Chain[] {
     return [chains[42161]]
   }
@@ -126,7 +123,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
 
       const market: Market = {
-        marketId: this.getGlobalMarketId(mProp.marketToken, 'GMXV2', arbitrum.id),
+        marketId: this._getGlobalMarketId(mProp.marketToken, 'GMXV2', arbitrum.id),
         chain: chains[42161],
         indexToken: getGmxV2TokenByAddress(mProp.indexToken),
         longCollateral: [longToken, shortToken],
@@ -175,10 +172,10 @@ export default class GmxV2Service implements IAdapterV1 {
   async getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
     const marketsInfo = await this.getMarketsInfo(marketIds)
     const prices: FixedNumber[] = []
-    const priceRes = await this.getOraclePrices()
+    const priceRes = await this._getOraclePrices()
 
     for (const mInfo of marketsInfo) {
-      const tokenPrice = this.getMinMaxPrice(mInfo.indexToken.address[42161]!, priceRes)
+      const tokenPrice = this._getMinMaxPrice(mInfo.indexToken.address[42161]!, priceRes)
 
       // get mid price for calculations and display on f/e
       const price = BigNumber.from(tokenPrice.minPrice).add(BigNumber.from(tokenPrice.maxPrice)).div(2)
@@ -480,7 +477,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const positionsData = Object.values(positionsInfoData!)
     for (const posData of positionsData) {
       positionsInfo.push({
-        marketId: this.getGlobalMarketId(posData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
+        marketId: this._getGlobalMarketId(posData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
         posId: posData.key,
         size: toAmountInfo(posData.sizeInUsd, 30, false),
         margin: toAmountInfo(posData.remainingCollateralUsd, 30, false),
@@ -504,16 +501,63 @@ export default class GmxV2Service implements IAdapterV1 {
     return getPaginatedResponse(positionsInfo, pageOptions)
   }
 
-  getAllOrders(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<OrderInfo>> {
-    throw new Error('Method not implemented.')
+  async _getOrderInfo(wallet: string): Promise<OrdersInfoData> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
+      marketsInfoData,
+      tokensData,
+      pricesUpdatedAt,
+      showPnlInLeverage: false,
+      account: wallet
+    })
+    const { ordersInfoData, isLoading: isOrdersLoading } = await useOrdersInfo(ARBITRUM, {
+      account: wallet,
+      marketsInfoData,
+      positionsInfoData,
+      tokensData
+    })
+
+    if (!ordersInfoData) throw new Error('orders info not found')
+    return ordersInfoData
   }
-  getAllOrdersForPosition(
+
+  async getAllOrders(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<OrderInfo>> {
+    const ordersInfoData = await this._getOrderInfo(wallet)
+
+    const ordersData = Object.values(ordersInfoData)
+    const ordersInfo = ordersData.map((o) => this._mapPositionOrderInfoToOrderInfo(o))
+
+    return getPaginatedResponse(ordersInfo, pageOptions)
+  }
+
+  async getAllOrdersForPosition(
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined
-  ): Promise<PaginatedRes<Record<string, OrderInfo[]>>> {
-    throw new Error('Method not implemented.')
+  ): Promise<Record<PositionInfo['posId'], PaginatedRes<OrderInfo>>> {
+    const ordersInfoData = await this._getOrderInfo(wallet)
+    const allOrders = Object.values(ordersInfoData)
+    const ordersForPositionInternal: Record<string, OrderInfo[]> = {}
+
+    for (const o of allOrders) {
+      for (const p of positionInfo) {
+        if (isOrderForPosition(o, p.posId)) {
+          if (ordersForPositionInternal[p.posId] === undefined) {
+            ordersForPositionInternal[p.posId] = []
+          }
+          ordersForPositionInternal[p.posId].push(this._mapPositionOrderInfoToOrderInfo(o))
+        }
+      }
+    }
+
+    const ordersForPosition: Record<string, PaginatedRes<OrderInfo>> = {}
+    for (const posId of Object.keys(ordersForPositionInternal)) {
+      ordersForPosition[posId] = getPaginatedResponse(ordersForPositionInternal[posId], pageOptions)
+    }
+
+    return ordersForPosition
   }
+
   getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
     throw new Error('Method not implemented.')
   }
@@ -545,7 +589,7 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   //// Internal helper functions ////
-  private getStartEndIndex(pageOptions: PageOptions | undefined): {
+  private _getStartEndIndex(pageOptions: PageOptions | undefined): {
     start: BigNumber
     end: BigNumber
   } {
@@ -566,19 +610,19 @@ export default class GmxV2Service implements IAdapterV1 {
     }
   }
 
-  private getGlobalMarketId(protocolMarketId: string, protocolId: ProtocolId, chainId: Chain['id']): string {
+  private _getGlobalMarketId(protocolMarketId: string, protocolId: ProtocolId, chainId: Chain['id']): string {
     return protocolMarketId + ':' + protocolId + ':' + chainId
   }
 
-  private getProtocolMarketId(globalMarketId: string): string {
+  private _getProtocolMarketId(globalMarketId: string): string {
     return globalMarketId.split(':')[0]
   }
 
-  private convertNative(address: string) {
+  private _convertNative(address: string) {
     return address === ethers.constants.AddressZero ? GMX_V2_TOKENS['WETH'].address[42161]! : address
   }
 
-  private async getOraclePrices(): Promise<Array<{ [key: string]: string }>> {
+  private async _getOraclePrices(): Promise<Array<{ [key: string]: string }>> {
     const pricesUrl = `https://arbitrum-api.gmxinfra.io/prices/tickers`
     const pricesRes = await fetch(pricesUrl)
     const resJson = (await pricesRes.json()) as Array<{ [key: string]: string }>
@@ -586,7 +630,7 @@ export default class GmxV2Service implements IAdapterV1 {
     return resJson
   }
 
-  private getMinMaxPrice(
+  private _getMinMaxPrice(
     tokenAddr: string,
     priceRes: Array<{ [key: string]: string }>
   ): {
@@ -594,7 +638,9 @@ export default class GmxV2Service implements IAdapterV1 {
     maxPrice: string
     priceDecimals: number
   } {
-    const tokenInfo = priceRes.find((p) => p.tokenAddress.toLowerCase() === this.convertNative(tokenAddr).toLowerCase())
+    const tokenInfo = priceRes.find(
+      (p) => p.tokenAddress.toLowerCase() === this._convertNative(tokenAddr).toLowerCase()
+    )
     if (tokenInfo === undefined) throw new Error(`Price for ${tokenAddr} not found`)
 
     const priceDecimals = getGmxV2TokenByAddress(tokenAddr).priceDecimals
@@ -606,15 +652,15 @@ export default class GmxV2Service implements IAdapterV1 {
     }
   }
 
-  private async getContractMarketPrices(marketIds: string[]): Promise<ContractMarketPrices[]> {
+  private async _getContractMarketPrices(marketIds: string[]): Promise<ContractMarketPrices[]> {
     const markets = await this.getMarketsInfo(marketIds)
-    const priceRes = await this.getOraclePrices()
+    const priceRes = await this._getOraclePrices()
 
     const contractMarketPrices: ContractMarketPrices[] = []
     for (const m of markets) {
-      const indexPrice = this.getMinMaxPrice(m.indexToken.address[42161]!, priceRes)
-      const longPrice = this.getMinMaxPrice(m.longCollateral[0].address[42161]!, priceRes)
-      const shortPrice = this.getMinMaxPrice(m.shortCollateral[1].address[42161]!, priceRes)
+      const indexPrice = this._getMinMaxPrice(m.indexToken.address[42161]!, priceRes)
+      const longPrice = this._getMinMaxPrice(m.longCollateral[0].address[42161]!, priceRes)
+      const shortPrice = this._getMinMaxPrice(m.shortCollateral[1].address[42161]!, priceRes)
 
       const marketPrice: ContractMarketPrices = {
         indexTokenPrice: {
@@ -637,15 +683,15 @@ export default class GmxV2Service implements IAdapterV1 {
     return contractMarketPrices
   }
 
-  private getMarketTokenFromMarketId(marketId: string): string {
+  private _getMarketTokenFromMarketId(marketId: string): string {
     return marketId.split(':')[0]
   }
 
-  private async getMarketIdFromContractPositionKey(contractPositionKey: string, account: string): Promise<string> {
+  private async _getMarketIdFromContractPositionKey(contractPositionKey: string, account: string): Promise<string> {
     const allMarkets = await this.supportedMarkets(this.supportedChains())
 
     for (const market of allMarkets) {
-      const marketToken = this.getMarketTokenFromMarketId(market.marketId)
+      const marketToken = this._getMarketTokenFromMarketId(market.marketId)
       const longCollateral = market.longCollateral[0].address[42161]!
       const shortCollateral = market.shortCollateral[1].address[42161]!
 
@@ -666,5 +712,59 @@ export default class GmxV2Service implements IAdapterV1 {
     }
 
     throw new Error(`Market not found for contract position key ${contractPositionKey}`)
+  }
+
+  private getOrderType(iot: InternalOrderType): OrderType {
+    if (isMarketOrderType(iot)) {
+      return 'MARKET'
+    }
+    if (iot === InternalOrderType.LimitIncrease) {
+      return 'LIMIT'
+    }
+    if (iot === InternalOrderType.LimitDecrease) {
+      return 'TAKE_PROFIT'
+    }
+    if (iot === InternalOrderType.StopLossDecrease) {
+      return 'STOP_LOSS'
+    }
+
+    throw new Error(`Order type not found for internal order type ${iot}`)
+  }
+
+  private _mapPositionOrderInfoToOrderInfo(orderData: PositionOrderInfo): OrderInfo {
+    const initialCollateralToken = getGmxV2TokenByAddress(orderData.initialCollateralTokenAddress)
+    const oData: OrderData = {
+      marketId: this._getGlobalMarketId(orderData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
+      direction: orderData.isLong ? 'LONG' : 'SHORT',
+      sizeDelta: toAmountInfo(orderData.sizeDeltaUsd, 30, false),
+      marginDelta: toAmountInfo(orderData.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
+      triggerData: {
+        triggerPrice: FixedNumber.fromValue(orderData.triggerPrice.toString(), 30, 30),
+        triggerAboveThreshold: orderData.triggerThresholdType == TriggerThresholdType.Above ? true : false
+      }
+    }
+    const oId: OrderIdentifier = {
+      orderId: orderData.key,
+      marketId: this._getGlobalMarketId(orderData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id)
+    }
+    const oType = {
+      orderType: this.getOrderType(orderData.orderType)
+    }
+    const oCollateralData: CollateralData = {
+      collateral: initialCollateralToken
+    }
+    const oProtocolId = {
+      protocolId: 'GMXV2' as ProtocolId
+    }
+
+    const orderInfo: OrderInfo = {
+      ...oData,
+      ...oId,
+      ...oType,
+      ...oCollateralData,
+      ...oProtocolId
+    }
+
+    return orderInfo
   }
 }
