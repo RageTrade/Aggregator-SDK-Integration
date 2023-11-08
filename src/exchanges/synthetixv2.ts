@@ -570,7 +570,7 @@ export default class SynthetixV2Service implements IExchange {
     let extendedPosition: ExtendedPosition = {} as ExtendedPosition
     let marketAddress = await this.getMarketAddress(market)
 
-    let futureMarkets = []
+    let futureMarkets: any[] = []
     futureMarkets.push({
       asset: getEnumEntryByValue(FuturesMarketAsset, market.asset!)!,
       marketKey: getEnumEntryByValue(FuturesMarketKey, market.indexOrIdentifier!)!,
@@ -596,7 +596,7 @@ export default class SynthetixV2Service implements IExchange {
 
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets)
 
-    let futureMarkets = []
+    let futureMarkets: any[] = []
 
     for (let i = 0; i < markets.length; i++) {
       futureMarkets.push({

@@ -942,7 +942,7 @@ export default class GmxV1Service implements IExchange {
           if (BigNumber.from(incTrade.sizeDelta).eq(0)) continue // Add collateral trades
 
           let txHash = (incTrade.id as string).split(':')[2]
-          let realisedPnl = undefined
+          let realisedPnl: BigNumber | undefined = undefined
 
           for (const update of updateList) {
             if ((update.id as string).split(':')[2] == txHash) {
@@ -973,7 +973,7 @@ export default class GmxV1Service implements IExchange {
           if (BigNumber.from(decTrade.sizeDelta).eq(0)) continue // Remove collateral trades
 
           let txHash = (decTrade.id as string).split(':')[2]
-          let realisedPnl = undefined
+          let realisedPnl: BigNumber | undefined = undefined
           let collateralDelta = BigNumber.from(decTrade.collateralDelta)
 
           for (const update of updateList) {
