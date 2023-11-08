@@ -97,6 +97,7 @@ export type CollateralData = {
 }
 
 export type OrderIdentifier = {
+  marketId: Market['marketId']
   orderId: string
 }
 
@@ -254,6 +255,8 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
     }
 
+export type RouterAdapterMethod = keyof IRouterAdapterBaseV1;
+
 export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
   setup(swAddr: string): Promise<void>
@@ -322,6 +325,7 @@ export interface IRouterAdapterBaseV1 {
 
   getUpdateMarginPreview(
     wallet: string,
+    marketIds: Market['marketId'][],
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
     existingPos: Array<PositionInfo | undefined>
