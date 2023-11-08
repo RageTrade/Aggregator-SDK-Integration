@@ -253,6 +253,11 @@ async function test() {
   await testDynamicMetadata()
 }
 
+async function testTradeHistory() {
+  const res = await ex.getTradesHistory('0xe8c19db00287e3536075114b2576c70773e039bd', undefined)
+  console.log({ res })
+}
+
 test()
   .then(() => process.exit(0))
   .catch((error) => {

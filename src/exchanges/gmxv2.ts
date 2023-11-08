@@ -119,6 +119,8 @@ export default class GmxV2Service implements IAdapterV1 {
   private ROUTER_ADDR = '0x7452c558d45f8afC8c83dAe62C3f8A5BE19c71f6'
   private ORDER_VAULT_ADDR = '0x31eF83a530Fde1B38EE9A18093A333D8Bbbc40D5'
 
+  private SUBGRAPH_URL = 'https://subgraph.satsuma-prod.com/3b2ced13c8d9/gmx/synthetics-arbitrum-stats/api'
+
   private provider = rpc[42161]
 
   private reader = Reader__factory.connect(this.READER_ADDR, this.provider)
@@ -824,14 +826,83 @@ export default class GmxV2Service implements IAdapterV1 {
 
     return ordersForPosition
   }
+  async getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
+    const results = await fetch(this.SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
+          tradeActions(
+            ${pageOptions? `skip: ${pageOptions.skip},` : ""}
+            ${pageOptions? `limit: ${pageOptions.limit},` : ""}
+              orderBy: transaction__timestamp,
+              orderDirection: desc,
+              ${wallet? `where: { account: "${wallet.toLowerCase()}" }` : ""}
+          ) {
+              id
+              eventName
+              
+              account
+              marketAddress
+              swapPath
+              initialCollateralTokenAddress
+              
+              initialCollateralDeltaAmount
+              sizeDeltaUsd
+              triggerPrice
+              acceptablePrice
+              executionPrice
+              minOutputAmount
+              executionAmountOut
+  
+              priceImpactUsd
+              priceImpactDiffUsd
+              positionFeeAmount
+              borrowingFeeAmount
+              fundingFeeAmount
+              pnlUsd
+  
+              collateralTokenPriceMax
+              collateralTokenPriceMin
+  
+              indexTokenPriceMin
+              indexTokenPriceMax
+              
+              orderType
+              orderKey
+              isLong
+              shouldUnwrapNativeToken
+              
+              reason
+              reasonBytes
+              
+              transaction {
+                  timestamp
+                  hash
+              }
+          }
+        }`,
+      }),
+    });
+    const resultJson = await results.json();
 
-  getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
+    console.log(resultJson.data)
+
+    const trades: HistoricalTradeInfo[] = []
+    
+    resultJson.data?.tradeActions.forEach((trade: any) => {
+      if(trade.eventName !== 'OrderExecuted') return;
+      trades.push({
+        timestamp: trade.transaction.timestamp,
+        price: trade.executionPrice,
+      } as HistoricalTradeInfo)
+    });
+  }
+  async getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>> {
     throw new Error('Method not implemented.')
   }
-  getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>> {
-    throw new Error('Method not implemented.')
-  }
-
+  
+  
   async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
