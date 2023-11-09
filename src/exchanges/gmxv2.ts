@@ -24,7 +24,9 @@ import {
   Protocol,
   GenericStaticMarketMetadata,
   OrderData,
-  OrderIdentifier
+  OrderIdentifier,
+  TradeDirection,
+  TradeOperationType,
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -833,11 +835,11 @@ export default class GmxV2Service implements IAdapterV1 {
       body: JSON.stringify({
         query: `{
           tradeActions(
-            ${pageOptions? `skip: ${pageOptions.skip},` : ""}
-            ${pageOptions? `limit: ${pageOptions.limit},` : ""}
+            ${pageOptions ? `skip: ${pageOptions.skip},` : ""}
+            ${pageOptions ? `limit: ${pageOptions.limit},` : ""}
               orderBy: transaction__timestamp,
               orderDirection: desc,
-              ${wallet? `where: { account: "${wallet.toLowerCase()}" }` : ""}
+              ${wallet ? `where: { account: "${wallet.toLowerCase()}" }` : ""}
           ) {
               id
               eventName
@@ -889,15 +891,51 @@ export default class GmxV2Service implements IAdapterV1 {
     console.log(resultJson.data)
 
     const trades: HistoricalTradeInfo[] = []
-    
+
     resultJson.data?.tradeActions.forEach((trade: any) => {
-      if(trade.eventName !== 'OrderExecuted') return;
+      if (trade.eventName != 'OrderExecuted') return;
+      const marketId = encodeMarketId( arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress));
+      const marketInfo = this.cachedMarkets[marketId]
+      const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
+      if (trade.pnlUsd === null) trade.pnlUsd = '0'
+      if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
+
       trades.push({
+        marketId: marketId,
         timestamp: trade.transaction.timestamp,
-        price: trade.executionPrice,
+        price: FixedNumber.fromValue(trade.executionPrice, indexToken.priceDecimals, 'fixed128x30'),
+        direction: trade.isLong ? 'LONG' as TradeDirection : 'SHORT' as TradeDirection,
+        sizeDelta: toAmountInfo(trade.sizeDeltaUsd, 30, false),
+        marginDelta: toAmountInfo(trade.initialCollateralDeltaAmount, 30, false),
+        collateral: getGmxV2TokenByAddress(trade.initialCollateralTokenAddress) as Token,
+        realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 'fixed128x30'),
+        keeperFeesPaid: FixedNumber.fromValue(0, 30),
+        positionFee: FixedNumber.fromValue(trade.positionFeeAmount, 30, 'fixed128x30'),
+        operationType: this._getOperationType(parseInt(trade.orderType), trade.isLong),
+        txHash: trade.transaction.hash,
       } as HistoricalTradeInfo)
     });
+
+    return {
+      result: trades,
+      maxItemsCount: trades.length,
+    };
   }
+
+  private _getOperationType(orderType: SolidityOrderType, isLong: boolean): TradeOperationType {
+    console.log({orderType})
+    switch (orderType) {
+      case SolidityOrderType.MarketIncrease:
+      case SolidityOrderType.LimitIncrease:
+        return isLong ? 'Open Long' : 'Open Short'
+      case SolidityOrderType.MarketDecrease:
+      case SolidityOrderType.LimitDecrease:
+      case SolidityOrderType.StopLossDecrease:
+        return isLong ? 'Close Long' : 'Close Short'
+      default: throw new Error('Invalid order type')
+    }
+  }
+
   async getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>> {
     throw new Error('Method not implemented.')
   }
