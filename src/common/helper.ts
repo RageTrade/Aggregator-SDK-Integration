@@ -2,6 +2,7 @@ import { BigNumber, BigNumberish, ethers } from 'ethers'
 import { NumberDecimal, PageOptions, PaginatedRes } from '../interface'
 import { AmountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { FixedNumber } from 'ethers-v6'
+import { ZERO } from './constants'
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
   myEnum: T,
@@ -93,4 +94,25 @@ export function isHashZero(value: string) {
 }
 export function isAddressZero(value: string) {
   return value === ethers.constants.AddressZero
+}
+
+export function getStartEndIndex(pageOptions: PageOptions | undefined): {
+  start: BigNumber
+  end: BigNumber
+} {
+  if (pageOptions === undefined) {
+    return {
+      start: ZERO,
+      end: ethers.constants.MaxUint256
+    }
+  }
+
+  const { skip, limit } = pageOptions
+  const start = BigNumber.from(skip)
+  const end = start.add(limit)
+
+  return {
+    start,
+    end
+  }
 }
