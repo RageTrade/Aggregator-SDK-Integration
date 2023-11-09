@@ -797,27 +797,6 @@ export default class GmxV2Service implements IAdapterV1 {
   //// Internal helper functions ////
   ///////////////////////////////////
 
-  private _getStartEndIndex(pageOptions: PageOptions | undefined): {
-    start: BigNumber
-    end: BigNumber
-  } {
-    if (pageOptions === undefined) {
-      return {
-        start: ZERO,
-        end: ethers.constants.MaxUint256
-      }
-    }
-
-    const { skip, limit } = pageOptions
-    const start = BigNumber.from(skip)
-    const end = start.add(limit)
-
-    return {
-      start,
-      end
-    }
-  }
-
   private _convertNative(address: string) {
     return address === ethers.constants.AddressZero ? GMX_V2_TOKENS['WETH'].address[42161]! : address
   }
