@@ -204,7 +204,7 @@ export const getConstant = (chainId: number, key: keyof NetworkConstant) => {
 }
 
 export function getDefaultArbitrumRpcUrl() {
-  return 'https://arbitrum.blockpi.network/v1/rpc/public'
+  return 'https://arbitrum.blockpi.network/v1/rpc/6bee49eb5c39a712464e8f39182ff12127c84f48'
 }
 
 export function getRpcUrl(chainId: number): string | undefined {
