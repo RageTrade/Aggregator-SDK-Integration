@@ -118,9 +118,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _smartWallet: string | undefined
 
-  setup(swAddr: string): Promise<void> {
+  setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
     this._smartWallet = ethers.utils.getAddress(swAddr)
-    return Promise.resolve()
+    return Promise.resolve([])
   }
 
   supportedChains(): Chain[] {

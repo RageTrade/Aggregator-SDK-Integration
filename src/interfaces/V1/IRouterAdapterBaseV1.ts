@@ -259,7 +259,7 @@ export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
-  setup(swAddr: string): Promise<void>
+  setup(swAddr: string): Promise<UnsignedTxWithMetadata[]>
 
   ///// Network api //////
   supportedChains(): Chain[]

@@ -43,14 +43,18 @@ class RouterV1 implements IRouterV1 {
     return protocolId
   }
 
-  async setup(swAddr: string): Promise<void> {
+  constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+  }
 
+  async setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
+    const setupPromises: Promise<UnsignedTxWithMetadata[]>[] = []
     for (const key in this.adapters) {
-      this.adapters[key].setup(swAddr)
+      setupPromises.push(this.adapters[key].setup(swAddr))
     }
+    const out = await Promise.all(setupPromises)
 
-    return
+    return out.flat()
   }
 
   supportedProtocols(): Protocol[] {
