@@ -203,6 +203,9 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
+    // Build cache if not available already
+    if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
+
     const marketsInfo: MarketInfo[] = []
 
     for (const mId of marketIds) {
