@@ -32,7 +32,7 @@ import { arbitrum, optimism } from 'viem/chains'
 import GMXV2Service from '../src/exchanges/gmxv2'
 import { getPaginatedResponse } from '../src/common/helper'
 import { decodeMarketId } from '../src/common/markets'
-import { FixedNumber } from '../src/common/FixedNumber'
+import { FixedNumber } from '../src/common/fixedNumber'
 
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}

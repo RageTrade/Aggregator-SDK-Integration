@@ -4,7 +4,7 @@ import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
 import { protocols } from '../../common/protocols'
-import { FixedNumber } from '../../common/FixedNumber'
+import { FixedNumber } from '../../common/fixedNumber'
 
 export type AmountInfo = {
   amount: FixedNumber

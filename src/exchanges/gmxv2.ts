@@ -54,7 +54,7 @@ import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
 import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 import { encodeMarketId } from '../common/markets'
-import { FixedNumber } from '../common/FixedNumber'
+import { FixedNumber } from '../common/fixedNumber'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
