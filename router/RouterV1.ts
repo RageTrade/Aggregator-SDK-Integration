@@ -190,9 +190,11 @@ export default class RouterV1 implements IRouterV1 {
     }
 
     const out = await Promise.all(promises)
+
     out.forEach((res) => {
-      result.concat(res.result)
+     result.push(...res.result)
     })
+
 
     return getPaginatedResponse(result, pageOptions)
   }
@@ -206,7 +208,7 @@ export default class RouterV1 implements IRouterV1 {
 
     const out = await Promise.all(promises)
     out.forEach((res) => {
-      result.concat(res.result)
+      result.push(...res.result)
     })
 
     return getPaginatedResponse(result, pageOptions)
@@ -248,7 +250,7 @@ export default class RouterV1 implements IRouterV1 {
 
     const out = await Promise.all(promises)
     out.forEach((res) => {
-      result.concat(res.result)
+      result.push(...res.result)
     })
 
     return getPaginatedResponse(result, pageOptions)
@@ -266,7 +268,7 @@ export default class RouterV1 implements IRouterV1 {
 
     const out = await Promise.all(promises)
     out.forEach((res) => {
-      result.concat(res.result)
+      result.push(...res.result)
     })
 
     return getPaginatedResponse(result, pageOptions)
