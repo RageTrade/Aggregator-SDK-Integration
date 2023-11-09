@@ -103,11 +103,16 @@ function checkValue(val: bigint, format: _FixedFormat, safeOp?: string): bigint 
   const width = BigInt(format.width)
   if (format.signed) {
     const limit = BN_1 << (width - BN_1)
-    assert(safeOp == null || (val >= -limit && val < limit), 'overflow', 'NUMERIC_FAULT', {
-      operation: <string>safeOp,
-      fault: 'overflow',
-      value: val
-    })
+    assert(
+      safeOp == null || (val >= -limit && val < limit),
+      'overflow',
+      'NUMERIC_FAULT',
+      {
+        operation: <string>safeOp,
+        fault: 'overflow',
+        value: val
+      }
+    )
 
     if (val > BN_0) {
       val = fromTwos(mask(val, width), width)
@@ -171,8 +176,18 @@ function getFormat(value?: FixedFormat): _FixedFormat {
     decimals = check('decimals', 'number', decimals)
   }
 
-  assertArgument(width % 8 === 0, 'invalid FixedNumber width (not byte aligned)', 'format.width', width)
-  assertArgument(decimals <= 80, 'invalid FixedNumber decimals (too large)', 'format.decimals', decimals)
+  assertArgument(
+    width % 8 === 0,
+    'invalid FixedNumber width (not byte aligned)',
+    'format.width',
+    width
+  )
+  assertArgument(
+    decimals <= 80,
+    'invalid FixedNumber decimals (too large)',
+    'format.decimals',
+    decimals
+  )
 
   const name = (signed ? '' : 'u') + 'fixed' + String(width) + 'x' + String(decimals)
 
@@ -323,7 +338,12 @@ export class FixedNumber {
   }
 
   #checkFormat(other: FixedNumber): void {
-    assertArgument(this.format === other.format, 'incompatible format; use fixedNumber.toFormat', 'other', other)
+    assertArgument(
+      this.format === other.format,
+      'incompatible format; use fixedNumber.toFormat',
+      'other',
+      other
+    )
   }
 
   #checkValue(val: bigint, safeOp?: string): FixedNumber {
@@ -427,11 +447,16 @@ export class FixedNumber {
   mulSignal(other: FixedNumber): FixedNumber {
     this.#checkFormat(other)
     const value = this.#val * other.#val
-    assert(value % this.#tens === BN_0, 'precision lost during signalling mul', 'NUMERIC_FAULT', {
-      operation: 'mulSignal',
-      fault: 'underflow',
-      value: this
-    })
+    assert(
+      value % this.#tens === BN_0,
+      'precision lost during signalling mul',
+      'NUMERIC_FAULT',
+      {
+        operation: 'mulSignal',
+        fault: 'underflow',
+        value: this
+      }
+    )
     return this.#checkValue(value / this.#tens, 'mulSignal')
   }
 
@@ -476,11 +501,16 @@ export class FixedNumber {
     })
     this.#checkFormat(other)
     const value = this.#val * this.#tens
-    assert(value % other.#val === BN_0, 'precision lost during signalling div', 'NUMERIC_FAULT', {
-      operation: 'divSignal',
-      fault: 'underflow',
-      value: this
-    })
+    assert(
+      value % other.#val === BN_0,
+      'precision lost during signalling div',
+      'NUMERIC_FAULT',
+      {
+        operation: 'divSignal',
+        fault: 'underflow',
+        value: this
+      }
+    )
     return this.#checkValue(value / other.#val, 'divSignal')
   }
 
@@ -654,7 +684,11 @@ export class FixedNumber {
    *  for %%decimals%%) cannot fit in %%format%%, either due to overflow
    *  or underflow (precision loss).
    */
-  static fromValue(_value: BigNumberish, _decimals?: Numeric, _format?: FixedFormat): FixedNumber {
+  static fromValue(
+    _value: BigNumberish,
+    _decimals?: Numeric,
+    _format?: FixedFormat
+  ): FixedNumber {
     const decimals = _decimals == null ? 0 : getNumber(_decimals)
     const format = getFormat(_format)
 
@@ -685,7 +719,12 @@ export class FixedNumber {
    */
   static fromString(_value: string, _format?: FixedFormat): FixedNumber {
     const match = _value.match(/^(-?)([0-9]*)\.?([0-9]*)$/)
-    assertArgument(match && match[2].length + match[3].length > 0, 'invalid FixedNumber string value', 'value', _value)
+    assertArgument(
+      match && match[2].length + match[3].length > 0,
+      'invalid FixedNumber string value',
+      'value',
+      _value
+    )
 
     const format = getFormat(_format)
 
@@ -698,11 +737,16 @@ export class FixedNumber {
     }
 
     // Check precision is safe
-    assert(decimal.substring(format.decimals).match(/^0*$/), 'too many decimals for format', 'NUMERIC_FAULT', {
-      operation: 'fromString',
-      fault: 'underflow',
-      value: _value
-    })
+    assert(
+      decimal.substring(format.decimals).match(/^0*$/),
+      'too many decimals for format',
+      'NUMERIC_FAULT',
+      {
+        operation: 'fromString',
+        fault: 'underflow',
+        value: _value
+      }
+    )
 
     // Remove extra padding
     decimal = decimal.substring(0, format.decimals)
@@ -767,7 +811,7 @@ export function mulFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): F
     out = f1.mul(f2.toFormat(f1.decimals))
   } else {
     out = f1.toFormat(f2.decimals)
-    out = out.mul(f2)
+    out = out.mul(f2);
   }
   return format ? out.toFormat(format) : out
 }
