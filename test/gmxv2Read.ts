@@ -1,6 +1,12 @@
 import { FixedNumber, parseEther, parseUnits } from 'ethers-v6'
 import GmxV2Service from '../src/exchanges/gmxv2'
-import { CancelOrder, CreateOrder, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import {
+  CancelOrder,
+  CreateOrder,
+  PositionData,
+  PositionInfo,
+  UpdateOrder
+} from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { tokens } from '../src/common/tokens'
 import { logObject } from '../src/common/helper'
 
@@ -72,8 +78,8 @@ async function increasePosition() {
   //   type: 'MARKET',
   //   marketId: ethMarketId,
   //   direction: 'SHORT',
-  //   sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30), 30), isTokenAmount: false },
-  //   marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02'), 18), isTokenAmount: true },
+  //   sizeDelta: { amount: FixedNumber.fromString('200', 'fixed128x30'), isTokenAmount: false },
+  //   marginDelta: { amount: FixedNumber.fromString('0.02', 'fixed128x18'), isTokenAmount: true },
   //   triggerData: undefined,
   //   collateral: tokens.ETH,
   //   slippage: undefined
@@ -157,6 +163,34 @@ async function increasePosition() {
   // })
   //
   // console.dir(await ex.cancelOrder(cancelOrders), { depth: 4 })
+  //
+
+  // const pos = await ex.getAllPositions("0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A", undefined)
+  // console.log(JSON.stringify(pos))
+
+  // const jsonString =
+  //   '{"result":[{"marketId":"0x70d95587d40A2caf56bd97485aB3Eec10Bee6336:GMXV2:42161","posId":"0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A:0x70d95587d40A2caf56bd97485aB3Eec10Bee6336:0x82aF49447D8a07e3bd95BD0d56f35241523fBab1:false","size":{"amount":{"format":"fixed128x30","_value":"200.0"},"isTokenAmount":false},"margin":{"amount":{"format":"fixed128x18","_value":"0.02"},"isTokenAmount":true},"accessibleMargin":{"amount":{"format":"fixed128x30","_value":"27.82649023574546454396817625"},"isTokenAmount":false},"avgEntryPrice":{"format":"fixed128x30","_value":"1893.129105673218"},"cumulativeFunding":{"format":"fixed128x30","_value":"0.0"},"unrealizedPnl":{"format":"fixed128x30","_value":"-0.4445639431713292602"},"liquidationPrice":{"format":"fixed128x30","_value":"2308.8442646265"},"leverage":{"format":"fixed128x4","_value":"5.2872"},"direction":"SHORT","collateral":{"symbol":"WETH","name":"WETH","decimals":18,"address":{"42161":"0x82aF49447D8a07e3bd95BD0d56f35241523fBab1"},"priceDecimals":12},"indexToken":{"symbol":"ETH","name":"ETH","decimals":18,"address":{"42161":"0x0000000000000000000000000000000000000000"},"priceDecimals":12},"protocolId":"GMXV2"}],"maxItemsCount":1}'
+  // const pos = JSON.parse(jsonString).result as PositionInfo[]
+  //
+  // pos[0].margin = { amount: FixedNumber.fromString('0.02', 'fixed128x18'), isTokenAmount: true }
+  // pos[0].size = { amount: FixedNumber.fromString('200', 'fixed128x30'), isTokenAmount: false }
+
+  // const out = await ex.closePosition(pos, [{
+  //   closeSize: { amount: FixedNumber.fromString('100', 'fixed128x30'), isTokenAmount: false },
+  //   type: 'TAKE_PROFIT',
+  //   triggerData: undefined,
+  //   outputCollateral: tokens.WETH
+  // }])
+  // console.dir(out, { depth: 4 })
+
+  // const out = await ex.updatePositionMargin(pos, [
+  //   {
+  //     collateral: tokens.ETH,
+  //     isDeposit: false,
+  //     margin: { amount: FixedNumber.fromString('0.007', 'fixed128x18'), isTokenAmount: true }
+  //   }
+  // ])
+  // console.dir(out, { depth: 4 })
 }
 
 async function testGetAllOrders() {
@@ -174,7 +208,7 @@ async function testGetAllOrdersForPosition() {
 }
 
 async function test() {
-  await testGetAllOrdersForPosition()
+  await increasePosition()
 }
 
 test()

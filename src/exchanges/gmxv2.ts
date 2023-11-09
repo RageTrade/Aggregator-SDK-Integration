@@ -56,7 +56,7 @@ import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../con
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
-export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00121')
+export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
 
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
 
@@ -75,6 +75,21 @@ enum DecreasePositionSwapType {
   NoSwap,
   SwapPnlTokenToCollateralToken,
   SwapCollateralTokenToPnlToken
+}
+
+const mapping: Record<string, Record<string, number>> = {
+  LONG: {
+    LIMIT: SolidityOrderType.LimitIncrease,
+    MARKET: SolidityOrderType.MarketIncrease,
+    STOP_LOSS: SolidityOrderType.StopLossDecrease,
+    TAKE_PROFIT: SolidityOrderType.LimitDecrease
+  },
+  SHORT: {
+    LIMIT: SolidityOrderType.LimitIncrease,
+    MARKET: SolidityOrderType.MarketIncrease,
+    STOP_LOSS: SolidityOrderType.StopLossDecrease,
+    TAKE_PROFIT: SolidityOrderType.LimitDecrease
+  }
 }
 
 export default class GmxV2Service implements IAdapterV1 {
@@ -226,21 +241,6 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   _mapOrderType(orderType: OrderType, orderDirection: OrderDirection) {
-    const mapping: Record<string, Record<string, number>> = {
-      LONG: {
-        LIMIT: SolidityOrderType.LimitIncrease,
-        MARKET: SolidityOrderType.MarketIncrease,
-        STOP_LOSS: SolidityOrderType.StopLossDecrease,
-        TAKE_PROFIT: SolidityOrderType.LimitDecrease
-      },
-      SHORT: {
-        LIMIT: SolidityOrderType.LimitIncrease,
-        MARKET: SolidityOrderType.MarketIncrease,
-        STOP_LOSS: SolidityOrderType.StopLossDecrease,
-        TAKE_PROFIT: SolidityOrderType.LimitDecrease
-      }
-    }
-
     return mapping[orderDirection][orderType]
   }
 
@@ -259,7 +259,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
-      const price = BigNumber.from((await this.getMarketPrices([od.marketId]))[0].value)
+      const price = BigNumber.from((await this.getMarketPrices([od.marketId]))[0].toFormat(18).value)
         .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
         // dividing by 18 because internal prices are 1e18 precision
         .div(BigNumber.from(10).pow(18))
@@ -272,14 +272,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
         // caller needs to ensure trigger price is in 18 decimals
         // trigger direction (above or below) is implicit from contract logic during increase
-        resolvedTriggerPrice = BigNumber.from(od.triggerData.triggerPrice.value)
+        resolvedTriggerPrice = BigNumber.from(od.triggerData.triggerPrice.toFormat(18).value)
           .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
           .div(BigNumber.from(10).pow(18))
       }
 
       // calculate acceptable price for trade
       const acceptablePrice = applySlippage(
-        od.triggerData ? resolvedTriggerPrice : BigNumber.from(price),
+        od.triggerData ? resolvedTriggerPrice : price,
         od.slippage ?? DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE,
         od.direction == 'LONG'
       )
@@ -385,7 +385,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
-      const triggerPrice = BigNumber.from(od.triggerData.triggerPrice.value)
+      const triggerPrice = BigNumber.from(od.triggerData.triggerPrice.toFormat(18).value)
         .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
         .div(BigNumber.from(10).pow(18))
 
@@ -447,6 +447,113 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
 
+    if (positionInfo.length !== closePositionData.length) throw new Error('position close data mismatch')
+    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      // if market:
+      // create oppsition market decrease order of that
+      // if stop loss:
+      // limit / trigger order at given price in negative direction
+      // if take profit
+      // limit / trigger order at given price in positive direction
+
+      const orderType = closePositionData[i].triggerData
+        ? SolidityOrderType.LimitDecrease
+        : SolidityOrderType.MarketDecrease
+
+      // check size to close
+      if (closePositionData[i].closeSize.amount.value > positionInfo[i].size.amount.value) {
+        throw new Error('close size greater than position')
+      }
+
+      if (closePositionData[i].outputCollateral?.address[42161]! !== positionInfo[i].collateral.address[42161]!) {
+        // allow for eth or weth
+        if (closePositionData[i].outputCollateral!.symbol !== 'ETH')
+          throw new Error('requested collateral is not supported')
+      }
+
+      // pro-rata close
+      const sizeToClose = closePositionData[i].closeSize.amount.value
+      const collateralToRemove = BigNumber.from(positionInfo[i].margin.amount.value)
+        .mul(sizeToClose)
+        .div(positionInfo[i].size.amount.value)
+
+      const mkt = this.cachedMarkets[positionInfo[i].marketId]
+
+      const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
+
+      let acceptablePrice
+      let triggerPrice
+
+      if (closePositionData[i].triggerData) {
+        acceptablePrice = BigNumber.from(closePositionData[i].triggerData!.triggerPrice.toFormat(18).value)
+          .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+          .div(BigNumber.from(10).pow(18))
+
+        triggerPrice = acceptablePrice.abs()
+      } else {
+        acceptablePrice = BigNumber.from((await this.getMarketPrices([positionInfo[i].marketId]))[0].toFormat(18).value)
+          .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+          .div(BigNumber.from(10).pow(18))
+
+        triggerPrice = ethers.constants.Zero
+      }
+
+      acceptablePrice = applySlippage(
+        acceptablePrice,
+        DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE,
+        positionInfo[i].direction !== 'LONG'
+      )
+
+      let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
+        addresses: {
+          receiver: this._smartWallet,
+          callbackContract: ethers.constants.AddressZero,
+          uiFeeReceiver: ethers.constants.AddressZero,
+          market: positionInfo[i].marketId.split(':')[0],
+          initialCollateralToken: tokens.WETH.address[42161]!,
+          swapPath: []
+        },
+        numbers: {
+          sizeDeltaUsd: sizeToClose,
+          initialCollateralDeltaAmount: collateralToRemove,
+          triggerPrice: triggerPrice,
+          acceptablePrice: acceptablePrice,
+          executionFee: DEFAULT_EXEUCTION_FEE,
+          callbackGasLimit: ethers.constants.Zero,
+          minOutputAmount: ethers.constants.Zero
+        },
+        orderType: orderType,
+        decreasePositionSwapType: DecreasePositionSwapType.SwapPnlTokenToCollateralToken,
+        isLong: positionInfo[i].direction == 'LONG',
+        shouldUnwrapNativeToken: closePositionData[i].outputCollateral!.symbol !== 'WETH',
+        referralCode: REFERRAL_CODE
+      })
+
+      orderTx.value = DEFAULT_EXEUCTION_FEE
+
+      const multicallData: string[] = []
+
+      // create send native token tx
+      const sendNativeTx = await this.exchangeRouter.populateTransaction.sendWnt(this.ORDER_VAULT_ADDR, orderTx.value)
+
+      multicallData.push(sendNativeTx.data!)
+      multicallData.push(orderTx.data!)
+
+      // encode as multicall
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall(multicallData, {
+        value: orderTx.value
+      })
+
+      // add metadata for txs
+      txs.push({
+        tx: multicallEncoded,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
+
     return txs
   }
 
@@ -455,6 +562,103 @@ export default class GmxV2Service implements IAdapterV1 {
     updatePositionMarginData: UpdatePositionMarginData[]
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+
+    if (positionInfo.length !== updatePositionMarginData.length) throw new Error('position close data mismatch')
+    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      // check collateral is supported
+      if (updatePositionMarginData[i].collateral?.address[42161]! !== positionInfo[i].collateral.address[42161]!) {
+        // allow for eth or weth
+        if (updatePositionMarginData[i].collateral.symbol !== 'ETH')
+          throw new Error('requested collateral is not supported')
+      }
+
+      // if withdrawing collateral, check if it enough is available, consider unrealizedPnl as well in future
+      // always market order
+      let orderType
+      let initialCollateralToken
+
+      if (updatePositionMarginData[i].isDeposit) {
+        orderType = SolidityOrderType.MarketIncrease
+        initialCollateralToken = positionInfo[i].collateral.address[42161]!
+      } else {
+        orderType = SolidityOrderType.MarketDecrease
+        initialCollateralToken = tokens.WETH.address[42161]!
+      }
+
+      let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
+        addresses: {
+          receiver: this._smartWallet,
+          callbackContract: ethers.constants.AddressZero,
+          uiFeeReceiver: ethers.constants.AddressZero,
+          market: positionInfo[i].marketId.split(':')[0],
+          initialCollateralToken: initialCollateralToken,
+          swapPath: []
+        },
+        numbers: {
+          sizeDeltaUsd: ethers.constants.Zero,
+          initialCollateralDeltaAmount: updatePositionMarginData[i].margin.amount.value,
+          triggerPrice: ethers.constants.AddressZero,
+          acceptablePrice: ethers.constants.AddressZero,
+          executionFee: DEFAULT_EXEUCTION_FEE,
+          callbackGasLimit: ethers.constants.Zero,
+          minOutputAmount: ethers.constants.Zero
+        },
+        orderType: orderType,
+        decreasePositionSwapType: DecreasePositionSwapType.NoSwap,
+        isLong: positionInfo[i].direction == 'LONG',
+        shouldUnwrapNativeToken: true,
+        referralCode: REFERRAL_CODE
+      })
+
+      orderTx.value = DEFAULT_EXEUCTION_FEE
+
+      let requiresErc20Token = true && updatePositionMarginData[i].isDeposit
+
+      if (updatePositionMarginData[i].collateral.symbol === 'ETH' && updatePositionMarginData[i].isDeposit) {
+        orderTx.value = BigNumber.from(updatePositionMarginData[i].margin.amount.value).add(orderTx.value)
+        requiresErc20Token = false
+      }
+
+      // check if collateral token has enough amount approved
+      const approvalTx = await this._approveIfNeeded(
+        updatePositionMarginData[i].collateral.address[42161]!,
+        updatePositionMarginData[i].margin.amount.value
+      )
+      if (approvalTx) txs.push(approvalTx)
+
+      let sendErc20Tx
+      const multicallData: string[] = []
+
+      // create send token tx
+      if (requiresErc20Token) {
+        sendErc20Tx = await this.exchangeRouter.populateTransaction.sendTokens(
+          updatePositionMarginData[i].collateral.address[42161]!,
+          this.ORDER_VAULT_ADDR,
+          updatePositionMarginData[i].margin.amount.value
+        )
+        multicallData.push(sendErc20Tx.data!)
+      }
+
+      // create send native token tx
+      const sendNativeTx = await this.exchangeRouter.populateTransaction.sendWnt(this.ORDER_VAULT_ADDR, orderTx.value)
+
+      multicallData.push(sendNativeTx.data!)
+      multicallData.push(orderTx.data!)
+
+      // encode as multicall
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall(multicallData, {
+        value: orderTx.value
+      })
+
+      // add metadata for txs
+      txs.push({
+        tx: multicallEncoded,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
 
     return txs
   }
@@ -480,7 +684,7 @@ export default class GmxV2Service implements IAdapterV1 {
         marketId: this._getGlobalMarketId(posData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
         posId: posData.key,
         size: toAmountInfo(posData.sizeInUsd, 30, false),
-        margin: toAmountInfo(posData.remainingCollateralUsd, 30, false),
+        margin: toAmountInfo(posData.collateralAmount, 30, true),
         accessibleMargin: toAmountInfo(posData.remainingCollateralUsd.sub(this.minCollateralUsd), 30, false),
         avgEntryPrice: FixedNumber.fromValue(posData.entryPrice!.toString(), 30, 30),
         cumulativeFunding: FixedNumber.fromValue(
