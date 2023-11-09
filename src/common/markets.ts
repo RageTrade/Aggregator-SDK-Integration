@@ -1,4 +1,4 @@
-function decodeMarketId(marketId: string) {
+export function decodeMarketId(marketId: string) {
   const [chainId, protocolId, protocolMarketId] = marketId.split('-')
   return {
     chainId,
@@ -6,6 +6,7 @@ function decodeMarketId(marketId: string) {
     protocolMarketId
   }
 }
-function encodeMarketId(chainId: string, protocolId: string, protocolMarketId: string) {
+
+export function encodeMarketId(chainId: string, protocolId: string, protocolMarketId: string) {
   return `${chainId}-${protocolId}-${protocolMarketId}`
 }
