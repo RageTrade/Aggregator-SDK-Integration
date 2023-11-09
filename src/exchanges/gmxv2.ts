@@ -829,90 +829,36 @@ export default class GmxV2Service implements IAdapterV1 {
     return ordersForPosition
   }
   async getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    const results = await fetch(this.SUBGRAPH_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        query: `{
-          tradeActions(
-            ${pageOptions ? `skip: ${pageOptions.skip},` : ""}
-            ${pageOptions ? `limit: ${pageOptions.limit},` : ""}
-              orderBy: transaction__timestamp,
-              orderDirection: desc,
-              ${wallet ? `where: { account: "${wallet.toLowerCase()}" }` : ""}
-          ) {
-              id
-              eventName
-              
-              account
-              marketAddress
-              swapPath
-              initialCollateralTokenAddress
-              
-              initialCollateralDeltaAmount
-              sizeDeltaUsd
-              triggerPrice
-              acceptablePrice
-              executionPrice
-              minOutputAmount
-              executionAmountOut
-  
-              priceImpactUsd
-              priceImpactDiffUsd
-              positionFeeAmount
-              borrowingFeeAmount
-              fundingFeeAmount
-              pnlUsd
-  
-              collateralTokenPriceMax
-              collateralTokenPriceMin
-  
-              indexTokenPriceMin
-              indexTokenPriceMax
-              
-              orderType
-              orderKey
-              isLong
-              shouldUnwrapNativeToken
-              
-              reason
-              reasonBytes
-              
-              transaction {
-                  timestamp
-                  hash
-              }
-          }
-        }`,
-      }),
-    });
-    const resultJson = await results.json();
 
-    console.log(resultJson.data)
+
+    // console.log(resultJson.data)
+    const rawTrades = await this._getOrders(wallet, pageOptions)
 
     const trades: HistoricalTradeInfo[] = []
 
-    resultJson.data?.tradeActions.forEach((trade: any) => {
-      if (trade.eventName != 'OrderExecuted') return;
+    rawTrades.forEach((trade: any) => {
       const marketId = encodeMarketId( arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress));
       const marketInfo = this.cachedMarkets[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
-      if (trade.pnlUsd === null) trade.pnlUsd = '0'
-      if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
+      const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
+      // if (trade.pnlUsd === null) trade.pnlUsd = '0'
+      // if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
+
+      const positionFeeUsd = BigInt(trade.positionFee) * BigInt(trade.collateralTokenPriceMax)
 
       trades.push({
         marketId: marketId,
-        timestamp: trade.transaction.timestamp,
-        price: FixedNumber.fromValue(trade.executionPrice, indexToken.priceDecimals, 'fixed128x30'),
+        timestamp: trade.executedTxn.timestamp,
+        price: FixedNumber.fromValue(trade.executionPrice, indexToken.priceDecimals, 30),
         direction: trade.isLong ? 'LONG' as TradeDirection : 'SHORT' as TradeDirection,
-        sizeDelta: toAmountInfo(trade.sizeDeltaUsd, 30, false),
-        marginDelta: toAmountInfo(trade.initialCollateralDeltaAmount, 30, false),
-        collateral: getGmxV2TokenByAddress(trade.initialCollateralTokenAddress) as Token,
-        realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 'fixed128x30'),
-        keeperFeesPaid: FixedNumber.fromValue(0, 30),
-        positionFee: FixedNumber.fromValue(trade.positionFeeAmount, 30, 'fixed128x30'),
+        sizeDelta: toAmountInfo(trade.sizeDeltaUsd, 30, false), // USD
+        marginDelta: toAmountInfo(trade.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
+        collateral: initialCollateralToken as Token,
+        realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
+        keeperFeesPaid: FixedNumber.fromValue(trade.executionFee, 18, 18), // WETH
+        positionFee: FixedNumber.fromValue(positionFeeUsd, 30, 30), // USD
         operationType: this._getOperationType(parseInt(trade.orderType), trade.isLong),
-        txHash: trade.transaction.hash,
+        txHash: trade.executedTxn.hash,
       } as HistoricalTradeInfo)
     });
 
@@ -922,8 +868,104 @@ export default class GmxV2Service implements IAdapterV1 {
     };
   }
 
+  private async _getOrders(wallet: string, pageOptions: PageOptions | undefined) {
+    const results = await fetch(this.SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
+          orders(
+            ${pageOptions ? `skip: ${pageOptions.skip},` : ""}
+            ${pageOptions ? `limit: ${pageOptions.limit},` : ""}
+              orderBy: executedTxn__timestamp,
+              orderDirection: desc,
+              ${wallet ? `where: { account: "${wallet.toLowerCase()}", status:Executed }` : ""}
+          ) {
+              id
+              
+              account
+              marketAddress
+
+              initialCollateralTokenAddress
+              initialCollateralDeltaAmount
+
+              sizeDeltaUsd
+                            
+              orderType
+              isLong
+
+              executedTxn {
+                  timestamp
+                  hash
+              }
+              executionFee
+          }
+        }`,
+      }),
+    });
+    const resultJson = await results.json();
+    const rawTrades = resultJson.data?.orders
+
+    const rawTradeMap = new Map();
+    await rawTrades.forEach((trade: any) => rawTradeMap.set(trade.executedTxn.hash, trade))
+
+    const rawTradeHashes = Array.from(rawTradeMap.keys())
+
+    const tradeActionsResult = await fetch(this.SUBGRAPH_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        query: `{
+          tradeActions(
+            where : {transaction_in: ${JSON.stringify(rawTradeHashes)}}
+          ) {
+            eventName
+            marketAddress
+            orderKey
+            orderType
+
+            transaction {
+              hash
+            }
+            account
+            isLong
+            executionPrice
+
+            collateralTokenPriceMax
+            initialCollateralTokenAddress
+            initialCollateralDeltaAmount
+            fundingFeeAmount
+            positionFeeAmount
+            borrowingFeeAmount
+            pnlUsd
+          }
+        }`,
+      }),
+    });
+
+    const tradeActionsResultJson = await tradeActionsResult.json()
+    const rawTradeActions = tradeActionsResultJson.data?.tradeActions
+
+    await rawTradeActions.forEach((tradeAction: any) => {
+      const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
+      if (!rawTrade) return
+      rawTrade.executionPrice = tradeAction.executionPrice
+      rawTrade.pnlUsd = this._checkNull(tradeAction.pnlUsd)
+      rawTrade.collateralTokenPriceMax = this._checkNull(tradeAction.collateralTokenPriceMax)
+      rawTrade.positionFee = BigInt(this._checkNull(tradeAction.positionFeeAmount)) + BigInt(this._checkNull(tradeAction.borrowingFeeAmount)) + BigInt(this._checkNull(tradeAction.fundingFeeAmount))
+      rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
+    })
+
+    const out = Array.from(rawTradeMap.values())
+    return out;
+  }
+
+  private _checkNull(value: any) {
+    if (value === null) return '0'
+    return value
+  }
+
   private _getOperationType(orderType: SolidityOrderType, isLong: boolean): TradeOperationType {
-    console.log({orderType})
     switch (orderType) {
       case SolidityOrderType.MarketIncrease:
       case SolidityOrderType.LimitIncrease:
