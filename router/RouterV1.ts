@@ -39,7 +39,8 @@ export default class RouterV1 implements IRouterV1 {
 
   private _checkAndGetProtocolId(marketId: Market['marketId']) {
     const { protocolId } = decodeMarketId(marketId)
-    if (!(protocolId in Object.keys(this.adapters))) throw new Error(`Protocol ${protocolId} not supported`)
+    const adapter = this.adapters[protocolId]
+    if (!adapter) throw new Error(`Protocol ${protocolId} not supported`)
     return protocolId
   }
 
