@@ -34,7 +34,7 @@ import GMXV2Service from '../src/exchanges/gmxv2'
 import { getPaginatedResponse } from '../src/common/helper'
 import { decodeMarketId } from '../src/common/markets'
 
-class RouterV1 implements IRouterV1 {
+export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}
 
   private _checkAndGetProtocolId(marketId: Market['marketId']) {
