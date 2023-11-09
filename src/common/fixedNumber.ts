@@ -1,55 +1,51 @@
 import { FixedFormat, FixedNumber } from 'ethers-v6'
 
-declare module 'ethers-v6' {
-  export class FixedNumber {
-    addFormat(other: FixedNumber, format?: FixedFormat): FixedNumber
-    subFormat(other: FixedNumber, format?: FixedFormat): FixedNumber
-    mulFormat(other: FixedNumber, format?: FixedFormat): FixedNumber
-    divFormat(other: FixedNumber, format?: FixedFormat): FixedNumber
+export function addFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): FixedNumber {
+  let out;
+  if (f1.decimals === f2.decimals) {
+    out = f1.add(f2);
+  } else if (f1.decimals > f2.decimals) {
+    out = f1.add(f2.toFormat(f1.decimals));
+  } else {
+    out = f1.toFormat(f2.decimals).add(f2);
   }
+  return format ? out.toFormat(format) : out;
 }
 
-FixedNumber.prototype.addFormat = function (other: FixedNumber, format?: FixedFormat): FixedNumber {
-  let out
-  if (this.decimals === other.decimals) {
-    out = this.add(other)
-  } else if (this.decimals > other.decimals) {
-    out = this.add(other.toFormat(this.decimals))
+export function subFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): FixedNumber {
+  let out;
+  if (f1.decimals === f2.decimals) {
+    out = f1.sub(f2);
+  } else if (f1.decimals > f2.decimals) {
+    out = f1.sub(f2.toFormat(f1.decimals));
   } else {
-    out = this.toFormat(other.decimals).add(other)
+    out = f1.toFormat(f2.decimals).sub(f2);
   }
-  return format ? out.toFormat(format) : out
+  return format ? out.toFormat(format) : out;
 }
-FixedNumber.prototype.subFormat = function (other: FixedNumber, format?: FixedFormat): FixedNumber {
-  let out
-  if (this.decimals === other.decimals) {
-    out = this.sub(other)
-  } else if (this.decimals > other.decimals) {
-    out = this.sub(other.toFormat(this.decimals))
+
+export function mulFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): FixedNumber {
+  let out;
+  if (f1.decimals === f2.decimals) {
+    out = f1.mul(f2);
+  } else if (f1.decimals > f2.decimals) {
+    out = f1.mul(f2.toFormat(f1.decimals));
   } else {
-    out = this.toFormat(other.decimals).sub(other)
+    out = f1.toFormat(f2.decimals).mul(f2);
   }
-  return format ? out.toFormat(format) : out
+  return format ? out.toFormat(format) : out;
 }
-FixedNumber.prototype.mulFormat = function (other: FixedNumber, format?: FixedFormat): FixedNumber {
-  let out
-  if (this.decimals === other.decimals) {
-    out = this.mul(other)
-  } else if (this.decimals > other.decimals) {
-    out = this.mul(other.toFormat(this.decimals))
+
+export function divFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): FixedNumber {
+  let out;
+  if (f1.decimals === f2.decimals) {
+    out = f1.div(f2);
+  } else if (f1.decimals > f2.decimals) {
+    out = f1.div(f2.toFormat(f1.decimals));
   } else {
-    out = this.toFormat(other.decimals).mul(other)
+    out = f1.toFormat(f2.decimals).div(f2);
   }
-  return format ? out.toFormat(format) : out
+  return format ? out.toFormat(format) : out;
 }
-FixedNumber.prototype.divFormat = function (other: FixedNumber, format?: FixedFormat): FixedNumber {
-  let out
-  if (this.decimals === other.decimals) {
-    out = this.div(other)
-  } else if (this.decimals > other.decimals) {
-    out = this.div(other.toFormat(this.decimals))
-  } else {
-    out = this.toFormat(other.decimals).div(other)
-  }
-  return format ? out.toFormat(format) : out
-}
+
+
