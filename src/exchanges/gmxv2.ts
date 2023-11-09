@@ -1,4 +1,3 @@
-import { FixedNumber } from 'ethers-v6'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   MarketInfo,
@@ -55,6 +54,7 @@ import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
 import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 import { encodeMarketId } from '../common/markets'
+import { FixedNumber } from '../common/FixedNumber'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')

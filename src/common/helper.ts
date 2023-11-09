@@ -1,8 +1,8 @@
 import { BigNumber, BigNumberish, ethers } from 'ethers'
 import { NumberDecimal, PageOptions, PaginatedRes } from '../interface'
 import { AmountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
-import { FixedNumber } from 'ethers-v6'
 import { ZERO } from './constants'
+import { FixedNumber } from './FixedNumber'
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
   myEnum: T,

@@ -1,10 +1,10 @@
-import { FixedNumber } from 'ethers-v6'
 import { BigNumber, UnsignedTransaction } from 'ethers'
 import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from '../../tx-metadata-types'
 import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
 import { protocols } from '../../common/protocols'
+import { FixedNumber } from '../../common/FixedNumber'
 
 export type AmountInfo = {
   amount: FixedNumber

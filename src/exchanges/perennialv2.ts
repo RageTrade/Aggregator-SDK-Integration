@@ -5,7 +5,6 @@ import { http, createPublicClient, Address, PublicClient, zeroAddress } from 'vi
 
 import { arbitrum } from 'viem/chains'
 import { tokens } from '../common/tokens'
-import { FixedNumber } from 'ethers-v6'
 
 export default class PerennialV2Service {
   // Create Public Client

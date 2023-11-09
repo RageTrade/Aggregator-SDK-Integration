@@ -1,4 +1,3 @@
-import { FixedNumber, parseEther, parseUnits } from 'ethers-v6'
 import GmxV2Service from '../src/exchanges/gmxv2'
 import {
   CancelOrder,
