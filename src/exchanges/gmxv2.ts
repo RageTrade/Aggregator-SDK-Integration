@@ -54,6 +54,7 @@ import { useOrdersInfo } from '../configs/gmxv2/orders/useOrdersInfo'
 import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
 import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
+import { encodeMarketId } from '../common/markets'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -138,7 +139,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
 
       const market: Market = {
-        marketId: this._getGlobalMarketId(mProp.marketToken, 'GMXV2', arbitrum.id),
+        marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', mProp.marketToken),
         chain: chains[42161],
         indexToken: getGmxV2TokenByAddress(mProp.indexToken),
         longCollateral: [longToken, shortToken],
@@ -681,7 +682,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const positionsData = Object.values(positionsInfoData!)
     for (const posData of positionsData) {
       positionsInfo.push({
-        marketId: this._getGlobalMarketId(posData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
+        marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', posData.marketInfo.marketTokenAddress),
         posId: posData.key,
         size: toAmountInfo(posData.sizeInUsd, 30, false),
         margin: toAmountInfo(posData.collateralAmount, 30, true),
@@ -792,7 +793,10 @@ export default class GmxV2Service implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
+  ///////////////////////////////////
   //// Internal helper functions ////
+  ///////////////////////////////////
+
   private _getStartEndIndex(pageOptions: PageOptions | undefined): {
     start: BigNumber
     end: BigNumber
@@ -812,14 +816,6 @@ export default class GmxV2Service implements IAdapterV1 {
       start,
       end
     }
-  }
-
-  private _getGlobalMarketId(protocolMarketId: string, protocolId: ProtocolId, chainId: Chain['id']): string {
-    return protocolMarketId + ':' + protocolId + ':' + chainId
-  }
-
-  private _getProtocolMarketId(globalMarketId: string): string {
-    return globalMarketId.split(':')[0]
   }
 
   private _convertNative(address: string) {
@@ -938,7 +934,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private _mapPositionOrderInfoToOrderInfo(orderData: PositionOrderInfo): OrderInfo {
     const initialCollateralToken = getGmxV2TokenByAddress(orderData.initialCollateralTokenAddress)
     const oData: OrderData = {
-      marketId: this._getGlobalMarketId(orderData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id),
+      marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', orderData.marketInfo.marketTokenAddress),
       direction: orderData.isLong ? 'LONG' : 'SHORT',
       sizeDelta: toAmountInfo(orderData.sizeDeltaUsd, 30, false),
       marginDelta: toAmountInfo(orderData.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
@@ -949,7 +945,7 @@ export default class GmxV2Service implements IAdapterV1 {
     }
     const oId: OrderIdentifier = {
       orderId: orderData.key,
-      marketId: this._getGlobalMarketId(orderData.marketInfo.marketTokenAddress, 'GMXV2', arbitrum.id)
+      marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', orderData.marketInfo.marketTokenAddress)
     }
     const oType = {
       orderType: this.getOrderType(orderData.orderType)
