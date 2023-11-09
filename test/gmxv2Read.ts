@@ -22,7 +22,19 @@ async function testGetAllPositions() {
 
 async function testSupportedMarkets() {
   const res = await ex.supportedMarkets(ex.supportedChains())
-  console.dir({ res }, { depth: 4 })
+  res.forEach((m) => {
+    console.log(
+      m.indexToken.symbol,
+      ': ',
+      m.marketSymbol,
+      ': ',
+      m.longCollateral[0].symbol,
+      '-',
+      m.shortCollateral[1].symbol
+    )
+  })
+  // console.dir({ res }, { depth: 4 })
+  console.log('markets length: ', res.length)
 }
 
 async function testGetMarketsInfo() {
@@ -197,7 +209,7 @@ async function testGetAllOrders() {
   const res = await ex.getAllOrders('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
   // console.dir({ res: res.result[0] }, { depth: 4 })
   res.result.forEach((o) => {
-    console.dir({ o }, { depth: 3 })
+    console.dir({ o }, { depth: 4 })
   })
 }
 
@@ -208,7 +220,7 @@ async function testGetAllOrdersForPosition() {
 }
 
 async function test() {
-  await increasePosition()
+  await testSupportedMarkets()
 }
 
 test()

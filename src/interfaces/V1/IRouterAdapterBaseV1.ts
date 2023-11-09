@@ -35,6 +35,7 @@ export type Market = {
   shortCollateral: Token[]
   supportedOrderTypes: Record<OrderType, Boolean>
   supportedOrderActions: Record<OrderAction, Boolean>
+  marketSymbol: string
 }
 
 export type GenericStaticMarketMetadata = {

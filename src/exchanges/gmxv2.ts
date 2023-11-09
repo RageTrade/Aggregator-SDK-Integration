@@ -42,7 +42,7 @@ import { OrderDirection } from '../interface'
 import { tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toAmountInfo } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
-import { GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
+import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { parseUnits } from 'ethers/lib/utils'
 import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
 import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
@@ -135,6 +135,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const marketsInfo: MarketInfo[] = []
     for (const mProp of marketProps) {
+      if (mProp.indexToken === ethers.constants.AddressZero) continue
+
       const longToken = getGmxV2TokenByAddress(mProp.longToken)
       const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
 
@@ -154,7 +156,8 @@ export default class GmxV2Service implements IAdapterV1 {
           CREATE: true,
           UPDATE: true,
           CANCEL: true
-        }
+        },
+        marketSymbol: this._getMarketSymbol(getGmxV2TokenByAddress(mProp.indexToken))
       }
 
       const staticMetadata: GenericStaticMarketMetadata = {
@@ -948,5 +951,9 @@ export default class GmxV2Service implements IAdapterV1 {
     }
 
     return orderInfo
+  }
+
+  private _getMarketSymbol(token: GMX_V2_TOKEN): string {
+    return token.symbol === 'WETH' ? 'ETH' : token.symbol
   }
 }
