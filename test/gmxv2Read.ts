@@ -2,14 +2,16 @@ import GmxV2Service from '../src/exchanges/gmxv2'
 import {
   CancelOrder,
   CreateOrder,
+  HistoricalTradeInfo,
   PositionData,
   PositionInfo,
   UpdateOrder
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
-import { tokens } from '../src/common/tokens'
 import { logObject } from '../src/common/helper'
 import { FixedNumber } from '../src/common/fixedNumber'
 import { parseEther, parseUnits } from 'ethers/lib/utils'
+import { arbitrum } from 'viem/chains'
+import { tokens } from '../src/common/tokens'
 
 const ex = new GmxV2Service()
 
@@ -248,14 +250,25 @@ async function testDynamicMetadata() {
   console.log(await ex.getDynamicMarketMetadata([ethMarketId, xrpMarketId]))
 }
 
+async function testTradeHistory() {
+  await ex.supportedMarkets([arbitrum])
+  const res = await ex.getTradesHistory('0x1f027F09A25CeDcFE3F5Ef0673Ef45448cA72ca3', undefined)
+
+  // console log res.result
+  res.result.forEach((historicalTradeInfo, index) => {
+    console.log('#####################')
+    console.log(`History info ${index}`)
+    console.log('#####################')
+    for (const key in historicalTradeInfo) {
+      const value = historicalTradeInfo[key as keyof HistoricalTradeInfo]
+      console.log(key, '=>', value)
+    }
+  })
+}
+
 async function test() {
   await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
   await testDynamicMetadata()
-}
-
-async function testTradeHistory() {
-  const res = await ex.getTradesHistory('0xe8c19db00287e3536075114b2576c70773e039bd', undefined)
-  console.log({ res })
 }
 
 test()
