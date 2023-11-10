@@ -301,24 +301,24 @@ export default class RouterV1 implements IRouterV1 {
   }
   async getUpdateMarginPreview(
     wallet: string,
-    marketIds: Market['marketId'][],
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
-    existingPos: (PositionInfo | undefined)[]
+    existingPos: PositionInfo[]
   ): Promise<PreviewInfo[]> {
     const promises: Promise<PreviewInfo[]>[] = []
-    marketIds.forEach((marketId, index) => {
-      const protocolId = this._checkAndGetProtocolId(marketId)
+
+    existingPos.forEach((position, index) => {
+      const protocolId = this._checkAndGetProtocolId(position.marketId)
       promises.push(
         this.adapters[protocolId].getUpdateMarginPreview(
           wallet,
-          [marketId],
           [isDeposit[index]],
           [marginDelta[index]],
           [existingPos[index]]
         )
       )
     })
+
     const out = await Promise.all(promises)
     return out.flat()
   }

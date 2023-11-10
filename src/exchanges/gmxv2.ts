@@ -1270,10 +1270,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getUpdateMarginPreview(
     wallet: string,
-    marketIds: Market['marketId'][],
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
-    existingPos: (PositionInfo | undefined)[]
+    existingPos: PositionInfo[]
   ): Promise<PreviewInfo[]> {
     // obtain CreateOrder type from this data
     // basis isDeposit, get preview for either close or open with sizeDelta as zero
@@ -1285,12 +1284,12 @@ export default class GmxV2Service implements IAdapterV1 {
 
       if (isDeposit[i]) {
         const order: CreateOrder = {
-          marketId: existingPos[i]?.marketId!,
-          direction: existingPos[i]?.direction!,
+          marketId: existingPos[i].marketId,
+          direction: existingPos[i].direction,
           sizeDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
           marginDelta: marginDelta[i],
           triggerData: undefined,
-          collateral: existingPos[i]?.collateral!,
+          collateral: existingPos[i].collateral,
           type: 'MARKET',
           slippage: undefined
         }
@@ -1301,10 +1300,10 @@ export default class GmxV2Service implements IAdapterV1 {
           closeSize: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
           type: 'MARKET',
           triggerData: undefined,
-          outputCollateral: existingPos[i]?.collateral!
+          outputCollateral: existingPos[i].collateral
         }
 
-        preview = (await this.getCloseTradePreview(wallet, [existingPos[i]!], [order]))[0] as PreviewInfo
+        preview = (await this.getCloseTradePreview(wallet, [existingPos[i]], [order]))[0] as PreviewInfo
       }
 
       previewsInfo.push(preview)

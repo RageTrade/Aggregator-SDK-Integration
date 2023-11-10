@@ -7,7 +7,8 @@ import {
   PositionInfo,
   LiquidationInfo,
   UpdateOrder,
-  ClosePositionData
+  ClosePositionData,
+  AmountInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { logObject } from '../src/common/helper'
 import { FixedNumber } from '../src/common/fixedNumber'
@@ -309,9 +310,31 @@ async function testCloseTradePreview() {
   logObject('rec margin: ', res[0].receiveMargin)
 }
 
+async function testEditPreview() {
+  const pos = (await ex.getAllPositions('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined)).result[0]
+
+  let orders: AmountInfo[] = [
+    pos.margin
+  ]
+
+  let res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [true], orders, [pos])
+
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
+
+  orders = [pos.margin]
+
+  res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [false], orders, [pos])
+
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
+}
+
 async function test() {
-  await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  await testGetAllOrdersForPosition()
+  await ex.setup('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d')
+  await testEditPreview()
 }
 
 test()

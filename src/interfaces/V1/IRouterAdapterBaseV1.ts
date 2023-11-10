@@ -328,9 +328,8 @@ export interface IRouterAdapterBaseV1 {
 
   getUpdateMarginPreview(
     wallet: string,
-    marketIds: Market['marketId'][],
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
-    existingPos: Array<PositionInfo | undefined>
+    existingPos: Array<PositionInfo>
   ): Promise<PreviewInfo[]>
 }
