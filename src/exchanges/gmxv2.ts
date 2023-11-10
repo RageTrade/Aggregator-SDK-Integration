@@ -251,7 +251,7 @@ export default class GmxV2Service implements IAdapterV1 {
     if (!marketsInfoData) throw new Error('markets info not loaded')
 
     for (const mId of marketIds) {
-      const info = marketsInfoData[mId.split(':')[0]]
+      const info = marketsInfoData[mId.split('-')[2]]
 
       // OI
       const longOI = info.longInterestUsd
