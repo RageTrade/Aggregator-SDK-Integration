@@ -39,7 +39,7 @@ import { BigNumber, ethers } from 'ethers'
 import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection } from '../interface'
 import { Token, tokens } from '../common/tokens'
-import { applySlippage, getPaginatedResponse, logObject, toAmountInfo } from '../common/helper'
+import { applySlippage, getPaginatedResponse, logObject, toAmountInfo, getBNFromFN } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
@@ -50,9 +50,10 @@ import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
 import { ARBITRUM } from '../configs/gmx/chains'
 import { chains } from 'perennial-sdk-ts'
 import { useOrdersInfo } from '../configs/gmxv2/orders/useOrdersInfo'
-import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
+import { TradeFeesType, TriggerThresholdType } from '../configs/gmxv2/trade/types'
 import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
+import { PositionInfo as InternalPositionInfo } from '../configs/gmxv2/positions/types'
 import { encodeMarketId } from '../common/markets'
 import { FixedNumber } from '../common/fixedNumber'
 import { getAvailableUsdLiquidityForPosition } from '../configs/gmxv2/markets/utils'
@@ -61,6 +62,17 @@ import {
   getFundingFactorPerPeriod,
   getFundingFeeRateUsd
 } from '../configs/gmxv2/fees/utils'
+import { BASIS_POINTS_DIVISOR } from '../configs/gmx/tokens'
+import { convertToUsd, convertToTokenAmount, getIsEquivalentTokens } from '../configs/gmxv2/tokens/utils'
+import {
+  getIncreasePositionAmounts,
+  getNextPositionValuesForIncreaseTrade
+} from '../configs/gmxv2/trade/utils/increase'
+import { usePositionsConstants } from '../configs/gmxv2/positions/usePositionsConstants'
+import { estimateExecuteIncreaseOrderGasLimit, getExecutionFee } from '../configs/gmxv2/fees/utils'
+import { getTradeFees } from '../configs/gmxv2/trade/utils/common'
+import { TokenData } from '../configs/gmxv2/tokens/types'
+import { ZERO } from '../common/constants'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -124,8 +136,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _smartWallet: string | undefined
 
-  setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
+  async setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
     this._smartWallet = ethers.utils.getAddress(swAddr)
+    await this._buildCacheIfEmpty()
     return Promise.resolve([])
   }
 
@@ -213,7 +226,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
     // Build cache if not available already
-    if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
+    await this._buildCacheIfEmpty()
 
     const marketsInfo: MarketInfo[] = []
 
@@ -747,7 +760,8 @@ export default class GmxV2Service implements IAdapterV1 {
         direction: posData.isLong ? 'LONG' : 'SHORT',
         collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
         indexToken: getGmxV2TokenByAddress(posData.indexToken.address),
-        protocolId: 'GMXV2'
+        protocolId: 'GMXV2',
+        metadata: posData
       })
     }
 
@@ -817,13 +831,112 @@ export default class GmxV2Service implements IAdapterV1 {
   getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>> {
     throw new Error('Method not implemented.')
   }
-  getOpenTradePreview(
+
+  async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
     existingPos: (PositionInfo | undefined)[]
   ): Promise<OpenTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
+    if (!marketsInfoData || !tokensData || !minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
+
+    const previewsInfo: OpenTradePreviewInfo[] = []
+
+    for (let i = 0; i < orderData.length; i++) {
+      const od = orderData[i]
+      const ePos = existingPos[i]
+      const marketInfo = marketsInfoData[this.cachedMarkets[od.marketId].market.marketToken]
+      const toToken = tokensData[marketInfo.indexToken.address]
+      const fromToken = tokensData[od.collateral.address[42161]!]
+      const orderSizeDelta = getBNFromFN(od.sizeDelta.amount.toFormat(30))
+      const orderTriggerPrice = getBNFromFN(od.triggerData!.triggerPrice.toFormat(30))
+      const orderMarginDelta = getBNFromFN(od.marginDelta.amount.toFormat(fromToken.decimals))
+      const existingPosition = ePos?.metadata as InternalPositionInfo
+
+      const toTokenAmount = convertToTokenAmount(
+        orderSizeDelta,
+        toToken.decimals,
+        od.type === 'MARKET' ? toToken.prices.maxPrice : orderTriggerPrice
+      )!
+      const fromUsdMin = convertToUsd(
+        orderMarginDelta,
+        fromToken.decimals,
+        getIsEquivalentTokens(fromToken, toToken) ? orderTriggerPrice : fromToken.prices.minPrice
+      )!
+
+      const leverage = orderSizeDelta.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin)
+
+      const increaseAmounts = getIncreasePositionAmounts({
+        marketInfo,
+        indexToken: toToken,
+        initialCollateralToken: fromToken,
+        collateralToken: fromToken, // this would change if we allow in-gmxv2 swaps
+        isLong: od.direction === 'LONG',
+        initialCollateralAmount: orderMarginDelta,
+        indexTokenAmount: toTokenAmount,
+        leverage: leverage,
+        triggerPrice: od.type === 'LIMIT' ? orderTriggerPrice : undefined,
+        position: existingPosition,
+        savedAcceptablePriceImpactBps: BigNumber.from(100),
+        userReferralInfo: undefined, // TODO set referral info
+        strategy: 'leverageByCollateral'
+      })
+
+      const nextPositionValues = getNextPositionValuesForIncreaseTrade({
+        marketInfo,
+        collateralToken: fromToken,
+        existingPosition: existingPosition,
+        isLong: od.direction === 'LONG',
+        collateralDeltaUsd: increaseAmounts.collateralDeltaUsd,
+        collateralDeltaAmount: increaseAmounts.collateralDeltaAmount,
+        sizeDeltaUsd: increaseAmounts.sizeDeltaUsd,
+        sizeDeltaInTokens: increaseAmounts.sizeDeltaInTokens,
+        indexPrice: increaseAmounts.indexPrice,
+        showPnlInLeverage: false,
+        minCollateralUsd,
+        userReferralInfo: undefined // TODO set referral info
+      })
+
+      const fees = getTradeFees({
+        isIncrease: true,
+        initialCollateralUsd: increaseAmounts.initialCollateralUsd,
+        sizeDeltaUsd: increaseAmounts.sizeDeltaUsd,
+        swapSteps: increaseAmounts.swapPathStats?.swapSteps || [],
+        positionFeeUsd: increaseAmounts.positionFeeUsd,
+        swapPriceImpactDeltaUsd: increaseAmounts.swapPathStats?.totalSwapPriceImpactDeltaUsd || BigNumber.from(0),
+        positionPriceImpactDeltaUsd: increaseAmounts.positionPriceImpactDeltaUsd,
+        borrowingFeeUsd: existingPosition?.pendingBorrowingFeesUsd || BigNumber.from(0),
+        fundingFeeUsd: existingPosition?.pendingFundingFeesUsd || BigNumber.from(0),
+        feeDiscountUsd: increaseAmounts.feeDiscountUsd,
+        swapProfitFeeUsd: BigNumber.from(0)
+      })
+
+      const priceDiff = nextPositionValues.nextEntryPrice!.sub(toToken.prices.maxPrice).abs()
+      const priceImpact = od.type === 'LIMIT' ? ZERO : priceDiff.mul(BASIS_POINTS_DIVISOR).div(toToken.prices.maxPrice)
+
+      previewsInfo.push({
+        collateral: od.collateral,
+        marketId: od.marketId,
+        leverage: FixedNumber.fromValue(nextPositionValues.nextLeverage!.toString(), 4, 4),
+        size: toAmountInfo(nextPositionValues.nextSizeUsd!, 30, false),
+        margin: toAmountInfo(nextPositionValues.nextCollateralUsd!, 30, true),
+        avgEntryPrice: FixedNumber.fromValue(nextPositionValues.nextEntryPrice!.toString(), 30, 30),
+        liqudationPrice: FixedNumber.fromValue(nextPositionValues.nextLiqPrice!.toString(), 30, 30),
+        fee: FixedNumber.fromValue(
+          fees.positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd).add(fees.fundingFee!.deltaUsd).toString(),
+          30,
+          30
+        ),
+        priceImpact: FixedNumber.fromValue(priceImpact.toString(), 4, 4),
+        isError: false,
+        errMsg: ''
+      })
+    }
+
+    return previewsInfo
   }
+
   getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
@@ -997,5 +1110,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _getMarketSymbol(token: GMX_V2_TOKEN): string {
     return token.symbol === 'WETH' ? 'ETH' : token.symbol
+  }
+
+  private async _buildCacheIfEmpty() {
+    if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
   }
 }

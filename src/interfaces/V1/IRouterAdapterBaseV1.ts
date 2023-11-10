@@ -141,6 +141,8 @@ export type PositionData = {
 
 export type PositionInfo = PositionData & {
   protocolId: ProtocolId
+} & {
+  metadata: any
 }
 
 export type HistoricalTradeInfo = TradeData &

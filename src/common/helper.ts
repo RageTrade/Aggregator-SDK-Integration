@@ -79,6 +79,10 @@ export function toAmountInfo(
   }
 }
 
+export function getBNFromFN(val: FixedNumber): BigNumber {
+  return BigNumber.from(val.value)
+}
+
 export function getByKey<T>(obj?: { [key: string]: T }, key?: string): T | undefined {
   if (!obj || !key) return undefined
 

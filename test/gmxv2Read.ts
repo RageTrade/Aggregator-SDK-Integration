@@ -8,11 +8,13 @@ import {
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { tokens } from '../src/common/tokens'
 import { logObject } from '../src/common/helper'
+import { FixedNumber } from '../src/common/fixedNumber'
+import { parseEther, parseUnits } from 'ethers/lib/utils'
 
 const ex = new GmxV2Service()
 
-const xrpMarketId = '0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c:GMXV2:42161'
-const ethMarketId = '0x70d95587d40A2caf56bd97485aB3Eec10Bee6336:GMXV2:42161'
+const xrpMarketId = '42161-GMXV2-0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c'
+const ethMarketId = '42161-GMXV2-0x70d95587d40A2caf56bd97485aB3Eec10Bee6336'
 
 async function testGetAllPositions() {
   const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
@@ -33,7 +35,7 @@ async function testSupportedMarkets() {
     )
   })
   // console.dir({ res }, { depth: 4 })
-  console.log('markets length: ', res.length)
+  // console.log('markets length: ', res.length)
 }
 
 async function testGetMarketsInfo() {
@@ -49,6 +51,30 @@ async function testMarketPrices() {
     const price = await ex.getMarketPrices([m.marketId])
     console.log(m.indexToken.symbol, ': ', { price })
   }
+}
+
+async function testOpenTradePreview() {
+  const orders: CreateOrder[] = []
+  orders.push({
+    type: 'LIMIT',
+    marketId: ethMarketId,
+    direction: 'LONG',
+    sizeDelta: { amount: FixedNumber.fromValue(parseUnits('29.93', 30).toString(), 30, 30), isTokenAmount: false },
+    marginDelta: { amount: FixedNumber.fromValue(parseEther('0.01').toString(), 18), isTokenAmount: true },
+    triggerData: {
+      triggerPrice: FixedNumber.fromValue(parseUnits('1000', 30).toString(), 30, 30),
+      triggerAboveThreshold: false
+    },
+    collateral: tokens.ETH,
+    slippage: undefined
+  })
+
+  // const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
+
+  const res = await ex.getOpenTradePreview('0x2f88a09ed4174750a464576FE49E586F90A34820', orders, [undefined])
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
 }
 
 async function increasePosition() {
