@@ -5,6 +5,7 @@ import {
   HistoricalTradeInfo,
   PositionData,
   PositionInfo,
+  LiquidationInfo,
   UpdateOrder
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { logObject } from '../src/common/helper'
@@ -262,6 +263,22 @@ async function testTradeHistory() {
     for (const key in historicalTradeInfo) {
       const value = historicalTradeInfo[key as keyof HistoricalTradeInfo]
       console.log(key, '=>', value)
+    }
+  })
+}
+
+async function testLiquidations() {
+  await ex.supportedMarkets([arbitrum])
+  const res = await ex.getLiquidationHistory('0x0da9b5c67555cf67421c05129ba15c599448e942', undefined)
+
+  // console log res.result
+  res.result.forEach((liquidationInfo, index) => {
+    console.log("###############################")
+    console.log(`## Liquidation info ${index} ##`)
+    console.log("###############################")
+    for (const key in liquidationInfo) {
+      const value = liquidationInfo[key as keyof LiquidationInfo];
+      console.log(key, "=>", value)
     }
   })
 }

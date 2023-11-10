@@ -830,9 +830,8 @@ export default class GmxV2Service implements IAdapterV1 {
   }
   async getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>> {
 
-
     // console.log(resultJson.data)
-    const rawTrades = await this._getOrders(wallet, pageOptions)
+    const rawTrades = await this._getOrders(wallet, [2, 3, 4, 5, 6], pageOptions)
 
     const trades: HistoricalTradeInfo[] = []
 
@@ -868,7 +867,7 @@ export default class GmxV2Service implements IAdapterV1 {
     };
   }
 
-  private async _getOrders(wallet: string, pageOptions: PageOptions | undefined) {
+  private async _getOrders(wallet: string, orderTypes: number[], pageOptions: PageOptions | undefined) {
     const results = await fetch(this.SUBGRAPH_URL, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -879,7 +878,7 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ""}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet ? `where: { account: "${wallet.toLowerCase()}", status:Executed }` : ""}
+              ${wallet ? `where: { account: "${wallet.toLowerCase()}", status:Executed, orderType_in: ${JSON.stringify(orderTypes)} }` : ""}
           ) {
               id
               
@@ -949,7 +948,7 @@ export default class GmxV2Service implements IAdapterV1 {
     await rawTradeActions.forEach((tradeAction: any) => {
       const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
       if (!rawTrade) return
-      rawTrade.executionPrice = tradeAction.executionPrice
+      rawTrade.executionPrice = this._checkNull(tradeAction.executionPrice)
       rawTrade.pnlUsd = this._checkNull(tradeAction.pnlUsd)
       rawTrade.collateralTokenPriceMax = this._checkNull(tradeAction.collateralTokenPriceMax)
       rawTrade.positionFee = BigInt(this._checkNull(tradeAction.positionFeeAmount)) + BigInt(this._checkNull(tradeAction.borrowingFeeAmount)) + BigInt(this._checkNull(tradeAction.fundingFeeAmount))
@@ -979,7 +978,41 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>> {
-    throw new Error('Method not implemented.')
+    const rawTrades = await this._getOrders(wallet, [7], pageOptions)
+
+    const liquidations: LiquidationInfo[] = []
+
+    rawTrades.forEach((trade: any) => {
+      const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress));
+      const marketInfo = this.cachedMarkets[marketId]
+      const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
+      const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
+      // if (trade.pnlUsd === null) trade.pnlUsd = '0'
+      // if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
+
+      const positionFeeUsd = BigInt(trade.positionFee) * BigInt(trade.collateralTokenPriceMax)
+      const remainingCollateralUsd = BigInt(trade.initialCollateralDeltaAmount) * BigInt(trade.collateralTokenPriceMax)
+
+      liquidations.push({
+        marketId: marketId,
+        timestamp: trade.executedTxn.timestamp,
+        liquidationPrice: FixedNumber.fromValue(trade.executionPrice, indexToken.priceDecimals, 30),
+        direction: trade.isLong ? 'LONG' as TradeDirection : 'SHORT' as TradeDirection,
+        sizeClosed: toAmountInfo(trade.sizeDeltaUsd, 30, false), // USD
+        remainingCollateral: toAmountInfo(trade.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
+        collateral: initialCollateralToken as Token,
+        realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
+        liquidationFees: FixedNumber.fromValue(trade.executionFee, 18, 18), // WETH
+        liqudationLeverage: remainingCollateralUsd != BigInt(0) ? FixedNumber.fromValue(trade.sizeDeltaUsd, 30, 30).div(FixedNumber.fromValue(remainingCollateralUsd, 30, 30)) : FixedNumber.fromValue(0, 30, 30), // USD
+        txHash: trade.executedTxn.hash,
+      } as LiquidationInfo)
+    });
+
+    return {
+      result: liquidations,
+      maxItemsCount: liquidations.length,
+    };
+
   }
   
   
