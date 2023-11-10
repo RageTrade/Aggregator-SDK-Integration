@@ -1186,9 +1186,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const position = ePos.metadata as InternalPositionInfo
 
       const cpdCloseSize = getBNFromFN(cpd.closeSize.amount.toFormat(30))
-      const cpdTriggerPrice = closePositionData[i].triggerData
-        ? getBNFromFN(cpd.triggerData!.triggerPrice.toFormat(30))
-        : undefined
+      const cpdTriggerPrice = cpd.triggerData ? getBNFromFN(cpd.triggerData!.triggerPrice.toFormat(30)) : undefined
 
       const receiveToken = position.collateralToken
 
@@ -1225,6 +1223,7 @@ export default class GmxV2Service implements IAdapterV1 {
         minCollateralUsd,
         userReferralInfo: undefined
       })
+      console.dir(nextPositionValues, { depth: 4 })
 
       const fees = getTradeFees({
         isIncrease: false,
@@ -1251,7 +1250,7 @@ export default class GmxV2Service implements IAdapterV1 {
         margin: nextPositionValues.nextCollateralUsd
           ? toAmountInfo(nextPositionValues.nextCollateralUsd, 30, false)
           : toAmountInfo(ZERO, 0, false),
-        avgEntryPrice: FixedNumber.fromValue(ZERO.toString(), 30, 30),
+        avgEntryPrice: ePos.avgEntryPrice,
         liqudationPrice: nextPositionValues.nextLiqPrice
           ? FixedNumber.fromValue(nextPositionValues.nextLiqPrice.toString(), 30, 30)
           : FixedNumber.fromString('0'),
