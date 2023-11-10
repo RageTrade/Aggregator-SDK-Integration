@@ -1052,7 +1052,8 @@ export default class GmxV2Service implements IAdapterV1 {
       const toToken = tokensData[marketInfo.indexToken.address]
       const fromToken = tokensData[od.collateral.address[42161]!]
       const orderSizeDelta = getBNFromFN(od.sizeDelta.amount.toFormat(30))
-      const orderTriggerPrice = getBNFromFN(od.triggerData!.triggerPrice.toFormat(30))
+      const orderTriggerPrice =
+        od.type === 'MARKET' ? undefined : getBNFromFN(od.triggerData!.triggerPrice.toFormat(30))
       const orderMarginDelta = getBNFromFN(od.marginDelta.amount.toFormat(fromToken.decimals))
       const existingPosition = ePos?.metadata as InternalPositionInfo
 
@@ -1064,7 +1065,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const fromUsdMin = convertToUsd(
         orderMarginDelta,
         fromToken.decimals,
-        getIsEquivalentTokens(fromToken, toToken) ? orderTriggerPrice : fromToken.prices.minPrice
+        od.type === 'LIMIT' && getIsEquivalentTokens(fromToken, toToken) ? orderTriggerPrice : fromToken.prices.minPrice
       )!
 
       const leverage = orderSizeDelta.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin)
@@ -1120,11 +1121,21 @@ export default class GmxV2Service implements IAdapterV1 {
       previewsInfo.push({
         collateral: od.collateral,
         marketId: od.marketId,
-        leverage: FixedNumber.fromValue(nextPositionValues.nextLeverage!.toString(), 4, 4),
-        size: toAmountInfo(nextPositionValues.nextSizeUsd!, 30, false),
-        margin: toAmountInfo(nextPositionValues.nextCollateralUsd!, 30, true),
-        avgEntryPrice: FixedNumber.fromValue(nextPositionValues.nextEntryPrice!.toString(), 30, 30),
-        liqudationPrice: FixedNumber.fromValue(nextPositionValues.nextLiqPrice!.toString(), 30, 30),
+        leverage: nextPositionValues.nextLeverage
+          ? FixedNumber.fromValue(nextPositionValues.nextLeverage.toString(), 4, 4)
+          : FixedNumber.fromString('0'),
+        size: nextPositionValues.nextSizeUsd
+          ? toAmountInfo(nextPositionValues.nextSizeUsd, 30, false)
+          : toAmountInfo(ZERO, 0, false),
+        margin: nextPositionValues.nextCollateralUsd
+          ? toAmountInfo(nextPositionValues.nextCollateralUsd, 30, false)
+          : toAmountInfo(ZERO, 0, false),
+        avgEntryPrice: nextPositionValues.nextEntryPrice
+          ? FixedNumber.fromValue(nextPositionValues.nextEntryPrice.toString(), 30, 30)
+          : FixedNumber.fromString('0'),
+        liqudationPrice: nextPositionValues.nextLiqPrice
+          ? FixedNumber.fromValue(nextPositionValues.nextLiqPrice!.toString(), 30, 30)
+          : FixedNumber.fromString('0'),
         fee: FixedNumber.fromValue(
           fees.positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd).add(fees.fundingFee!.deltaUsd).toString(),
           30,
