@@ -273,12 +273,12 @@ async function testLiquidations() {
 
   // console log res.result
   res.result.forEach((liquidationInfo, index) => {
-    console.log("###############################")
+    console.log('###############################')
     console.log(`## Liquidation info ${index} ##`)
-    console.log("###############################")
+    console.log('###############################')
     for (const key in liquidationInfo) {
-      const value = liquidationInfo[key as keyof LiquidationInfo];
-      console.log(key, "=>", value)
+      const value = liquidationInfo[key as keyof LiquidationInfo]
+      console.log(key, '=>', value)
     }
   })
 }
