@@ -557,7 +557,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       let acceptablePrice
       let triggerPrice
-      
+
       if (closePositionData[i].triggerData) {
         acceptablePrice = BigNumber.from(closePositionData[i].triggerData!.triggerPrice.toFormat(18).value)
           .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
@@ -584,7 +584,7 @@ export default class GmxV2Service implements IAdapterV1 {
           callbackContract: ethers.constants.AddressZero,
           uiFeeReceiver: ethers.constants.AddressZero,
           market: positionInfo[i].marketId.split('-')[2],
-          initialCollateralToken: tokens.WETH.address[42161]!,
+          initialCollateralToken: positionInfo[i].collateral.address[42161]!,
           swapPath: []
         },
         numbers: {
