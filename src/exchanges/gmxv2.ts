@@ -163,12 +163,18 @@ export default class GmxV2Service implements IAdapterV1 {
       const longToken = getGmxV2TokenByAddress(mProp.longToken)
       const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
 
+      const supportedCollateralTokens: Token[] = [longToken, shortToken]
+
+      if (longToken.symbol === 'WETH' || shortToken.symbol === 'WETH') {
+        supportedCollateralTokens.push(tokens.ETH)
+      }
+
       const market: Market = {
         marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', mProp.marketToken),
         chain: chains[42161],
         indexToken: getGmxV2TokenByAddress(mProp.indexToken),
-        longCollateral: [longToken, shortToken],
-        shortCollateral: [longToken, shortToken],
+        longCollateral: supportedCollateralTokens,
+        shortCollateral: supportedCollateralTokens,
         supportedOrderTypes: {
           LIMIT: true,
           MARKET: true,
@@ -658,7 +664,7 @@ export default class GmxV2Service implements IAdapterV1 {
           receiver: this._smartWallet,
           callbackContract: ethers.constants.AddressZero,
           uiFeeReceiver: ethers.constants.AddressZero,
-          market: positionInfo[i].marketId.split(':')[0],
+          market: positionInfo[i].marketId.split('-')[2],
           initialCollateralToken: initialCollateralToken,
           swapPath: []
         },
@@ -1157,6 +1163,7 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<CloseTradePreviewInfo[]> {
     throw new Error('Method not implemented.')
   }
+
   getUpdateMarginPreview(
     wallet: string,
     marketIds: Market['marketId'][],
@@ -1164,6 +1171,7 @@ export default class GmxV2Service implements IAdapterV1 {
     marginDelta: AmountInfo[],
     existingPos: (PositionInfo | undefined)[]
   ): Promise<PreviewInfo[]> {
+    // obtain CreateOrder type from this data
     throw new Error('Method not implemented.')
   }
 
