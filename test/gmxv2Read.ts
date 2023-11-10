@@ -6,7 +6,8 @@ import {
   PositionData,
   PositionInfo,
   LiquidationInfo,
-  UpdateOrder
+  UpdateOrder,
+  ClosePositionData
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { logObject } from '../src/common/helper'
 import { FixedNumber } from '../src/common/fixedNumber'
@@ -20,7 +21,7 @@ const xrpMarketId = '42161-GMXV2-0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c'
 const ethMarketId = '42161-GMXV2-0x70d95587d40A2caf56bd97485aB3Eec10Bee6336'
 
 async function testGetAllPositions() {
-  const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
+  const res = await ex.getAllPositions('0x4F9864A7629153C5167745Ac145D8f39297cED32', undefined)
   console.dir({ res: res.result[0] }, { depth: 4 })
 }
 
@@ -59,15 +60,16 @@ async function testMarketPrices() {
 async function testOpenTradePreview() {
   const orders: CreateOrder[] = []
   orders.push({
-    type: 'LIMIT',
+    type: 'MARKET',
     marketId: ethMarketId,
     direction: 'LONG',
     sizeDelta: { amount: FixedNumber.fromValue(parseUnits('29.93', 30).toString(), 30, 30), isTokenAmount: false },
     marginDelta: { amount: FixedNumber.fromValue(parseEther('0.01').toString(), 18), isTokenAmount: true },
-    triggerData: {
-      triggerPrice: FixedNumber.fromValue(parseUnits('1000', 30).toString(), 30, 30),
-      triggerAboveThreshold: false
-    },
+    // triggerData: {
+    //   triggerPrice: FixedNumber.fromValue(parseUnits('1000', 30).toString(), 30, 30),
+    //   triggerAboveThreshold: false
+    // },
+    triggerData: undefined,
     collateral: tokens.ETH,
     slippage: undefined
   })
@@ -242,8 +244,9 @@ async function testGetAllOrders() {
 }
 
 async function testGetAllOrdersForPosition() {
-  const positions = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result
-  const res = await ex.getAllOrdersForPosition('0x2f88a09ed4174750a464576FE49E586F90A34820', positions, undefined)
+  const positions = (await ex.getAllPositions('0x4F9864A7629153C5167745Ac145D8f39297cED32', undefined)).result
+  console.log({ positions })
+  const res = await ex.getAllOrdersForPosition('0x4F9864A7629153C5167745Ac145D8f39297cED32', positions, undefined)
   console.dir({ res: res }, { depth: 4 })
 }
 
@@ -283,9 +286,32 @@ async function testLiquidations() {
   })
 }
 
+async function testCloseTradePreview() {
+  const orders: ClosePositionData[] = []
+  const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
+
+  orders.push({
+    // type: 'MARKET',
+    type: 'STOP_LOSS',
+    // closeSize: { amount: FixedNumber.fromValue(parseUnits('31.47', 30).toString(), 30, 30), isTokenAmount: false },
+    closeSize: pos.size,
+    triggerData: {
+      triggerPrice: FixedNumber.fromValue(parseUnits('2400', 30).toString(), 30, 30),
+      triggerAboveThreshold: false
+    },
+    outputCollateral: pos.collateral
+  })
+
+  const res = await ex.getCloseTradePreview('0x2f88a09ed4174750a464576FE49E586F90A34820', [pos], orders)
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
+  logObject('rec margin: ', res[0].receiveMargin)
+}
+
 async function test() {
   await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  await testDynamicMetadata()
+  await testGetAllOrdersForPosition()
 }
 
 test()
