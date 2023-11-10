@@ -1128,6 +1128,14 @@ export default class GmxV2Service implements IAdapterV1 {
       const priceDiff = nextPositionValues.nextEntryPrice!.sub(toToken.prices.maxPrice).abs()
       const priceImpact = od.type === 'LIMIT' ? ZERO : priceDiff.mul(BASIS_POINTS_DIVISOR).div(toToken.prices.maxPrice)
 
+      const longLiquidity = getAvailableUsdLiquidityForPosition(marketInfo, true)
+      const shortLiquidity = getAvailableUsdLiquidityForPosition(marketInfo, false)
+
+      const isOutPositionLiquidity =
+        od.direction === 'LONG'
+          ? longLiquidity.lt(increaseAmounts?.sizeDeltaUsd || 0)
+          : shortLiquidity.lt(increaseAmounts?.sizeDeltaUsd || 0)
+
       previewsInfo.push({
         collateral: od.collateral,
         marketId: od.marketId,
@@ -1152,8 +1160,8 @@ export default class GmxV2Service implements IAdapterV1 {
           30
         ),
         priceImpact: FixedNumber.fromValue(priceImpact.toString(), 4, 4),
-        isError: false,
-        errMsg: ''
+        isError: isOutPositionLiquidity,
+        errMsg: isOutPositionLiquidity ? 'Not enough liquidity' : ''
       })
     }
 
