@@ -218,8 +218,13 @@ async function testGetAllOrdersForPosition() {
   console.dir({ res: res }, { depth: 4 })
 }
 
+async function testDynamicMetadata() {
+  console.log(await ex.getDynamicMarketMetadata([ethMarketId, xrpMarketId]))
+}
+
 async function test() {
-  await testSupportedMarkets()
+  await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
+  await testDynamicMetadata()
 }
 
 test()

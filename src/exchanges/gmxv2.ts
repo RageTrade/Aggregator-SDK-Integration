@@ -32,18 +32,18 @@ import {
   Reader,
   Reader__factory,
   ExchangeRouter__factory,
-  IERC20__factory
+  IERC20__factory,
+  Keys
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
-import { ZERO } from '../common/constants'
 import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection } from '../interface'
-import { tokens } from '../common/tokens'
+import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toAmountInfo } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
-import { parseUnits } from 'ethers/lib/utils'
-import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
+import { formatUnits, parseUnits } from 'ethers/lib/utils'
+import { hashedPositionKey, openInterestKey } from '../configs/gmxv2/config/dataStore'
 import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
 import { useMarketsInfo } from '../configs/gmxv2/markets/useMarketsInfo'
 import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
@@ -55,6 +55,12 @@ import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../con
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 import { encodeMarketId } from '../common/markets'
 import { FixedNumber } from '../common/fixedNumber'
+import { getAvailableUsdLiquidityForPosition } from '../configs/gmxv2/markets/utils'
+import {
+  getBorrowingFactorPerPeriod,
+  getFundingFactorPerPeriod,
+  getFundingFeeRateUsd
+} from '../configs/gmxv2/fees/utils'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -221,8 +227,44 @@ export default class GmxV2Service implements IAdapterV1 {
     return marketsInfo
   }
 
-  getDynamicMarketMetadata(marketIds: string[]): Promise<DynamicMarketMetadata[]> {
-    throw new Error('Method not implemented.')
+  async getDynamicMarketMetadata(marketIds: string[]): Promise<DynamicMarketMetadata[]> {
+    const metadata: DynamicMarketMetadata[] = []
+    const { marketsInfoData } = await useMarketsInfo(ARBITRUM, this._smartWallet!)
+
+    if (!marketsInfoData) throw new Error('markets info not loaded')
+
+    for (const mId of marketIds) {
+      const info = marketsInfoData[mId.split(':')[0]]
+
+      // OI
+      const longOI = info.longInterestUsd
+      const shortOI = info.shortInterestUsd
+
+      // available liquidity
+      const availLiqLong = getAvailableUsdLiquidityForPosition(info, true)
+      const availLiqShort = getAvailableUsdLiquidityForPosition(info, false)
+
+      // funding
+      const borrowingRateLong = getBorrowingFactorPerPeriod(info, true, 3_600)
+      const borrowingRateShort = getBorrowingFactorPerPeriod(info, false, 3_600)
+
+      const fundingRateLong = getFundingFactorPerPeriod(info, true, 3_600)
+      const fundingRateShort = getFundingFactorPerPeriod(info, false, 3_600)
+
+      const longRate = borrowingRateLong.add(fundingRateLong)
+      const shortRate = borrowingRateShort.add(fundingRateShort)
+
+      metadata.push({
+        oiLong: FixedNumber.fromString(formatUnits(longOI, 30), 'fixed128x30'),
+        oiShort: FixedNumber.fromString(formatUnits(shortOI, 30), 'fixed128x30'),
+        availableLiquidityLong: FixedNumber.fromString(formatUnits(availLiqLong, 30), 'fixed128x30'),
+        availableLiquidityShort: FixedNumber.fromString(formatUnits(availLiqShort, 30), 'fixed128x30'),
+        longRate: FixedNumber.fromString(formatUnits(longRate, 30), 'fixed128x30'),
+        shortRate: FixedNumber.fromString(formatUnits(shortRate, 30), 'fixed128x30')
+      })
+    }
+
+    return metadata
   }
 
   async _approveIfNeeded(token: string, amount: bigint): Promise<UnsignedTxWithMetadata | undefined> {

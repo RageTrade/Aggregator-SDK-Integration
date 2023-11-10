@@ -192,7 +192,7 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
 
     out.forEach((res) => {
-     result.push(...res.result)
+      result.push(...res.result)
     })
 
 
