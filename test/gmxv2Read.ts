@@ -313,23 +313,25 @@ async function testCloseTradePreview() {
 async function testEditPreview() {
   const pos = (await ex.getAllPositions('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined)).result[0]
 
-  let orders: AmountInfo[] = [
-    pos.margin
-  ]
+  let orders: AmountInfo[] = [pos.margin]
+
+  console.dir(pos, { depth: 4 })
 
   let res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [true], orders, [pos])
 
-  logObject('res', res[0])
-  logObject('res size: ', res[0].size)
-  logObject('res margin: ', res[0].margin)
+  // logObject('res', res[0])
+  // logObject('res size: ', res[0].size)
+  // logObject('res margin: ', res[0].margin)
+  console.dir(res, { depth: 4 })
 
   orders = [pos.margin]
 
   res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [false], orders, [pos])
 
-  logObject('res', res[0])
-  logObject('res size: ', res[0].size)
-  logObject('res margin: ', res[0].margin)
+  // logObject('res', res[0])
+  // logObject('res size: ', res[0].size)
+  // logObject('res margin: ', res[0].margin)
+  console.dir(res, { depth: 4 })
 }
 
 async function test() {

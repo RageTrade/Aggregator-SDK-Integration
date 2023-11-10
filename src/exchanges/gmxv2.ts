@@ -1186,7 +1186,9 @@ export default class GmxV2Service implements IAdapterV1 {
       const position = ePos.metadata as InternalPositionInfo
 
       const cpdCloseSize = getBNFromFN(cpd.closeSize.amount.toFormat(30))
-      const cpdTriggerPrice = getBNFromFN(cpd.triggerData!.triggerPrice.toFormat(30))
+      const cpdTriggerPrice = closePositionData[i].triggerData
+        ? getBNFromFN(cpd.triggerData!.triggerPrice.toFormat(30))
+        : undefined
 
       const receiveToken = position.collateralToken
 
@@ -1197,7 +1199,7 @@ export default class GmxV2Service implements IAdapterV1 {
         position,
         closeSizeUsd: cpdCloseSize,
         keepLeverage: false,
-        triggerPrice: cpd.type === 'MARKET' ? undefined : cpdTriggerPrice,
+        triggerPrice: cpdTriggerPrice,
         savedAcceptablePriceImpactBps: cpd.type === 'MARKET' ? undefined : BigNumber.from(100),
         userReferralInfo: undefined,
         minCollateralUsd,
