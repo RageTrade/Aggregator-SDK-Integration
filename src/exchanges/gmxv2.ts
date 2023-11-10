@@ -246,7 +246,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getDynamicMarketMetadata(marketIds: string[]): Promise<DynamicMarketMetadata[]> {
     const metadata: DynamicMarketMetadata[] = []
-    const { marketsInfoData } = await useMarketsInfo(ARBITRUM, this._smartWallet!)
+    const { marketsInfoData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
 
     if (!marketsInfoData) throw new Error('markets info not loaded')
 
@@ -889,7 +889,7 @@ export default class GmxV2Service implements IAdapterV1 {
               }
           ) {
               id
-              
+
               account
               marketAddress
 
@@ -897,7 +897,7 @@ export default class GmxV2Service implements IAdapterV1 {
               initialCollateralDeltaAmount
 
               sizeDeltaUsd
-                            
+
               orderType
               isLong
 
