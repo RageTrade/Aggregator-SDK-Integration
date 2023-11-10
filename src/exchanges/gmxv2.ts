@@ -303,7 +303,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     if (allowance.gt(amount)) return
 
-    const tx = await tokenContract.populateTransaction.approve(this.ROUTER_ADDR, amount)
+    const tx = await tokenContract.populateTransaction.approve(this.ROUTER_ADDR, ethers.constants.MaxUint256)
 
     return {
       tx: tx,
@@ -660,7 +660,7 @@ export default class GmxV2Service implements IAdapterV1 {
         initialCollateralToken = positionInfo[i].collateral.address[42161]!
       } else {
         orderType = SolidityOrderType.MarketDecrease
-        initialCollateralToken = tokens.WETH.address[42161]!
+        initialCollateralToken = positionInfo[i].collateral.address[42161]!
       }
 
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
@@ -698,11 +698,14 @@ export default class GmxV2Service implements IAdapterV1 {
       }
 
       // check if collateral token has enough amount approved
-      const approvalTx = await this._approveIfNeeded(
-        updatePositionMarginData[i].collateral.address[42161]!,
-        updatePositionMarginData[i].margin.amount.value
-      )
-      if (approvalTx) txs.push(approvalTx)
+      if (updatePositionMarginData[i].isDeposit) {
+        const approvalTx = await this._approveIfNeeded(
+          updatePositionMarginData[i].collateral.address[42161]!,
+          updatePositionMarginData[i].margin.amount.value
+        )
+
+        if (approvalTx) txs.push(approvalTx)
+      }
 
       let sendErc20Tx
       const multicallData: string[] = []
@@ -1265,7 +1268,7 @@ export default class GmxV2Service implements IAdapterV1 {
     return previewsInfo
   }
 
-  getUpdateMarginPreview(
+  async getUpdateMarginPreview(
     wallet: string,
     marketIds: Market['marketId'][],
     isDeposit: boolean[],
@@ -1273,7 +1276,41 @@ export default class GmxV2Service implements IAdapterV1 {
     existingPos: (PositionInfo | undefined)[]
   ): Promise<PreviewInfo[]> {
     // obtain CreateOrder type from this data
-    throw new Error('Method not implemented.')
+    // basis isDeposit, get preview for either close or open with sizeDelta as zero
+
+    const previewsInfo: PreviewInfo[] = []
+
+    for (let i = 0; i < existingPos.length; i++) {
+      let preview: PreviewInfo
+
+      if (isDeposit[i]) {
+        const order: CreateOrder = {
+          marketId: existingPos[i]?.marketId!,
+          direction: existingPos[i]?.direction!,
+          sizeDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
+          marginDelta: marginDelta[i],
+          triggerData: undefined,
+          collateral: existingPos[i]?.collateral!,
+          type: 'MARKET',
+          slippage: undefined
+        }
+
+        preview = (await this.getOpenTradePreview(wallet, [order], [existingPos[i]]))[0] as PreviewInfo
+      } else {
+        const order: ClosePositionData = {
+          closeSize: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
+          type: 'MARKET',
+          triggerData: undefined,
+          outputCollateral: existingPos[i]?.collateral!
+        }
+
+        preview = (await this.getCloseTradePreview(wallet, [existingPos[i]!], [order]))[0] as PreviewInfo
+      }
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
 
   ///////////////////////////////////
