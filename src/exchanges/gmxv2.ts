@@ -75,6 +75,10 @@ import { estimateExecuteIncreaseOrderGasLimit, getExecutionFee } from '../config
 import { getTradeFees } from '../configs/gmxv2/trade/utils/common'
 import { TokenData } from '../configs/gmxv2/tokens/types'
 import { ZERO } from '../common/constants'
+import {
+  getDecreasePositionAmounts,
+  getNextPositionValuesForDecreaseTrade
+} from '../configs/gmxv2/trade/utils/decrease'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -1150,13 +1154,103 @@ export default class GmxV2Service implements IAdapterV1 {
     return previewsInfo
   }
 
-  getCloseTradePreview(
+  async getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[]
   ): Promise<CloseTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
+    if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
+
+    const previewsInfo: CloseTradePreviewInfo[] = []
+    for (let i = 0; i < positionInfo.length; i++) {
+      const cpd = closePositionData[i]
+      const ePos = positionInfo[i]
+      const position = ePos.metadata as InternalPositionInfo
+
+      const cpdCloseSize = getBNFromFN(cpd.closeSize.amount.toFormat(30))
+      const cpdTriggerPrice = getBNFromFN(cpd.triggerData!.triggerPrice.toFormat(30))
+
+      const receiveToken = position.collateralToken
+
+      const decreaseAmounts = getDecreasePositionAmounts({
+        marketInfo: position.marketInfo,
+        collateralToken: position.collateralToken,
+        isLong: position.isLong,
+        position,
+        closeSizeUsd: cpdCloseSize,
+        keepLeverage: false,
+        triggerPrice: cpd.type === 'MARKET' ? undefined : cpdTriggerPrice,
+        savedAcceptablePriceImpactBps: cpd.type === 'MARKET' ? undefined : BigNumber.from(100),
+        userReferralInfo: undefined,
+        minCollateralUsd,
+        minPositionSizeUsd
+      })
+
+      const receiveTokenAmount = decreaseAmounts?.receiveTokenAmount
+
+      const nextPositionValues = getNextPositionValuesForDecreaseTrade({
+        existingPosition: position,
+        marketInfo: position.marketInfo,
+        collateralToken: position.collateralToken,
+        sizeDeltaUsd: decreaseAmounts.sizeDeltaUsd,
+        sizeDeltaInTokens: decreaseAmounts.sizeDeltaInTokens,
+        collateralDeltaUsd: decreaseAmounts.collateralDeltaUsd,
+        collateralDeltaAmount: decreaseAmounts.collateralDeltaAmount,
+        payedRemainingCollateralUsd: decreaseAmounts.payedRemainingCollateralUsd,
+        payedRemainingCollateralAmount: decreaseAmounts.payedRemainingCollateralAmount,
+        realizedPnl: decreaseAmounts.realizedPnl,
+        estimatedPnl: decreaseAmounts.estimatedPnl,
+        showPnlInLeverage: false,
+        isLong: position.isLong,
+        minCollateralUsd,
+        userReferralInfo: undefined
+      })
+
+      const fees = getTradeFees({
+        isIncrease: false,
+        initialCollateralUsd: position.collateralUsd,
+        sizeDeltaUsd: decreaseAmounts.sizeDeltaUsd,
+        swapSteps: [],
+        positionFeeUsd: decreaseAmounts.positionFeeUsd,
+        swapPriceImpactDeltaUsd: BigNumber.from(0),
+        positionPriceImpactDeltaUsd: decreaseAmounts.positionPriceImpactDeltaUsd,
+        borrowingFeeUsd: decreaseAmounts.borrowingFeeUsd,
+        fundingFeeUsd: decreaseAmounts.fundingFeeUsd,
+        feeDiscountUsd: decreaseAmounts.feeDiscountUsd,
+        swapProfitFeeUsd: decreaseAmounts.swapProfitFeeUsd
+      })
+
+      previewsInfo.push({
+        marketId: ePos.marketId,
+        leverage: nextPositionValues.nextLeverage
+          ? FixedNumber.fromValue(nextPositionValues.nextLeverage.toString(), 4, 4)
+          : FixedNumber.fromString('0'),
+        size: nextPositionValues.nextSizeUsd
+          ? toAmountInfo(nextPositionValues.nextSizeUsd, 30, false)
+          : toAmountInfo(ZERO, 0, false),
+        margin: nextPositionValues.nextCollateralUsd
+          ? toAmountInfo(nextPositionValues.nextCollateralUsd, 30, false)
+          : toAmountInfo(ZERO, 0, false),
+        avgEntryPrice: FixedNumber.fromValue(ZERO.toString(), 30, 30),
+        liqudationPrice: nextPositionValues.nextLiqPrice
+          ? FixedNumber.fromValue(nextPositionValues.nextLiqPrice.toString(), 30, 30)
+          : FixedNumber.fromString('0'),
+        fee: FixedNumber.fromValue(
+          fees.positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd).add(fees.fundingFee!.deltaUsd).toString(),
+          30,
+          30
+        ),
+        collateral: ePos.collateral,
+        receiveMargin: toAmountInfo(receiveTokenAmount!, receiveToken.decimals, true),
+        isError: false,
+        errMsg: ''
+      })
+    }
+
+    return previewsInfo
   }
+
   getUpdateMarginPreview(
     wallet: string,
     marketIds: Market['marketId'][],
