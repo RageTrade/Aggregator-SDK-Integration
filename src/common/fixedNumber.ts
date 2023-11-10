@@ -781,5 +781,11 @@ export function divFN(f1: FixedNumber, f2: FixedNumber, format?: FixedFormat): F
   } else {
     out = f1.toFormat(f2.decimals).div(f2)
   }
-  return format ? out.toFormat(format) : out
+  return format ? roundAndFormat(out, format) : out
+}
+
+export function roundAndFormat(f: FixedNumber, format: FixedFormat): FixedNumber {
+  const fixedFormat = getFormat(format)
+
+  return f.round(fixedFormat.decimals).toFormat(format)
 }
