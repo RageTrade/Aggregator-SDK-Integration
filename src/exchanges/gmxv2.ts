@@ -551,9 +551,6 @@ export default class GmxV2Service implements IAdapterV1 {
 
       // pro-rata close
       const sizeToClose = closePositionData[i].closeSize.amount.value
-      const collateralToRemove = BigNumber.from(positionInfo[i].margin.amount.value)
-        .mul(sizeToClose)
-        .div(positionInfo[i].size.amount.value)
 
       const mkt = this.cachedMarkets[positionInfo[i].marketId]
 
@@ -593,7 +590,7 @@ export default class GmxV2Service implements IAdapterV1 {
         },
         numbers: {
           sizeDeltaUsd: sizeToClose,
-          initialCollateralDeltaAmount: collateralToRemove,
+          initialCollateralDeltaAmount: ZERO,
           triggerPrice: triggerPrice,
           acceptablePrice: acceptablePrice,
           executionFee: DEFAULT_EXEUCTION_FEE,
