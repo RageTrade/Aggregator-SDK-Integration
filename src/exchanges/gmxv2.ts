@@ -65,7 +65,7 @@ import {
   getFundingFeeRateUsd
 } from '../configs/gmxv2/fees/utils'
 import { BASIS_POINTS_DIVISOR } from '../configs/gmx/tokens'
-import { convertToUsd, convertToTokenAmount, getIsEquivalentTokens } from '../configs/gmxv2/tokens/utils'
+import { convertToUsd, convertToTokenAmount, getIsEquivalentTokens, getTokenData } from '../configs/gmxv2/tokens/utils'
 import {
   getIncreasePositionAmounts,
   getNextPositionValuesForIncreaseTrade
@@ -73,12 +73,14 @@ import {
 import { usePositionsConstants } from '../configs/gmxv2/positions/usePositionsConstants'
 import { estimateExecuteIncreaseOrderGasLimit, getExecutionFee } from '../configs/gmxv2/fees/utils'
 import { getTradeFees } from '../configs/gmxv2/trade/utils/common'
-import { TokenData } from '../configs/gmxv2/tokens/types'
+import { TokenData, TokensData } from '../configs/gmxv2/tokens/types'
 import { ZERO } from '../common/constants'
 import {
   getDecreasePositionAmounts,
   getNextPositionValuesForDecreaseTrade
 } from '../configs/gmxv2/trade/utils/decrease'
+import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
+import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -842,7 +844,6 @@ export default class GmxV2Service implements IAdapterV1 {
     wallet: string,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    // console.log(resultJson.data)
     const rawTrades = await this._getOrders(wallet, [2, 3, 4, 5, 6], pageOptions)
 
     const trades: HistoricalTradeInfo[] = []
@@ -1055,6 +1056,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const previewsInfo: OpenTradePreviewInfo[] = []
 
+    const keeperFee = await this._KeeperFeeUsd(tokensData)
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
       const ePos = existingPos[i]
@@ -1155,7 +1157,12 @@ export default class GmxV2Service implements IAdapterV1 {
           ? FixedNumber.fromValue(nextPositionValues.nextLiqPrice!.toString(), 30, 30)
           : FixedNumber.fromString('0'),
         fee: FixedNumber.fromValue(
-          fees.positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd).add(fees.fundingFee!.deltaUsd).toString(),
+          fees
+            .positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd)
+            .add(fees.fundingFee!.deltaUsd)
+            .add(keeperFee)
+            .abs()
+            .toString(),
           30,
           30
         ),
@@ -1177,6 +1184,7 @@ export default class GmxV2Service implements IAdapterV1 {
     if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: CloseTradePreviewInfo[] = []
+    const keeperFee = await this._KeeperFeeUsd(undefined)
     for (let i = 0; i < positionInfo.length; i++) {
       const cpd = closePositionData[i]
       const ePos = positionInfo[i]
@@ -1220,7 +1228,6 @@ export default class GmxV2Service implements IAdapterV1 {
         minCollateralUsd,
         userReferralInfo: undefined
       })
-      console.dir(nextPositionValues, { depth: 4 })
 
       const fees = getTradeFees({
         isIncrease: false,
@@ -1252,7 +1259,12 @@ export default class GmxV2Service implements IAdapterV1 {
           ? FixedNumber.fromValue(nextPositionValues.nextLiqPrice.toString(), 30, 30)
           : FixedNumber.fromString('0'),
         fee: FixedNumber.fromValue(
-          fees.positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd).add(fees.fundingFee!.deltaUsd).toString(),
+          fees
+            .positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd)
+            .add(fees.fundingFee!.deltaUsd)
+            .add(keeperFee)
+            .abs()
+            .toString(),
           30,
           30
         ),
@@ -1470,5 +1482,18 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private async _buildCacheIfEmpty() {
     if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
+  }
+
+  private async _KeeperFeeUsd(tData: TokensData | undefined): Promise<BigNumber> {
+    if (!tData && this._smartWallet !== undefined) {
+      const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, this._smartWallet)
+      tData = tokensData
+    }
+
+    const nativeToken = getTokenData(tData, NATIVE_TOKEN_ADDRESS)
+    const keeperFee = nativeToken
+      ? convertToUsd(DEFAULT_EXEUCTION_FEE, nativeToken.decimals, nativeToken.prices.maxPrice)
+      : undefined
+    return keeperFee ? keeperFee : BigNumber.from(0)
   }
 }
