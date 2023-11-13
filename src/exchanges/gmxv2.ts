@@ -39,7 +39,7 @@ import {
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
 import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
-import { OrderDirection } from '../interface'
+import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toAmountInfo, getBNFromFN } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
@@ -433,7 +433,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: multicallEncoded,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!)
       })
     }
 
@@ -489,7 +490,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: multicallEncoded,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        ethRequired: ethers.constants.Zero // no addtional eth should be required to update
       })
     }
 
@@ -513,7 +515,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: multicallEncoded,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        ethRequired: ethers.constants.Zero // no addtional eth should be required to cancel order
       })
     }
 
@@ -626,7 +629,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: multicallEncoded,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!) // max eth can be upto keeper fee in close
       })
     }
 
@@ -735,7 +739,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: multicallEncoded,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!)
       })
     }
 
@@ -1496,5 +1501,16 @@ export default class GmxV2Service implements IAdapterV1 {
       ? convertToUsd(DEFAULT_EXEUCTION_FEE, nativeToken.decimals, nativeToken.prices.maxPrice)
       : undefined
     return keeperFee ? keeperFee : BigNumber.from(0)
+  }
+
+  private async _getEthRequired(
+    provider: Provider,
+    totalEthReq: BigNumber = BigNumber.from(0) // incl. of keeper fees
+  ): Promise<BigNumber | undefined> {
+    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
+
+    const ethBalance = await provider.getBalance(this._smartWallet!)
+
+    if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
   }
 }
