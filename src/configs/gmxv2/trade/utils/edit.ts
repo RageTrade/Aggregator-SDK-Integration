@@ -27,9 +27,9 @@ export function getMinCollateralUsdForLeverage(position: PositionInfo) {
   return minCollateralUsdForLeverage
 }
 
-const getNextUpdateMarginValues = async (
+export const getNextUpdateMarginValues = async (
   isDeposit: boolean,
-  collateralInputValue: string,
+  collateralDeltaAmount: BigNumber,
   collateralToken: TokenData,
   position: PositionInfo,
   userReferralInfo = undefined
@@ -40,7 +40,6 @@ const getNextUpdateMarginValues = async (
 
   const collateralPrice = collateralToken?.prices.minPrice
 
-  const collateralDeltaAmount = parseValue(collateralInputValue, collateralToken.decimals || 0)
   const collateralDeltaUsd = convertToUsd(collateralDeltaAmount, collateralToken.decimals, collateralPrice)
 
   if (!collateralDeltaUsd || !collateralDeltaAmount) {
@@ -103,7 +102,8 @@ const getNextUpdateMarginValues = async (
     nextLeverage,
     nextLiqPrice,
     receiveUsd,
-    receiveAmount
+    receiveAmount,
+    totalFeesUsd
   }
 }
 

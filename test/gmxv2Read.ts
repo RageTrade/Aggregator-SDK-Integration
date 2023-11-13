@@ -10,7 +10,7 @@ import {
   ClosePositionData,
   AmountInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
-import { logObject } from '../src/common/helper'
+import { logObject, toAmountInfo } from '../src/common/helper'
 import { FixedNumber } from '../src/common/fixedNumber'
 import { parseEther, parseUnits } from 'ethers/lib/utils'
 import { arbitrum } from 'viem/chains'
@@ -81,6 +81,7 @@ async function testOpenTradePreview() {
   logObject('res', res[0])
   logObject('res size: ', res[0].size)
   logObject('res margin: ', res[0].margin)
+  logObject('res fees: ', res[0].fee)
 }
 
 async function increasePosition() {
@@ -292,14 +293,15 @@ async function testCloseTradePreview() {
   const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
 
   orders.push({
-    // type: 'MARKET',
-    type: 'STOP_LOSS',
-    // closeSize: { amount: FixedNumber.fromValue(parseUnits('31.47', 30).toString(), 30, 30), isTokenAmount: false },
-    closeSize: pos.size,
-    triggerData: {
-      triggerPrice: FixedNumber.fromValue(parseUnits('2400', 30).toString(), 30, 30),
-      triggerAboveThreshold: false
-    },
+    type: 'MARKET',
+    // type: 'STOP_LOSS',
+    closeSize: { amount: FixedNumber.fromValue(parseUnits('15', 30).toString(), 30, 30), isTokenAmount: false },
+    // closeSize: pos.size,
+    // triggerData: {
+    //   triggerPrice: FixedNumber.fromValue(parseUnits('2400', 30).toString(), 30, 30),
+    //   triggerAboveThreshold: false
+    // },
+    triggerData: undefined,
     outputCollateral: pos.collateral
   })
 
@@ -310,33 +312,29 @@ async function testCloseTradePreview() {
   logObject('rec margin: ', res[0].receiveMargin)
 }
 
-async function testEditPreview() {
-  const pos = (await ex.getAllPositions('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined)).result[0]
+async function testUpdateMarginPreview() {
+  const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
 
-  let orders: AmountInfo[] = [pos.margin]
+  let marginDelta: AmountInfo[] = [toAmountInfo(parseUnits('1', 6), 6, true)]
 
-  console.dir(pos, { depth: 4 })
+  let res = await ex.getUpdateMarginPreview('0x2f88a09ed4174750a464576FE49E586F90A34820', [true], marginDelta, [pos])
 
-  let res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [true], orders, [pos])
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
 
-  // logObject('res', res[0])
-  // logObject('res size: ', res[0].size)
-  // logObject('res margin: ', res[0].margin)
-  console.dir(res, { depth: 4 })
+  marginDelta = [toAmountInfo(parseUnits('1', 6), 6, true)]
 
-  orders = [pos.margin]
+  res = await ex.getUpdateMarginPreview('0x2f88a09ed4174750a464576FE49E586F90A34820', [false], marginDelta, [pos])
 
-  res = await ex.getUpdateMarginPreview('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', [false], orders, [pos])
-
-  // logObject('res', res[0])
-  // logObject('res size: ', res[0].size)
-  // logObject('res margin: ', res[0].margin)
-  console.dir(res, { depth: 4 })
+  logObject('res', res[0])
+  logObject('res size: ', res[0].size)
+  logObject('res margin: ', res[0].margin)
 }
 
 async function test() {
   await ex.setup('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d')
-  await testEditPreview()
+  await testUpdateMarginPreview()
 }
 
 test()

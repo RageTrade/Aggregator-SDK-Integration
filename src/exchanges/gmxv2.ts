@@ -81,6 +81,7 @@ import {
 } from '../configs/gmxv2/trade/utils/decrease'
 import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
 import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
+import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -1284,36 +1285,36 @@ export default class GmxV2Service implements IAdapterV1 {
     marginDelta: AmountInfo[],
     existingPos: PositionInfo[]
   ): Promise<PreviewInfo[]> {
-    // obtain CreateOrder type from this data
-    // basis isDeposit, get preview for either close or open with sizeDelta as zero
+    const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, wallet)
 
     const previewsInfo: PreviewInfo[] = []
-
+    const keeperFee = await this._KeeperFeeUsd(tokensData)
     for (let i = 0; i < existingPos.length; i++) {
       let preview: PreviewInfo
+      if (!marginDelta[i].isTokenAmount) throw new Error('margin delta must be in token terms')
 
-      if (isDeposit[i]) {
-        const order: CreateOrder = {
-          marketId: existingPos[i].marketId,
-          direction: existingPos[i].direction,
-          sizeDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
-          marginDelta: marginDelta[i],
-          triggerData: undefined,
-          collateral: existingPos[i].collateral,
-          type: 'MARKET',
-          slippage: undefined
-        }
+      const { nextCollateralUsd, nextLeverage, nextLiqPrice, receiveUsd, receiveAmount, totalFeesUsd } =
+        await getNextUpdateMarginValues(
+          isDeposit[i],
+          getBNFromFN(marginDelta[i].amount.toFormat(existingPos[i].collateral.decimals)),
+          getTokenData(tokensData, existingPos[i].collateral.address[42161]!)!,
+          existingPos[i].metadata as InternalPositionInfo,
+          undefined
+        )
 
-        preview = (await this.getOpenTradePreview(wallet, [order], [existingPos[i]]))[0] as PreviewInfo
-      } else {
-        const order: ClosePositionData = {
-          closeSize: { amount: FixedNumber.fromString('0'), isTokenAmount: false },
-          type: 'MARKET',
-          triggerData: undefined,
-          outputCollateral: existingPos[i].collateral
-        }
-
-        preview = (await this.getCloseTradePreview(wallet, [existingPos[i]], [order]))[0] as PreviewInfo
+      preview = {
+        marketId: existingPos[i].marketId,
+        leverage: nextLeverage ? FixedNumber.fromValue(nextLeverage.toString(), 4, 4) : FixedNumber.fromString('0'),
+        size: existingPos[i].size,
+        margin: toAmountInfo(nextCollateralUsd, 30, false),
+        avgEntryPrice: existingPos[i].avgEntryPrice,
+        liqudationPrice: nextLiqPrice
+          ? FixedNumber.fromValue(nextLiqPrice.toString(), 30, 30)
+          : FixedNumber.fromString('0'),
+        fee: FixedNumber.fromValue(totalFeesUsd.add(keeperFee).abs().toString(), 30, 30),
+        collateral: existingPos[i].collateral,
+        isError: false,
+        errMsg: ''
       }
 
       previewsInfo.push(preview)
