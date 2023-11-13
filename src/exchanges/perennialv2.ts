@@ -36,7 +36,7 @@ export default class PerennialV2Service {
     if (perennialAsset === SupportedAsset.btc) return tokens.BTC
     else if (perennialAsset === SupportedAsset.eth) return tokens.ETH
     else if (perennialAsset === SupportedAsset.sol) return tokens.SOL
-    else if (perennialAsset === SupportedAsset.matic) return tokens.MATIC
+    // else if (perennialAsset === SupportedAsset.matic) return tokens.MATIC
     else if (perennialAsset === QuoteCurrency.usd) return tokens['USDC.e']
     else throw new Error('Asset not supported')
   }
