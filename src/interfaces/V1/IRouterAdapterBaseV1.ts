@@ -110,7 +110,7 @@ export type CreateOrder = OrderData &
 
 export type UpdateOrder = OrderData &
   OrderIdentifier & {
-    type: OrderType
+    orderType: OrderType
   }
 
 export type OrderInfo = OrderData &
