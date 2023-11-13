@@ -126,17 +126,8 @@ export const tokens = {
     name: 'Solana',
     decimals: 18,
     address: {
-      [arbitrum.id]: '0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F',
-      [optimism.id]: '0x2E3D870790dC77A83DD1d18184Acc7439A53f475'
-    }
-  },
-  MATIC: {
-    symbol: 'MATIC',
-    name: 'MATIC',
-    decimals: 18,
-    address: {
-      [arbitrum.id]: '0x17FC002b466eEc40DaE837Fc4bE5c67993ddBd6F',
-      [optimism.id]: '0x2E3D870790dC77A83DD1d18184Acc7439A53f475'
+      [arbitrum.id]: '0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07',
+      [optimism.id]: '0xba1Cf949c382A32a09A17B2AdF3587fc7fA664f1'
     }
   }
 } as const satisfies Record<string, Token>
