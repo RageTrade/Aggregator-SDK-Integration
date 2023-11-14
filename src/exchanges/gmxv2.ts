@@ -910,7 +910,7 @@ export default class GmxV2Service implements IAdapterV1 {
         marginDelta: toAmountInfo(trade.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
         collateral: initialCollateralToken as Token,
         realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
-        keeperFeesPaid: FixedNumber.fromValue(trade.executionFee, 18, 18), // WETH
+        keeperFeesPaid: FixedNumber.fromValue(trade.keeperFeeUsd, 30, 30), // USD
         positionFee: FixedNumber.fromValue(positionFeeUsd, 30, 30), // USD
         operationType: this._getOperationType(parseInt(trade.orderType), trade.isLong),
         txHash: trade.executedTxn.hash
@@ -972,6 +972,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const rawTradeHashes = Array.from(rawTradeMap.keys())
 
+    const priceMapPromise = this._getPriceMap(rawTrades);
     const tradeActionsResult = await fetch(this.SUBGRAPH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1006,7 +1007,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const tradeActionsResultJson = await tradeActionsResult.json()
     const rawTradeActions = tradeActionsResultJson.data?.tradeActions
-
+    
+    const {fromTS,priceMap} = await priceMapPromise;
+    console.log({fromTS,priceMap})
     await rawTradeActions.forEach((tradeAction: any) => {
       const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
       if (!rawTrade) return
@@ -1017,11 +1020,54 @@ export default class GmxV2Service implements IAdapterV1 {
         BigInt(this._checkNull(tradeAction.positionFeeAmount)) +
         BigInt(this._checkNull(tradeAction.borrowingFeeAmount)) +
         BigInt(this._checkNull(tradeAction.fundingFeeAmount))
+
+        const ts = rawTrade.executedTxn.timestamp;
+        const days = Math.floor((ts - fromTS) / 86400);
+        const etherPrice = ethers.utils.parseUnits(
+          priceMap[days].toString(),
+          18
+        ).toBigInt();
+        const PRECISION = 10n**30n;
+
+        rawTrade.keeperFeeUsd = BigInt(this._checkNull(rawTrade.executionFee)) * (PRECISION)
+          * (etherPrice)
+          / (ethers.constants.WeiPerEther.toBigInt())
+           / (ethers.constants.WeiPerEther.toBigInt());
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
 
     const out = Array.from(rawTradeMap.values())
     return out
+  }
+
+  private async _getPriceMap(rawTrades: any[]) {
+    let from = new Date(rawTrades[rawTrades.length - 1].executedTxn.timestamp * 1000)
+    from.setUTCHours(0, 0, 0, 0)
+    const fromTS = from.getTime() / 1000
+
+    let to = new Date(rawTrades[0].executedTxn.timestamp * 1000)
+    to.setUTCHours(24, 0, 0, 0)
+    const toTS = to.getTime() / 1000
+
+    try {
+      type BenchmarkData = {
+        t: number[]
+        o: number[]
+      }
+
+      let pricesData: BenchmarkData
+
+      const ethPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.ETH/USD&resolution=D&from=${fromTS}&to=${toTS}`
+      pricesData = await fetch(ethPriceUrl).then((d) => d.json())
+      let priceMap = new Array<number>()
+
+      for (const i in pricesData.t) {
+        priceMap.push(pricesData.o[i])
+      }
+      return {fromTS, toTS, priceMap}
+    } catch (e) {
+      throw new Error(`<Gmx trade history> Error fetching price data: ${e}`);
+    }
   }
 
   private _checkNull(value: any) {
