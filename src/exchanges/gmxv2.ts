@@ -776,7 +776,9 @@ export default class GmxV2Service implements IAdapterV1 {
           30
         ),
         unrealizedPnl: FixedNumber.fromValue(posData.pnlAfterFees.toString(), 30, 30),
-        liquidationPrice: FixedNumber.fromValue(posData.liquidationPrice!.toString(), 30, 30),
+        liquidationPrice: posData.liquidationPrice
+          ? FixedNumber.fromValue(posData.liquidationPrice.toString(), 30, 30)
+          : FixedNumber.fromValue('0'),
         leverage: FixedNumber.fromValue(posData.leverage!.toString(), 4, 4),
         direction: posData.isLong ? 'LONG' : 'SHORT',
         collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
