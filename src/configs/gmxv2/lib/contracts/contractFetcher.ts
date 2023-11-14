@@ -5,7 +5,6 @@ export const contractFetcher =
   <T>(contractInfo: any, additionalArgs?: any[]) =>
   (args: any): Promise<T> => {
     // eslint-disable-next-line
-    console.log({ args })
     const [id, chainId, arg0, arg1, ...params] = args
     const provider = rpc[42161]
 

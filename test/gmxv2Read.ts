@@ -22,7 +22,7 @@ const xrpMarketId = '42161-GMXV2-0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c'
 const ethMarketId = '42161-GMXV2-0x70d95587d40A2caf56bd97485aB3Eec10Bee6336'
 
 async function testGetAllPositions() {
-  const res = await ex.getAllPositions('0x4F9864A7629153C5167745Ac145D8f39297cED32', undefined)
+  const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
   console.dir({ res: res.result[0] }, { depth: 4 })
 }
 
@@ -332,9 +332,20 @@ async function testUpdateMarginPreview() {
   logObject('res margin: ', res[0].margin)
 }
 
+async function testReferralCache() {
+  // for (let i = 0; i < 3; i++) {
+  //   console.time('testReferralCache')
+  //   const res = await ex._getUserReferralInfo('0x2f88a09ed4174750a464576FE49E586F90A34820')
+  //   console.timeEnd('testReferralCache')
+  //   // console.log(res)
+  // }
+}
+
 async function test() {
   await ex.setup('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d')
-  await testUpdateMarginPreview()
+  await testGetAllPositions()
+  // await testOpenTradePreview()
+  // await testCloseTradePreview()
 }
 
 test()

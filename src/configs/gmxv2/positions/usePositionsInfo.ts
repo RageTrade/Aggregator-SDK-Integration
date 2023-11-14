@@ -35,23 +35,19 @@ export async function usePositionsInfo(
     pricesUpdatedAt?: number
     showPnlInLeverage: boolean
     skipLocalReferralCode?: boolean
+    userReferralInfo?: UserReferralInfo
   }
 ): Promise<PositionsInfoResult> {
-  const { showPnlInLeverage, marketsInfoData, tokensData, account, skipLocalReferralCode = false } = p
+  const { showPnlInLeverage, marketsInfoData, tokensData, account, skipLocalReferralCode = false, userReferralInfo } = p
 
   const { positionsData } = await usePositions(chainId, p)
   const { minCollateralUsd } = await usePositionsConstants(chainId)
-  let userReferralInfo: UserReferralInfo | undefined = undefined
-  // TODO - modify to use referral code
-  // const userReferralInfo = await useUserReferralInfo(chainId, account, skipLocalReferralCode)
 
   if (!marketsInfoData || !tokensData || !positionsData || !minCollateralUsd) {
     return {
       isLoading: true
     }
   }
-
-  // console.log({ positionsData, marketsInfoData, tokensData, minCollateralUsd })
 
   const positionsInfoData = Object.keys(positionsData).reduce((acc: PositionsInfoData, positionKey: string) => {
     const position = getByKey(positionsData, positionKey)!

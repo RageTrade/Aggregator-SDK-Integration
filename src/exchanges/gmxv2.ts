@@ -84,11 +84,14 @@ import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
+import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
+import { UserReferralInfo } from '../configs/gmxv2/referrals/types'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
 
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
+const REFERRAL_CACHE_TIME = 60 * 60 * 24
 
 enum SolidityOrderType {
   MarketSwap,
@@ -146,6 +149,10 @@ export default class GmxV2Service implements IAdapterV1 {
       market: Awaited<ReturnType<Reader['getMarket']>>
     }
   > = {}
+  private cachedReferralInfo: {
+    userReferralInfo: UserReferralInfo
+    lastUpdatedAt: number
+  } = {} as any
 
   private _smartWallet: string | undefined
 
@@ -935,12 +942,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 
@@ -972,7 +980,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const rawTradeHashes = Array.from(rawTradeMap.keys())
 
-    const priceMapPromise = this._getPriceMap(rawTrades);
+    const priceMapPromise = this._getPriceMap(rawTrades)
     const tradeActionsResultPromise = fetch(this.SUBGRAPH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -1007,11 +1015,15 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const feeInfoMapPromise = this.getPositionFeeInfoMap(rawTradeHashes)
 
-    const [tradeActionsResult, priceMapOut, feeInfoMap] = await Promise.all([tradeActionsResultPromise, priceMapPromise, feeInfoMapPromise])
+    const [tradeActionsResult, priceMapOut, feeInfoMap] = await Promise.all([
+      tradeActionsResultPromise,
+      priceMapPromise,
+      feeInfoMapPromise
+    ])
     const tradeActionsResultJson = await tradeActionsResult.json()
     const rawTradeActions = tradeActionsResultJson.data?.tradeActions
 
-    const { fromTS, priceMap } = priceMapOut;
+    const { fromTS, priceMap } = priceMapOut
     console.log({ fromTS, priceMap })
     await rawTradeActions.forEach((tradeAction: any) => {
       const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
@@ -1026,8 +1038,12 @@ export default class GmxV2Service implements IAdapterV1 {
         BigInt(this._checkNull(feeInfo.borrowingFeeAmount)) +
         BigInt(this._checkNull(feeInfo.fundingFeeAmount))
 
-
-      rawTrade.keeperFeeUsd = this._getPriceForRawTrade(priceMap, fromTS, rawTrade.executedTxn.timestamp, rawTrade.executionFee)
+      rawTrade.keeperFeeUsd = this._getPriceForRawTrade(
+        priceMap,
+        fromTS,
+        rawTrade.executedTxn.timestamp,
+        rawTrade.executionFee
+      )
       rawTrade.initialCollateralDeltaAmountTradeAction = this._checkNull(tradeAction.initialCollateralDeltaAmount)
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
@@ -1067,18 +1083,16 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   private _getPriceForRawTrade(priceMap: number[], fromTS: number, rawTradeTimestamp: any, feeInEth: string) {
-    const ts = rawTradeTimestamp//rawTrade.executedTxn.timestamp;
-    const days = Math.floor((ts - fromTS) / 86400);
-    const etherPrice = ethers.utils.parseUnits(
-      priceMap[days].toString(),
-      18
-    ).toBigInt();
-    const PRECISION = 10n ** 30n;
+    const ts = rawTradeTimestamp //rawTrade.executedTxn.timestamp;
+    const days = Math.floor((ts - fromTS) / 86400)
+    const etherPrice = ethers.utils.parseUnits(priceMap[days].toString(), 18).toBigInt()
+    const PRECISION = 10n ** 30n
 
-    return BigInt(this._checkNull(feeInEth)) * (PRECISION)
-      * (etherPrice)
-      / (ethers.constants.WeiPerEther.toBigInt())
-      / (ethers.constants.WeiPerEther.toBigInt());
+    return (
+      (BigInt(this._checkNull(feeInEth)) * PRECISION * etherPrice) /
+      ethers.constants.WeiPerEther.toBigInt() /
+      ethers.constants.WeiPerEther.toBigInt()
+    )
   }
 
   private async _getPriceMap(rawTrades: any[]) {
@@ -1107,7 +1121,7 @@ export default class GmxV2Service implements IAdapterV1 {
       }
       return { fromTS, toTS, priceMap }
     } catch (e) {
-      throw new Error(`<Gmx trade history> Error fetching price data: ${e}`);
+      throw new Error(`<Gmx trade history> Error fetching price data: ${e}`)
     }
   }
 
@@ -1136,7 +1150,7 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<PaginatedRes<LiquidationInfo>> {
     const rawTrades = await this._getOrders(wallet, [7], pageOptions)
 
-    const { fromTS, priceMap } = await this._getPriceMap(rawTrades);
+    const { fromTS, priceMap } = await this._getPriceMap(rawTrades)
 
     const liquidations: LiquidationInfo[] = []
 
@@ -1152,7 +1166,12 @@ export default class GmxV2Service implements IAdapterV1 {
       // const remainingCollateralUsd = BigInt(trade.initialCollateralDeltaAmount) * BigInt(trade.collateralTokenPriceMax)
 
       // console.log({ feeEth: trade.executionFee })
-      const liquidationFeeUsd = this._getPriceForRawTrade(priceMap, fromTS, trade.executedTxn.timestamp, trade.executionFee)
+      const liquidationFeeUsd = this._getPriceForRawTrade(
+        priceMap,
+        fromTS,
+        trade.executedTxn.timestamp,
+        trade.executionFee
+      )
       liquidations.push({
         marketId: marketId,
         timestamp: trade.executedTxn.timestamp,
@@ -1181,6 +1200,7 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<OpenTradePreviewInfo[]> {
     const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
     const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
+    const userReferralInfo = await this._getUserReferralInfo(wallet)
     if (!marketsInfoData || !tokensData || !minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: OpenTradePreviewInfo[] = []
@@ -1223,7 +1243,7 @@ export default class GmxV2Service implements IAdapterV1 {
         triggerPrice: od.type === 'LIMIT' ? orderTriggerPrice : undefined,
         position: existingPosition,
         savedAcceptablePriceImpactBps: BigNumber.from(100),
-        userReferralInfo: undefined, // TODO set referral info
+        userReferralInfo: userReferralInfo,
         strategy: 'leverageByCollateral'
       })
 
@@ -1239,7 +1259,7 @@ export default class GmxV2Service implements IAdapterV1 {
         indexPrice: increaseAmounts.indexPrice,
         showPnlInLeverage: false,
         minCollateralUsd,
-        userReferralInfo: undefined // TODO set referral info
+        userReferralInfo: userReferralInfo
       })
 
       const fees = getTradeFees({
@@ -1310,6 +1330,7 @@ export default class GmxV2Service implements IAdapterV1 {
     closePositionData: ClosePositionData[]
   ): Promise<CloseTradePreviewInfo[]> {
     const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
+    const userReferralInfo = await this._getUserReferralInfo(wallet)
     if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: CloseTradePreviewInfo[] = []
@@ -1333,7 +1354,7 @@ export default class GmxV2Service implements IAdapterV1 {
         keepLeverage: false,
         triggerPrice: cpdTriggerPrice,
         savedAcceptablePriceImpactBps: cpd.type === 'MARKET' ? undefined : BigNumber.from(100),
-        userReferralInfo: undefined, // TODO - referral info
+        userReferralInfo: userReferralInfo,
         minCollateralUsd,
         minPositionSizeUsd
       })
@@ -1635,5 +1656,23 @@ export default class GmxV2Service implements IAdapterV1 {
     const ethBalance = await provider.getBalance(this._smartWallet!)
 
     if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
+  }
+
+  private async _getUserReferralInfo(wallet: string): Promise<UserReferralInfo | undefined> {
+    // return cache iff not older than REFERRAL_CACHE_TIME
+    if (
+      this.cachedReferralInfo.userReferralInfo &&
+      this.cachedReferralInfo.lastUpdatedAt + REFERRAL_CACHE_TIME > Math.floor(Date.now() / 1000)
+    ) {
+      return this.cachedReferralInfo.userReferralInfo
+    }
+
+    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet, true)
+    if (userReferralInfo !== undefined) {
+      this.cachedReferralInfo.userReferralInfo = userReferralInfo
+      this.cachedReferralInfo.lastUpdatedAt = Math.floor(Date.now() / 1000)
+    }
+
+    return userReferralInfo
   }
 }
