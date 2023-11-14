@@ -71,8 +71,8 @@ export type DynamicMarketMetadata = {
   availableLiquidityShort: FixedNumber
   longFundingRate: FixedNumber
   shortFundingRate: FixedNumber
-  longBorrowRate: FixedNumber | undefined
-  shortBorrowRate: FixedNumber | undefined
+  longBorrowRate: FixedNumber
+  shortBorrowRate: FixedNumber
 }
 
 export type MarketInfo = Market & GenericStaticMarketMetadata & Protocol
