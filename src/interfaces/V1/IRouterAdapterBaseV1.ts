@@ -69,8 +69,10 @@ export type DynamicMarketMetadata = {
   oiShort: FixedNumber
   availableLiquidityLong: FixedNumber
   availableLiquidityShort: FixedNumber
-  longRate: FixedNumber
-  shortRate: FixedNumber
+  longFundingRate: FixedNumber
+  shortFundingRate: FixedNumber
+  longBorrowRate: FixedNumber | undefined
+  shortBorrowRate: FixedNumber | undefined
 }
 
 export type MarketInfo = Market & GenericStaticMarketMetadata & Protocol

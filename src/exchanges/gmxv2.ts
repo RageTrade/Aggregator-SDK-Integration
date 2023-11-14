@@ -281,16 +281,15 @@ export default class GmxV2Service implements IAdapterV1 {
       const fundingRateLong = getFundingFactorPerPeriod(info, true, 3_600)
       const fundingRateShort = getFundingFactorPerPeriod(info, false, 3_600)
 
-      const longRate = borrowingRateLong.add(fundingRateLong)
-      const shortRate = borrowingRateShort.add(fundingRateShort)
-
       metadata.push({
         oiLong: FixedNumber.fromString(formatUnits(longOI, 30), 'fixed128x30'),
         oiShort: FixedNumber.fromString(formatUnits(shortOI, 30), 'fixed128x30'),
         availableLiquidityLong: FixedNumber.fromString(formatUnits(availLiqLong, 30), 'fixed128x30'),
         availableLiquidityShort: FixedNumber.fromString(formatUnits(availLiqShort, 30), 'fixed128x30'),
-        longRate: FixedNumber.fromString(formatUnits(longRate, 30), 'fixed128x30'),
-        shortRate: FixedNumber.fromString(formatUnits(shortRate, 30), 'fixed128x30')
+        longFundingRate: FixedNumber.fromString(formatUnits(fundingRateLong, 30), 'fixed128x30'),
+        shortFundingRate: FixedNumber.fromString(formatUnits(fundingRateShort, 30), 'fixed128x30'),
+        longBorrowRate: FixedNumber.fromString(formatUnits(borrowingRateLong, 30), 'fixed128x30'),
+        shortBorrowRate: FixedNumber.fromString(formatUnits(borrowingRateShort, 30), 'fixed128x30')
       })
     }
 
