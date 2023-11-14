@@ -923,6 +923,7 @@ export default class GmxV2Service implements IAdapterV1 {
     }
   }
 
+  // Gives orders where size delta is >0
   private async _getOrders(wallet: string, orderTypes: number[], pageOptions: PageOptions | undefined) {
     const results = await fetch(this.SUBGRAPH_URL, {
       method: 'POST',
@@ -935,7 +936,7 @@ export default class GmxV2Service implements IAdapterV1 {
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
               ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, orderType_in: ${JSON.stringify(
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
               orderTypes
             )} }`
             : ''
@@ -1025,19 +1026,8 @@ export default class GmxV2Service implements IAdapterV1 {
         BigInt(this._checkNull(feeInfo.borrowingFeeAmount)) +
         BigInt(this._checkNull(feeInfo.fundingFeeAmount))
 
-      const ts = rawTrade.executedTxn.timestamp;
-      const days = Math.floor((ts - fromTS) / 86400);
-      const etherPrice = ethers.utils.parseUnits(
-        priceMap[days].toString(),
-        18
-      ).toBigInt();
-      const PRECISION = 10n ** 30n;
 
-      rawTrade.keeperFeeUsd = BigInt(this._checkNull(rawTrade.executionFee)) * (PRECISION)
-        * (etherPrice)
-        / (ethers.constants.WeiPerEther.toBigInt())
-        / (ethers.constants.WeiPerEther.toBigInt());
-
+      rawTrade.keeperFeeUsd = this._getPriceForRawTrade(priceMap, fromTS, rawTrade.executedTxn.timestamp, rawTrade.executionFee)
 
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
@@ -1074,6 +1064,21 @@ export default class GmxV2Service implements IAdapterV1 {
     feeInfos.forEach((feeInfo: any) => feeInfoMap.set(feeInfo.transaction.hash, feeInfo))
 
     return feeInfoMap
+  }
+
+  private _getPriceForRawTrade(priceMap: number[], fromTS: number, rawTradeTimestamp: any, feeInEth: string) {
+    const ts = rawTradeTimestamp//rawTrade.executedTxn.timestamp;
+    const days = Math.floor((ts - fromTS) / 86400);
+    const etherPrice = ethers.utils.parseUnits(
+      priceMap[days].toString(),
+      18
+    ).toBigInt();
+    const PRECISION = 10n ** 30n;
+
+    return BigInt(this._checkNull(feeInEth)) * (PRECISION)
+      * (etherPrice)
+      / (ethers.constants.WeiPerEther.toBigInt())
+      / (ethers.constants.WeiPerEther.toBigInt());
   }
 
   private async _getPriceMap(rawTrades: any[]) {
@@ -1131,6 +1136,8 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<PaginatedRes<LiquidationInfo>> {
     const rawTrades = await this._getOrders(wallet, [7], pageOptions)
 
+    const { fromTS, priceMap } = await this._getPriceMap(rawTrades);
+
     const liquidations: LiquidationInfo[] = []
 
     rawTrades.forEach((trade: any) => {
@@ -1141,9 +1148,11 @@ export default class GmxV2Service implements IAdapterV1 {
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
       // if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
 
-      const positionFeeUsd = BigInt(trade.positionFee) * BigInt(trade.collateralTokenPriceMax)
-      const remainingCollateralUsd = BigInt(trade.initialCollateralDeltaAmount) * BigInt(trade.collateralTokenPriceMax)
+      // const positionFeeUsd = BigInt(trade.positionFee) * BigInt(trade.collateralTokenPriceMax)
+      // const remainingCollateralUsd = BigInt(trade.initialCollateralDeltaAmount) * BigInt(trade.collateralTokenPriceMax)
 
+      // console.log({ feeEth: trade.executionFee })
+      const liquidationFeeUsd = this._getPriceForRawTrade(priceMap, fromTS, trade.executedTxn.timestamp, trade.executionFee)
       liquidations.push({
         marketId: marketId,
         timestamp: trade.executedTxn.timestamp,
@@ -1153,13 +1162,8 @@ export default class GmxV2Service implements IAdapterV1 {
         remainingCollateral: toAmountInfo(trade.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
         collateral: initialCollateralToken as Token,
         realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
-        liquidationFees: FixedNumber.fromValue(trade.executionFee, 18, 18), // WETH
-        liqudationLeverage:
-          remainingCollateralUsd != BigInt(0)
-            ? FixedNumber.fromValue(trade.sizeDeltaUsd, 30, 30).div(
-              FixedNumber.fromValue(remainingCollateralUsd, 30, 30)
-            )
-            : FixedNumber.fromValue(0, 30, 30), // USD
+        liquidationFees: FixedNumber.fromValue(liquidationFeeUsd, 30, 30), // USD
+        liqudationLeverage: FixedNumber.fromValue('500000', 4, 4), //50x
         txHash: trade.executedTxn.hash
       } as LiquidationInfo)
     })
