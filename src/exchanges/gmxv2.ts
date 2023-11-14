@@ -934,13 +934,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 
@@ -973,7 +972,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const rawTradeHashes = Array.from(rawTradeMap.keys())
 
     const priceMapPromise = this._getPriceMap(rawTrades);
-    const tradeActionsResult = await fetch(this.SUBGRAPH_URL, {
+    const tradeActionsResultPromise = fetch(this.SUBGRAPH_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -1005,39 +1004,76 @@ export default class GmxV2Service implements IAdapterV1 {
       })
     })
 
+    const feeInfoMapPromise = this.getPositionFeeInfoMap(rawTradeHashes)
+
+    const [tradeActionsResult, priceMapOut, feeInfoMap] = await Promise.all([tradeActionsResultPromise, priceMapPromise, feeInfoMapPromise])
     const tradeActionsResultJson = await tradeActionsResult.json()
     const rawTradeActions = tradeActionsResultJson.data?.tradeActions
-    
-    const {fromTS,priceMap} = await priceMapPromise;
-    console.log({fromTS,priceMap})
+
+    const { fromTS, priceMap } = priceMapOut;
+    console.log({ fromTS, priceMap })
     await rawTradeActions.forEach((tradeAction: any) => {
       const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
       if (!rawTrade) return
       rawTrade.executionPrice = this._checkNull(tradeAction.executionPrice)
       rawTrade.pnlUsd = this._checkNull(tradeAction.pnlUsd)
       rawTrade.collateralTokenPriceMax = this._checkNull(tradeAction.collateralTokenPriceMax)
+      const feeInfo = feeInfoMap.get(tradeAction.transaction.hash)
+      // console.log({ feeInfo })
       rawTrade.positionFee =
-        BigInt(this._checkNull(tradeAction.positionFeeAmount)) +
-        BigInt(this._checkNull(tradeAction.borrowingFeeAmount)) +
-        BigInt(this._checkNull(tradeAction.fundingFeeAmount))
+        BigInt(this._checkNull(feeInfo.positionFeeAmount)) +
+        BigInt(this._checkNull(feeInfo.borrowingFeeAmount)) +
+        BigInt(this._checkNull(feeInfo.fundingFeeAmount))
 
-        const ts = rawTrade.executedTxn.timestamp;
-        const days = Math.floor((ts - fromTS) / 86400);
-        const etherPrice = ethers.utils.parseUnits(
-          priceMap[days].toString(),
-          18
-        ).toBigInt();
-        const PRECISION = 10n**30n;
+      const ts = rawTrade.executedTxn.timestamp;
+      const days = Math.floor((ts - fromTS) / 86400);
+      const etherPrice = ethers.utils.parseUnits(
+        priceMap[days].toString(),
+        18
+      ).toBigInt();
+      const PRECISION = 10n ** 30n;
 
-        rawTrade.keeperFeeUsd = BigInt(this._checkNull(rawTrade.executionFee)) * (PRECISION)
-          * (etherPrice)
-          / (ethers.constants.WeiPerEther.toBigInt())
-           / (ethers.constants.WeiPerEther.toBigInt());
+      rawTrade.keeperFeeUsd = BigInt(this._checkNull(rawTrade.executionFee)) * (PRECISION)
+        * (etherPrice)
+        / (ethers.constants.WeiPerEther.toBigInt())
+        / (ethers.constants.WeiPerEther.toBigInt());
+
+
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
 
     const out = Array.from(rawTradeMap.values())
     return out
+  }
+
+  private async getPositionFeeInfoMap(rawTradeHashes: string[]) {
+    const tradeActionsResult = await fetch(this.SUBGRAPH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{
+          positionFeesInfos(
+            where : {transaction_in: ${JSON.stringify(rawTradeHashes)}}
+          ) {
+            id
+            transaction{
+              hash
+            }
+            positionFeeAmount
+            fundingFeeAmount
+            borrowingFeeAmount
+          }
+        }`
+      })
+    })
+
+    const tradeActionsResultJson = await tradeActionsResult.json()
+    const feeInfos = tradeActionsResultJson.data?.positionFeesInfos
+
+    const feeInfoMap = new Map()
+    feeInfos.forEach((feeInfo: any) => feeInfoMap.set(feeInfo.transaction.hash, feeInfo))
+
+    return feeInfoMap
   }
 
   private async _getPriceMap(rawTrades: any[]) {
@@ -1064,7 +1100,7 @@ export default class GmxV2Service implements IAdapterV1 {
       for (const i in pricesData.t) {
         priceMap.push(pricesData.o[i])
       }
-      return {fromTS, toTS, priceMap}
+      return { fromTS, toTS, priceMap }
     } catch (e) {
       throw new Error(`<Gmx trade history> Error fetching price data: ${e}`);
     }
@@ -1121,8 +1157,8 @@ export default class GmxV2Service implements IAdapterV1 {
         liqudationLeverage:
           remainingCollateralUsd != BigInt(0)
             ? FixedNumber.fromValue(trade.sizeDeltaUsd, 30, 30).div(
-                FixedNumber.fromValue(remainingCollateralUsd, 30, 30)
-              )
+              FixedNumber.fromValue(remainingCollateralUsd, 30, 30)
+            )
             : FixedNumber.fromValue(0, 30, 30), // USD
         txHash: trade.executedTxn.hash
       } as LiquidationInfo)
