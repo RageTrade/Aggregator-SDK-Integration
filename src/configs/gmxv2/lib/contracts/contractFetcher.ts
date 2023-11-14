@@ -93,7 +93,7 @@ function getContractCall(call: ContractCallType) {
     if (call.additionalArgs) {
       return contract[call.method](call.params.concat(call.additionalArgs))
     }
-    return contract[call.method](call.params)
+    return contract[call.method](...call.params)
   }
 
   if (!call.provider) {
