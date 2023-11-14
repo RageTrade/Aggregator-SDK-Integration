@@ -798,12 +798,13 @@ export default class GmxV2Service implements IAdapterV1 {
     const positionsInfo: PositionInfo[] = []
     const positionsData = Object.values(positionsInfoData!)
     for (const posData of positionsData) {
+      const accessibleMargin = posData.remainingCollateralUsd.sub(this.minCollateralUsd)
       positionsInfo.push({
         marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', posData.marketInfo.marketTokenAddress),
         posId: posData.key,
         size: toAmountInfo(posData.sizeInUsd, 30, false),
         margin: toAmountInfo(posData.collateralAmount, posData.collateralToken.decimals, true),
-        accessibleMargin: toAmountInfo(posData.remainingCollateralUsd.sub(this.minCollateralUsd), 30, false),
+        accessibleMargin: toAmountInfo(accessibleMargin.gt('0') ? accessibleMargin : ZERO, 30, false),
         avgEntryPrice: FixedNumber.fromValue(posData.entryPrice!.toString(), 30, 30),
         cumulativeFunding: FixedNumber.fromValue(
           posData.pendingFundingFeesUsd.add(posData.pendingBorrowingFeesUsd).toString(),
