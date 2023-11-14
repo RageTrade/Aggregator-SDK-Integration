@@ -124,7 +124,7 @@ export const tokens = {
   SOL: {
     symbol: 'SOL',
     name: 'Solana',
-    decimals: 18,
+    decimals: 9,
     address: {
       [arbitrum.id]: '0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07',
       [optimism.id]: '0xba1Cf949c382A32a09A17B2AdF3587fc7fA664f1'
