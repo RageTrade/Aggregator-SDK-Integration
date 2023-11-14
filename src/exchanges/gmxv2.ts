@@ -907,7 +907,7 @@ export default class GmxV2Service implements IAdapterV1 {
         price: FixedNumber.fromValue(trade.executionPrice, indexToken.priceDecimals, 30),
         direction: trade.isLong ? ('LONG' as TradeDirection) : ('SHORT' as TradeDirection),
         sizeDelta: toAmountInfo(trade.sizeDeltaUsd, 30, false), // USD
-        marginDelta: toAmountInfo(trade.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
+        marginDelta: toAmountInfo(trade.initialCollateralDeltaAmountTradeAction, initialCollateralToken.decimals, true),
         collateral: initialCollateralToken as Token,
         realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
         keeperFeesPaid: FixedNumber.fromValue(trade.keeperFeeUsd, 30, 30), // USD
@@ -1028,7 +1028,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
 
       rawTrade.keeperFeeUsd = this._getPriceForRawTrade(priceMap, fromTS, rawTrade.executedTxn.timestamp, rawTrade.executionFee)
-
+      rawTrade.initialCollateralDeltaAmountTradeAction = this._checkNull(tradeAction.initialCollateralDeltaAmount)
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
 
