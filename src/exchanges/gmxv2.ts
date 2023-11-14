@@ -468,8 +468,22 @@ export default class GmxV2Service implements IAdapterV1 {
         .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
         .div(BigNumber.from(10).pow(18))
 
+      // should cover:
+      // Increase & Long
+      // Increase & short
+      // Decrease & Long
+      // Decrease & Short
+
+      let increment: boolean
+
+      if (od.direction == 'LONG') {
+        increment = order.numbers.orderType === SolidityOrderType.LimitIncrease
+      } else {
+        increment = order.numbers.orderType === SolidityOrderType.LimitDecrease
+      }
+
       // calculate acceptable price for trade
-      const acceptablePrice = applySlippage(triggerPrice, DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE, od.direction == 'LONG')
+      const acceptablePrice = applySlippage(triggerPrice, DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE, increment)
 
       // populate update calldata (shouldn't require sending additional collateral or modifying size)
       // size delta should be in usd terms 1e30
