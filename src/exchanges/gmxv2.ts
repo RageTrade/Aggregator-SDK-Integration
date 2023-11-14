@@ -82,6 +82,8 @@ import {
 import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
 import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
+import { ReferralStorage__factory } from '../../typechain/gmx-v1'
+import { getContract } from '../configs/gmx/contracts'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -150,7 +152,25 @@ export default class GmxV2Service implements IAdapterV1 {
   async setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
     this._smartWallet = ethers.utils.getAddress(swAddr)
     await this._buildCacheIfEmpty()
-    return Promise.resolve([])
+
+    const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
+
+    // Check if user has already setup
+    const code = await referralStorage.traderReferralCodes(this._smartWallet)
+    if (code != ethers.constants.HashZero) {
+      return Promise.resolve([])
+    }
+
+    let txs: UnsignedTxWithMetadata[] = []
+
+    // set referral code
+    const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(REFERRAL_CODE)
+    txs.push({
+      tx: setReferralCodeTx,
+      type: 'GMX_V2',
+      data: undefined
+    })
+    return txs
   }
 
   supportedChains(): Chain[] {
@@ -771,7 +791,8 @@ export default class GmxV2Service implements IAdapterV1 {
       tokensData,
       pricesUpdatedAt,
       showPnlInLeverage: false,
-      account: wallet
+      account: wallet,
+      skipLocalReferralCode: true
     })
 
     const positionsInfo: PositionInfo[] = []
@@ -1225,7 +1246,7 @@ export default class GmxV2Service implements IAdapterV1 {
         keepLeverage: false,
         triggerPrice: cpdTriggerPrice,
         savedAcceptablePriceImpactBps: cpd.type === 'MARKET' ? undefined : BigNumber.from(100),
-        userReferralInfo: undefined,
+        userReferralInfo: undefined, // TODO - referral info
         minCollateralUsd,
         minPositionSizeUsd
       })
