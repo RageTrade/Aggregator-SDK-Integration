@@ -913,6 +913,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const positionFeeUsd = BigInt(trade.positionFee) * BigInt(trade.collateralTokenPriceMax)
 
+      // console.log({ colPriceMax: trade.collateralTokenPriceMax, colPriceMin: trade.collateralTokenPriceMin, collateralTokenPriceDecimals: initialCollateralToken.priceDecimals, initialCollateralToken, collateralDelta: trade.initialCollateralDeltaAmountTradeAction, hash: trade.executedTxn.hash })
       trades.push({
         marketId: marketId,
         timestamp: trade.executedTxn.timestamp,
@@ -948,13 +949,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 
@@ -1007,7 +1007,6 @@ export default class GmxV2Service implements IAdapterV1 {
             isLong
             executionPrice
 
-            collateralTokenPriceMax
             initialCollateralTokenAddress
             initialCollateralDeltaAmount
             fundingFeeAmount
@@ -1030,13 +1029,11 @@ export default class GmxV2Service implements IAdapterV1 {
     const rawTradeActions = tradeActionsResultJson.data?.tradeActions
 
     const { fromTS, priceMap } = priceMapOut
-    console.log({ fromTS, priceMap })
     await rawTradeActions.forEach((tradeAction: any) => {
       const rawTrade = rawTradeMap.get(tradeAction.transaction.hash)
       if (!rawTrade) return
       rawTrade.executionPrice = this._checkNull(tradeAction.executionPrice)
       rawTrade.pnlUsd = this._checkNull(tradeAction.pnlUsd)
-      rawTrade.collateralTokenPriceMax = this._checkNull(tradeAction.collateralTokenPriceMax)
       const feeInfo = feeInfoMap.get(tradeAction.transaction.hash)
       // console.log({ feeInfo })
       rawTrade.positionFee =
@@ -1050,6 +1047,8 @@ export default class GmxV2Service implements IAdapterV1 {
         rawTrade.executedTxn.timestamp,
         rawTrade.executionFee
       )
+      rawTrade.collateralTokenPriceMin = this._checkNull(feeInfo.collateralTokenPriceMin)
+      rawTrade.collateralTokenPriceMax = this._checkNull(feeInfo.collateralTokenPriceMax)
       rawTrade.initialCollateralDeltaAmountTradeAction = this._checkNull(tradeAction.initialCollateralDeltaAmount)
       rawTradeMap.set(tradeAction.transaction.hash, rawTrade)
     })
@@ -1074,6 +1073,8 @@ export default class GmxV2Service implements IAdapterV1 {
             positionFeeAmount
             fundingFeeAmount
             borrowingFeeAmount
+            collateralTokenPriceMin
+            collateralTokenPriceMax
           }
         }`
       })
