@@ -50,7 +50,9 @@ export function startStreaming(retries = 3, delay = 3000) {
               if (trimmedDataString) {
                 try {
                   var jsonData = JSON.parse(trimmedDataString)
-                  handleStreamingData(jsonData)
+                  if ('id' in jsonData) {
+                    handleStreamingData(jsonData)
+                  }
                 } catch (e) {
                   // console.error("Error parsing JSON:");
                 }
