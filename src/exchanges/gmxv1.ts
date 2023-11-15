@@ -688,7 +688,7 @@ export default class GmxV1Service implements IExchange {
 
       if (transferToken.address == ethers.constants.AddressZero) {
         extraEthReq = marginAmount;
-        
+
         marginTx = await positionRouter.populateTransaction.createIncreasePositionETH(
           path,
           indexAddress,
@@ -700,7 +700,7 @@ export default class GmxV1Service implements IExchange {
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: BigNumber.from(this.EXECUTION_FEE).add(marginAmount)
+            value: this.EXECUTION_FEE.add(marginAmount)
           }
         )
       } else {
@@ -716,7 +716,7 @@ export default class GmxV1Service implements IExchange {
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: BigNumber.from(this.EXECUTION_FEE)
+            value: this.EXECUTION_FEE
           }
         )
       }
