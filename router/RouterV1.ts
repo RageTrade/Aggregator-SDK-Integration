@@ -48,10 +48,19 @@ export default class RouterV1 implements IRouterV1 {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
   }
 
-  async setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
+  async init(swAddr: string): Promise<void> {
+    const initPromises: Promise<void>[] = []
+    for (const key in this.adapters) {
+      initPromises.push(this.adapters[key].init(swAddr))
+    }
+    await Promise.all(initPromises)
+    return Promise.resolve()
+  }
+
+  async setup(): Promise<UnsignedTxWithMetadata[]> {
     const setupPromises: Promise<UnsignedTxWithMetadata[]>[] = []
     for (const key in this.adapters) {
-      setupPromises.push(this.adapters[key].setup(swAddr))
+      setupPromises.push(this.adapters[key].setup())
     }
     const out = await Promise.all(setupPromises)
 
@@ -194,7 +203,6 @@ export default class RouterV1 implements IRouterV1 {
     out.forEach((res) => {
       result.push(...res.result)
     })
-
 
     return getPaginatedResponse(result, pageOptions)
   }

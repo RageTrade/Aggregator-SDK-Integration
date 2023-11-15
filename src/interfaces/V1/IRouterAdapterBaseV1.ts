@@ -263,8 +263,11 @@ export type UnsignedTxWithMetadata =
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export interface IRouterAdapterBaseV1 {
+  ///// Init Api //////
+  init(swAddr: string): Promise<void>
+
   ///// Setup api //////
-  setup(swAddr: string): Promise<UnsignedTxWithMetadata[]>
+  setup(): Promise<UnsignedTxWithMetadata[]>
 
   ///// Network api //////
   supportedChains(): Chain[]

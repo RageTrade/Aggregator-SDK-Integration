@@ -89,7 +89,8 @@ async function increasePosition() {
   const updateOrders: UpdateOrder[] = []
   const cancelOrders: CancelOrder[] = []
 
-  await ex.setup('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
+  await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
+  await ex.setup()
   await ex.supportedMarkets(ex.supportedChains())
 
   // pass size delta in usd terms and margin delta in token terms
@@ -342,7 +343,7 @@ async function testReferralCache() {
 }
 
 async function test() {
-  await ex.setup('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d')
+  await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
   await testGetAllPositions()
   // await testOpenTradePreview()
   // await testCloseTradePreview()

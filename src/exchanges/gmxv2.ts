@@ -156,9 +156,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _smartWallet: string | undefined
 
-  async setup(swAddr: string): Promise<UnsignedTxWithMetadata[]> {
+  async init(swAddr: string): Promise<void> {
     this._smartWallet = ethers.utils.getAddress(swAddr)
     await this._buildCacheIfEmpty()
+    return Promise.resolve()
+  }
+
+  async setup(): Promise<UnsignedTxWithMetadata[]> {
+    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
 
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
