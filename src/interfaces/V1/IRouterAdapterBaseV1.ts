@@ -296,6 +296,8 @@ export interface IRouterAdapterBaseV1 {
     updatePositionMarginData: UpdatePositionMarginData[]
   ): Promise<UnsignedTxWithMetadata[]>
 
+  claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]>
+
   ///// Fetching api's //////
   getIdleMargins(wallet: string): Promise<
     Array<
@@ -338,4 +340,6 @@ export interface IRouterAdapterBaseV1 {
     marginDelta: AmountInfo[],
     existingPos: Array<PositionInfo>
   ): Promise<PreviewInfo[]>
+
+  getTotalClaimableFunding(wallet: string): Promise<FixedNumber>
 }

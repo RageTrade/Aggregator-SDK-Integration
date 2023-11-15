@@ -168,6 +168,14 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
+  async claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+    const claimPromises: Promise<UnsignedTxWithMetadata[]>[] = []
+    for (const key in this.adapters) {
+      claimPromises.push(this.adapters[key].claimFunding(wallet))
+    }
+    const out = await Promise.all(claimPromises)
+    return out.flat()
+  }
   async getIdleMargins(wallet: string): Promise<
     Array<
       CollateralData & {
@@ -329,5 +337,13 @@ export default class RouterV1 implements IRouterV1 {
 
     const out = await Promise.all(promises)
     return out.flat()
+  }
+  async getTotalClaimableFunding(wallet: string): Promise<FixedNumber> {
+    const fundingPromises: Promise<FixedNumber>[] = []
+    for (const key in this.adapters) {
+      fundingPromises.push(this.adapters[key].getTotalClaimableFunding(wallet))
+    }
+    const out = await Promise.all(fundingPromises)
+    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0))
   }
 }

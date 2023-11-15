@@ -58,7 +58,7 @@ import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2
 import { PositionInfo as InternalPositionInfo } from '../configs/gmxv2/positions/types'
 import { encodeMarketId } from '../common/markets'
 import { FixedNumber } from '../common/fixedNumber'
-import { getAvailableUsdLiquidityForPosition } from '../configs/gmxv2/markets/utils'
+import { getAvailableUsdLiquidityForPosition, getTotalClaimableFundingUsd } from '../configs/gmxv2/markets/utils'
 import {
   getBorrowingFactorPerPeriod,
   getFundingFactorPerPeriod,
@@ -792,6 +792,44 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
+  async claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
+
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const markets = Object.values(marketsInfoData ?? {})
+
+    const fundingMarketAddresses: string[] = []
+    const fundingTokenAddresses: string[] = []
+
+    for (const market of markets) {
+      if (market.claimableFundingAmountLong?.gt(0)) {
+        fundingMarketAddresses.push(market.marketTokenAddress)
+        fundingTokenAddresses.push(market.longTokenAddress)
+      }
+
+      if (market.claimableFundingAmountShort?.gt(0)) {
+        fundingMarketAddresses.push(market.marketTokenAddress)
+        fundingTokenAddresses.push(market.shortTokenAddress)
+      }
+    }
+
+    if (fundingMarketAddresses.length > 0) {
+      const claimFundingTx = await this.exchangeRouter.populateTransaction.claimFundingFees(
+        fundingMarketAddresses,
+        fundingTokenAddresses,
+        wallet
+      )
+
+      txs.push({
+        tx: claimFundingTx,
+        type: 'GMX_V2',
+        data: undefined
+      })
+    }
+
+    return txs
+  }
+
   getIdleMargins(wallet: string): Promise<(CollateralData & { marketId: Market['marketId']; amount: FixedNumber })[]> {
     throw new Error('Method not implemented.')
   }
@@ -1477,6 +1515,13 @@ export default class GmxV2Service implements IAdapterV1 {
     }
 
     return previewsInfo
+  }
+
+  async getTotalClaimableFunding(wallet: string): Promise<FixedNumber> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const markets = Object.values(marketsInfoData ?? {})
+    const totalClaimableFundingUsd = getTotalClaimableFundingUsd(markets)
+    return FixedNumber.fromValue(totalClaimableFundingUsd.toString(), 30, 30)
   }
 
   ///////////////////////////////////
