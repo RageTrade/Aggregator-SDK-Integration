@@ -87,6 +87,8 @@ export type DynamicMarketMetadata = {
   oiShortUsd: BigNumber
   marketLimitUsd: BigNumber
   marketLimitNative: BigNumber
+  borrowRateLong?: BigNumber
+  borrowRateShort?: BigNumber
 }
 
 export type ProtocolMetadata = {
