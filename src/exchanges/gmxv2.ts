@@ -149,10 +149,6 @@ export default class GmxV2Service implements IAdapterV1 {
       market: Awaited<ReturnType<Reader['getMarket']>>
     }
   > = {}
-  private cachedReferralInfo: {
-    userReferralInfo: UserReferralInfo
-    lastUpdatedAt: number
-  } = {} as any
 
   private _smartWallet: string | undefined
 
@@ -987,12 +983,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 
@@ -1245,7 +1242,7 @@ export default class GmxV2Service implements IAdapterV1 {
   ): Promise<OpenTradePreviewInfo[]> {
     const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
     const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
-    const userReferralInfo = await this._getUserReferralInfo(wallet)
+    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet)
     if (!marketsInfoData || !tokensData || !minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: OpenTradePreviewInfo[] = []
@@ -1375,7 +1372,7 @@ export default class GmxV2Service implements IAdapterV1 {
     closePositionData: ClosePositionData[]
   ): Promise<CloseTradePreviewInfo[]> {
     const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
-    const userReferralInfo = await this._getUserReferralInfo(wallet)
+    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet)
     if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: CloseTradePreviewInfo[] = []
@@ -1708,23 +1705,5 @@ export default class GmxV2Service implements IAdapterV1 {
     const ethBalance = await provider.getBalance(this._smartWallet!)
 
     if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
-  }
-
-  private async _getUserReferralInfo(wallet: string): Promise<UserReferralInfo | undefined> {
-    // return cache iff not older than REFERRAL_CACHE_TIME
-    if (
-      this.cachedReferralInfo.userReferralInfo &&
-      this.cachedReferralInfo.lastUpdatedAt + REFERRAL_CACHE_TIME > Math.floor(Date.now() / 1000)
-    ) {
-      return this.cachedReferralInfo.userReferralInfo
-    }
-
-    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet, true)
-    if (userReferralInfo !== undefined) {
-      this.cachedReferralInfo.userReferralInfo = userReferralInfo
-      this.cachedReferralInfo.lastUpdatedAt = Math.floor(Date.now() / 1000)
-    }
-
-    return userReferralInfo
   }
 }

@@ -7,7 +7,7 @@ settings:
 dependencies:
   '@apollo/client':
     specifier: 3.5.6
-    version: 3.5.6(graphql@16.8.1)
+    version: 3.5.6(graphql@16.8.1)(react@18.2.0)
   '@ethersproject/abi':
     specifier: ^5.7.0
     version: 5.7.0
@@ -26,6 +26,9 @@ dependencies:
   '@synthetixio/wei':
     specifier: ^2.74.4
     version: 2.74.4
+  '@tanstack/react-query':
+    specifier: ^5.8.4
+    version: 5.8.4(react@18.2.0)
   ethers:
     specifier: ^5.7.2
     version: 5.7.2
@@ -69,7 +72,7 @@ packages:
     resolution: {integrity: sha512-UK0bHA7hh9cR39V+4gl2/NnBBjoXIxkuWAPCaY4X7fbH4L/azIi7ilWOCjMUYfpJgraLUAqkRi2BqrjME8Rynw==}
     dev: false
 
-  /@apollo/client@3.5.6(graphql@16.8.1):
+  /@apollo/client@3.5.6(graphql@16.8.1)(react@18.2.0):
     resolution: {integrity: sha512-XHoouuEJ4L37mtfftcHHO1caCRrKKAofAwqRoq28UQIPMJk+e7n3X9OtRRNXKk/9tmhNkwelSary+EilfPwI7A==}
     peerDependencies:
       graphql: ^14.0.0 || ^15.0.0 || ^16.0.0
@@ -90,6 +93,7 @@ packages:
       hoist-non-react-statics: 3.3.2
       optimism: 0.16.2
       prop-types: 15.8.1
+      react: 18.2.0
       symbol-observable: 4.0.0
       ts-invariant: 0.9.4
       tslib: 2.6.2
@@ -598,6 +602,26 @@ packages:
       '@ethersproject/bignumber': 5.7.0
       '@ethersproject/bytes': 5.7.0
       big.js: 6.2.1
+    dev: false
+
+  /@tanstack/query-core@5.8.3:
+    resolution: {integrity: sha512-SWFMFtcHfttLYif6pevnnMYnBvxKf3C+MHMH7bevyYfpXpTMsLB9O6nNGBdWSoPwnZRXFNyNeVZOw25Wmdasow==}
+    dev: false
+
+  /@tanstack/react-query@5.8.4(react@18.2.0):
+    resolution: {integrity: sha512-CD+AkXzg8J72JrE6ocmuBEJfGzEzu/bzkD6sFXFDDB5yji9N20JofXZlN6n0+CaPJuIi+e4YLCbGsyPFKkfNQA==}
+    peerDependencies:
+      react: ^18.0.0
+      react-dom: ^18.0.0
+      react-native: '*'
+    peerDependenciesMeta:
+      react-dom:
+        optional: true
+      react-native:
+        optional: true
+    dependencies:
+      '@tanstack/query-core': 5.8.3
+      react: 18.2.0
     dev: false
 
   /@tsconfig/node10@1.0.9:
@@ -1257,6 +1281,13 @@ packages:
 
   /react-is@16.13.1:
     resolution: {integrity: sha512-24e6ynE2H+OKt4kqsOvNd8kBpV65zoxbA4BVsEOB3ARVWQki/DHzaUoC5KuON/BiccDaCCTZBuOcfZs70kR8bQ==}
+    dev: false
+
+  /react@18.2.0:
+    resolution: {integrity: sha512-/3IjMdb2L9QbBdWiW5e3P2/npwMBaU9mHCSCUzNln0ZCYbcfTsGbTJrU/kGemdH2IWmB2ioZ+zkxtmq6g09fGQ==}
+    engines: {node: '>=0.10.0'}
+    dependencies:
+      loose-envify: 1.4.0
     dev: false
 
   /regenerator-runtime@0.14.0:

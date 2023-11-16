@@ -1,3 +1,4 @@
+import queryClient, { CACHE_SECOND } from '../../../common/cache'
 import { getTokensMap, getV2Tokens } from '../config/tokens'
 import { TokensData } from './types'
 import { useTokenBalances } from './useTokenBalances'
@@ -10,8 +11,22 @@ type TokensDataResult = {
 
 export async function useTokensData(chainId: number, wallet: string): Promise<TokensDataResult> {
   const tokenConfigs = getTokensMap(chainId)
-  const { balancesData } = await useTokenBalances(chainId, wallet)
-  const { pricesData, updatedAt: pricesUpdatedAt } = await useTokenRecentPrices(chainId)
+
+  const tokenBalancesPromise = queryClient.fetchQuery({
+    queryKey: ['useTokenBalances', chainId, wallet],
+    queryFn: () => useTokenBalances(chainId, wallet),
+    staleTime: CACHE_SECOND * 30
+  })
+  const tokenRecentPricesPromise = queryClient.fetchQuery({
+    queryKey: ['useTokenRecentPrices', chainId],
+    queryFn: () => useTokenRecentPrices(chainId),
+    staleTime: CACHE_SECOND * 30
+  })
+
+  const [{ balancesData }, { pricesData, updatedAt: pricesUpdatedAt }] = await Promise.all([
+    tokenBalancesPromise,
+    tokenRecentPricesPromise
+  ])
 
   const tokenAddresses = getV2Tokens(chainId).map((token) => token.address)
 

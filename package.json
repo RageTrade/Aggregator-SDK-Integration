@@ -13,17 +13,18 @@
     "typescript": "^5.1.6"
   },
   "dependencies": {
+    "@apollo/client": "3.5.6",
     "@ethersproject/abi": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
     "@kwenta/sdk": "./sdk",
     "@pythnetwork/client": "^2.19.0",
     "@pythnetwork/price-service-client": "^1.7.0",
     "@synthetixio/wei": "^2.74.4",
+    "@tanstack/react-query": "^5.8.4",
     "ethers": "^5.7.2",
     "ethers-v6": "npm:ethers@6.8.0",
     "perennial-sdk-ts": "^0.1.7",
-    "viem": "^1.18.1",
-    "@apollo/client": "3.5.6"
+    "viem": "^1.18.1"
   },
   "version": "1.0.0",
   "license": "MIT"

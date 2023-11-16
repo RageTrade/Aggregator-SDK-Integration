@@ -76,12 +76,13 @@ async function testOpenTradePreview() {
   })
 
   // const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
-
+  console.time('getOpenTradePreview')
   const res = await ex.getOpenTradePreview('0x2f88a09ed4174750a464576FE49E586F90A34820', orders, [undefined])
-  logObject('res', res[0])
-  logObject('res size: ', res[0].size)
-  logObject('res margin: ', res[0].margin)
-  logObject('res fees: ', res[0].fee)
+  console.timeEnd('getOpenTradePreview')
+  // logObject('res', res[0])
+  // logObject('res size: ', res[0].size)
+  // logObject('res margin: ', res[0].margin)
+  // logObject('res fees: ', res[0].fee)
 }
 
 async function increasePosition() {
@@ -291,7 +292,9 @@ async function testLiquidations() {
 
 async function testCloseTradePreview() {
   const orders: ClosePositionData[] = []
+  console.time('getAllPositions')
   const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
+  console.timeEnd('getAllPositions')
 
   orders.push({
     type: 'MARKET',
@@ -306,11 +309,13 @@ async function testCloseTradePreview() {
     outputCollateral: pos.collateral
   })
 
+  console.time('getCloseTradePreview')
   const res = await ex.getCloseTradePreview('0x2f88a09ed4174750a464576FE49E586F90A34820', [pos], orders)
-  logObject('res', res[0])
-  logObject('res size: ', res[0].size)
-  logObject('res margin: ', res[0].margin)
-  logObject('rec margin: ', res[0].receiveMargin)
+  console.timeEnd('getCloseTradePreview')
+  // logObject('res', res[0])
+  // logObject('res size: ', res[0].size)
+  // logObject('res margin: ', res[0].margin)
+  // logObject('rec margin: ', res[0].receiveMargin)
 }
 
 async function testUpdateMarginPreview() {
@@ -356,7 +361,10 @@ async function testClaimFundingFees() {
 
 async function test() {
   await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  await testClaimFundingFees()
+  for (let i = 0; i < 5; i++) {
+    await testCloseTradePreview()
+    console.log('\n')
+  }
 
   // await testOpenTradePreview()
   // await testCloseTradePreview()

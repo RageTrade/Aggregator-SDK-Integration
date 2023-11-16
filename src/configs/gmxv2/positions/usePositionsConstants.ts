@@ -3,6 +3,7 @@ import { getContract } from '../config/contracts'
 import { MIN_COLLATERAL_USD_KEY, MIN_POSITION_SIZE_USD_KEY } from '../config/dataStore'
 import { BigNumber } from 'ethers'
 import { useMulticall } from '../lib/multicall/useMulticall'
+import queryClient, { CACHE_DAY } from '../../../common/cache'
 
 export type PositionsConstantsResult = {
   minCollateralUsd?: BigNumber
@@ -10,33 +11,38 @@ export type PositionsConstantsResult = {
 }
 
 export async function usePositionsConstants(chainId: number): Promise<PositionsConstantsResult> {
-  const { data } = await useMulticall(chainId, 'usePositionsConstants', {
-    key: [],
+  const { data } = await queryClient.fetchQuery({
+    queryKey: ['usePositionsConstants', chainId],
+    queryFn: () =>
+      useMulticall(chainId, 'usePositionsConstants', {
+        key: [],
 
-    refreshInterval: 60000,
+        refreshInterval: 60000,
 
-    request: {
-      dataStore: {
-        contractAddress: getContract(chainId, 'DataStore'),
-        abi: DataStore.abi,
-        calls: {
-          minCollateralUsd: {
-            methodName: 'getUint',
-            params: [MIN_COLLATERAL_USD_KEY]
-          },
-          minPositionSizeUsd: {
-            methodName: 'getUint',
-            params: [MIN_POSITION_SIZE_USD_KEY]
+        request: {
+          dataStore: {
+            contractAddress: getContract(chainId, 'DataStore'),
+            abi: DataStore.abi,
+            calls: {
+              minCollateralUsd: {
+                methodName: 'getUint',
+                params: [MIN_COLLATERAL_USD_KEY]
+              },
+              minPositionSizeUsd: {
+                methodName: 'getUint',
+                params: [MIN_POSITION_SIZE_USD_KEY]
+              }
+            }
+          }
+        },
+        parseResponse: (res) => {
+          return {
+            minCollateralUsd: BigNumber.from(res.data.dataStore.minCollateralUsd.returnValues[0]),
+            minPositionSizeUsd: BigNumber.from(res.data.dataStore.minPositionSizeUsd.returnValues[0])
           }
         }
-      }
-    },
-    parseResponse: (res) => {
-      return {
-        minCollateralUsd: BigNumber.from(res.data.dataStore.minCollateralUsd.returnValues[0]),
-        minPositionSizeUsd: BigNumber.from(res.data.dataStore.minPositionSizeUsd.returnValues[0])
-      }
-    }
+      }),
+    staleTime: CACHE_DAY
   })
 
   return data || {}
