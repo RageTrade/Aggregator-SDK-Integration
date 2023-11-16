@@ -24,7 +24,8 @@ import {
   ProtocolId,
   Market,
   RouterAdapterMethod,
-  PositionData
+  PositionData,
+  ClaimInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -46,6 +47,22 @@ export default class RouterV1 implements IRouterV1 {
 
   constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+  }
+
+  async getClaimHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<ClaimInfo>> {
+    const promises: Promise<PaginatedRes<ClaimInfo>>[] = []
+    const result: ClaimInfo[] = []
+
+    for (const key in this.adapters) {
+      promises.push(this.adapters[key].getClaimHistory(wallet, undefined))
+    }
+
+    const out = await Promise.all(promises)
+    out.forEach((res) => {
+      result.push(...res.result)
+    })
+
+    return getPaginatedResponse(result, pageOptions)
   }
 
   async init(swAddr: string): Promise<void> {
@@ -81,7 +98,7 @@ export default class RouterV1 implements IRouterV1 {
   supportedChains(): Chain[] {
     return [arbitrum, optimism]
   }
-  
+
   async supportedMarkets(chains: Chain[] | undefined): Promise<MarketInfo[]> {
     const marketInfoPromises: Promise<MarketInfo[]>[] = []
     for (const key in this.adapters) {
