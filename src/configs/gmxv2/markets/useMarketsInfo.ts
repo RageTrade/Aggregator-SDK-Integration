@@ -68,7 +68,7 @@ export async function useMarketsInfo(chainId: number, wallet: string): Promise<M
   const isDepencenciesLoading = !marketsAddresses || !tokensData
 
   const { data } = await queryClient.fetchQuery({
-    queryKey: ['useMulticall', 'useMarkets', chainId],
+    queryKey: ['useMulticall', 'useMarketsInfo', chainId],
     queryFn: () =>
       useMulticall(chainId, 'useMarketsInfo', {
         key: !isDepencenciesLoading &&
