@@ -26,7 +26,8 @@ import {
   OrderData,
   OrderIdentifier,
   TradeDirection,
-  TradeOperationType
+  TradeOperationType,
+  ClaimInfo
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -995,13 +996,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 
@@ -1246,7 +1246,63 @@ export default class GmxV2Service implements IAdapterV1 {
       maxItemsCount: liquidations.length
     }
   }
+  async getClaimHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<ClaimInfo>> {
+    const results = await fetch(this.SUBGRAPH_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query: `{
+          claimActions(
+            ${pageOptions ? `skip: ${pageOptions.skip},` : ''}
+            ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
+              orderBy: transaction__timestamp,
+              orderDirection: desc,
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", eventName:ClaimFunding}`
+            : ''
+          }
+          ) {
+            id
+            eventName
+            account
+            marketAddresses
+            tokenAddresses
+            amounts
+            transaction{
+              hash
+              timestamp
+            }
+          }
+        }`
+      })
+    })
+    const resultJson = await results.json()
+    const claims = resultJson.data?.claimActions
 
+    const claimInfos: ClaimInfo[] = []
+
+    claims.forEach(async (claim: any) => {
+      const tokenAddresses: string[] = claim.tokenAddresses
+      const amounts: string[] = claim.amounts
+      const marketAddresses: string[] = claim.marketAddresses
+      tokenAddresses.forEach(async (tokenAddress: string, index: number) => {
+        const token = getGmxV2TokenByAddress(tokenAddress)
+        claimInfos.push({
+          marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', marketAddresses[index]),
+          timestamp: claim.transaction.timestamp,
+          token: token,
+          amount: toAmountInfo(BigNumber.from(amounts[index]), token.decimals, true),
+          txHash: claim.transaction.hash,
+          claimType: 'Funding'
+        })
+      })
+    })
+
+    return {
+      result: claimInfos,
+      maxItemsCount: claimInfos.length
+    }
+  }
   async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],

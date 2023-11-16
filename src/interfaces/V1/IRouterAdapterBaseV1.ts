@@ -23,6 +23,8 @@ export type ProtocolId = 'GMXV1' | 'SYNTHETIXV2' | 'PERV2' | 'GMXV2'
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
+export type ClaimType = 'Funding'
+
 export type Protocol = {
   protocolId: ProtocolId
 }
@@ -171,6 +173,16 @@ export type LiquidationInfo = CollateralData & {
   timestamp: number
   txHash: string | undefined // currently undefined for snx
 }
+
+export type ClaimInfo = 
+  {
+    marketId: Market['marketId'],
+    timestamp: number
+    token: Token
+    amount: AmountInfo
+    claimType: ClaimType
+    txHash: string
+  }
 
 export type ClosePositionData = {
   closeSize: AmountInfo
@@ -329,6 +341,7 @@ export interface IRouterAdapterBaseV1 {
 
   getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>>
 
+  getClaimHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<ClaimInfo>>
   getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
