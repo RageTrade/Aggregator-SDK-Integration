@@ -81,6 +81,7 @@ export default class RouterV1 implements IRouterV1 {
   supportedChains(): Chain[] {
     return [arbitrum, optimism]
   }
+  
   async supportedMarkets(chains: Chain[] | undefined): Promise<MarketInfo[]> {
     const marketInfoPromises: Promise<MarketInfo[]>[] = []
     for (const key in this.adapters) {
@@ -342,6 +343,15 @@ export default class RouterV1 implements IRouterV1 {
     const fundingPromises: Promise<FixedNumber>[] = []
     for (const key in this.adapters) {
       fundingPromises.push(this.adapters[key].getTotalClaimableFunding(wallet))
+    }
+    const out = await Promise.all(fundingPromises)
+    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0))
+  }
+
+  async getTotalAccuredFunding(wallet: string): Promise<FixedNumber> {
+    const fundingPromises: Promise<FixedNumber>[] = []
+    for (const key in this.adapters) {
+      fundingPromises.push(this.adapters[key].getTotalAccuredFunding(wallet))
     }
     const out = await Promise.all(fundingPromises)
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0))

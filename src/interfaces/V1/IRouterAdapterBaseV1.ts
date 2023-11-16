@@ -223,42 +223,49 @@ export type UnsignedTxWithMetadata =
       type: 'ERC20_APPROVAL'
       data: ERC20ApprovalAddtionalSessionData
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'GMX_V1'
       data: undefined
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'LIFI'
       data: undefined
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'SNX_V2'
       data: undefined
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'NATIVE'
       data: undefined
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'ADDRESS'
       data: AddressValidationAdditionalSessionData
       ethRequired?: BigNumber
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
       type: 'GMX_V2'
       data: undefined
       ethRequired?: BigNumber
+      chainId: number
     }
 
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
@@ -342,4 +349,6 @@ export interface IRouterAdapterBaseV1 {
   ): Promise<PreviewInfo[]>
 
   getTotalClaimableFunding(wallet: string): Promise<FixedNumber>
+
+  getTotalAccuredFunding(wallet: string): Promise<FixedNumber>
 }

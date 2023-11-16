@@ -58,7 +58,11 @@ import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2
 import { PositionInfo as InternalPositionInfo } from '../configs/gmxv2/positions/types'
 import { encodeMarketId } from '../common/markets'
 import { FixedNumber } from '../common/fixedNumber'
-import { getAvailableUsdLiquidityForPosition, getTotalClaimableFundingUsd } from '../configs/gmxv2/markets/utils'
+import {
+  getAvailableUsdLiquidityForPosition,
+  getTotalAccruedFundingUsd,
+  getTotalClaimableFundingUsd
+} from '../configs/gmxv2/markets/utils'
 import {
   getBorrowingFactorPerPeriod,
   getFundingFactorPerPeriod,
@@ -176,7 +180,8 @@ export default class GmxV2Service implements IAdapterV1 {
     txs.push({
       tx: setReferralCodeTx,
       type: 'GMX_V2',
-      data: undefined
+      data: undefined,
+      chainId: arbitrum.id
     })
     return txs
   }
@@ -342,7 +347,8 @@ export default class GmxV2Service implements IAdapterV1 {
         token: token,
         spender: this.ROUTER_ADDR,
         chainId: 42161
-      }
+      },
+      chainId: arbitrum.id
     }
   }
 
@@ -461,7 +467,8 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!)
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!),
+        chainId: arbitrum.id
       })
     }
 
@@ -532,7 +539,8 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: ethers.constants.Zero // no addtional eth should be required to update
+        ethRequired: ethers.constants.Zero, // no addtional eth should be required to update
+        chainId: arbitrum.id
       })
     }
 
@@ -557,7 +565,8 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: ethers.constants.Zero // no addtional eth should be required to cancel order
+        ethRequired: ethers.constants.Zero, // no addtional eth should be required to cancel order
+        chainId: arbitrum.id
       })
     }
 
@@ -671,7 +680,8 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!) // max eth can be upto keeper fee in close
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!), // max eth can be upto keeper fee in close
+        chainId: arbitrum.id
       })
     }
 
@@ -781,7 +791,8 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!)
+        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!),
+        chainId: arbitrum.id
       })
     }
 
@@ -819,7 +830,8 @@ export default class GmxV2Service implements IAdapterV1 {
       txs.push({
         tx: claimFundingTx,
         type: 'GMX_V2',
-        data: undefined
+        data: undefined,
+        chainId: arbitrum.id
       })
     }
 
@@ -1519,6 +1531,22 @@ export default class GmxV2Service implements IAdapterV1 {
     const markets = Object.values(marketsInfoData ?? {})
     const totalClaimableFundingUsd = getTotalClaimableFundingUsd(markets)
     return FixedNumber.fromValue(totalClaimableFundingUsd.toString(), 30, 30)
+  }
+
+  async getTotalAccuredFunding(wallet: string): Promise<FixedNumber> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+    const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
+      marketsInfoData,
+      tokensData,
+      pricesUpdatedAt,
+      showPnlInLeverage: false,
+      account: wallet,
+      skipLocalReferralCode: true
+    })
+
+    const positions = Object.values(positionsInfoData || {})
+    const fundingFees = getTotalAccruedFundingUsd(positions)
+    return FixedNumber.fromValue(fundingFees.toString(), 30, 30)
   }
 
   ///////////////////////////////////
