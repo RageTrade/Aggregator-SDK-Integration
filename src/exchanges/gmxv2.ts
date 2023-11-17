@@ -180,7 +180,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(REFERRAL_CODE)
     txs.push({
       tx: setReferralCodeTx,
-      type: 'GMX_V2',
+      type: 'GMX_V1',
       data: undefined,
       chainId: arbitrum.id
     })
