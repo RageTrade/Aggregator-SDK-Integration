@@ -12,21 +12,26 @@ import { contractFetcher } from '../../lib/contracts/contractFetcher'
 import { ARBITRUM } from '../../../gmx/chains'
 import { isAddressZero, isHashZero } from '../../../../common/helper'
 import { rpc } from '../../../../common/provider'
-import queryClient, { CACHE_DAY, CACHE_WEEK } from '../../../../common/cache'
+import queryClient, { CACHE_DAY, CACHE_WEEK, getStaleTime } from '../../../../common/cache'
+import { ApiOpts } from '../../../../interfaces/V1/IRouterAdapterBaseV1'
 
 // export * from './useReferralsData'
 
 export const REGEX_VERIFY_BYTES32 = /^0x[0-9a-f]{64}$/
 export const REFERRAL_CODE_KEY = 'GMX-referralCode'
 
-export async function useUserReferralInfo(chainId: number, account: string): Promise<UserReferralInfo | undefined> {
+export async function useUserReferralInfo(
+  chainId: number,
+  account: string,
+  opts?: ApiOpts
+): Promise<UserReferralInfo | undefined> {
   // hardcode it as we dont have a concept of local referral code
   const skipLocalReferralCode = true
   const { userReferralCode, userReferralCodeString, attachedOnChain, referralCodeForTxn } =
     await queryClient.fetchQuery({
       queryKey: ['useUserReferralCode', chainId, account],
       queryFn: () => useUserReferralCode(chainId, account, skipLocalReferralCode),
-      staleTime: CACHE_DAY
+      staleTime: getStaleTime(CACHE_DAY, opts)
     })
 
   if (!userReferralCode) {
@@ -36,22 +41,22 @@ export async function useUserReferralInfo(chainId: number, account: string): Pro
   const { codeOwner } = await queryClient.fetchQuery({
     queryKey: ['useCodeOwner', chainId, account, userReferralCode],
     queryFn: () => useCodeOwner(chainId, account, userReferralCode),
-    staleTime: CACHE_DAY
+    staleTime: getStaleTime(CACHE_DAY, opts)
   })
   const { affiliateTier: tierId } = await queryClient.fetchQuery({
     queryKey: ['useAffiliateTier', chainId, codeOwner],
     queryFn: () => useAffiliateTier(chainId, codeOwner),
-    staleTime: CACHE_DAY
+    staleTime: getStaleTime(CACHE_DAY, opts)
   })
   const tiersPromise = queryClient.fetchQuery({
     queryKey: ['useTiers', chainId, tierId],
     queryFn: () => useTiers(chainId, tierId),
-    staleTime: CACHE_DAY
+    staleTime: getStaleTime(CACHE_DAY, opts)
   })
   const referrerDiscountSharePromise = queryClient.fetchQuery({
     queryKey: ['useReferrerDiscountShare', chainId, codeOwner],
     queryFn: () => useReferrerDiscountShare(chainId, codeOwner),
-    staleTime: CACHE_DAY
+    staleTime: getStaleTime(CACHE_DAY, opts)
   })
 
   const [{ totalRebate, discountShare }, { discountShare: customDiscountShare }] = await Promise.all([

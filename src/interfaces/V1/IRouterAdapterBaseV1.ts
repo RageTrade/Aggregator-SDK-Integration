@@ -6,6 +6,10 @@ import { arbitrum, optimism } from 'viem/chains'
 import { protocols } from '../../common/protocols'
 import { FixedNumber } from '../../common/fixedNumber'
 
+export type ApiOpts = {
+  bypassCache: boolean
+}
+
 export type AmountInfo = {
   amount: FixedNumber
   isTokenAmount: boolean
@@ -174,15 +178,14 @@ export type LiquidationInfo = CollateralData & {
   txHash: string | undefined // currently undefined for snx
 }
 
-export type ClaimInfo = 
-  {
-    marketId: Market['marketId'],
-    timestamp: number
-    token: Token
-    amount: AmountInfo
-    claimType: ClaimType
-    txHash: string
-  }
+export type ClaimInfo = {
+  marketId: Market['marketId']
+  timestamp: number
+  token: Token
+  amount: AmountInfo
+  claimType: ClaimType
+  txHash: string
+}
 
 export type ClosePositionData = {
   closeSize: AmountInfo
@@ -284,41 +287,49 @@ export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export interface IRouterAdapterBaseV1 {
   ///// Init Api //////
-  init(swAddr: string): Promise<void>
+  init(swAddr: string, opts?: ApiOpts): Promise<void>
 
   ///// Setup api //////
   setup(): Promise<UnsignedTxWithMetadata[]>
 
   ///// Network api //////
-  supportedChains(): Chain[]
+  supportedChains(opts?: ApiOpts): Chain[]
 
   ///// Market api's //////
-  supportedMarkets(chains: Chain[] | undefined): Promise<MarketInfo[]>
+  supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]>
 
-  getMarketPrices(marketIds: Market['marketId'][]): Promise<FixedNumber[]>
+  getMarketPrices(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<FixedNumber[]>
 
-  getMarketsInfo(marketIds: Market['marketId'][]): Promise<MarketInfo[]>
+  getMarketsInfo(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketInfo[]>
 
-  getDynamicMarketMetadata(marketIds: Market['marketId'][]): Promise<DynamicMarketMetadata[]>
+  getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]>
 
   ///// Action api's //////
-  increasePosition(orderData: CreateOrder[]): Promise<UnsignedTxWithMetadata[]>
+  increasePosition(orderData: CreateOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
 
-  updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]>
+  updateOrder(orderData: UpdateOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
 
-  cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]>
+  cancelOrder(orderData: CancelOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
 
-  closePosition(positionInfo: PositionInfo[], closePositionData: ClosePositionData[]): Promise<UnsignedTxWithMetadata[]>
+  closePosition(
+    positionInfo: PositionInfo[],
+    closePositionData: ClosePositionData[],
+    opts?: ApiOpts
+  ): Promise<UnsignedTxWithMetadata[]>
 
   updatePositionMargin(
     positionInfo: PositionInfo[],
-    updatePositionMarginData: UpdatePositionMarginData[]
+    updatePositionMarginData: UpdatePositionMarginData[],
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
-  claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]>
+  claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
 
   ///// Fetching api's //////
-  getIdleMargins(wallet: string): Promise<
+  getIdleMargins(
+    wallet: string,
+    opts?: ApiOpts
+  ): Promise<
     Array<
       CollateralData & {
         marketId: Market['marketId']
@@ -327,38 +338,54 @@ export interface IRouterAdapterBaseV1 {
     >
   >
 
-  getAllPositions(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<PositionInfo>>
+  getAllPositions(
+    wallet: string,
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
+  ): Promise<PaginatedRes<PositionInfo>>
 
-  getAllOrders(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<OrderInfo>>
+  getAllOrders(wallet: string, pageOptions: PageOptions | undefined, opts?: ApiOpts): Promise<PaginatedRes<OrderInfo>>
 
   getAllOrdersForPosition(
     wallet: string,
     positionInfo: PositionInfo[],
-    pageOptions: PageOptions | undefined
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
   ): Promise<Record<PositionData['posId'], PaginatedRes<OrderInfo>>>
 
-  getTradesHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<HistoricalTradeInfo>>
+  getTradesHistory(
+    wallet: string,
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
+  ): Promise<PaginatedRes<HistoricalTradeInfo>>
 
-  getLiquidationHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<LiquidationInfo>>
+  getLiquidationHistory(
+    wallet: string,
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
+  ): Promise<PaginatedRes<LiquidationInfo>>
 
   getClaimHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<ClaimInfo>>
   getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
-    existingPos: Array<PositionInfo | undefined>
+    existingPos: Array<PositionInfo | undefined>,
+    opts?: ApiOpts
   ): Promise<OpenTradePreviewInfo[]>
 
   getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
-    closePositionData: ClosePositionData[]
+    closePositionData: ClosePositionData[],
+    opts?: ApiOpts
   ): Promise<CloseTradePreviewInfo[]>
 
   getUpdateMarginPreview(
     wallet: string,
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
-    existingPos: Array<PositionInfo>
+    existingPos: Array<PositionInfo>,
+    opts?: ApiOpts
   ): Promise<PreviewInfo[]>
 
   getTotalClaimableFunding(wallet: string): Promise<FixedNumber>

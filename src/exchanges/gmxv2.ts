@@ -39,7 +39,7 @@ import {
   Keys
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
-import { OrderType } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderType, ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toAmountInfo, getBNFromFN } from '../common/helper'
@@ -191,9 +191,11 @@ export default class GmxV2Service implements IAdapterV1 {
     return [chains[42161]]
   }
 
-  async supportedMarkets(networks: Chain[] | undefined): Promise<MarketInfo[]> {
+  async supportedMarkets(networks: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
     // get from cache if available
-    if (Object.keys(this.cachedMarkets).length > 0) return Object.values(this.cachedMarkets).map((m) => m.marketInfo)
+    if (Object.keys(this.cachedMarkets).length > 0 && !opts?.bypassCache) {
+      return Object.values(this.cachedMarkets).map((m) => m.marketInfo)
+    }
 
     const marketProps = await this.reader.getMarkets(this.DATASTORE_ADDR, 0, 1000)
 
@@ -1309,16 +1311,17 @@ export default class GmxV2Service implements IAdapterV1 {
   async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
-    existingPos: (PositionInfo | undefined)[]
+    existingPos: (PositionInfo | undefined)[],
+    opts?: ApiOpts
   ): Promise<OpenTradePreviewInfo[]> {
-    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
-    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
-    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet)
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet, opts)
+    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM, opts)
+    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet, opts)
     if (!marketsInfoData || !tokensData || !minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: OpenTradePreviewInfo[] = []
 
-    const keeperFee = await this._KeeperFeeUsd(tokensData)
+    const keeperFee = await this._KeeperFeeUsd(tokensData, opts)
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
       const ePos = existingPos[i]
@@ -1446,14 +1449,15 @@ export default class GmxV2Service implements IAdapterV1 {
   async getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
-    closePositionData: ClosePositionData[]
+    closePositionData: ClosePositionData[],
+    opts?: ApiOpts
   ): Promise<CloseTradePreviewInfo[]> {
-    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM)
-    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet)
+    const { minCollateralUsd, minPositionSizeUsd } = await usePositionsConstants(ARBITRUM, opts)
+    const userReferralInfo = await useUserReferralInfo(ARBITRUM, wallet, opts)
     if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: CloseTradePreviewInfo[] = []
-    const keeperFee = await this._KeeperFeeUsd(undefined)
+    const keeperFee = await this._KeeperFeeUsd(undefined, opts)
     for (let i = 0; i < positionInfo.length; i++) {
       const cpd = closePositionData[i]
       const ePos = positionInfo[i]
@@ -1551,12 +1555,13 @@ export default class GmxV2Service implements IAdapterV1 {
     wallet: string,
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
-    existingPos: PositionInfo[]
+    existingPos: PositionInfo[],
+    opts?: ApiOpts
   ): Promise<PreviewInfo[]> {
-    const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, wallet)
+    const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, wallet, opts)
 
     const previewsInfo: PreviewInfo[] = []
-    const keeperFee = await this._KeeperFeeUsd(tokensData)
+    const keeperFee = await this._KeeperFeeUsd(tokensData, opts)
     for (let i = 0; i < existingPos.length; i++) {
       let preview: PreviewInfo
       if (!marginDelta[i].isTokenAmount) throw new Error('margin delta must be in token terms')
@@ -1591,15 +1596,15 @@ export default class GmxV2Service implements IAdapterV1 {
     return previewsInfo
   }
 
-  async getTotalClaimableFunding(wallet: string): Promise<FixedNumber> {
-    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+  async getTotalClaimableFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet, opts)
     const markets = Object.values(marketsInfoData ?? {})
     const totalClaimableFundingUsd = getTotalClaimableFundingUsd(markets)
     return FixedNumber.fromValue(totalClaimableFundingUsd.toString(), 30, 30)
   }
 
-  async getTotalAccuredFunding(wallet: string): Promise<FixedNumber> {
-    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+  async getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet, opts)
     const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
       marketsInfoData,
       tokensData,
@@ -1776,9 +1781,9 @@ export default class GmxV2Service implements IAdapterV1 {
     if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
   }
 
-  private async _KeeperFeeUsd(tData: TokensData | undefined): Promise<BigNumber> {
+  private async _KeeperFeeUsd(tData: TokensData | undefined, opts?: ApiOpts): Promise<BigNumber> {
     if (!tData && this._smartWallet !== undefined) {
-      const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, this._smartWallet)
+      const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, this._smartWallet, opts)
       tData = tokensData
     }
 

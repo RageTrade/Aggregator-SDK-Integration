@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
+import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 
 export const CACHE_SECOND = 1000
 export const CACHE_MINUTE = 60 * CACHE_SECOND
@@ -13,5 +14,12 @@ const queryClient = new QueryClient({
     }
   }
 })
+
+export function getStaleTime(time: number, opts?: ApiOpts): number {
+  if (opts?.bypassCache) {
+    return 0
+  }
+  return time
+}
 
 export default queryClient

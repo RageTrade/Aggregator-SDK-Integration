@@ -1,26 +1,27 @@
-import queryClient, { CACHE_SECOND } from '../../../common/cache'
+import queryClient, { CACHE_SECOND, getStaleTime } from '../../../common/cache'
 import { getTokensMap, getV2Tokens } from '../config/tokens'
 import { TokensData } from './types'
 import { useTokenBalances } from './useTokenBalances'
 import { useTokenRecentPrices } from './useTokenRecentPricesData'
+import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 type TokensDataResult = {
   tokensData?: TokensData
   pricesUpdatedAt?: number
 }
 
-export async function useTokensData(chainId: number, wallet: string): Promise<TokensDataResult> {
+export async function useTokensData(chainId: number, wallet: string, opts?: ApiOpts): Promise<TokensDataResult> {
   const tokenConfigs = getTokensMap(chainId)
 
   const tokenBalancesPromise = queryClient.fetchQuery({
     queryKey: ['useTokenBalances', chainId, wallet],
     queryFn: () => useTokenBalances(chainId, wallet),
-    staleTime: CACHE_SECOND * 30
+    staleTime: getStaleTime(CACHE_SECOND * 30, opts)
   })
   const tokenRecentPricesPromise = queryClient.fetchQuery({
     queryKey: ['useTokenRecentPrices', chainId],
     queryFn: () => useTokenRecentPrices(chainId),
-    staleTime: CACHE_SECOND * 30
+    staleTime: getStaleTime(CACHE_SECOND * 30, opts)
   })
 
   const [{ balancesData }, { pricesData, updatedAt: pricesUpdatedAt }] = await Promise.all([

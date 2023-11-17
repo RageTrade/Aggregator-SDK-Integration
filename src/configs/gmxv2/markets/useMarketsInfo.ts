@@ -43,7 +43,8 @@ import { TokensData } from '../tokens/types'
 import { useTokensData } from '../tokens/useTokensData'
 import { useMulticall } from '../lib/multicall/useMulticall'
 import { getByKey } from '../../../common/helper'
-import queryClient, { CACHE_DAY, CACHE_MINUTE } from '../../../common/cache'
+import queryClient, { CACHE_DAY, CACHE_MINUTE, getStaleTime } from '../../../common/cache'
+import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 export type MarketsInfoResult = {
   marketsInfoData?: MarketsInfoData
@@ -51,12 +52,12 @@ export type MarketsInfoResult = {
   pricesUpdatedAt?: number
 }
 
-export async function useMarketsInfo(chainId: number, wallet: string): Promise<MarketsInfoResult> {
+export async function useMarketsInfo(chainId: number, wallet: string, opts?: ApiOpts): Promise<MarketsInfoResult> {
   const account = wallet
   // internally caching
-  const marketsPromise = useMarkets(chainId)
+  const marketsPromise = useMarkets(chainId, opts)
   // not caching here as internally caching is happen with possibly different stale times
-  const tokensDataPromise = useTokensData(chainId, wallet)
+  const tokensDataPromise = useTokensData(chainId, wallet, opts)
 
   const [{ marketsData, marketsAddresses }, { tokensData, pricesUpdatedAt }] = await Promise.all([
     marketsPromise,
@@ -551,7 +552,7 @@ export async function useMarketsInfo(chainId: number, wallet: string): Promise<M
           }, {} as MarketsInfoData)
         }
       }),
-    staleTime: CACHE_MINUTE
+    staleTime: getStaleTime(CACHE_MINUTE, opts)
   })
 
   return {
