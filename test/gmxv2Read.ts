@@ -15,8 +15,10 @@ import { FixedNumber } from '../src/common/fixedNumber'
 import { parseEther, parseUnits } from 'ethers/lib/utils'
 import { arbitrum } from 'viem/chains'
 import { tokens } from '../src/common/tokens'
+import RouterV1 from '../router/RouterV1'
 
 const ex = new GmxV2Service()
+const rt = new RouterV1()
 
 const xrpMarketId = '42161-GMXV2-0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c'
 const ethMarketId = '42161-GMXV2-0x70d95587d40A2caf56bd97485aB3Eec10Bee6336'
@@ -359,10 +361,16 @@ async function testClaimFundingFees() {
   console.dir({ res }, { depth: 4 })
 }
 
+async function testRouterGetClaimableFundingFees() {
+  await rt.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
+  const res = await rt.getTotalClaimableFunding('0x2f88a09ed4174750a464576FE49E586F90A34820')
+  console.dir({ res }, { depth: 4 })
+}
+
 async function test() {
   await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  for (let i = 0; i < 5; i++) {
-    await testCloseTradePreview()
+  for (let i = 0; i < 1; i++) {
+    await testRouterGetClaimableFundingFees()
     console.log('\n')
   }
 

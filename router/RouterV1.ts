@@ -362,7 +362,7 @@ export default class RouterV1 implements IRouterV1 {
       fundingPromises.push(this.adapters[key].getTotalClaimableFunding(wallet))
     }
     const out = await Promise.all(fundingPromises)
-    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0))
+    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
   }
 
   async getTotalAccuredFunding(wallet: string): Promise<FixedNumber> {
@@ -371,6 +371,6 @@ export default class RouterV1 implements IRouterV1 {
       fundingPromises.push(this.adapters[key].getTotalAccuredFunding(wallet))
     }
     const out = await Promise.all(fundingPromises)
-    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0))
+    return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
   }
 }
