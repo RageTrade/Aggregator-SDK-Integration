@@ -828,10 +828,15 @@ export default class GmxV2Service implements IAdapterV1 {
         wallet
       )
 
+      // encode as multicall
+      const multicallEncoded = await this.exchangeRouter.populateTransaction.multicall([claimFundingTx.data!])
+
+      // add metadata for txs
       txs.push({
-        tx: claimFundingTx,
+        tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
+        ethRequired: ethers.constants.Zero,
         chainId: arbitrum.id
       })
     }
@@ -996,12 +1001,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 
@@ -1257,10 +1263,7 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: transaction__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", eventName:ClaimFunding}`
-            : ''
-          }
+              ${wallet ? `where: { account: "${wallet.toLowerCase()}", eventName:ClaimFunding}` : ''}
           ) {
             id
             eventName
