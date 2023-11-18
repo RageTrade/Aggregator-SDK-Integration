@@ -1217,7 +1217,7 @@ async function testPrice() {
 //   pythConnection.start();
 // }
 
-startStreaming()
+// startStreaming()
 
 gmxService()
   .then(() => process.exit(0))

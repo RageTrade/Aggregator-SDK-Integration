@@ -30,6 +30,7 @@ function handleStreamingData(data: { id: string; p: number }) {
 }
 
 export function startStreaming(retries = 3, delay = 3000) {
+  console.log('price streaming started')
   fetch(streamingUrl)
     .then((response) => {
       const reader = response.body!.getReader()
@@ -72,6 +73,7 @@ export function startStreaming(retries = 3, delay = 3000) {
     .catch((error) => {
       console.error('[stream] Error fetching from the streaming endpoint:', error)
     })
+
   function attemptReconnect(retriesLeft: number, inDelay: number) {
     if (retriesLeft > 0) {
       console.log(`[stream] Attempting to reconnect in ${inDelay}ms...`)
@@ -133,4 +135,4 @@ export function getTokenPriceD(token: string, decimals: number) {
   }
 }
 
-startStreaming()
+// startStreaming()
