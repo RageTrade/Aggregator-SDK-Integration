@@ -703,24 +703,27 @@ async function gmxService() {
   let btcMarket = supportedMarkets.find(
     (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
   )!
+  let ethMarket = supportedMarkets.find(
+    (m) => m.indexOrIdentifier.toLowerCase() === '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'.toLowerCase() //ETH market
+  )!
 
-  // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
-  // logObject("Dynamic Metadata: ", dynamicMetadata);
+  const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
+  logObject("Dynamic Metadata: ", dynamicMetadata);
 
-  const tradeHistory = await gs.getTradesHistory(
-    // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
-    // "0xe4718282022518A2499dD73Fc767654095F198A5",
-    '0xd344b73Ac42e34bC8009d522657adE4346B72c9D',
-    // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
-    // "0xf5433b068A87141C5e214931288942B2Ceb212b0",
-    undefined,
-    {
-      limit: 3,
-      skip: 1
-    }
-  )
+  // const tradeHistory = await gs.getTradesHistory(
+  //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  //   // "0xe4718282022518A2499dD73Fc767654095F198A5",
+  //   '0xd344b73Ac42e34bC8009d522657adE4346B72c9D',
+  //   // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+  //   // "0xf5433b068A87141C5e214931288942B2Ceb212b0",
+  //   undefined,
+  //   {
+  //     limit: 3,
+  //     skip: 1
+  //   }
+  // )
 
-  console.dir({ tradeHistory }, { depth: 4 })
+  // console.dir({ tradeHistory }, { depth: 4 })
   // tradeHistory.forEach((t) => {
   //   logObject("Trade History: ", t);
   // });

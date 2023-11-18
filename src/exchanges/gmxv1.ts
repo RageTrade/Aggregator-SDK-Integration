@@ -105,15 +105,20 @@ export default class GmxV1Service implements IExchange {
     const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
 
     const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
+    const whitelistedTokens = V1_TOKENS[ARBITRUM]
+    const tokenAddresses = whitelistedTokens.map((x) => x.address)
 
-    const fundingRateInfo = await reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, [
-      market.marketToken?.address!,
-      getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
-    ])
+    const fundingRateInfo = await reader.getFundingRates(
+      getContract(ARBITRUM, 'Vault')!,
+      nativeTokenAddress!,
+      tokenAddresses
+    )
 
     const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, [BigNumber.from(0)], fundingRateInfo)
 
     const info = infoTokens[market.marketToken?.address!]
+    const longTokenInfo = infoTokens[market.marketToken?.address!]
+    const shortTokenInfo = infoTokens[getTokenBySymbol(ARBITRUM, 'USDC.e')!.address]
 
     return {
       oiLongUsd: info.guaranteedUsd!,
@@ -124,8 +129,8 @@ export default class GmxV1Service implements IExchange {
       availableLiquidityShortUSD: info.maxAvailableShort,
       marketLimitUsd: BigNumber.from(0),
       marketLimitNative: BigNumber.from(0),
-      borrowRateLong: fundingRateInfo[0],
-      borrowRateShort: fundingRateInfo[1]
+      borrowRateLong: longTokenInfo.fundingRate,
+      borrowRateShort: shortTokenInfo.fundingRate
     }
   }
 
