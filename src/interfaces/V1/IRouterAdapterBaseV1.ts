@@ -6,8 +6,10 @@ import { arbitrum, optimism } from 'viem/chains'
 import { protocols } from '../../common/protocols'
 import { FixedNumber } from '../../common/fixedNumber'
 
+// TODO - implement for all api's. Curretly done for preview based internal functions
 export type ApiOpts = {
-  bypassCache: boolean
+  bypassCache: boolean, // bypass query client cache altogether
+  overrideStaleTime?: number // pass the stale time to override default stale time
 }
 
 export type AmountInfo = {

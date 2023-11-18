@@ -147,6 +147,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
   private minCollateralUsd = parseUnits('10', 30)
+  // TODO - check if this is correct or remove it and use query client
   private cachedMarkets: Record<
     string,
     {
@@ -850,8 +851,8 @@ export default class GmxV2Service implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  async getAllPositions(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<PositionInfo>> {
-    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
+  async getAllPositions(wallet: string, pageOptions: PageOptions | undefined, opts?: ApiOpts): Promise<PaginatedRes<PositionInfo>> {
+    const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet, opts)
     const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
       marketsInfoData,
       tokensData,
