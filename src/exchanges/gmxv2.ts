@@ -1291,7 +1291,7 @@ export default class GmxV2Service implements IAdapterV1 {
       tokenAddresses.forEach(async (tokenAddress: string, index: number) => {
         const token = getGmxV2TokenByAddress(tokenAddress)
         claimInfos.push({
-          marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', marketAddresses[index]),
+          marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(marketAddresses[index])),
           timestamp: claim.transaction.timestamp,
           token: token,
           amount: toAmountInfo(BigNumber.from(amounts[index]), token.decimals, true),
