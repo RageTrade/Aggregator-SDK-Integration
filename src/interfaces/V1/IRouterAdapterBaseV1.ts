@@ -367,7 +367,12 @@ export interface IRouterAdapterBaseV1 {
     opts?: ApiOpts
   ): Promise<PaginatedRes<LiquidationInfo>>
 
-  getClaimHistory(wallet: string, pageOptions: PageOptions | undefined): Promise<PaginatedRes<ClaimInfo>>
+  getClaimHistory(
+    wallet: string,
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
+  ): Promise<PaginatedRes<ClaimInfo>>
+  
   getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
@@ -390,7 +395,7 @@ export interface IRouterAdapterBaseV1 {
     opts?: ApiOpts
   ): Promise<PreviewInfo[]>
 
-  getTotalClaimableFunding(wallet: string): Promise<FixedNumber>
+  getTotalClaimableFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
-  getTotalAccuredFunding(wallet: string): Promise<FixedNumber>
+  getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 }
