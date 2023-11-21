@@ -8,7 +8,7 @@ import { FixedNumber } from '../../common/fixedNumber'
 
 // TODO - implement for all api's. Curretly done for preview based internal functions
 export type ApiOpts = {
-  bypassCache: boolean, // bypass query client cache altogether
+  bypassCache: boolean // bypass query client cache altogether
   overrideStaleTime?: number // pass the stale time to override default stale time
 }
 

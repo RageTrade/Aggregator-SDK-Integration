@@ -19,6 +19,11 @@ export function getStaleTime(time: number, opts?: ApiOpts): number {
   if (opts?.bypassCache) {
     return 0
   }
+
+  if (opts?.overrideStaleTime) {
+    return opts.overrideStaleTime
+  }
+
   return time
 }
 

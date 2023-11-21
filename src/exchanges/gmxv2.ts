@@ -32,28 +32,27 @@ import {
 import { rpc } from '../common/provider'
 import {
   DataStore__factory,
-  Reader,
   Reader__factory,
   ExchangeRouter__factory,
   IERC20__factory,
-  Keys
+  Reader
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
 import { OrderType, ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
-import { applySlippage, getPaginatedResponse, logObject, toAmountInfo, getBNFromFN } from '../common/helper'
+import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
-import { hashedPositionKey, openInterestKey } from '../configs/gmxv2/config/dataStore'
+import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
 import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
 import { useMarketsInfo } from '../configs/gmxv2/markets/useMarketsInfo'
 import { usePositionsInfo } from '../configs/gmxv2/positions/usePositionsInfo'
 import { ARBITRUM } from '../configs/gmx/chains'
 import { chains } from 'perennial-sdk-ts'
 import { useOrdersInfo } from '../configs/gmxv2/orders/useOrdersInfo'
-import { TradeFeesType, TriggerThresholdType } from '../configs/gmxv2/trade/types'
+import { TriggerThresholdType } from '../configs/gmxv2/trade/types'
 import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../configs/gmxv2/orders'
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 import { PositionInfo as InternalPositionInfo } from '../configs/gmxv2/positions/types'
@@ -64,11 +63,7 @@ import {
   getTotalAccruedFundingUsd,
   getTotalClaimableFundingUsd
 } from '../configs/gmxv2/markets/utils'
-import {
-  getBorrowingFactorPerPeriod,
-  getFundingFactorPerPeriod,
-  getFundingFeeRateUsd
-} from '../configs/gmxv2/fees/utils'
+import { getBorrowingFactorPerPeriod, getFundingFactorPerPeriod } from '../configs/gmxv2/fees/utils'
 import { BASIS_POINTS_DIVISOR } from '../configs/gmx/tokens'
 import { convertToUsd, convertToTokenAmount, getIsEquivalentTokens, getTokenData } from '../configs/gmxv2/tokens/utils'
 import {
@@ -76,9 +71,8 @@ import {
   getNextPositionValuesForIncreaseTrade
 } from '../configs/gmxv2/trade/utils/increase'
 import { usePositionsConstants } from '../configs/gmxv2/positions/usePositionsConstants'
-import { estimateExecuteIncreaseOrderGasLimit, getExecutionFee } from '../configs/gmxv2/fees/utils'
 import { getTradeFees } from '../configs/gmxv2/trade/utils/common'
-import { TokenData, TokensData } from '../configs/gmxv2/tokens/types'
+import { TokensData } from '../configs/gmxv2/tokens/types'
 import { ZERO } from '../common/constants'
 import {
   getDecreasePositionAmounts,
@@ -90,7 +84,7 @@ import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
-import { UserReferralInfo } from '../configs/gmxv2/referrals/types'
+import queryClient, { CACHE_DAY, getStaleTime } from '../common/cache'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -147,20 +141,11 @@ export default class GmxV2Service implements IAdapterV1 {
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
   private minCollateralUsd = parseUnits('10', 30)
-  // TODO - check if this is correct or remove it and use query client
-  private cachedMarkets: Record<
-    string,
-    {
-      marketInfo: MarketInfo
-      market: Awaited<ReturnType<Reader['getMarket']>>
-    }
-  > = {}
 
   private _smartWallet: string | undefined
 
   async init(swAddr: string): Promise<void> {
     this._smartWallet = ethers.utils.getAddress(swAddr)
-    await this._buildCacheIfEmpty()
     return Promise.resolve()
   }
 
@@ -192,73 +177,87 @@ export default class GmxV2Service implements IAdapterV1 {
     return [chains[42161]]
   }
 
-  async supportedMarkets(networks: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
+  async _cachedMarkets(opts?: ApiOpts) {
+    return queryClient.fetchQuery({
+      queryKey: ['cachedMarkets'],
+      queryFn: async () => {
+        const marketProps = await this.reader.getMarkets(this.DATASTORE_ADDR, 0, 1000)
+
+        const marketsInfo: Record<
+          string,
+          {
+            marketInfo: MarketInfo
+            market: Awaited<ReturnType<Reader['getMarket']>>
+          }
+        > = {}
+
+        for (const mProp of marketProps) {
+          if (mProp.indexToken === ethers.constants.AddressZero) continue
+
+          const longToken = getGmxV2TokenByAddress(mProp.longToken)
+          const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
+
+          const supportedCollateralTokens: Token[] = [longToken, shortToken]
+
+          if (longToken.symbol === 'WETH' || shortToken.symbol === 'WETH') {
+            supportedCollateralTokens.push(tokens.ETH)
+          }
+
+          const market: Market = {
+            marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', mProp.marketToken),
+            chain: chains[42161],
+            indexToken: getGmxV2TokenByAddress(mProp.indexToken),
+            longCollateral: supportedCollateralTokens,
+            shortCollateral: supportedCollateralTokens,
+            supportedOrderTypes: {
+              LIMIT: true,
+              MARKET: true,
+              STOP_LOSS: true,
+              TAKE_PROFIT: true
+            },
+            supportedOrderActions: {
+              CREATE: true,
+              UPDATE: true,
+              CANCEL: true
+            },
+            marketSymbol: this._getMarketSymbol(getGmxV2TokenByAddress(mProp.indexToken))
+          }
+
+          const staticMetadata: GenericStaticMarketMetadata = {
+            maxLeverage: FixedNumber.fromValue('500000', 4, 4),
+            minLeverage: FixedNumber.fromValue('11000', 4, 4),
+            minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
+            minPositionSize: FixedNumber.fromValue(parseUnits('11', 30).toString(), 30, 30)
+          }
+
+          const protocol: Protocol = {
+            protocolId: 'GMXV2'
+          }
+
+          const marketInfo: MarketInfo = {
+            ...market,
+            ...staticMetadata,
+            ...protocol
+          }
+
+          marketsInfo[marketInfo.marketId] = {
+            marketInfo,
+            market: mProp
+          }
+        }
+
+        return marketsInfo
+      },
+      staleTime: getStaleTime(CACHE_DAY, opts)
+    })
+  }
+
+  async supportedMarkets(_: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
     // get from cache if available
-    if (Object.keys(this.cachedMarkets).length > 0 && !opts?.bypassCache) {
-      return Object.values(this.cachedMarkets).map((m) => m.marketInfo)
-    }
 
-    const marketProps = await this.reader.getMarkets(this.DATASTORE_ADDR, 0, 1000)
+    const marketProps = await this._cachedMarkets(opts)
 
-    const marketsInfo: MarketInfo[] = []
-    for (const mProp of marketProps) {
-      if (mProp.indexToken === ethers.constants.AddressZero) continue
-
-      const longToken = getGmxV2TokenByAddress(mProp.longToken)
-      const shortToken = getGmxV2TokenByAddress(mProp.shortToken)
-
-      const supportedCollateralTokens: Token[] = [longToken, shortToken]
-
-      if (longToken.symbol === 'WETH' || shortToken.symbol === 'WETH') {
-        supportedCollateralTokens.push(tokens.ETH)
-      }
-
-      const market: Market = {
-        marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', mProp.marketToken),
-        chain: chains[42161],
-        indexToken: getGmxV2TokenByAddress(mProp.indexToken),
-        longCollateral: supportedCollateralTokens,
-        shortCollateral: supportedCollateralTokens,
-        supportedOrderTypes: {
-          LIMIT: true,
-          MARKET: true,
-          STOP_LOSS: true,
-          TAKE_PROFIT: true
-        },
-        supportedOrderActions: {
-          CREATE: true,
-          UPDATE: true,
-          CANCEL: true
-        },
-        marketSymbol: this._getMarketSymbol(getGmxV2TokenByAddress(mProp.indexToken))
-      }
-
-      const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: FixedNumber.fromValue('500000', 4, 4),
-        minLeverage: FixedNumber.fromValue('11000', 4, 4),
-        minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-        minPositionSize: FixedNumber.fromValue(parseUnits('11', 30).toString(), 30, 30)
-      }
-
-      const protocol: Protocol = {
-        protocolId: 'GMXV2'
-      }
-
-      const marketInfo: MarketInfo = {
-        ...market,
-        ...staticMetadata,
-        ...protocol
-      }
-
-      marketsInfo.push(marketInfo)
-
-      this.cachedMarkets[marketInfo.marketId] = {
-        marketInfo,
-        market: mProp
-      }
-    }
-
-    return marketsInfo
+    return Object.values(marketProps).map((e: (typeof marketProps)[keyof typeof marketProps]) => e.marketInfo)
   }
 
   async getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
@@ -279,16 +278,13 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async getMarketsInfo(marketIds: string[]): Promise<MarketInfo[]> {
-    // Build cache if not available already
-    await this._buildCacheIfEmpty()
-
     const marketsInfo: MarketInfo[] = []
+    const marketInfo = await this._cachedMarkets()
 
     for (const mId of marketIds) {
-      const marketInfo = this.cachedMarkets[mId]
       if (marketInfo === undefined) throw new Error(`Market ${mId} not found`)
 
-      marketsInfo.push(marketInfo.marketInfo)
+      marketsInfo.push(marketInfo[mId].marketInfo)
     }
 
     return marketsInfo
@@ -371,7 +367,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     for (const od of orderData) {
       // get market details
-      const mkt = this.cachedMarkets[od.marketId]
+      const mkt = (await this._cachedMarkets(undefined))[od.marketId]
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
@@ -499,7 +495,7 @@ export default class GmxV2Service implements IAdapterV1 {
       if (!od.triggerData) throw new Error('trigger price not provided')
 
       // take new size delta, trigger price and acceptable price & ignore rest
-      const mkt = this.cachedMarkets[od.marketId]
+      const mkt = (await this._cachedMarkets(undefined))[od.marketId]
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
@@ -612,7 +608,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // pro-rata close
       const sizeToClose = closePositionData[i].closeSize.amount.value
 
-      const mkt = this.cachedMarkets[positionInfo[i].marketId]
+      const mkt = (await this._cachedMarkets(undefined))[positionInfo[i].marketId]
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
@@ -851,7 +847,11 @@ export default class GmxV2Service implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  async getAllPositions(wallet: string, pageOptions: PageOptions | undefined, opts?: ApiOpts): Promise<PaginatedRes<PositionInfo>> {
+  async getAllPositions(
+    wallet: string,
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
+  ): Promise<PaginatedRes<PositionInfo>> {
     const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet, opts)
     const { positionsInfoData, isLoading: isPositionsLoading } = await usePositionsInfo(ARBITRUM, {
       marketsInfoData,
@@ -958,9 +958,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const trades: HistoricalTradeInfo[] = []
 
-    rawTrades.forEach((trade: any) => {
+    rawTrades.forEach(async (trade: any) => {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
-      const marketInfo = this.cachedMarkets[marketId]
+      const marketInfo = (await this._cachedMarkets(undefined))[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
       const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
@@ -1217,9 +1217,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const liquidations: LiquidationInfo[] = []
 
-    rawTrades.forEach((trade: any) => {
+    rawTrades.forEach(async (trade: any) => {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
-      const marketInfo = this.cachedMarkets[marketId]
+      const marketInfo = (await this._cachedMarkets(undefined))[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
       const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
@@ -1326,7 +1326,7 @@ export default class GmxV2Service implements IAdapterV1 {
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
       const ePos = existingPos[i]
-      const marketInfo = marketsInfoData[this.cachedMarkets[od.marketId].market.marketToken]
+      const marketInfo = marketsInfoData[(await this._cachedMarkets(undefined))[od.marketId].market.marketToken]
       const toToken = tokensData[marketInfo.indexToken.address]
       const fromToken = tokensData[od.collateral.address[42161]!]
       const orderSizeDelta = getBNFromFN(od.sizeDelta.amount.toFormat(30))
@@ -1776,10 +1776,6 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _getMarketSymbol(token: GMX_V2_TOKEN): string {
     return token.symbol === 'WETH' ? 'ETH' : token.symbol
-  }
-
-  private async _buildCacheIfEmpty() {
-    if (!(Object.keys(this.cachedMarkets).length > 0)) await this.supportedMarkets(this.supportedChains())
   }
 
   private async _KeeperFeeUsd(tData: TokensData | undefined, opts?: ApiOpts): Promise<BigNumber> {

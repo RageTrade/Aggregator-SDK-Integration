@@ -378,7 +378,35 @@ async function test() {
   // await testCloseTradePreview()
 }
 
-test()
+async function testAllRead() {
+  await ex.init('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d')
+  await ex.setup()
+
+  for (let i = 0; i < 5; i++) {
+    // console.time("supportedChains")
+    // console.log("supported chains")
+    // console.dir(ex.supportedChains())
+    // console.timeEnd("supportedChains")
+    // console.time("supportedMarkets")
+    // console.log("supported markets")
+    // console.dir(await ex.supportedMarkets(undefined, undefined))
+    // console.timeEnd("supportedMarkets")
+    // console.time("marketInfo")
+    // console.log("market info")
+    // await ex.getMarketsInfo((await ex.supportedMarkets(undefined, undefined)).map(e => e.marketId))
+    // console.timeEnd("marketInfo")
+    // console.time("getAllPositions")
+    // console.log("market info")
+    // await ex.getAllPositions('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined, undefined)
+    // console.timeEnd("getAllPositions")
+    // console.time("getAllOrders")
+    // console.log("market info")
+    // await ex.getAllOrders('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined)
+    // console.timeEnd("getAllOrders")
+  }
+}
+
+testAllRead()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)
