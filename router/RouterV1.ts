@@ -59,7 +59,7 @@ export default class RouterV1 implements IRouterV1 {
     const result: ClaimInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getClaimHistory(wallet, pageOptions, opts))
+      promises.push(this.adapters[key].getClaimHistory(wallet, undefined, opts))
     }
 
     const out = await Promise.all(promises)
@@ -235,7 +235,7 @@ export default class RouterV1 implements IRouterV1 {
     const result: PositionInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAllPositions(wallet, pageOptions, opts))
+      promises.push(this.adapters[key].getAllPositions(wallet, undefined, opts))
     }
 
     const out = await Promise.all(promises)
@@ -255,7 +255,7 @@ export default class RouterV1 implements IRouterV1 {
     const result: OrderInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAllOrders(wallet, pageOptions, opts))
+      promises.push(this.adapters[key].getAllOrders(wallet, undefined, opts))
     }
 
     const out = await Promise.all(promises)
@@ -299,7 +299,7 @@ export default class RouterV1 implements IRouterV1 {
     const result: HistoricalTradeInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getTradesHistory(wallet, pageOptions, opts))
+      promises.push(this.adapters[key].getTradesHistory(wallet, undefined, opts))
     }
 
     const out = await Promise.all(promises)
@@ -318,7 +318,7 @@ export default class RouterV1 implements IRouterV1 {
     const result: LiquidationInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getLiquidationHistory(wallet, pageOptions, opts))
+      promises.push(this.adapters[key].getLiquidationHistory(wallet, undefined, opts))
     }
 
     const out = await Promise.all(promises)
