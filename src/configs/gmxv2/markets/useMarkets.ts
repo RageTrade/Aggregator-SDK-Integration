@@ -5,7 +5,7 @@ import { ethers } from 'ethers'
 import { MarketsData } from './types'
 import { getMarketFullName } from './utils'
 import { useMulticall } from '../lib/multicall/useMulticall'
-import queryClient, { CACHE_DAY, getStaleTime } from '../../../common/cache'
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../../../common/cache'
 import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 type MarketsResult = {
@@ -16,9 +16,10 @@ type MarketsResult = {
 const MARKETS_COUNT = 100
 
 export async function useMarkets(chainId: number, opts?: ApiOpts): Promise<MarketsResult> {
-  const { data } = await queryClient.fetchQuery({
-    queryKey: ['useMulticall', 'useMarkets', chainId],
-    queryFn: () =>
+  const sTime = getStaleTime(CACHE_DAY, opts)
+  const { data } = await cacheFetch({
+    key: ['useMulticall', 'useMarkets', chainId],
+    fn: () =>
       useMulticall(chainId, 'useMarketsData', {
         key: [],
 
@@ -72,7 +73,9 @@ export async function useMarkets(chainId: number, opts?: ApiOpts): Promise<Marke
           )
         }
       }),
-    staleTime: getStaleTime(CACHE_DAY, opts)
+    staleTime: sTime,
+    cacheTime: sTime * CACHE_TIME_MULT,
+    opts
   })
 
   return {

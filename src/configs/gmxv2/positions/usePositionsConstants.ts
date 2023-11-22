@@ -3,7 +3,7 @@ import { getContract } from '../config/contracts'
 import { MIN_COLLATERAL_USD_KEY, MIN_POSITION_SIZE_USD_KEY } from '../config/dataStore'
 import { BigNumber } from 'ethers'
 import { useMulticall } from '../lib/multicall/useMulticall'
-import queryClient, { CACHE_DAY, getStaleTime } from '../../../common/cache'
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../../../common/cache'
 import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 export type PositionsConstantsResult = {
@@ -12,9 +12,10 @@ export type PositionsConstantsResult = {
 }
 
 export async function usePositionsConstants(chainId: number, opts?: ApiOpts): Promise<PositionsConstantsResult> {
-  const { data } = await queryClient.fetchQuery({
-    queryKey: ['usePositionsConstants', chainId],
-    queryFn: () =>
+  const sTime = getStaleTime(CACHE_DAY, opts)
+  const { data } = await cacheFetch({
+    key: ['usePositionsConstants', chainId],
+    fn: () =>
       useMulticall(chainId, 'usePositionsConstants', {
         key: [],
 
@@ -43,7 +44,9 @@ export async function usePositionsConstants(chainId: number, opts?: ApiOpts): Pr
           }
         }
       }),
-    staleTime: getStaleTime(CACHE_DAY, opts)
+    staleTime: sTime,
+    cacheTime: sTime * CACHE_TIME_MULT,
+    opts
   })
 
   return data || {}

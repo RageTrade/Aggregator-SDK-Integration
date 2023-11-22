@@ -84,7 +84,7 @@ import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
-import queryClient, { CACHE_DAY, getStaleTime } from '../common/cache'
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -178,9 +178,10 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async _cachedMarkets(opts?: ApiOpts) {
-    return queryClient.fetchQuery({
-      queryKey: ['cachedMarkets'],
-      queryFn: async () => {
+    const sTime = getStaleTime(CACHE_DAY, opts)
+    const res = cacheFetch({
+      key: ['cachedMarkets'],
+      fn: async () => {
         const marketProps = await this.reader.getMarkets(this.DATASTORE_ADDR, 0, 1000)
 
         const marketsInfo: Record<
@@ -248,13 +249,16 @@ export default class GmxV2Service implements IAdapterV1 {
 
         return marketsInfo
       },
-      staleTime: getStaleTime(CACHE_DAY, opts)
+      staleTime: sTime,
+      cacheTime: sTime * CACHE_TIME_MULT,
+      opts
     })
+
+    return res
   }
 
   async supportedMarkets(_: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
     // get from cache if available
-
     const marketProps = await this._cachedMarkets(opts)
 
     return Object.values(marketProps).map((e: (typeof marketProps)[keyof typeof marketProps]) => e.marketInfo)

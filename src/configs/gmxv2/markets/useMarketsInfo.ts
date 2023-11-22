@@ -43,7 +43,7 @@ import { TokensData } from '../tokens/types'
 import { useTokensData } from '../tokens/useTokensData'
 import { useMulticall } from '../lib/multicall/useMulticall'
 import { getByKey } from '../../../common/helper'
-import queryClient, { CACHE_DAY, CACHE_MINUTE, getStaleTime } from '../../../common/cache'
+import { CACHE_MINUTE, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../../../common/cache'
 import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 export type MarketsInfoResult = {
@@ -68,9 +68,10 @@ export async function useMarketsInfo(chainId: number, wallet: string, opts?: Api
 
   const isDepencenciesLoading = !marketsAddresses || !tokensData
 
-  const { data } = await queryClient.fetchQuery({
-    queryKey: ['useMulticall', 'useMarketsInfo', chainId],
-    queryFn: () =>
+  const sTime = getStaleTime(CACHE_MINUTE, opts)
+  const { data } = await cacheFetch({
+    key: ['useMulticall', 'useMarketsInfo', chainId],
+    fn: () =>
       useMulticall(chainId, 'useMarketsInfo', {
         key: !isDepencenciesLoading &&
           marketsAddresses.length > 0 && [marketsAddresses.join('-'), dataStoreAddress, account, pricesUpdatedAt],
@@ -552,7 +553,9 @@ export async function useMarketsInfo(chainId: number, wallet: string, opts?: Api
           }, {} as MarketsInfoData)
         }
       }),
-    staleTime: getStaleTime(CACHE_MINUTE, opts)
+    staleTime: sTime,
+    cacheTime: sTime * CACHE_TIME_MULT,
+    opts
   })
 
   return {

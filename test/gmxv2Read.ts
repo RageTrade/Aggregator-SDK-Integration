@@ -16,6 +16,7 @@ import { parseEther, parseUnits } from 'ethers/lib/utils'
 import { arbitrum } from 'viem/chains'
 import { tokens } from '../src/common/tokens'
 import RouterV1 from '../router/RouterV1'
+import { CACHE_SECOND } from 'src/common/cache'
 
 const ex = new GmxV2Service()
 const rt = new RouterV1()
@@ -30,17 +31,17 @@ async function testGetAllPositions() {
 
 async function testSupportedMarkets() {
   const res = await ex.supportedMarkets(ex.supportedChains())
-  res.forEach((m) => {
-    console.log(
-      m.indexToken.symbol,
-      ': ',
-      m.marketSymbol,
-      ': ',
-      m.longCollateral[0].symbol,
-      '-',
-      m.shortCollateral[1].symbol
-    )
-  })
+  // res.forEach((m) => {
+  //   console.log(
+  //     m.indexToken.symbol,
+  //     ': ',
+  //     m.marketSymbol,
+  //     ': ',
+  //     m.longCollateral[0].symbol,
+  //     '-',
+  //     m.shortCollateral[1].symbol
+  //   )
+  // })
   // console.dir({ res }, { depth: 4 })
   // console.log('markets length: ', res.length)
 }
@@ -370,7 +371,7 @@ async function testRouterGetClaimableFundingFees() {
 async function test() {
   await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
   for (let i = 0; i < 1; i++) {
-    await testRouterGetClaimableFundingFees()
+    await testSupportedMarkets()
     console.log('\n')
   }
 
@@ -406,7 +407,68 @@ async function testAllRead() {
   }
 }
 
-testAllRead()
+async function testStaleAndCacheTime() {
+  // staleTime = 5, cacheTime = 10 (5 * 2)
+  let staleTime = CACHE_SECOND * 5
+
+  // first time should come from fetchQuery
+  console.time('first time')
+  await ex.supportedMarkets(ex.supportedChains(), {
+    bypassCache: false,
+    overrideStaleTime: staleTime
+  })
+  console.timeEnd('first time')
+
+  // wait 2 sec
+  console.log('waiting 2 sec\n')
+  await new Promise((resolve) => setTimeout(resolve, 2000))
+
+  // second time should come from cache because timeDiff < staleTime
+  console.time('second time')
+  await ex.supportedMarkets(ex.supportedChains(), {
+    bypassCache: false,
+    overrideStaleTime: staleTime
+  })
+  console.timeEnd('second time')
+
+  // wait 5 sec
+  console.log('waiting 5 sec\n')
+  await new Promise((resolve) => setTimeout(resolve, 5000))
+
+  // third time should come from cache with prefetch because timeDiff > staleTime and timeDiff < cacheTime
+  console.time('third time')
+  await ex.supportedMarkets(ex.supportedChains(), {
+    bypassCache: false,
+    overrideStaleTime: staleTime
+  })
+  console.timeEnd('third time')
+
+  // wait 5 sec
+  console.log('waiting 5 sec\n')
+  await new Promise((resolve) => setTimeout(resolve, 5000))
+
+  // fourth time should come from cache because timeDiff < staleTime
+  console.time('fourth time')
+  await ex.supportedMarkets(ex.supportedChains(), {
+    bypassCache: false,
+    overrideStaleTime: staleTime
+  })
+  console.timeEnd('fourth time')
+
+  // wait 12 sec
+  console.log('waiting 12 sec\n')
+  await new Promise((resolve) => setTimeout(resolve, 12000))
+
+  // fifth time should come from fetchQuery because timeDiff > cacheTime
+  console.time('fifth time')
+  await ex.supportedMarkets(ex.supportedChains(), {
+    bypassCache: false,
+    overrideStaleTime: staleTime
+  })
+  console.timeEnd('fifth time')
+}
+
+testStaleAndCacheTime()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)
