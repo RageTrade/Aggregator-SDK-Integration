@@ -16,7 +16,7 @@ import { parseEther, parseUnits } from 'ethers/lib/utils'
 import { arbitrum } from 'viem/chains'
 import { tokens } from '../src/common/tokens'
 import RouterV1 from '../router/RouterV1'
-import { CACHE_SECOND } from 'src/common/cache'
+import { CACHE_SECOND } from '../src/common/cache'
 
 const ex = new GmxV2Service()
 const rt = new RouterV1()
