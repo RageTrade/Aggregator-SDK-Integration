@@ -590,9 +590,12 @@ export default class GmxV2Service implements IAdapterV1 {
       // if take profit
       // limit / trigger order at given price in positive direction
 
-      const orderType = closePositionData[i].triggerData
+      let orderType = closePositionData[i].triggerData
         ? SolidityOrderType.LimitDecrease
         : SolidityOrderType.MarketDecrease
+
+      if (orderType === SolidityOrderType.LimitDecrease && closePositionData[i].type === 'STOP_LOSS')
+        orderType = SolidityOrderType.StopLossDecrease
 
       // check size to close
       if (closePositionData[i].closeSize.amount.value > positionInfo[i].size.amount.value) {

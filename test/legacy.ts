@@ -707,8 +707,8 @@ async function gmxService() {
     (m) => m.indexOrIdentifier.toLowerCase() === '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'.toLowerCase() //ETH market
   )!
 
-  const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider);
-  logObject("Dynamic Metadata: ", dynamicMetadata);
+  const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider)
+  logObject('Dynamic Metadata: ', dynamicMetadata)
 
   // const tradeHistory = await gs.getTradesHistory(
   //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",

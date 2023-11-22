@@ -372,7 +372,7 @@ export interface IRouterAdapterBaseV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<ClaimInfo>>
-  
+
   getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
