@@ -8,6 +8,10 @@ export const CACHE_DAY = 24 * CACHE_HOUR
 export const CACHE_WEEK = 7 * CACHE_DAY
 export const CACHE_TIME_MULT = 2
 
+export const GMXV2_CACHE_PREFIX = 'gmxv2'
+export const GMXV1_CACHE_PREFIX = 'gmxv1'
+export const SYNV2_CACHE_PREFIX = 'synv2'
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {

@@ -84,7 +84,7 @@ import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
-import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../common/cache'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
@@ -180,7 +180,7 @@ export default class GmxV2Service implements IAdapterV1 {
   async _cachedMarkets(opts?: ApiOpts) {
     const sTime = getStaleTime(CACHE_DAY, opts)
     const res = cacheFetch({
-      key: ['cachedMarkets'],
+      key: [GMXV2_CACHE_PREFIX, 'cachedMarkets'],
       fn: async () => {
         const marketProps = await this.reader.getMarkets(this.DATASTORE_ADDR, 0, 1000)
 

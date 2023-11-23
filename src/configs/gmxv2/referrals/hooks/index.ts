@@ -12,7 +12,7 @@ import { contractFetcher } from '../../lib/contracts/contractFetcher'
 import { ARBITRUM } from '../../../gmx/chains'
 import { isAddressZero, isHashZero } from '../../../../common/helper'
 import { rpc } from '../../../../common/provider'
-import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../../../../common/cache'
+import {CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX} from '../../../../common/cache';
 import { ApiOpts } from '../../../../interfaces/V1/IRouterAdapterBaseV1'
 
 // export * from './useReferralsData'
@@ -30,7 +30,7 @@ export async function useUserReferralInfo(
 
   const sTimeDay = getStaleTime(CACHE_DAY, opts)
   const { userReferralCode, userReferralCodeString, attachedOnChain, referralCodeForTxn } = await cacheFetch({
-    key: ['useUserReferralCode', chainId, account],
+    key: [GMXV2_CACHE_PREFIX, 'useUserReferralCode', chainId, account],
     fn: () => useUserReferralCode(chainId, account, skipLocalReferralCode),
     staleTime: sTimeDay,
     cacheTime: sTimeDay * CACHE_TIME_MULT,
@@ -42,28 +42,28 @@ export async function useUserReferralInfo(
   }
 
   const { codeOwner } = await cacheFetch({
-    key: ['useCodeOwner', chainId, account, userReferralCode],
+    key: [GMXV2_CACHE_PREFIX, 'useCodeOwner', chainId, account, userReferralCode],
     fn: () => useCodeOwner(chainId, account, userReferralCode),
     staleTime: sTimeDay,
     cacheTime: sTimeDay * CACHE_TIME_MULT,
     opts
   })
   const { affiliateTier: tierId } = await cacheFetch({
-    key: ['useAffiliateTier', chainId, codeOwner],
+    key: [GMXV2_CACHE_PREFIX, 'useAffiliateTier', chainId, codeOwner],
     fn: () => useAffiliateTier(chainId, codeOwner),
     staleTime: sTimeDay,
     cacheTime: sTimeDay * CACHE_TIME_MULT,
     opts
   })
   const tiersPromise = cacheFetch({
-    key: ['useTiers', chainId, tierId],
+    key: [GMXV2_CACHE_PREFIX, 'useTiers', chainId, tierId],
     fn: () => useTiers(chainId, tierId),
     staleTime: sTimeDay,
     cacheTime: sTimeDay * CACHE_TIME_MULT,
     opts
   })
   const referrerDiscountSharePromise = cacheFetch({
-    key: ['useReferrerDiscountShare', chainId, codeOwner],
+    key: [GMXV2_CACHE_PREFIX, 'useReferrerDiscountShare', chainId, codeOwner],
     fn: () => useReferrerDiscountShare(chainId, codeOwner),
     staleTime: sTimeDay,
     cacheTime: sTimeDay * CACHE_TIME_MULT,
