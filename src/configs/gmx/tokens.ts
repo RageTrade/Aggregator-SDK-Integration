@@ -6,6 +6,9 @@ import { Provider } from '@ethersproject/providers'
 import { IERC20__factory, Reader__factory, VaultReader__factory } from '../../../typechain/gmx-v1'
 import { ExtendedMarket, ExtendedPosition, ViewError, Order } from '../../interface'
 import { logObject, toNumberDecimal } from '../../common/helper'
+import { CACHE_MINUTE, CACHE_SECOND, GMXV1_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../common/cache'
+import { CACHE_TIME_MULT } from '../../common/cache'
+import { ApiOpts } from '../../interfaces/V1/IRouterAdapterBaseV1'
 
 export type GToken = {
   name: string
@@ -1152,8 +1155,10 @@ export async function useInfoTokens(
   active: boolean,
   tokenBalances?: BigNumber[],
   fundingRateInfo?: BigNumber[],
-  vaultPropsLength?: number
+  vaultPropsLength?: number,
+  opts?: ApiOpts
 ) {
+  console.log('INFO TOKENS CALLED')
   const tokens = V1_TOKENS[chainId]
   const vaultReaderAddress = getContract(chainId, 'VaultReader')
   const vaultAddress = getContract(chainId, 'Vault')
@@ -1165,17 +1170,40 @@ export async function useInfoTokens(
 
   const vr = VaultReader__factory.connect(vaultReaderAddress!, library!)
 
-  const vaultTokenInfo = await vr.getVaultTokenInfoV4(
-    vaultAddress!,
-    positionRouterAddress!,
-    nativeTokenAddress!,
-    expandDecimals(1, 18),
-    whitelistedTokenAddresses
-  )
+  const sTimeVTI = getStaleTime(CACHE_SECOND * 30, opts)
+  const vaultTokenInfoPromise = cacheFetch({
+    key: [
+      GMXV1_CACHE_PREFIX,
+      'getVaultTokenInfoV4',
+      vaultAddress!,
+      positionRouterAddress!,
+      nativeTokenAddress!,
+      whitelistedTokenAddresses
+    ],
+    fn: () =>
+      vr.getVaultTokenInfoV4(
+        vaultAddress!,
+        positionRouterAddress!,
+        nativeTokenAddress!,
+        expandDecimals(1, 18),
+        whitelistedTokenAddresses
+      ),
+    staleTime: sTimeVTI,
+    cacheTime: sTimeVTI * CACHE_TIME_MULT,
+    opts
+  })
 
   const indexPricesUrl = getServerUrl(chainId, '/prices')
+  const sTimeIPP = getStaleTime(CACHE_SECOND * 30, opts)
+  const indexPricesPromise = cacheFetch({
+    key: [GMXV1_CACHE_PREFIX, 'indexPricesFetch', indexPricesUrl],
+    fn: () => fetch(indexPricesUrl).then((res) => res.json()),
+    staleTime: sTimeIPP,
+    cacheTime: sTimeIPP * CACHE_TIME_MULT,
+    opts
+  })
 
-  const { data: indexPrices } = await (await fetch(indexPricesUrl)).json()
+  const [vaultTokenInfo, { data: indexPrices }] = await Promise.all([vaultTokenInfoPromise, indexPricesPromise])
 
   return {
     infoTokens: getInfoTokens(
@@ -1602,7 +1630,8 @@ export const getEditCollateralPreviewInternal = async (
   marginDelta: BigNumber,
   isDeposit: boolean,
   convertToToken: any,
-  execFee: BigNumber
+  execFee: BigNumber,
+  opts?: ApiOpts
 ): Promise<ExtendedPosition> => {
   let collateralToken = position.collateralToken
   let fundingFee = getFundingFee(position)
@@ -1619,7 +1648,7 @@ export const getEditCollateralPreviewInternal = async (
   fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
   let convertedAmount: BigNumber
 
-  const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined)
+  const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
 
   if (isDeposit) {
     convertedAmount = getUsd(fromAmount, position.collateralToken.address, false, infoTokens)!
@@ -1747,7 +1776,8 @@ export const getCloseTradePreviewInternal = async (
   isTrigger: boolean,
   triggerPrice: BigNumber | undefined,
   outputToken: GToken | undefined,
-  convertToToken: any
+  convertToToken: any,
+  opts?: ApiOpts
 ): Promise<ExtendedPosition> => {
   let liquidationPrice: BigNumber | undefined
   let nextLiquidationPrice: BigNumber | undefined
@@ -1815,7 +1845,16 @@ export const getCloseTradePreviewInternal = async (
     positionFee = getMarginFee(fromAmount)
   }
 
-  const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined)
+  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const usdgSupplyPromise = cacheFetch({
+    key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
+    fn: () => usdgToken.totalSupply(),
+    staleTime: sTimeUS,
+    cacheTime: sTimeUS * CACHE_TIME_MULT,
+    opts
+  })
+  const infoTokensPromise = useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
+  const [usdgSupply, { infoTokens }] = await Promise.all([usdgSupplyPromise, infoTokensPromise])
 
   let collateralTokenInfo = getTokenInfo(infoTokens, position.originalCollateralToken!)
   let receiveTokenInfo = outputToken ? getTokenInfo(infoTokens, outputToken.address) : undefined
@@ -1836,7 +1875,7 @@ export const getCloseTradePreviewInternal = async (
       infoTokens,
       undefined,
       undefined,
-      await usdgToken.totalSupply(),
+      usdgSupply,
       100001,
       true
     )
@@ -2282,42 +2321,31 @@ export const getTradePreviewInternal = async (
   user: string,
   provider: Provider,
   market: ExtendedMarket,
-  getMarketPrice: any,
   convertToToken: any,
   order: Order,
   executionFee: BigNumber,
-  existingPosition: ExtendedPosition | undefined
+  existingPosition: ExtendedPosition | undefined,
+  opts?: ApiOpts
 ): Promise<ExtendedPosition> => {
-  const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
 
-  const marketPrice = BigNumber.from((await getMarketPrice(market)).value)
+  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const usdgSupplyPromise = cacheFetch({
+    key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
+    fn: () => usdgToken.totalSupply(),
+    staleTime: sTimeUS,
+    cacheTime: sTimeUS * CACHE_TIME_MULT,
+    opts
+  })
+  const infoTokensPromise = useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
+  const [usdgSupply, { infoTokens }] = await Promise.all([usdgSupplyPromise, infoTokensPromise])
 
-  const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
-
-  const whitelistedTokens = V1_TOKENS[ARBITRUM]
-  const tokenAddresses = whitelistedTokens.map((x) => x.address)
-
-  const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses)
-  // console.log(tokenBalances)
-
-  const fundingRateInfoPromise = reader.getFundingRates(
-    getContract(ARBITRUM, 'Vault')!,
-    nativeTokenAddress!,
-    tokenAddresses
-  )
-  // console.log(fundingRateInfo)
-
-  const [tokenBalances, fundingRateInfo] = await Promise.all([tokenBalancesPromise, fundingRateInfoPromise])
-
-  const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, tokenBalances, fundingRateInfo)
+  const indexTokenInfo = getTokenInfo(infoTokens, market.indexOrIdentifier)
+  const marketPrice = indexTokenInfo.maxPrice!
 
   let leverage: BigNumber | undefined = BigNumber.from(0)
   const fromUsdMin = getUsd(order.inputCollateralAmount, order.inputCollateral.address, false, infoTokens)
-  // console.log("fromUsdMin: ", fromUsdMin!.toString());
 
-  // console.log("marketPrice: ", marketPrice.toString());
-  // console.log("triggerPrice: ", order.trigger!.triggerPrice!.toString());
   const toTokenAmount = order.sizeDelta
     .mul(BigNumber.from(10).pow(market.marketToken!.decimals))
     .div(order.type == 'MARKET_INCREASE' ? marketPrice : order.trigger!.triggerPrice!)
@@ -2329,8 +2357,6 @@ export const getTradePreviewInternal = async (
     order.type == 'MARKET_INCREASE' ? MARKET : LIMIT,
     order.trigger!.triggerPrice!
   )
-  // const toUsdMax = order.sizeDelta;
-  // console.log("toUsdMax: ", toUsdMax!.toString());
 
   if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
     const fees = toUsdMax.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR)
@@ -2366,7 +2392,7 @@ export const getTradePreviewInternal = async (
     infoTokens,
     undefined,
     undefined,
-    await usdgToken.totalSupply(),
+    usdgSupply,
     100001,
     false
   )

@@ -61,6 +61,7 @@ import {
 import { applySlippage, getPaginatedResponse, logObject, toNumberDecimal } from '../common/helper'
 import { timer } from 'execution-time-decorators'
 import { parseUnits } from 'ethers/lib/utils'
+import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
@@ -1150,17 +1151,18 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    existingPosition: ExtendedPosition | undefined
+    existingPosition: ExtendedPosition | undefined,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition> {
     return await getTradePreviewInternal(
       user,
       provider,
       market,
-      this.getMarketPrice,
       this.convertToToken,
       order,
       this.EXECUTION_FEE,
-      existingPosition
+      existingPosition,
+      opts
     )
   }
 
@@ -1172,7 +1174,8 @@ export default class GmxV1Service implements IExchange {
     isTrigger: boolean,
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
-    outputToken: Token | undefined
+    outputToken: Token | undefined,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition> {
     return await getCloseTradePreviewInternal(
       provider,
@@ -1182,7 +1185,8 @@ export default class GmxV1Service implements IExchange {
       isTrigger,
       triggerPrice,
       outputToken ? this.convertToGToken(outputToken) : undefined,
-      this.convertToToken
+      this.convertToToken,
+      opts
     )
   }
 
@@ -1191,7 +1195,8 @@ export default class GmxV1Service implements IExchange {
     provider: Provider,
     position: ExtendedPosition,
     marginDelta: ethers.BigNumber,
-    isDeposit: boolean
+    isDeposit: boolean,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition> {
     return await getEditCollateralPreviewInternal(
       provider,
@@ -1199,7 +1204,8 @@ export default class GmxV1Service implements IExchange {
       marginDelta,
       isDeposit,
       this.convertToToken,
-      this.EXECUTION_FEE
+      this.EXECUTION_FEE,
+      opts
     )
   }
 

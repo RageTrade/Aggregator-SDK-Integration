@@ -1,5 +1,6 @@
 import { BigNumber, BigNumberish, UnsignedTransaction, ethers } from 'ethers'
 import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from './tx-metadata-types'
+import { ApiOpts } from './interfaces/V1/IRouterAdapterBaseV1'
 
 export type Provider = ethers.providers.Provider
 
@@ -372,7 +373,8 @@ export interface IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    existingPosition: ExtendedPosition | undefined
+    existingPosition: ExtendedPosition | undefined,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition>
 
   getCloseTradePreview(
@@ -383,7 +385,8 @@ export interface IExchange {
     isTrigger: boolean,
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
-    outputToken: Token | undefined
+    outputToken: Token | undefined,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition>
 
   getEditCollateralPreview(
@@ -391,6 +394,7 @@ export interface IExchange {
     provider: Provider,
     position: ExtendedPosition,
     marginDelta: BigNumber,
-    isDeposit: boolean
+    isDeposit: boolean,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition>
 }

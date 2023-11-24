@@ -393,7 +393,7 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function synService() {
-  const ss = new SynthetixV2Service(sdk, '0x89E369321619114e317a3121A2693f39728f51f1')
+  const ss = new SynthetixV2Service(sdk, '0x2f88a09ed4174750a464576FE49E586F90A34820')
 
   // const tradeHistory = await ss.getTradesHistory(
   //   // "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
@@ -491,7 +491,7 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = '0.0612'
+  const sizeDelta = '0.05'
   const direction = 'LONG'
   const marketAddress = '0x2b3bb4c683bfc5239b029131eef3b1d214478d93'
 
@@ -598,17 +598,23 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  const tradePreview = await getTradePreview(
-    '0x89E369321619114e317a3121A2693f39728f51f1',
-    ss,
-    sizeDelta,
-    '50',
-    direction,
-    ethers.utils.parseUnits('1650.187897946949', 18),
-    ethMarket
-  )
-  logObject('Trade Preview: ', tradePreview)
-  logObject('PI: ', tradePreview.priceImpact!)
+  for (let i = 0; i < 3; i++) {
+    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+    console.time('getTradePreview')
+    const tradePreview = await getTradePreview(
+      '0x2f88a09ed4174750a464576FE49E586F90A34820',
+      ss,
+      sizeDelta,
+      '50.86',
+      direction,
+      // ethers.utils.parseUnits('2109', 18),
+      marketPrice,
+      ethMarket
+    )
+    console.timeEnd('getTradePreview')
+    console.log('\n')
+    // logObject('Trade Preview: ', tradePreview)
+  }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -700,15 +706,15 @@ async function gmxService() {
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0])
 
-  let btcMarket = supportedMarkets.find(
-    (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
-  )!
-  let ethMarket = supportedMarkets.find(
-    (m) => m.indexOrIdentifier.toLowerCase() === '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'.toLowerCase() //ETH market
-  )!
+  // let btcMarket = supportedMarkets.find(
+  //   (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
+  // )!
+  // let ethMarket = supportedMarkets.find(
+  //   (m) => m.indexOrIdentifier.toLowerCase() === '0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'.toLowerCase() //ETH market
+  // )!
 
-  const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider)
-  logObject('Dynamic Metadata: ', dynamicMetadata)
+  // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider)
+  // logObject('Dynamic Metadata: ', dynamicMetadata)
 
   // const tradeHistory = await gs.getTradesHistory(
   //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
@@ -839,68 +845,85 @@ async function gmxService() {
     address: ethers.constants.AddressZero
   }
 
-  // const allPositions = await gs.getAllPositions(w, provider);
+  const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
   // for (let i = 0; i < allPositions.length; i++) {
-  //   logObject("Position: ", allPositions[i]);
-  //   let positionOrders = await gs.getAllOrdersForPosition(
-  //     w,
-  //     provider,
-  //     allPositions[i],
-  //     undefined
-  //   );
+  //   logObject('Position: ', allPositions[i])
+  //   let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
   //   positionOrders.forEach((o) => {
-  //     logObject("Position Order: ", o);
-  //   });
+  //     logObject('Position Order: ', o)
+  //   })
   // }
 
-  // let position0 = allPositions[0];
-  // let market = supportedMarkets.find(
-  //   (m) => m.indexOrIdentifier.toLowerCase() === "0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f".toLowerCase() //BTC market
-  // )!;
+  let position0 = allPositions.length > 0 ? allPositions[0] : undefined
+  console.log(position0 ? 'Position 0: ' : 'No position 0')
+  let market = supportedMarkets.find(
+    (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
+  )!
   // console.log({ market })
-  // const tradePreview = await gs.getTradePreview(
-  //   w,
-  //   provider,
-  //   market,
-  //   {
-  //     type: "MARKET_INCREASE",
-  //     direction: "LONG",
-  //     inputCollateral: eth,
-  //     inputCollateralAmount: ethers.utils.parseUnits("0.01", eth.decimals),
-  //     sizeDelta: ethers.utils.parseUnits("40.35", 30),
-  //     isTriggerOrder: false,
-  //     referralCode: undefined,
-  //     trigger: {
-  //       triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-  //       // triggerPrice: ethers.utils.parseUnits("20000", 30),
-  //       triggerAboveThreshold: false,
+  // for (let i = 0; i < 2; i++) {
+  //   console.time('tradePreview')
+  //   const tradePreview = await gs.getTradePreview(
+  //     w,
+  //     provider,
+  //     market,
+  //     {
+  //       type: 'MARKET_INCREASE',
+  //       direction: 'LONG',
+  //       inputCollateral: eth,
+  //       inputCollateralAmount: ethers.utils.parseUnits('0.014', eth.decimals),
+  //       sizeDelta: ethers.utils.parseUnits('89.43', 30),
+  //       isTriggerOrder: false,
+  //       referralCode: undefined,
+  //       trigger: {
+  //         triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+  //         // triggerPrice: ethers.utils.parseUnits("37371", 30),
+  //         triggerAboveThreshold: false
+  //       },
+  //       slippage: '1'
   //     },
-  //   },
-  //   undefined
-  // );
-  // logObject("Trade Preview: ", tradePreview);
+  //     position0,
+  //     {
+  //       bypassCache: i == 1,
+  //       overrideStaleTime: 5 * 1000
+  //     }
+  //   )
+  //   console.timeEnd('tradePreview')
+  //   logObject('Trade Preview: ', tradePreview)
+  // }
 
-  // const closePreview = await gs.getCloseTradePreview(
-  //   w,
-  //   provider,
-  //   position0,
-  //   position0.size.mul(50).div(100),
-  //   true,
-  //   ethers.utils.parseUnits("30000", 30),
-  //   true,
-  //   usdc
-  // );
-  // logObject("Close Preview: ", closePreview);
+  // for (let i = 0; i < 2; i++) {
+  //   console.time('getCloseTradePreview')
+  //   const closePreview = await gs.getCloseTradePreview(
+  //     w,
+  //     provider,
+  //     position0!,
+  //     position0!.size.mul(50).div(100),
+  //     true,
+  //     ethers.utils.parseUnits('40000', 30),
+  //     true,
+  //     usdc
+  //   )
+  //   console.timeEnd('getCloseTradePreview')
+  //   logObject('Close Preview: ', closePreview)
+  // }
 
-  // const editCollateralPreview = await gs.getEditCollateralPreview(
-  //   w,
-  //   provider,
-  //   position0,
-  //   // ethers.utils.parseUnits("0", 30),
-  //   ethers.utils.parseUnits("0.0005", position0.collateralToken!.decimals),
-  //   true
-  // );
-  // logObject("editCollateralPreview: ", editCollateralPreview);
+  for (let i = 0; i < 2; i++) {
+    console.time('getEditCollateralPreview')
+    const editCollateralPreview = await gs.getEditCollateralPreview(
+      w,
+      provider,
+      position0!,
+      // ethers.utils.parseUnits("0", 30),
+      ethers.utils.parseUnits('0.00005', position0!.collateralToken!.decimals),
+      true,
+      {
+        bypassCache: i == 0,
+        overrideStaleTime: 1000
+      }
+    )
+    console.timeEnd('getEditCollateralPreview')
+    logObject('editCollateralPreview: ', editCollateralPreview)
+  }
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,
@@ -1219,7 +1242,7 @@ async function testPrice() {
 
 // startStreaming()
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)
