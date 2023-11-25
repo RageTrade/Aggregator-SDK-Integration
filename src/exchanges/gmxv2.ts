@@ -965,9 +965,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const trades: HistoricalTradeInfo[] = []
 
+    const cachedMarkets = await this._cachedMarkets(undefined)
     rawTrades.forEach(async (trade: any) => {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
-      const marketInfo = (await this._cachedMarkets(undefined))[marketId]
+      const marketInfo = cachedMarkets[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
       const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
@@ -1011,13 +1012,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 
