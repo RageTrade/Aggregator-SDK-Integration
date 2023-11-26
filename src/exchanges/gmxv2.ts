@@ -140,7 +140,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private datastore = DataStore__factory.connect(this.DATASTORE_ADDR, this.provider)
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
-  private minCollateralUsd = parseUnits('10', 30)
+  private minCollateralUsd = parseUnits('11', 30)
 
   private _smartWallet: string | undefined
 
@@ -1012,12 +1012,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 
