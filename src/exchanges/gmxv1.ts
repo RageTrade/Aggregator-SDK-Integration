@@ -236,7 +236,7 @@ export default class GmxV1Service implements IExchange {
         marketToken: indexToken,
         minLeverage: toNumberDecimal(parseUnits('1.1', 4), 4),
         maxLeverage: toNumberDecimal(parseUnits('50', 4), 4),
-        minInitialMargin: toNumberDecimal(BigNumber.from('11'), 30),
+        minInitialMargin: toNumberDecimal(parseUnits('11', 30), 30),
         protocolName: this.protocolIdentifier,
         minPositionSize: toNumberDecimal(parseUnits('10', 30), 30)
       })
