@@ -42,6 +42,8 @@ import { getExplorerUrl } from '../configs/gmx/chains'
 import { timer } from 'execution-time-decorators'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD } from '../configs/pyth/prices'
+import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10
@@ -164,6 +166,18 @@ export default class SynthetixV2Service implements IExchange {
   async getMarketPriceByAddress(marketAddress: string): Promise<NumberDecimal> {
     return {
       value: (await this.sdk.futures.getAssetPrice(marketAddress)).toBN().toString(),
+      decimals: 18
+    }
+  }
+
+  getMarketPriceByIdentifier(marketIdentifier: string) {
+    const asset = marketIdentifier.slice(1, marketIdentifier.length - 4)
+
+    const v = getTokenPriceD(asset, 18)
+    if (!v) return null
+
+    return {
+      value: v.toString(),
       decimals: 18
     }
   }
@@ -339,7 +353,8 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    existingPosition: ExtendedPosition | undefined
+    existingPosition: ExtendedPosition | undefined,
+    opts?: ApiOpts
   ) {
     const marketAddress = await this.getMarketAddress(market)
     const marketPrice = await this.getMarketPrice(market)
@@ -347,13 +362,20 @@ export default class SynthetixV2Service implements IExchange {
     await this.sdk.setProvider(provider)
 
     const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
-    const sUsdBalanceInMarket = (await this.sdk.futures.getIdleMarginInMarketsCached(this.swAddr, [futureMarket]))
-      .totalIdleInMarkets
+    const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
+    const sUsdBalanceInMarket = await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', this.swAddr, market.indexOrIdentifier],
+      fn: () =>
+        this.sdk.futures.getIdleMarginInMarketsCached(this.swAddr, [futureMarket]).then((r) => r.totalIdleInMarkets),
+      staleTime: sTimeSB,
+      cacheTime: sTimeSB * CACHE_TIME_MULT,
+      opts
+    })
 
     let sizeDelta = wei(order.sizeDelta)
     sizeDelta = order.direction == 'LONG' ? sizeDelta : sizeDelta.neg()
 
-    const tradePreview = await this.sdk.futures.getSimulatedIsolatedTradePreview(
+    const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
       user,
       getEnumEntryByValue(FuturesMarketKey, market.indexOrIdentifier!)!,
       marketAddress,
@@ -364,9 +386,20 @@ export default class SynthetixV2Service implements IExchange {
       }
     )
 
+    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const keeperFeePromise = cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+      fn: () => this.sdk.futures.getMinKeeperFee(),
+      staleTime: sTimeKF,
+      cacheTime: sTimeKF * CACHE_TIME_MULT,
+      opts
+    })
+
+    const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
+
     // We are using fillPrice instead of tradePreview.Price for priceimpact calculation
     // because tradePreview.Price takes into account existing position also and gives final average price basis that
-    const fillPrice = await this.getFillPriceInternal(marketAddress, sizeDelta)
+    const fillPrice = tradePreview.fillPrice
     const mp = BigNumber.from(marketPrice!.value)
     const priceImpactPer = mp.sub(fillPrice).abs().mul(100).mul(BigNumber.from(10).pow(18)).div(mp)
 
@@ -379,7 +412,7 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee.add(tradePreview.keeperFee),
+      fee: keeperFee as BigNumber,
       leverage:
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0) && marketPrice
           ? tradePreview.size.mul(marketPrice.value).div(order.inputCollateralAmount).abs()
@@ -393,25 +426,35 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     position: ExtendedPosition,
     marginDelta: BigNumber,
-    isDeposit: boolean
+    isDeposit: boolean,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!
-    const marketPrice = await this.getMarketPriceByAddress(position.marketAddress!)
+    const marketPrice = BigNumber.from(this.getMarketPriceByIdentifier(position.marketIdentifier!)!.value)
+
     await this.sdk.setProvider(provider)
 
-    let fillPrice = await this.getFillPriceInternal(marketAddress, wei(0))
-    // console.log("FillPrice: ", formatN(fillPrice));
-
-    const tradePreview = await this.sdk.futures.getSimulatedIsolatedTradePreview(
+    const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
       user,
       getEnumEntryByValue(FuturesMarketKey, position.indexOrIdentifier!)!,
       marketAddress,
       {
         sizeDelta: wei(0),
         marginDelta: isDeposit ? wei(marginDelta) : wei(marginDelta).neg(),
-        orderPrice: wei(fillPrice)
+        orderPrice: wei(marketPrice)
       }
     )
+
+    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const keeperFeePromise = cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+      fn: () => this.sdk.futures.getMinKeeperFee(),
+      staleTime: sTimeKF,
+      cacheTime: sTimeKF * CACHE_TIME_MULT,
+      opts
+    })
+
+    const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
 
     return {
       indexOrIdentifier: '',
@@ -422,10 +465,8 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee.add(tradePreview.keeperFee),
-      leverage: tradePreview.margin
-        ? tradePreview.size.mul(marketPrice.value).div(tradePreview.margin).abs()
-        : undefined
+      fee: keeperFee as BigNumber,
+      leverage: tradePreview.margin ? tradePreview.size.mul(marketPrice).div(tradePreview.margin).abs() : undefined
     }
   }
 
@@ -437,31 +478,38 @@ export default class SynthetixV2Service implements IExchange {
     isTrigger: boolean,
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
-    outputToken: Token | undefined
+    outputToken: Token | undefined,
+    opts?: ApiOpts
   ): Promise<ExtendedPosition> {
     const marketAddress = position.marketAddress!
-    const marketPrice = await this.getMarketPriceByAddress(marketAddress)
+    const marketPrice = BigNumber.from(this.getMarketPriceByIdentifier(position.marketIdentifier!)!.value)
     const isFullClose = closeSize.eq(position.size)
     await this.sdk.setProvider(provider)
 
     // because simulation is for only (partial) close position
     let sizeDeltaIn = position.direction == 'LONG' ? wei(closeSize).neg() : wei(closeSize)
 
-    let fillPrice = await this.getFillPriceInternal(marketAddress, sizeDeltaIn)
-    // console.log("FillPrice: ", formatN(fillPrice));
-
-    const tradePreview = await this.sdk.futures.getSimulatedIsolatedTradePreview(
+    const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
       user,
       getEnumEntryByValue(FuturesMarketKey, position.indexOrIdentifier!)!,
       marketAddress,
       {
         sizeDelta: sizeDeltaIn,
         marginDelta: wei(0),
-        orderPrice: wei(fillPrice)
+        orderPrice: wei(marketPrice)
       }
     )
 
-    // logObject("tradePreview", tradePreview);
+    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const keeperFeePromise = cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+      fn: () => this.sdk.futures.getMinKeeperFee(),
+      staleTime: sTimeKF,
+      cacheTime: sTimeKF * CACHE_TIME_MULT,
+      opts
+    })
+
+    const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
 
     return {
       indexOrIdentifier: '',
@@ -472,10 +520,8 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: tradePreview.fee.add(tradePreview.keeperFee),
-      leverage: tradePreview.margin
-        ? tradePreview.size.mul(marketPrice.value).div(tradePreview.margin).abs()
-        : undefined,
+      fee: keeperFee as BigNumber,
+      leverage: tradePreview.margin ? tradePreview.size.mul(marketPrice).div(tradePreview.margin).abs() : undefined,
       receiveAmount: isFullClose ? tradePreview.margin : BigNumber.from(0),
       receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0)
     }

@@ -1158,7 +1158,6 @@ export async function useInfoTokens(
   vaultPropsLength?: number,
   opts?: ApiOpts
 ) {
-  console.log('INFO TOKENS CALLED')
   const tokens = V1_TOKENS[chainId]
   const vaultReaderAddress = getContract(chainId, 'VaultReader')
   const vaultAddress = getContract(chainId, 'Vault')

@@ -73,6 +73,7 @@ import {
 } from '../utils/futures'
 import { getFuturesAggregateStats } from '../utils/subgraph'
 import { getReasonFromCode } from '../utils/synths'
+import { ApiOpts } from '../common/cache'
 
 export default class FuturesService {
   private sdk: KwentaSDK
@@ -747,25 +748,24 @@ export default class FuturesService {
       sizeDelta: Wei
       marginDelta: Wei
       orderPrice: Wei
-    }
+    },
+    opts?: ApiOpts
   ) {
     const marketInternal = this.getInternalFuturesMarket(marketAddress, marketKey)
+
+    return await marketInternal.getTradePreview(
+      user,
+      tradeParams.sizeDelta.toBN(),
+      tradeParams.marginDelta.toBN(),
+      tradeParams.orderPrice.toBN(),
+      opts
+    )
+  }
+
+  public async getMinKeeperFee() {
     const { PerpsV2MarketSettings } = this.sdk.context.multicallContracts
-
-    const data = await Promise.all([
-      marketInternal.getTradePreview(
-        user,
-        tradeParams.sizeDelta.toBN(),
-        tradeParams.marginDelta.toBN(),
-        tradeParams.orderPrice.toBN()
-      ),
-      this.sdk.context.multicallProvider.all([PerpsV2MarketSettings!.minKeeperFee()])
-    ])
-
-    return {
-      ...data[0],
-      keeperFee: data[1][0] as BigNumber
-    }
+    const data = await this.sdk.context.multicallProvider.all([PerpsV2MarketSettings!.minKeeperFee()])
+    return data[0] as BigNumber
   }
 
   public async getCrossMarginKeeperBalance(account: string) {
