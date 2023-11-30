@@ -139,3 +139,11 @@ export const ListedTokens = Object.values(tokens)
 export function getTokenBySymbol(symbol: TokenSymbol) {
   return tokens[symbol] as Token
 }
+
+export function getTokenByAddress(address: string) {
+  return Object.values(tokens).find(
+    (t) =>
+      t.address[arbitrum.id]?.toLowerCase() === address.toLowerCase() ||
+      t.address[optimism.id]?.toLowerCase() === address.toLowerCase()
+  ) as Token
+}

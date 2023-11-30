@@ -717,14 +717,14 @@ async function gmxService() {
   const signer = new ethers.Wallet(wpk, provider)
   const gs = new GmxV1Service(signer.address)
 
-  // const allOrders = await gs.getAllOrders(w, provider);
+  // const allOrders = (await gs.getAllOrders(w, provider, undefined, undefined)).result
   // allOrders.forEach((o) => {
-  //   logObject("All Orders: ", o);
-  //   logObject("Trigger: ", o.trigger!);
-  // });
+  //   logObject('Order: ', o)
+  //   // logObject('Trigger: ', o.trigger!)
+  // })
 
   let supportedMarkets = await gs.supportedMarkets(gs.supportedNetworks()[0])
-  console.dir({ supportedMarkets }, { depth: 4 })
+  // console.dir({ supportedMarkets }, { depth: 4 })
 
   // let btcMarket = supportedMarkets.find(
   //   (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
@@ -736,21 +736,21 @@ async function gmxService() {
   // const dynamicMetadata = await gs.getDynamicMetadata(btcMarket, provider)
   // logObject('Dynamic Metadata: ', dynamicMetadata)
 
-  const tradeHistory = await gs.getTradesHistory(
-    // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
-    // "0xe4718282022518A2499dD73Fc767654095F198A5",
-    // '0xd344b73Ac42e34bC8009d522657adE4346B72c9D',
-    // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
-    // "0xf5433b068A87141C5e214931288942B2Ceb212b0",
-    '0x2f88a09ed4174750a464576FE49E586F90A34820',
-    undefined,
-    {
-      limit: 10,
-      skip: 0
-    }
-  )
+  // const tradeHistory = await gs.getTradesHistory(
+  //   // "0xC41427A0B49eB775E022E676F0412B12df1193a5",
+  //   // "0xe4718282022518A2499dD73Fc767654095F198A5",
+  //   // '0xd344b73Ac42e34bC8009d522657adE4346B72c9D',
+  //   // "0x98F1b4C9Fe6CCC9d5892650569f9A801A4AdcE54",
+  //   // "0xf5433b068A87141C5e214931288942B2Ceb212b0",
+  //   '0x2f88a09ed4174750a464576FE49E586F90A34820',
+  //   undefined,
+  //   {
+  //     limit: 3,
+  //     skip: 0
+  //   }
+  // )
 
-  console.dir({ tradeHistory }, { depth: 4 })
+  // console.dir({ tradeHistory }, { depth: 4 })
   // tradeHistory.forEach((t) => {
   //   logObject("Trade History: ", t);
   // });
@@ -866,23 +866,23 @@ async function gmxService() {
     address: ethers.constants.AddressZero
   }
 
-  // const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
+  const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject('Position: ', allPositions[i])
-  //   let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
-  //   positionOrders.forEach((o) => {
-  //     logObject('Position Order: ', o)
-  //   })
+  //   // let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
+  //   // positionOrders.forEach((o) => {
+  //   //   logObject('Position Order: ', o)
+  //   // })
   // }
 
-  // let position0 = allPositions.length > 0 ? allPositions[0] : undefined
+  let position0 = allPositions.length > 0 ? allPositions[0] : undefined
   // console.log(position0 ? 'Position 0: ' : 'No position 0')
-  // let market = supportedMarkets.find(
-  //   (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
-  // )!
+  let market = supportedMarkets.find(
+    (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
+  )!
   // console.log({ market })
-  // for (let i = 0; i < 2; i++) {
-  //   console.time('tradePreview')
+  // for (let i = 0; i < 1; i++) {
+  //   // console.time('tradePreview')
   //   const tradePreview = await gs.getTradePreview(
   //     w,
   //     provider,
@@ -892,7 +892,7 @@ async function gmxService() {
   //       direction: 'LONG',
   //       inputCollateral: eth,
   //       inputCollateralAmount: ethers.utils.parseUnits('0.014', eth.decimals),
-  //       sizeDelta: ethers.utils.parseUnits('89.43', 30),
+  //       sizeDelta: ethers.utils.parseUnits('52', 30),
   //       isTriggerOrder: false,
   //       referralCode: undefined,
   //       trigger: {
@@ -904,47 +904,47 @@ async function gmxService() {
   //     },
   //     position0,
   //     {
-  //       bypassCache: i == 1,
+  //       bypassCache: true,
   //       overrideStaleTime: 5 * 1000
   //     }
   //   )
-  //   console.timeEnd('tradePreview')
+  //   // console.timeEnd('tradePreview')
   //   logObject('Trade Preview: ', tradePreview)
   // }
 
-  // for (let i = 0; i < 2; i++) {
-  //   console.time('getCloseTradePreview')
+  // for (let i = 0; i < 1; i++) {
+  //   // console.time('getCloseTradePreview')
   //   const closePreview = await gs.getCloseTradePreview(
   //     w,
   //     provider,
   //     position0!,
-  //     position0!.size.mul(50).div(100),
+  //     position0!.size.mul(10).div(100),
   //     true,
   //     ethers.utils.parseUnits('40000', 30),
   //     true,
   //     usdc
   //   )
-  //   console.timeEnd('getCloseTradePreview')
+  //   // console.timeEnd('getCloseTradePreview')
   //   logObject('Close Preview: ', closePreview)
   // }
 
-  // for (let i = 0; i < 2; i++) {
-  //   console.time('getEditCollateralPreview')
-  //   const editCollateralPreview = await gs.getEditCollateralPreview(
-  //     w,
-  //     provider,
-  //     position0!,
-  //     // ethers.utils.parseUnits("0", 30),
-  //     ethers.utils.parseUnits('0.00005', position0!.collateralToken!.decimals),
-  //     true,
-  //     {
-  //       bypassCache: i == 0,
-  //       overrideStaleTime: 1000
-  //     }
-  //   )
-  //   console.timeEnd('getEditCollateralPreview')
-  //   logObject('editCollateralPreview: ', editCollateralPreview)
-  // }
+  for (let i = 0; i < 1; i++) {
+    // console.time('getEditCollateralPreview')
+    const editCollateralPreview = await gs.getEditCollateralPreview(
+      w,
+      provider,
+      position0!,
+      // ethers.utils.parseUnits("0", 30),
+      ethers.utils.parseUnits('0.00005', position0!.collateralToken!.decimals),
+      true,
+      {
+        bypassCache: true,
+        overrideStaleTime: 1000
+      }
+    )
+    // console.timeEnd('getEditCollateralPreview')
+    logObject('editCollateralPreview: ', editCollateralPreview)
+  }
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,
@@ -1263,7 +1263,7 @@ async function testPrice() {
 
 // startStreaming()
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

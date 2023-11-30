@@ -120,3 +120,7 @@ export function getStartEndIndex(pageOptions: PageOptions | undefined): {
     end
   }
 }
+
+export function validDenomination(amount: AmountInfo, isReqDenominationTokens: boolean): boolean {
+  return amount.isTokenAmount === isReqDenominationTokens
+}

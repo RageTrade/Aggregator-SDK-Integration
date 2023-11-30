@@ -5,10 +5,21 @@ import { parseEther } from 'ethers/lib/utils'
 import { Provider } from '@ethersproject/providers'
 import { IERC20__factory, Reader__factory, VaultReader__factory } from '../../../typechain/gmx-v1'
 import { ExtendedMarket, ExtendedPosition, ViewError, Order } from '../../interface'
-import { logObject, toNumberDecimal } from '../../common/helper'
+import { logObject, toNumberDecimal, getBNFromFN, toAmountInfo } from '../../common/helper'
 import { CACHE_MINUTE, CACHE_SECOND, GMXV1_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../common/cache'
 import { CACHE_TIME_MULT } from '../../common/cache'
-import { ApiOpts } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import { ApiOpts, CloseTradePreviewInfo, MarketInfo, PreviewInfo } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import {
+  CreateOrder,
+  PositionInfo,
+  OpenTradePreviewInfo,
+  ClosePositionData,
+  AmountInfo
+} from '../../../src/interfaces/V1/IRouterAdapterBaseV1'
+import { rpc } from '../../../src/common/provider'
+import { FixedNumber } from '../../../src/common/fixedNumber'
+import { getTokenByAddress, getTokenBySymbol as getTokenBySymbolCommon } from '../../../src/common/tokens'
+import { ZERO } from '../../../src/common/constants'
 
 export type GToken = {
   name: string
@@ -1549,11 +1560,7 @@ function getNextData(
   return { nextAveragePrice, nextDelta, nextHasProfit }
 }
 
-function getNextDataForClose(
-  position: ExtendedPosition,
-  isMarketOrder: boolean,
-  triggerPriceUsd: BigNumber | undefined
-) {
+function getNextDataForClose(position: any, isMarketOrder: boolean, triggerPriceUsd: BigNumber | undefined) {
   let nextDelta = BigNumber.from(0)
   let nextHasProfit = false
   if (!position) {
@@ -1574,9 +1581,9 @@ function getNextDataForClose(
     triggerPriceUsd,
     position.size,
     position.collateral,
-    position.direction == 'LONG',
-    position.averageEntryPrice,
-    position.lastUpdatedAtTimestamp!,
+    position.direction ? position.direction == 'LONG' : position.isLong,
+    position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice,
+    position.lastUpdatedAtTimestamp ? position.lastUpdatedAtTimestamp : position.lastIncreasedTime,
     undefined
   )
   nextDelta = delta
@@ -1655,7 +1662,6 @@ export const getEditCollateralPreviewInternal = async (
     convertedAmount = fromAmount
       .mul(expandDecimals(1, Number(collateralToken.decimals)))
       .div(getTokenInfo(infoTokens, position.collateralToken.address, undefined, undefined).maxPrice!)
-    console.log('convertedAmount', convertedAmount.toString())
   }
 
   let collateralDelta = isDeposit ? convertedAmount : fromAmount
@@ -1710,6 +1716,101 @@ export const getEditCollateralPreviewInternal = async (
     averageEntryPrice: position.averageEntryPrice,
     liqudationPrice: nextLiquidationPrice,
     fee: depositFeeUSD
+  }
+}
+
+export const getEditCollateralPreviewInternalV1 = async (
+  wallet: string,
+  isDeposit: boolean,
+  marginDelta: AmountInfo,
+  existingPos: PositionInfo,
+  executionFee: BigNumber,
+  opts?: ApiOpts | undefined
+): Promise<PreviewInfo> => {
+  let collateralToken = existingPos.collateral
+  let provider = rpc[ARBITRUM]
+  let position = existingPos.metadata
+  let fundingFee = getFundingFee(position)
+  let isLong = position.direction ? position.direction == 'LONG' : position.isLong
+
+  let liquidationPrice = getLiquidationPrice({
+    size: position.size,
+    collateral: position.collateral,
+    averagePrice: position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice,
+    isLong: isLong,
+    fundingFee
+  })
+
+  let fromAmount = getBNFromFN(marginDelta.amount)
+  fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
+  let convertedAmount: BigNumber
+
+  const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
+
+  if (isDeposit) {
+    convertedAmount = getUsd(fromAmount, collateralToken.address[ARBITRUM]!, false, infoTokens)!
+  } else {
+    convertedAmount = fromAmount
+      .mul(expandDecimals(1, Number(collateralToken.decimals)))
+      .div(getTokenInfo(infoTokens, collateralToken.address[ARBITRUM]!, undefined, undefined).maxPrice!)
+  }
+
+  let collateralDelta = isDeposit ? convertedAmount : fromAmount
+  let depositFeeUSD = BigNumber.from(0)
+
+  if (isLong && isDeposit) {
+    collateralDelta = collateralDelta.mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+    depositFeeUSD = convertedAmount.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+  }
+
+  let nextCollateral = isDeposit
+    ? position.collateralAfterFee!.add(collateralDelta)
+    : position.collateralAfterFee!.sub(collateralDelta)
+
+  let nextLeverage = getLeverage({
+    size: position.size,
+    collateral: nextCollateral,
+    hasProfit: position.hasProfit,
+    delta: position.delta,
+    includeDelta: false
+  })
+
+  // let nextLeverageExcludingPnl = getLeverage({
+  //   size: position.size,
+  //   collateral: nextCollateral,
+  //   hasProfit: position.hasProfit,
+  //   delta: position.delta,
+  //   includeDelta: false
+  // })
+
+  // nextCollateral is prev collateral + deposit amount - borrow fee - deposit fee
+  // in case of withdrawal nextCollateral is prev collateral - withdraw amount - borrow fee
+  let nextLiquidationPrice = getLiquidationPrice({
+    isLong: isLong,
+    size: position.size,
+    collateral: nextCollateral,
+    averagePrice: position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice
+  })
+
+  let executionFees = getUsd(executionFee, getContract(ARBITRUM, 'NATIVE_TOKEN')!, false, infoTokens)
+  depositFeeUSD = depositFeeUSD.add(executionFees || BigNumber.from(0))
+
+  return {
+    marketId: existingPos.marketId,
+    collateral:
+      position.direction == 'LONG'
+        ? getTokenByAddress(position.indexToken!.address)!
+        : getTokenBySymbolCommon('USDC.e')!,
+    leverage: nextLeverage ? FixedNumber.fromValue(nextLeverage.toString(), 4, 4) : FixedNumber.fromString('0'),
+    size: toAmountInfo(position.size, 30, false),
+    margin: toAmountInfo(nextCollateral, 30, false),
+    avgEntryPrice: FixedNumber.fromValue(position.averagePrice.toString(), 30, 30),
+    liqudationPrice: nextLiquidationPrice
+      ? FixedNumber.fromValue(nextLiquidationPrice.toString(), 30, 30)
+      : FixedNumber.fromString('0'),
+    fee: FixedNumber.fromValue(depositFeeUSD.toString(), 30, 30),
+    isError: false,
+    errMsg: ''
   }
 }
 
@@ -1881,7 +1982,6 @@ export const getCloseTradePreviewInternal = async (
 
     if (feeBasisPoints) {
       swapFee = receiveUsd.mul(feeBasisPoints).div(BASIS_POINTS_DIVISOR)
-      console.log('SwapFees: ', formatAmount(swapFee.toString(), 30))
       totalFees = totalFees.add(swapFee || bigNumberify(0))
       receiveUsd = receiveUsd.sub(swapFee)
     }
@@ -1980,6 +2080,225 @@ export const getCloseTradePreviewInternal = async (
     receiveUsd: receiveUsd,
     isError: isError,
     error: isError ? 'Insufficient Liquidity for Collateral Swap' : ''
+  }
+}
+
+export const getCloseTradePreviewInternalV1 = async (
+  positionInfo: PositionInfo,
+  closePositionData: ClosePositionData,
+  executionFee: BigNumber,
+  opts?: ApiOpts | undefined
+): Promise<CloseTradePreviewInfo> => {
+  let closeSize = getBNFromFN(closePositionData.closeSize.amount)
+  let position = positionInfo.metadata
+  let provider = rpc[ARBITRUM]
+
+  let liquidationPrice: BigNumber | undefined
+  let nextLiquidationPrice: BigNumber | undefined
+  let keepLeverage = false
+  let isClosing = closeSize.eq(position.size)
+  let fromAmount = closeSize
+  let sizeDelta = fromAmount
+  let receiveUsd = BigNumber.from(0)
+  let receiveAmount = BigNumber.from(0)
+  let swapFee = BigNumber.from(0)
+  let nextCollateral: BigNumber | undefined
+  let adjustedDelta = BigNumber.from(0)
+  let collateralDelta = BigNumber.from(0)
+  let totalFees = BigNumber.from(0)
+  let positionFee = getMarginFee(fromAmount)
+  let fundingFee = position.borrowFee ? position.borrowFee : position.fundingFee
+  let nextLeverage
+  const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
+  let isTrigger = closePositionData.type !== 'MARKET'
+  let triggerPrice = isTrigger ? getBNFromFN(closePositionData.triggerData!.triggerPrice) : undefined
+
+  liquidationPrice = getLiquidationPrice({
+    size: position.size,
+    collateral: position.collateral,
+    averagePrice: position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice,
+    isLong: position.direction ? position.direction == 'LONG' : position.isLong,
+    fundingFee: position.borrowFee ? position.borrowFee : position.fundingFee
+  })
+
+  let { nextDelta, nextHasProfit } = getNextDataForClose(position, !isTrigger, triggerPrice)
+
+  let leverageWithoutDelta = getLeverage({
+    size: position.size,
+    collateral: position.collateral,
+    fundingFee: fundingFee
+  })
+  nextLeverage = position.leverage!
+  let nextLeverageWithoutDelta = leverageWithoutDelta
+
+  // if (isClosing) {
+  //   sizeDelta = position.size;
+  // } else if (isTrigger && sizeDelta && existingOrders.length > 0) {
+  //   let residualSize = position.size;
+  //   for (const order of existingOrders) {
+  //     residualSize = residualSize.sub(order.sizeDelta);
+  //   }
+  //   if (residualSize.sub(sizeDelta).abs().lt(ORDER_SIZE_DUST_USD)) {
+  //     sizeDelta = residualSize;
+  //   }
+  // }
+
+  if (sizeDelta && position.size.gt(0)) {
+    adjustedDelta = nextDelta.mul(sizeDelta).div(position.size)
+  }
+
+  totalFees = totalFees.add(positionFee || BigNumber.from(0)).add(fundingFee || BigNumber.from(0))
+  ;({ receiveUsd, nextCollateral } = calculateNextCollateralAndReceiveUsd(
+    position.collateral,
+    nextHasProfit,
+    isClosing,
+    adjustedDelta,
+    collateralDelta,
+    totalFees
+  ))
+
+  if (fromAmount) {
+    positionFee = getMarginFee(fromAmount)
+  }
+
+  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const usdgSupplyPromise = cacheFetch({
+    key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
+    fn: () => usdgToken.totalSupply(),
+    staleTime: sTimeUS,
+    cacheTime: sTimeUS * CACHE_TIME_MULT,
+    opts
+  })
+  const infoTokensPromise = useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
+  const [usdgSupply, { infoTokens }] = await Promise.all([usdgSupplyPromise, infoTokensPromise])
+
+  let collateralTokenInfo = getTokenInfo(infoTokens, position.originalCollateralToken!)
+  const outputToken = closePositionData.outputCollateral
+  let receiveTokenInfo = outputToken ? getTokenInfo(infoTokens, outputToken.address[ARBITRUM]!) : undefined
+
+  receiveUsd = applySpread(receiveUsd, collateralTokenInfo?.spread)
+
+  let convertedAmount = fromAmount
+    .mul(expandDecimals(1, Number(position.collateralToken.decimals)))
+    .div(collateralTokenInfo.maxPrice!)
+
+  // Calculate swap fees
+  if (!isTrigger && outputToken) {
+    const { feeBasisPoints } = getNextToAmount(
+      ARBITRUM,
+      convertedAmount,
+      position.originalCollateralToken!,
+      outputToken.address[ARBITRUM]!,
+      infoTokens,
+      undefined,
+      undefined,
+      usdgSupply,
+      100001,
+      true
+    )
+
+    if (feeBasisPoints) {
+      swapFee = receiveUsd.mul(feeBasisPoints).div(BASIS_POINTS_DIVISOR)
+      totalFees = totalFees.add(swapFee || bigNumberify(0))
+      receiveUsd = receiveUsd.sub(swapFee)
+    }
+    const swapToTokenInfo = getTokenInfo(infoTokens, outputToken.address[ARBITRUM]!)
+    receiveUsd = applySpread(receiveUsd, swapToTokenInfo?.spread)
+  }
+
+  if (fromAmount) {
+    if (!isClosing) {
+      nextLiquidationPrice = getLiquidationPrice({
+        size: position.size.sub(sizeDelta),
+        collateral: nextCollateral,
+        averagePrice: position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice,
+        isLong: position.direction ? position.direction == 'LONG' : position.isLong
+      })
+
+      if (!keepLeverage) {
+        // We need to send the remaining delta
+        const remainingDelta = nextDelta?.sub(adjustedDelta)
+        nextLeverage = getLeverage({
+          size: position.size.sub(sizeDelta),
+          collateral: nextCollateral,
+          hasProfit: nextHasProfit,
+          delta: remainingDelta,
+          includeDelta: false
+        })
+
+        nextLeverageWithoutDelta = getLeverage({
+          size: position.size.sub(sizeDelta),
+          collateral: nextCollateral,
+          hasProfit: nextHasProfit,
+          delta: remainingDelta,
+          includeDelta: false
+        })
+      }
+    }
+  }
+
+  // For Shorts trigger orders the collateral is a stable coin, it should not depend on the triggerPrice
+  if (isTrigger && position.direction == 'LONG') {
+    receiveAmount = getTokenAmountFromUsd(
+      infoTokens,
+      outputToken ? outputToken.address : position.originalCollateralToken!,
+      receiveUsd
+      // Not needed because we are allowing collateral swap
+      // {
+      //   overridePrice: triggerPrice,
+      // }
+    )!
+  } else {
+    receiveAmount = getTokenAmountFromUsd(infoTokens, outputToken!.address[ARBITRUM]!, receiveUsd)!
+  }
+
+  let executionFees = getUsd(executionFee, getContract(ARBITRUM, 'NATIVE_TOKEN')!, false, infoTokens)
+  totalFees = totalFees.add(executionFees || BigNumber.from(0))
+
+  let isNotEnoughReceiveTokenLiquidity = false
+  let isCollateralPoolCapacityExceeded = false
+
+  // Check swap limits (max in / max out)
+  if (!isTrigger && receiveTokenInfo && shouldSwap(collateralTokenInfo, receiveTokenInfo)) {
+    isNotEnoughReceiveTokenLiquidity =
+      receiveTokenInfo.availableAmount!.lt(receiveAmount) ||
+      receiveTokenInfo.bufferAmount!.gt(receiveTokenInfo.poolAmount!.sub(receiveAmount))
+
+    if (
+      collateralTokenInfo.maxUsdgAmount &&
+      collateralTokenInfo.maxUsdgAmount.gt(0) &&
+      collateralTokenInfo.usdgAmount &&
+      collateralTokenInfo.maxPrice
+    ) {
+      const usdgFromAmount = adjustForDecimals(receiveUsd, USD_DECIMALS, USDG_DECIMALS)
+      const nextUsdgAmount = collateralTokenInfo.usdgAmount.add(usdgFromAmount)
+
+      if (nextUsdgAmount.gt(collateralTokenInfo.maxUsdgAmount)) {
+        isCollateralPoolCapacityExceeded = true
+      }
+    }
+  }
+
+  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded
+
+  return {
+    marketId: positionInfo.marketId,
+    collateral:
+      position.direction == 'LONG'
+        ? getTokenByAddress(position.indexToken!.address)!
+        : getTokenBySymbolCommon('USDC.e')!,
+    leverage: isClosing ? FixedNumber.fromString('0') : FixedNumber.fromValue(nextLeverage.toString(), 4, 4),
+    size: isClosing ? toAmountInfo(ZERO, 30, false) : toAmountInfo(position.size.sub(sizeDelta), 30, false),
+    margin: isClosing ? toAmountInfo(ZERO, 30, false) : toAmountInfo(nextCollateral, 30, false),
+    avgEntryPrice: FixedNumber.fromValue(position.averagePrice.toString(), 30, 30),
+    liqudationPrice:
+      isClosing || nextLiquidationPrice === undefined
+        ? FixedNumber.fromString('0')
+        : FixedNumber.fromValue(nextLiquidationPrice.toString(), 30, 30),
+    fee: FixedNumber.fromValue(totalFees.toString(), 30, 30),
+    receiveMargin: toAmountInfo(receiveUsd, 30, false),
+    isError: isError,
+    errMsg: isError ? 'Insufficient Liquidity' : ''
   }
 }
 
@@ -2399,16 +2718,10 @@ export const getTradePreviewInternal = async (
     swapFees = fromUsdMin.mul(result.feeBasisPoints).div(BASIS_POINTS_DIVISOR)
   }
 
-  // console.log("SwapFees: ", formatAmount(swapFees.toString(), 30));
-
   let positionFee = toUsdMax!.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR)
-  // console.log("PositionFees: ", formatAmount(positionFee.toString(), 30));
   let feesUsd = swapFees.add(positionFee)
   const fromUsdMinAfterFees = fromUsdMin?.sub(swapFees ?? 0).sub(positionFee ?? 0) || BigNumber.from(0)
 
-  // console.log("fromUsdMinAfterFees: ", fromUsdMinAfterFees.toString());
-  // console.log("nextDelta", nextDelta.toString());
-  // console.log("nextHasProfit", nextHasProfit.toString());
   if (existingPosition) {
     leverage = getLeverage({
       size: existingPosition.size.add(toUsdMax || 0),
@@ -2476,5 +2789,169 @@ export const getTradePreviewInternal = async (
     isError: isError,
     error: isError ? 'Insufficient Liquidity for Collateral Swap' : '',
     priceImpact: toNumberDecimal(BigNumber.from(0), 8)
+  }
+}
+
+export const getTradePreviewInternalV1 = async (
+  orderData: CreateOrder,
+  existingPos: PositionInfo | undefined,
+  market: MarketInfo,
+  executionFee: BigNumber,
+  opts?: ApiOpts | undefined
+): Promise<OpenTradePreviewInfo> => {
+  const provider = rpc[ARBITRUM]
+  const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
+
+  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const usdgSupplyPromise = cacheFetch({
+    key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
+    fn: () => usdgToken.totalSupply(),
+    staleTime: sTimeUS,
+    cacheTime: sTimeUS * CACHE_TIME_MULT,
+    opts
+  })
+  const infoTokensPromise = useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
+  const [usdgSupply, { infoTokens }] = await Promise.all([usdgSupplyPromise, infoTokensPromise])
+
+  const indexTokenInfo = getTokenInfo(infoTokens, market.indexToken.address[ARBITRUM]!)
+  const marketPrice = indexTokenInfo.maxPrice!
+
+  let leverage: BigNumber | undefined = BigNumber.from(0)
+  const fromUsdMin = getUsd(
+    getBNFromFN(orderData.marginDelta.amount),
+    orderData.collateral.address[ARBITRUM]!,
+    false,
+    infoTokens
+  )
+
+  const toTokenAmount = getBNFromFN(orderData.sizeDelta.amount)
+    .mul(BigNumber.from(10).pow(market.indexToken!.decimals))
+    .div(orderData.type === 'MARKET' ? marketPrice : getBNFromFN(orderData.triggerData!.triggerPrice!))
+  const toUsdMax = getUsd(
+    toTokenAmount,
+    market.indexToken.address[ARBITRUM]!,
+    true,
+    infoTokens,
+    orderData.type == 'MARKET' ? MARKET : LIMIT,
+    getBNFromFN(orderData.triggerData!.triggerPrice!)
+  )
+
+  if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
+    const fees = toUsdMax.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR)
+    if (fromUsdMin.sub(fees).gt(0)) {
+      leverage = toUsdMax.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin.sub(fees))
+    }
+  }
+
+  if (fromUsdMin && toUsdMax && fromUsdMin.gt(0)) {
+    const fees = toUsdMax.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR)
+    if (fromUsdMin.sub(fees).gt(0)) {
+      leverage = toUsdMax.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin.sub(fees))
+    }
+  }
+
+  let { nextAveragePrice, nextDelta, nextHasProfit } = getNextData(
+    orderData.type == 'MARKET',
+    marketPrice,
+    getBNFromFN(orderData.triggerData!.triggerPrice!),
+    existingPos?.metadata as ExtendedPosition,
+    existingPos?.direction == 'LONG',
+    toUsdMax!
+  )
+
+  let marketCollateralToken = orderData.direction == 'LONG' ? market.indexToken.address[ARBITRUM]! : USDC_E_ADDRESS
+
+  let swapFees = BigNumber.from(0)
+  const result = getNextToAmount(
+    ARBITRUM,
+    getBNFromFN(orderData.marginDelta.amount), // collateralTokenAmount in collateral decimals
+    orderData.collateral.address[ARBITRUM]!, // Address0 for Eth
+    marketCollateralToken, // Address0 for Eth
+    infoTokens,
+    undefined,
+    undefined,
+    usdgSupply,
+    100001,
+    false
+  )
+  if (result.feeBasisPoints && fromUsdMin) {
+    swapFees = fromUsdMin.mul(result.feeBasisPoints).div(BASIS_POINTS_DIVISOR)
+  }
+
+  let positionFee = toUsdMax!.mul(MARGIN_FEE_BASIS_POINTS).div(BASIS_POINTS_DIVISOR)
+  let feesUsd = swapFees.add(positionFee)
+  const fromUsdMinAfterFees = fromUsdMin?.sub(swapFees ?? 0).sub(positionFee ?? 0) || BigNumber.from(0)
+  const internalPos = existingPos?.metadata
+
+  if (existingPos) {
+    leverage = getLeverage({
+      size: internalPos.size.add(toUsdMax || 0),
+      collateral: internalPos.collateralAfterFee!.add(fromUsdMinAfterFees),
+      delta: nextDelta,
+      hasProfit: nextHasProfit,
+      includeDelta: false
+    })
+  }
+
+  let executionFees = getUsd(executionFee, getContract(ARBITRUM, 'NATIVE_TOKEN')!, false, infoTokens)
+  feesUsd = feesUsd.add(executionFees || BigNumber.from(0))
+
+  const liquidationPrice = getLiquidationPrice({
+    isLong: orderData.direction == 'LONG',
+    size: existingPos ? internalPos.size.add(toUsdMax || 0) : toUsdMax ?? BigNumber.from(0),
+    collateral: existingPos
+      ? internalPos.collateralAfterFee!.add(fromUsdMinAfterFees)
+      : fromUsdMinAfterFees ?? BigNumber.from(0),
+    averagePrice: nextAveragePrice ?? BigNumber.from(0)
+  })
+
+  const displayLiquidationPrice = liquidationPrice ? liquidationPrice : existingPos?.metadata?.liqudationPrice!
+
+  let collateralTokenInfo = getTokenInfo(infoTokens, orderData.collateral.address[ARBITRUM]!)
+  let toTokenInfo = getTokenInfo(infoTokens, market.indexToken.address[ARBITRUM]!)
+
+  let isNotEnoughReceiveTokenLiquidity = false
+  let isCollateralPoolCapacityExceeded = false
+
+  // Check swap limits (max in / max out)
+  if (toTokenInfo && toTokenAmount && shouldSwap(collateralTokenInfo, toTokenInfo)) {
+    isNotEnoughReceiveTokenLiquidity =
+      toTokenInfo.availableAmount!.lt(toTokenAmount) ||
+      toTokenInfo.bufferAmount!.gt(toTokenInfo.poolAmount!.sub(toTokenAmount))
+
+    if (
+      collateralTokenInfo.maxUsdgAmount &&
+      collateralTokenInfo.maxUsdgAmount.gt(0) &&
+      collateralTokenInfo.usdgAmount &&
+      collateralTokenInfo.maxPrice &&
+      toUsdMax
+    ) {
+      const usdgFromAmount = adjustForDecimals(toUsdMax, USD_DECIMALS, USDG_DECIMALS)
+      const nextUsdgAmount = collateralTokenInfo.usdgAmount.add(usdgFromAmount)
+
+      if (nextUsdgAmount.gt(collateralTokenInfo.maxUsdgAmount)) {
+        isCollateralPoolCapacityExceeded = true
+      }
+    }
+  }
+
+  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded
+
+  return {
+    marketId: orderData.marketId,
+    collateral: orderData.collateral,
+    leverage: leverage ? FixedNumber.fromValue(leverage.toString(), 4, 4) : FixedNumber.fromString('0'),
+    size: existingPos
+      ? toAmountInfo(internalPos.size.add(getBNFromFN(orderData.sizeDelta.amount)), 30, false)
+      : toAmountInfo(getBNFromFN(orderData.sizeDelta.amount), 30, false),
+    margin: existingPos
+      ? toAmountInfo(internalPos.collateral.add(fromUsdMin!), 30, false)
+      : toAmountInfo(fromUsdMin!, 30, false),
+    avgEntryPrice: FixedNumber.fromValue(nextAveragePrice.toString(), 30, 30),
+    liqudationPrice: FixedNumber.fromValue(displayLiquidationPrice.toString(), 30, 30),
+    fee: FixedNumber.fromValue(feesUsd.toString(), 30, 30),
+    priceImpact: FixedNumber.fromValue('0', 30, 30),
+    isError: isError,
+    errMsg: isError ? 'Insufficient Liquidity' : ''
   }
 }

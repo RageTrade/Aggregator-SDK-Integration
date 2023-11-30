@@ -224,6 +224,11 @@ export type CloseTradePreviewInfo = PreviewInfo & {
   receiveMargin: AmountInfo
 }
 
+export type IdleMarginInfo = CollateralData & {
+  marketId: Market['marketId']
+  amount: FixedNumber // Always token terms
+}
+
 export type PageOptions = {
   limit: number
   skip: number
@@ -328,17 +333,7 @@ export interface IRouterAdapterBaseV1 {
   claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
 
   ///// Fetching api's //////
-  getIdleMargins(
-    wallet: string,
-    opts?: ApiOpts
-  ): Promise<
-    Array<
-      CollateralData & {
-        marketId: Market['marketId']
-        amount: FixedNumber // Always token terms
-      }
-    >
-  >
+  getIdleMargins(wallet: string, opts?: ApiOpts): Promise<Array<IdleMarginInfo>>
 
   getAllPositions(
     wallet: string,
