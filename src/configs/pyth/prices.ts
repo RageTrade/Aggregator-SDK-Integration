@@ -359,4 +359,3 @@ export function getTokenPriceD(token: string, decimals: number) {
   }
 }
 
-startHermesStreaming()
