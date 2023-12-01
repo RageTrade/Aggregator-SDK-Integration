@@ -1,5 +1,6 @@
 import { BigNumber, ethers } from 'ethers'
 import { NumberDecimal } from '../../interface'
+import { PriceServiceConnection } from '@pythnetwork/price-service-client'
 
 // Assuming you're working in a browser environment that supports fetch and ReadableStream
 const streamingUrl = 'https://benchmarks.pyth.network/v1/shims/tradingview/streaming'
@@ -155,55 +156,6 @@ export function startStreaming(retries = 3, delay = 3000) {
   }
 }
 
-const UnitPrice = {
-  decimals: 30,
-  formatted: '1',
-  value: ethers.utils.parseUnits('1', 30)
-}
-
-export type BigNumDecimals = {
-  decimals: number
-  formatted: string
-  value: BigNumber
-}
-
-export function getTokenPrice(token: string) {
-  if (token === 'sUSD') return UnitPrice
-
-  if (token === 'sETH') token = 'ETH'
-  if (token === 'sBTC') token = 'BTC'
-  if (token === 'WETH') token = 'ETH'
-  if (token === 'WBTC') token = 'BTC'
-  if (token === 'WBTC.b') token = 'BTC'
-
-  const price = prices[token]
-
-  if (!price) return
-
-  const decimals = price.decimals
-  const value = BigNumber.from(price.value)
-
-  return {
-    decimals,
-    value,
-    formatted: ethers.utils.formatUnits(value, decimals)
-  }
-}
-
-export function getTokenPriceD(token: string, decimals: number) {
-  const tokenPrice = getTokenPrice(token)
-
-  if (!tokenPrice) return null
-
-  if (tokenPrice.decimals === decimals) {
-    return tokenPrice.value
-  } else if (tokenPrice.decimals > decimals) {
-    return tokenPrice.value.div(BigNumber.from(10).pow(tokenPrice.decimals - decimals))
-  } else {
-    return tokenPrice.value.mul(BigNumber.from(10).pow(18 - tokenPrice.decimals))
-  }
-}
-
 export function subscribeOnStream(
   symbolInfo: { ticker: string },
   resolution: string,
@@ -251,4 +203,116 @@ export function unsubscribeFromStream(subscriberUID: string) {
   }
 }
 
-startStreaming()
+const UnitPrice = {
+  decimals: 30,
+  formatted: '1',
+  value: ethers.utils.parseUnits('1', 30)
+}
+
+export type BigNumDecimals = {
+  decimals: number
+  formatted: string
+  value: BigNumber
+}
+
+//////// HERMES PRICE FEED ////////
+
+let hermesPricesMap: PricesMap = {}
+
+const priceIdsMap: Record<string, string> = {
+  '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace': 'ETH',
+  '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43': 'BTC'
+}
+const priceIds = Object.keys(priceIdsMap)
+
+const connection = new PriceServiceConnection('https://hermes.pyth.network', {
+  priceFeedRequestConfig: {
+    // Provide this option to retrieve signed price updates for on-chain contracts.
+    // Ignore this option for off-chain use.
+    binary: false
+  }
+})
+
+export function startHermesStreaming(retries = 10, delay = 3000) {
+  console.log('[HERMES] price streaming started')
+
+  try {
+    connection.subscribePriceFeedUpdates(priceIds, (priceFeed) => {
+      const price = priceFeed.getPriceNoOlderThan(60)
+      if (price) {
+        const symbol = priceIdsMap[priceFeed.id]
+        if (symbol) {
+          let pythDecimals = price.expo * -1
+          let pythPrice = price.price
+          let value = BigNumber.from(pythPrice)
+            .mul(30 - pythDecimals)
+            .toString()
+
+          hermesPricesMap[symbol] = {
+            value: value,
+            decimals: 30
+          }
+          // console.log(
+          //   '[HERMES] price updated',
+          //   symbol,
+          //   ': ',
+          //   ethers.utils.formatUnits(hermesPricesMap[symbol]!.value, 30)
+          // )
+        }
+      }
+    })
+  } catch (error) {
+    console.error('[HERMES] Error fetching from the streaming endpoint:', error)
+    attemptReconnect(retries, delay)
+  }
+
+  function attemptReconnect(retriesLeft: number, inDelay: number) {
+    if (retriesLeft > 0) {
+      console.log(`[HERMES] Attempting to reconnect in ${inDelay}ms...`)
+      setTimeout(() => {
+        startHermesStreaming(retriesLeft - 1, inDelay)
+      }, inDelay)
+    } else {
+      console.error('[HERMES] Maximum reconnection attempts reached.')
+    }
+  }
+}
+
+export function getTokenPrice(token: string) {
+  if (token === 'sUSD') return UnitPrice
+
+  if (token === 'sETH') token = 'ETH'
+  if (token === 'sBTC') token = 'BTC'
+  if (token === 'WETH') token = 'ETH'
+  if (token === 'WBTC') token = 'BTC'
+  if (token === 'WBTC.b') token = 'BTC'
+
+  const price = hermesPricesMap[token]
+
+  if (!price) return
+
+  const decimals = price.decimals
+  const value = BigNumber.from(price.value)
+
+  return {
+    decimals,
+    value,
+    formatted: ethers.utils.formatUnits(value, decimals)
+  }
+}
+
+export function getTokenPriceD(token: string, decimals: number) {
+  const tokenPrice = getTokenPrice(token)
+
+  if (!tokenPrice) return null
+
+  if (tokenPrice.decimals === decimals) {
+    return tokenPrice.value
+  } else if (tokenPrice.decimals > decimals) {
+    return tokenPrice.value.div(BigNumber.from(10).pow(tokenPrice.decimals - decimals))
+  } else {
+    return tokenPrice.value.mul(BigNumber.from(10).pow(18 - tokenPrice.decimals))
+  }
+}
+
+startHermesStreaming()
