@@ -143,40 +143,50 @@ export default class GmxV1Service implements IExchange {
 
   async setup(provider: Provider): Promise<UnsignedTxWithMetadata[]> {
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, provider)
-
-    // Check if user has already setup
-    const code = await referralStorage.traderReferralCodes(this.swAddr)
-    if (code != ethers.constants.HashZero) {
-      return Promise.resolve([])
-    }
-
     let txs: UnsignedTxWithMetadata[] = []
 
-    // set referral code
-    const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(this.REFERRAL_CODE)
-    txs.push({
-      tx: setReferralCodeTx,
-      type: 'GMX_V1',
-      data: undefined
-    })
+    // Check if user already has a referral code set
+    const codePromise = referralStorage.traderReferralCodes(this.swAddr)
 
-    // approve router
+    // check whether plugins are approved or not
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, provider)
-    const approveOrderBookTx = await router.populateTransaction.approvePlugin(getContract(ARBITRUM, 'OrderBook')!)
-    txs.push({
-      tx: approveOrderBookTx,
-      type: 'GMX_V1',
-      data: undefined
-    })
+    const orderBook = getContract(ARBITRUM, 'OrderBook')!
+    const positionRouter = getContract(ARBITRUM, 'PositionRouter')!
 
-    const approvePositionRouterTx = await router.populateTransaction.approvePlugin(
-      getContract(ARBITRUM, 'PositionRouter')!
-    )
-    txs.push({
-      tx: approvePositionRouterTx,
-      type: 'GMX_V1',
-      data: undefined
-    })
+    const obApprovalPromise = router.approvedPlugins(this.swAddr, orderBook)
+    const prApprovalPromise = router.approvedPlugins(this.swAddr, positionRouter)
+
+    const [code, obApproval, prApproval] = await Promise.all([codePromise, obApprovalPromise, prApprovalPromise])
+
+    if (code == ethers.constants.HashZero) {
+      // set referral code
+      const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(
+        this.REFERRAL_CODE
+      )
+      txs.push({
+        tx: setReferralCodeTx,
+        type: 'GMX_V1',
+        data: undefined
+      })
+    }
+
+    if (!obApproval) {
+      const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
+      txs.push({
+        tx: approveOrderBookTx,
+        type: 'GMX_V1',
+        data: undefined
+      })
+    }
+
+    if (!prApproval) {
+      const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
+      txs.push({
+        tx: approvePositionRouterTx,
+        type: 'GMX_V1',
+        data: undefined
+      })
+    }
 
     return txs
   }
