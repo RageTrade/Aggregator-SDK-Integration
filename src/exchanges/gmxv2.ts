@@ -1012,13 +1012,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 
@@ -1044,6 +1043,7 @@ export default class GmxV2Service implements IAdapterV1 {
     })
     const resultJson = await results.json()
     const rawTrades = resultJson.data?.orders
+    if (!rawTrades || rawTrades.length == 0) return []
 
     const rawTradeMap = new Map()
     await rawTrades.forEach((trade: any) => rawTradeMap.set(trade.executedTxn.hash, trade))
@@ -1220,7 +1220,7 @@ export default class GmxV2Service implements IAdapterV1 {
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<LiquidationInfo>> {
     const rawTrades = await this._getOrders(wallet, [7], pageOptions)
-
+    if (!rawTrades || rawTrades.length == 0) return { result: [], maxItemsCount: 0 }
     const { fromTS, priceMap } = await this._getPriceMap(rawTrades)
 
     const liquidations: LiquidationInfo[] = []
