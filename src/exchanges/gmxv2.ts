@@ -148,27 +148,7 @@ export default class GmxV2Service implements IAdapterV1 {
   }
 
   async setup(): Promise<UnsignedTxWithMetadata[]> {
-    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
-
-    const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
-
-    // Check if user has already setup
-    const code = await referralStorage.traderReferralCodes(this._smartWallet)
-    if (code != ethers.constants.HashZero) {
-      return Promise.resolve([])
-    }
-
-    let txs: UnsignedTxWithMetadata[] = []
-
-    // set referral code
-    const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(REFERRAL_CODE)
-    txs.push({
-      tx: setReferralCodeTx,
-      type: 'GMX_V1',
-      data: undefined,
-      chainId: arbitrum.id
-    })
-    return txs
+    return Promise.resolve([])
   }
 
   supportedChains(): Chain[] {
@@ -1011,12 +991,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 
