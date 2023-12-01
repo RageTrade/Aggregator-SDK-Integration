@@ -39,7 +39,7 @@ import { FixedNumber } from '../src/common/fixedNumber'
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}
 
-  private _checkAndGetProtocolId(marketId: Market['marketId']) {
+  _checkAndGetProtocolId(marketId: Market['marketId']) {
     const { protocolId } = decodeMarketId(marketId)
     const adapter = this.adapters[protocolId]
     if (!adapter) throw new Error(`Protocol ${protocolId} not supported`)

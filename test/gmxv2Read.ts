@@ -276,9 +276,10 @@ async function testDynamicMetadata() {
 }
 
 async function testTradeHistory() {
-  await ex.supportedMarkets([arbitrum])
-  const res = await ex.getTradesHistory('0x1f027F09A25CeDcFE3F5Ef0673Ef45448cA72ca3', undefined)
+  // await ex.supportedMarkets([arbitrum])
+  const res = await ex.getTradesHistory('0xb23B8CBf691011f5C4c30e4CbD99eE670548143d', undefined)
 
+  // console.log({res})
   // console log res.result
   res.result.forEach((historicalTradeInfo, index) => {
     console.log('#####################')
@@ -483,34 +484,15 @@ async function testStaleAndCacheTime() {
   console.timeEnd('fifth time')
 }
 
-// async function gas() {
-//   const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
-//
-//   const gasConfig = await useGasLimits(42161)
-//   console.log(gasConfig)
-//
-//   const gasPrice = await useGasPrice(42161)
-//   console.log('gp', gasPrice)
-//
-//   if (!gasConfig.gasLimits) throw new Error('gas config not found')
-//
-//   const estimatedGas = estimateExecuteIncreaseOrderGasLimit(gasConfig.gasLimits, {
-//     swapsCount: 0
+// testStaleAndCacheTime()
+//   .then(() => process.exit(0))
+//   .catch((error) => {
+//     console.error(error)
+//     process.exit(1)
 //   })
-//   console.log(estimatedGas)
-//
-//   const executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice.gasPrice)
-//
-//   if (!executionFee) throw new Error('executionFee not found')
-//
-//   console.log(executionFee)
-//
-//   console.log(formatEther(executionFee.feeTokenAmount))
-// }
 
-testOpenTradePreview()
-  .then(() => process.exit(0))
-  .catch((error) => {
-    console.error(error)
-    process.exit(1)
-  })
+testTradeHistory().then(() => process.exit(0))
+.catch((error) => {
+  console.error(error)
+  process.exit(1)
+})
