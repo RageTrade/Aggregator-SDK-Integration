@@ -32,6 +32,8 @@ type PricesMap = Record<string, NumberDecimal | null>
 
 let prices: PricesMap = {}
 
+let isTVStreamingOn = false
+
 function getNextDailyBarTime(barTime: number) {
   const date = new Date(barTime * 1000)
   date.setDate(date.getDate() + 1)
@@ -101,50 +103,57 @@ function handleStreamingData(data: { id: string; p: number; t: number }) {
 
 export function startStreaming(retries = 3, delay = 3000) {
   console.log('price streaming started')
-  fetch(streamingUrl)
-    .then((response) => {
-      const reader = response.body!.getReader()
 
-      function streamData() {
-        reader
-          .read()
-          .then(({ value, done }) => {
-            if (done) {
-              console.error('[stream] Streaming ended.')
-              return
-            }
+  if (!isTVStreamingOn) {
+    isTVStreamingOn = true
+    fetch(streamingUrl)
+      .then((response) => {
+        const reader = response.body!.getReader()
 
-            // Assuming the streaming data is separated by line breaks
-            const dataStrings = new TextDecoder().decode(value).split('\n')
-            dataStrings.forEach((dataString) => {
-              const trimmedDataString = dataString.trim()
-              if (trimmedDataString) {
-                try {
-                  var jsonData = JSON.parse(trimmedDataString)
-                  if ('id' in jsonData) {
-                    handleStreamingData(jsonData)
-                  }
-                } catch (e) {
-                  // console.error("Error parsing JSON:");
-                }
+        function streamData() {
+          reader
+            .read()
+            .then(({ value, done }) => {
+              if (done) {
+                console.error('[stream] Streaming ended.')
+                return
               }
+
+              // Assuming the streaming data is separated by line breaks
+              const dataStrings = new TextDecoder().decode(value).split('\n')
+              dataStrings.forEach((dataString) => {
+                const trimmedDataString = dataString.trim()
+                if (trimmedDataString) {
+                  try {
+                    var jsonData = JSON.parse(trimmedDataString)
+                    if ('id' in jsonData) {
+                      handleStreamingData(jsonData)
+                    }
+                  } catch (e) {
+                    // console.error("Error parsing JSON:");
+                  }
+                }
+              })
+
+              streamData() // Continue processing the stream
             })
+            .catch((error) => {
+              console.error('[stream] Error reading from stream:', error)
+              attemptReconnect(retries, delay)
+            })
+        }
 
-            streamData() // Continue processing the stream
-          })
-          .catch((error) => {
-            console.error('[stream] Error reading from stream:', error)
-            attemptReconnect(retries, delay)
-          })
-      }
-
-      streamData()
-    })
-    .catch((error) => {
-      console.error('[stream] Error fetching from the streaming endpoint:', error)
-    })
+        streamData()
+      })
+      .catch((error) => {
+        console.error('[stream] Error fetching from the streaming endpoint:', error)
+      })
+  } else {
+    console.log('[stream] Streaming already running.')
+  }
 
   function attemptReconnect(retriesLeft: number, inDelay: number) {
+    isTVStreamingOn = false
     if (retriesLeft > 0) {
       console.log(`[stream] Attempting to reconnect in ${inDelay}ms...`)
       setTimeout(() => {
@@ -201,6 +210,10 @@ export function unsubscribeFromStream(subscriberUID: string) {
       break
     }
   }
+}
+
+export function isTVStreaming(): boolean {
+  return isTVStreamingOn
 }
 
 const UnitPrice = {
@@ -276,40 +289,48 @@ const connection = new PriceServiceConnection('https://hermes.pyth.network', {
   }
 })
 
+let isHermesStreamingOn = false
+
 export function startHermesStreaming(retries = 10, delay = 3000) {
   console.log('[HERMES] price streaming started')
 
-  try {
-    connection.subscribePriceFeedUpdates(priceIds, (priceFeed) => {
-      const price = priceFeed.getPriceNoOlderThan(60)
-      if (price) {
-        const symbol = priceIdsMap['0x' + priceFeed.id]
-        if (symbol) {
-          let pythDecimals = price.expo * -1
-          let pythPrice = price.price
-          let value = BigNumber.from(pythPrice)
-            .mul(BigNumber.from(10).pow(30 - pythDecimals))
-            .toString()
+  if (!isHermesStreamingOn) {
+    try {
+      isHermesStreamingOn = true
+      connection.subscribePriceFeedUpdates(priceIds, (priceFeed) => {
+        const price = priceFeed.getPriceNoOlderThan(60)
+        if (price) {
+          const symbol = priceIdsMap['0x' + priceFeed.id]
+          if (symbol) {
+            let pythDecimals = price.expo * -1
+            let pythPrice = price.price
+            let value = BigNumber.from(pythPrice)
+              .mul(BigNumber.from(10).pow(30 - pythDecimals))
+              .toString()
 
-          hermesPricesMap[symbol] = {
-            value: value,
-            decimals: 30
+            hermesPricesMap[symbol] = {
+              value: value,
+              decimals: 30
+            }
+            // console.log(
+            //   '[HERMES] price updated',
+            //   symbol,
+            //   ': ',
+            //   ethers.utils.formatUnits(hermesPricesMap[symbol]!.value, 30)
+            // )
           }
-          // console.log(
-          //   '[HERMES] price updated',
-          //   symbol,
-          //   ': ',
-          //   ethers.utils.formatUnits(hermesPricesMap[symbol]!.value, 30)
-          // )
         }
-      }
-    })
-  } catch (error) {
-    console.error('[HERMES] Error fetching from the streaming endpoint:', error)
-    attemptReconnect(retries, delay)
+      })
+    } catch (error) {
+      console.error('[HERMES] Error fetching from the streaming endpoint:', error)
+      attemptReconnect(retries, delay)
+    }
+  } else {
+    console.log('[HERMES] Streaming already running.')
   }
 
   function attemptReconnect(retriesLeft: number, inDelay: number) {
+    isHermesStreamingOn = false
     if (retriesLeft > 0) {
       console.log(`[HERMES] Attempting to reconnect in ${inDelay}ms...`)
       setTimeout(() => {
@@ -319,6 +340,10 @@ export function startHermesStreaming(retries = 10, delay = 3000) {
       console.error('[HERMES] Maximum reconnection attempts reached.')
     }
   }
+}
+
+export function isHermesStreaming(): boolean {
+  return isHermesStreamingOn
 }
 
 export function getTokenPrice(token: string) {
@@ -358,4 +383,3 @@ export function getTokenPriceD(token: string, decimals: number) {
     return tokenPrice.value.mul(BigNumber.from(10).pow(18 - tokenPrice.decimals))
   }
 }
-
