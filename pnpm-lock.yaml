@@ -21,7 +21,7 @@ dependencies:
     specifier: ^2.19.0
     version: 2.19.0(@solana/web3.js@1.87.6)
   '@pythnetwork/price-service-client':
-    specifier: ^1.7.0
+    specifier: ^1.8.2
     version: 1.8.2
   '@synthetixio/wei':
     specifier: ^2.74.4
