@@ -240,12 +240,12 @@ export function startHermesStreaming(retries = 10, delay = 3000) {
     connection.subscribePriceFeedUpdates(priceIds, (priceFeed) => {
       const price = priceFeed.getPriceNoOlderThan(60)
       if (price) {
-        const symbol = priceIdsMap[priceFeed.id]
+        const symbol = priceIdsMap['0x' + priceFeed.id]
         if (symbol) {
           let pythDecimals = price.expo * -1
           let pythPrice = price.price
           let value = BigNumber.from(pythPrice)
-            .mul(30 - pythDecimals)
+            .mul(BigNumber.from(10).pow(30 - pythDecimals))
             .toString()
 
           hermesPricesMap[symbol] = {
