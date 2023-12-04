@@ -28,7 +28,12 @@ interface SubscriptionInfo {
 
 const channelToSubscription = new Map<string, SubscriptionInfo>()
 
-type PricesMap = Record<string, NumberDecimal | null>
+export type PriceStamp = {
+  price: NumberDecimal | null
+  timestamp: number
+}
+
+type PricesMap = Record<string, PriceStamp>
 
 let prices: PricesMap = {}
 
@@ -50,8 +55,11 @@ function handleStreamingData(data: { id: string; p: number; t: number }) {
 
     if (symbolBase === 'USD') {
       prices[symbol] = {
-        value: ethers.utils.parseUnits(p.toFixed(18), 30).toString(),
-        decimals: 30
+        price: {
+          value: ethers.utils.parseUnits(p.toFixed(18), 30).toString(),
+          decimals: 30
+        },
+        timestamp: Date.now()
       }
     }
     // console.dir({ prices }, { depth: 2 });
@@ -309,8 +317,11 @@ export function startHermesStreaming(retries = 10, delay = 3000) {
               .toString()
 
             hermesPricesMap[symbol] = {
-              value: value,
-              decimals: 30
+              price: {
+                value: value,
+                decimals: 30
+              },
+              timestamp: Date.now()
             }
             // console.log(
             //   '[HERMES] price updated',
@@ -356,12 +367,15 @@ export function getTokenPrice(token: string) {
   if (token === 'WBTC.b') token = 'BTC'
   if (token === 'USDC.e') token = 'USDC'
 
-  const price = hermesPricesMap[token]
+  const priceStampHermes = hermesPricesMap[token]
+  const priceStampTV = prices[token]
 
-  if (!price) return
+  const priceStamp = _getLatestPriceStamp(priceStampHermes, priceStampTV)
 
-  const decimals = price.decimals
-  const value = BigNumber.from(price.value)
+  if (!priceStamp || !priceStamp.price) return
+
+  const decimals = priceStamp.price.decimals
+  const value = BigNumber.from(priceStamp.price.value)
 
   return {
     decimals,
@@ -382,4 +396,16 @@ export function getTokenPriceD(token: string, decimals: number) {
   } else {
     return tokenPrice.value.mul(BigNumber.from(10).pow(18 - tokenPrice.decimals))
   }
+}
+
+function _getLatestPriceStamp(priceStampHermes: PriceStamp | undefined, priceStampTV: PriceStamp | undefined) {
+  if (!priceStampHermes && !priceStampTV) return
+
+  if (!priceStampHermes || !priceStampHermes.price) return priceStampTV
+
+  if (!priceStampTV || !priceStampTV.price) return priceStampHermes
+
+  if (priceStampHermes.timestamp > priceStampTV.timestamp) return priceStampHermes
+
+  return priceStampTV
 }
