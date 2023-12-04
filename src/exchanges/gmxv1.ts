@@ -785,7 +785,7 @@ export default class GmxV1Service implements IExchange {
 
       // close all related tp/sl orders if order.sizeDelta > remaining size
       const orders = (await this.getAllOrdersForPosition(this.swAddr, provider, position, undefined)).filter(
-        (order) => order.triggerType != 'NONE' && order.sizeDelta > remainingSize
+        (order) => order.triggerType != 'NONE' && order.sizeDelta.gt(remainingSize)
       )
       for (const order of orders) {
         const cancelOrderTx = await this.cancelOrder(provider, undefined, order)
