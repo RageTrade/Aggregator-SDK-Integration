@@ -1334,7 +1334,7 @@ export default class GmxV2Service implements IAdapterV1 {
         od.type === 'LIMIT' && getIsEquivalentTokens(fromToken, toToken) ? orderTriggerPrice : fromToken.prices.minPrice
       )!
 
-      const leverage = orderSizeDelta.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin)
+      const leverage = fromUsdMin.gt(ZERO) ? orderSizeDelta.mul(BASIS_POINTS_DIVISOR).div(fromUsdMin) : ZERO
 
       const increaseAmounts = getIncreasePositionAmounts({
         marketInfo,
