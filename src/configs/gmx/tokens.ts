@@ -1180,7 +1180,7 @@ export async function useInfoTokens(
 
   const vr = VaultReader__factory.connect(vaultReaderAddress!, library!)
 
-  const sTimeVTI = getStaleTime(CACHE_SECOND * 30, opts)
+  const sTimeVTI = getStaleTime(CACHE_SECOND * 5, opts)
   const vaultTokenInfoPromise = cacheFetch({
     key: [
       GMXV1_CACHE_PREFIX,
@@ -1204,7 +1204,7 @@ export async function useInfoTokens(
   })
 
   const indexPricesUrl = getServerUrl(chainId, '/prices')
-  const sTimeIPP = getStaleTime(CACHE_SECOND * 30, opts)
+  const sTimeIPP = getStaleTime(CACHE_SECOND * 5, opts)
   const indexPricesPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'indexPricesFetch', indexPricesUrl],
     fn: () => fetch(indexPricesUrl).then((res) => res.json()),
@@ -1945,7 +1945,7 @@ export const getCloseTradePreviewInternal = async (
     positionFee = getMarginFee(fromAmount)
   }
 
-  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2161,7 +2161,7 @@ export const getCloseTradePreviewInternalV1 = async (
     positionFee = getMarginFee(fromAmount)
   }
 
-  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2647,7 +2647,7 @@ export const getTradePreviewInternal = async (
 ): Promise<ExtendedPosition> => {
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
 
-  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2802,7 +2802,7 @@ export const getTradePreviewInternalV1 = async (
   const provider = rpc[ARBITRUM]
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
 
-  const sTimeUS = getStaleTime(CACHE_MINUTE, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),

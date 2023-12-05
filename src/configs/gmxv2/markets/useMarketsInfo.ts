@@ -43,7 +43,14 @@ import { TokensData } from '../tokens/types'
 import { useTokensData } from '../tokens/useTokensData'
 import { useMulticall } from '../lib/multicall/useMulticall'
 import { getByKey } from '../../../common/helper'
-import {CACHE_MINUTE, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX} from '../../../common/cache';
+import {
+  CACHE_MINUTE,
+  CACHE_SECOND,
+  CACHE_TIME_MULT,
+  cacheFetch,
+  getStaleTime,
+  GMXV2_CACHE_PREFIX
+} from '../../../common/cache'
 import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 export type MarketsInfoResult = {
@@ -68,7 +75,7 @@ export async function useMarketsInfo(chainId: number, wallet: string, opts?: Api
 
   const isDepencenciesLoading = !marketsAddresses || !tokensData
 
-  const sTime = getStaleTime(CACHE_MINUTE, opts)
+  const sTime = getStaleTime(CACHE_SECOND * 5, opts)
   const { data } = await cacheFetch({
     key: [GMXV2_CACHE_PREFIX, 'useMulticall', 'useMarketsInfo', chainId],
     fn: () =>

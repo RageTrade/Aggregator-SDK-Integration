@@ -1,4 +1,4 @@
-import {CACHE_TIME_MULT, CACHE_SECOND, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX} from '../../../common/cache';
+import { CACHE_TIME_MULT, CACHE_SECOND, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../../../common/cache'
 import { getTokensMap, getV2Tokens } from '../config/tokens'
 import { TokensData } from './types'
 import { useTokenBalances } from './useTokenBalances'
@@ -21,7 +21,7 @@ export async function useTokensData(chainId: number, wallet: string, opts?: ApiO
     cacheTime: sTimeTB * CACHE_TIME_MULT,
     opts
   })
-  const sTimeRP = getStaleTime(CACHE_SECOND * 30, opts)
+  const sTimeRP = getStaleTime(CACHE_SECOND * 10, opts)
   const tokenRecentPricesPromise = cacheFetch({
     key: [GMXV2_CACHE_PREFIX, 'useTokenRecentPrices', chainId],
     fn: () => useTokenRecentPrices(chainId),
