@@ -56,7 +56,8 @@ import {
   getCloseTradePreviewInternal,
   getEditCollateralPreviewInternal,
   GToken,
-  checkTradePathLiquidiytInternal
+  checkTradePathLiquidiytInternal,
+  getTokenAmountFromUsd
 } from '../configs/gmx/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toNumberDecimal } from '../common/helper'
 import { timer } from 'execution-time-decorators'
@@ -633,6 +634,11 @@ export default class GmxV1Service implements IExchange {
         }),
         fee: pos.totalFees,
         accessibleMargin: maxAmount,
+        accessibleMarginToken: getTokenAmountFromUsd(
+          infoTokens,
+          this.getCollateralTokenAddressFromPositionKey(pos.key),
+          maxAmount
+        ),
         leverage: pos.leverage,
         exceedsPriceProtection: pos.hasLowCollateral,
         direction: pos.isLong ? 'LONG' : 'SHORT',
