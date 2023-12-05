@@ -123,6 +123,7 @@ export type ExtendedPosition = Position & {
   skewAdjustedPrice?: BigNumber
   direction?: OrderDirection
   accessibleMargin?: BigNumber
+  accessibleMarginToken?: BigNumber
   marketAddress?: string
   originalCollateralToken?: string
   indexToken?: Token
