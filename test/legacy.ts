@@ -393,7 +393,7 @@ async function crossMargin() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function synService() {
-  const ss = new SynthetixV2Service(sdk, '0x2f88a09ed4174750a464576FE49E586F90A34820')
+  const ss = new SynthetixV2Service(sdk, '0x6F8f75930de3ECB4e6b6e745d5E14B1478D282CA')
 
   // const tradeHistory = await ss.getTradesHistory(
   //   // "0x4dBc24BEb46fC22CD2322a9fF9e5A99CE0F0c3Eb",
@@ -406,13 +406,13 @@ async function synService() {
   //   logObject("Trade History: ", t);
   // });
 
-  // const liquidationsHistory = await ss.getLiquidationsHistory(
-  //   "0xf5433b068A87141C5e214931288942B2Ceb212b0",
-  //   undefined
-  // );
-  // liquidationsHistory.forEach((t) => {
-  //   logObject("Liq History: ", t);
-  // });
+  const liquidationsHistory = (
+    await ss.getLiquidationsHistory('0x6F8f75930de3ECB4e6b6e745d5E14B1478D282CA', undefined, undefined)
+  ).result
+  liquidationsHistory.forEach((t) => {
+    logObject('Liq History: ', t)
+    console.log('Liquidation Lev: ', formatAmount(t.liqudationLeverage.value, t.liqudationLeverage.decimals))
+  })
 
   // for (let i = 0; i < 10; i++) {
   //   console.time("Idle margin" + i);
@@ -430,6 +430,10 @@ async function synService() {
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
   const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0])
+  // const pepeMarket = supportedMarkets.find(
+  //     (m) => m.indexOrIdentifier === FuturesMarketKey.sPEPEPERP
+  //   )!;
+  // console.dir({ pepeMarket }, { depth: 4 })
   // const btcMarket = supportedMarkets.find(
   //   (m) => m.indexOrIdentifier === FuturesMarketKey.sBTCPERP
   // )!;
@@ -526,9 +530,9 @@ async function synService() {
   //   logObject("Trades History: ", t);
   // });
 
-  const positions = (
-    await ss.getAllPositions('0xD81c12559fBfC78841bBFF3618eaB880646847BA', provider, undefined, undefined)
-  ).result
+  // const positions = (
+  //   await ss.getAllPositions('0xD81c12559fBfC78841bBFF3618eaB880646847BA', provider, undefined, undefined)
+  // ).result
   // positions.forEach((p) => logObject("Position: ", p));
   // logObject('Position: ', positions[0])
 
@@ -717,7 +721,13 @@ async function gmxService() {
   const signer = new ethers.Wallet(wpk, provider)
   const gs = new GmxV1Service(signer.address)
 
-  // const allOrders = (await gs.getAllOrders(w, provider, undefined, undefined)).result
+  const allOrders = (await gs.getAllOrders(w, provider, undefined, undefined)).result
+
+  for (const order of allOrders) {
+    const cancelOrderTx = await gs.cancelOrder(provider, undefined, order)
+    logObject('Cancel Order Tx: ', cancelOrderTx[0].tx)
+  }
+
   // allOrders.forEach((o) => {
   //   logObject('Order: ', o)
   //   // logObject('Trigger: ', o.trigger!)
@@ -835,16 +845,6 @@ async function gmxService() {
 
   // let inToken = nativeETH;
 
-  // let updateMarginTx = await gs.updatePositionMargin(
-  //   provider,
-  //   position0,
-  //   ethers.utils.parseUnits("10", 30 /* inToken.decimals */),
-  //   false,
-  //   inToken
-  // );
-  // logObject("Update Margin Tx: ", updateMarginTx[0]);
-  // await fireTxs(updateMarginTx);
-
   let usdce = {
     name: 'Bridged USDC (USDC.e)',
     symbol: 'USDC.e',
@@ -866,7 +866,7 @@ async function gmxService() {
     address: ethers.constants.AddressZero
   }
 
-  const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
+  // const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject('Position: ', allPositions[i])
   //   // let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
@@ -875,11 +875,28 @@ async function gmxService() {
   //   // })
   // }
 
-  let position0 = allPositions.length > 0 ? allPositions[0] : undefined
+  // let position0 = allPositions.length > 0 ? allPositions[0] : undefined
   // console.log(position0 ? 'Position 0: ' : 'No position 0')
   let market = supportedMarkets.find(
     (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
   )!
+
+  // console.dir({ position0 }, { depth: 4 })
+
+  // let updateMarginTx = await gs.updatePositionMargin(
+  //   provider,
+  //   position0!,
+  //   // ethers.utils.parseUnits('0.001', position0!.collateralToken.decimals),
+  //   ethers.utils.parseUnits('5', 30),
+  //   false,
+  //   eth
+  //   // position0!.collateralToken
+  // )
+  // updateMarginTx.forEach((tx) => {
+  //   logObject('Update margin tx: ', tx.tx)
+  // })
+  // await fireTxs(updateMarginTx);
+
   // console.log({ market })
   // for (let i = 0; i < 1; i++) {
   //   // console.time('tradePreview')
@@ -928,36 +945,36 @@ async function gmxService() {
   //   logObject('Close Preview: ', closePreview)
   // }
 
-  for (let i = 0; i < 1; i++) {
-    // console.time('getEditCollateralPreview')
-    const editCollateralPreview = await gs.getEditCollateralPreview(
-      w,
-      provider,
-      position0!,
-      // ethers.utils.parseUnits("0", 30),
-      ethers.utils.parseUnits('0.00005', position0!.collateralToken!.decimals),
-      true,
-      {
-        bypassCache: true,
-        overrideStaleTime: 1000
-      }
-    )
-    // console.timeEnd('getEditCollateralPreview')
-    logObject('editCollateralPreview: ', editCollateralPreview)
-  }
+  // for (let i = 0; i < 1; i++) {
+  //   // console.time('getEditCollateralPreview')
+  //   const editCollateralPreview = await gs.getEditCollateralPreview(
+  //     w,
+  //     provider,
+  //     position0!,
+  //     // ethers.utils.parseUnits("0", 30),
+  //     ethers.utils.parseUnits('0.00005', position0!.collateralToken!.decimals),
+  //     true,
+  //     {
+  //       bypassCache: true,
+  //       overrideStaleTime: 1000
+  //     }
+  //   )
+  //   // console.timeEnd('getEditCollateralPreview')
+  //   logObject('editCollateralPreview: ', editCollateralPreview)
+  // }
 
   // let closePositionTxs = await gs.closePosition(
   //   provider,
   //   allPositions[0],
-  //   allPositions[0].size.mul(100).div(100),
+  //   allPositions[0].size.mul(50).div(100),
   //   // ethers.utils.parseUnits("10", 30),
   //   true,
   //   ethers.utils.parseUnits("125936", 30),
   //   true,
-  //   eth
+  //   usdc
   // );
   // closePositionTxs.forEach((tx) => {
-  //   logObject("Close position tx: ", tx);
+  //   logObject("Close position tx: ", tx.tx);
   // });
   // await fireTxs(closePositionTxs);
 
@@ -979,41 +996,22 @@ async function gmxService() {
   // await gs.setup(provider);
   // console.log("Finished Setup".toUpperCase());
 
-  // await gs.createOrder(
-  //   provider,
-  //   {
-  //     mode: "ASYNC",
-  //     longCollateral: "",
-  //     shortCollateral: "",
-  //     indexOrIdentifier: getTokenBySymbol(ARBITRUM, "BTC").address,
-  //     supportedOrderTypes: {
-  //       LIMIT_DECREASE: true,
-  //       LIMIT_INCREASE: true,
-  //       MARKET_INCREASE: true,
-  //       MARKET_DECREASE: true,
-  //       DEPOSIT: true,
-  //       WITHDRAW: true,
-  //     },
+  // const txs = await gs.createOrder(provider, market, {
+  //   type: 'LIMIT_INCREASE',
+  //   direction: 'LONG',
+  //   inputCollateral: eth,
+  //   inputCollateralAmount: ethers.utils.parseUnits('0.014', eth.decimals),
+  //   sizeDelta: ethers.utils.parseUnits('52', 30),
+  //   isTriggerOrder: false,
+  //   referralCode: undefined,
+  //   trigger: {
+  //     // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+  //     triggerPrice: ethers.utils.parseUnits('30000', 30),
+  //     triggerAboveThreshold: false
   //   },
-  //   {
-  //     type: "MARKET_DECREASE",
-  //     direction: "LONG",
-  //     inputCollateral: {
-  //       name: "string",
-  //       symbol: "string",
-  //       decimals: "string",
-  //       address: getTokenBySymbol(ARBITRUM, "USDC.e").address,
-  //     },
-  //     inputCollateralAmount: ethers.utils.parseUnits("4", 30),
-  //     sizeDelta: ethers.utils.parseUnits("0", 30),
-  //     isTriggerOrder: false,
-  //     referralCode: undefined,
-  //     trigger: {
-  //       triggerPrice: ethers.utils.parseUnits("1850", 30),
-  //       triggerAboveThreshold: false,
-  //     },
-  //   }
-  // );
+  //   slippage: '1'
+  // })
+  // console.dir({ txs }, { depth: 4 })
 
   // const positions = await gs.getAllPositions(w, provider);
   // positions.forEach((p) => {

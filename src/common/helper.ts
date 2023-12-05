@@ -124,3 +124,7 @@ export function getStartEndIndex(pageOptions: PageOptions | undefined): {
 export function validDenomination(amount: AmountInfo, isReqDenominationTokens: boolean): boolean {
   return amount.isTokenAmount === isReqDenominationTokens
 }
+
+export function isStrEq(a: string, b: string): boolean {
+  return a.toLowerCase() === b.toLowerCase()
+}

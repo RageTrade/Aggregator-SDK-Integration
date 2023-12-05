@@ -3,7 +3,14 @@ import { getAddress, parseUnits } from 'ethers-v6'
 import { CACHE_SECOND, CACHE_TIME_MULT, GMXV1_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../src/common/cache'
 import { ZERO } from '../../src/common/constants'
 import { FixedNumber } from '../../src/common/fixedNumber'
-import { getPaginatedResponse, toAmountInfo, validDenomination } from '../../src/common/helper'
+import {
+  applySlippage,
+  getBNFromFN,
+  getPaginatedResponse,
+  isStrEq,
+  toAmountInfo,
+  validDenomination
+} from '../../src/common/helper'
 import { decodeMarketId, encodeMarketId } from '../../src/common/markets'
 import { rpc } from '../../src/common/provider'
 import {
@@ -62,7 +69,15 @@ import {
   UpdateOrder,
   UpdatePositionMarginData
 } from '../../src/interfaces/V1/IRouterAdapterBaseV1'
-import { IERC20__factory, OrderBookReader__factory, OrderBook__factory, Reader__factory } from '../../typechain/gmx-v1'
+import {
+  IERC20__factory,
+  OrderBookReader__factory,
+  OrderBook__factory,
+  PositionRouter__factory,
+  Reader__factory,
+  ReferralStorage__factory,
+  Router__factory
+} from '../../typechain/gmx-v1'
 import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
 
@@ -74,15 +89,71 @@ const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 export default class GmxV1Adapter implements IAdapterV1 {
   private provider = rpc[42161]
 
+  private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   private minCollateralUsd = parseUnits('11', 30)
   private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber
+  private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
+  private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
+  private swAddr: string | undefined
 
   init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
-    throw new Error('Method not implemented.')
+    this.swAddr = ethers.utils.getAddress(swAddr)
+    return Promise.resolve()
   }
 
-  setup(): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+  async setup(): Promise<UnsignedTxWithMetadata[]> {
+    this._validateSW()
+
+    const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
+    let txs: UnsignedTxWithMetadata[] = []
+
+    // Check if user already has a referral code set
+    const codePromise = referralStorage.traderReferralCodes(this.swAddr!)
+
+    // check whether plugins are approved or not
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
+    const orderBook = getContract(ARBITRUM, 'OrderBook')!
+    const positionRouter = getContract(ARBITRUM, 'PositionRouter')!
+
+    const obApprovalPromise = router.approvedPlugins(this.swAddr!, orderBook)
+    const prApprovalPromise = router.approvedPlugins(this.swAddr!, positionRouter)
+
+    const [code, obApproval, prApproval] = await Promise.all([codePromise, obApprovalPromise, prApprovalPromise])
+
+    if (code == ethers.constants.HashZero) {
+      // set referral code
+      const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(
+        this.REFERRAL_CODE
+      )
+      txs.push({
+        tx: setReferralCodeTx,
+        type: 'GMX_V1',
+        data: undefined,
+        chainId: ARBITRUM
+      })
+    }
+
+    if (!obApproval) {
+      const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
+      txs.push({
+        tx: approveOrderBookTx,
+        type: 'GMX_V1',
+        data: undefined,
+        chainId: ARBITRUM
+      })
+    }
+
+    if (!prApproval) {
+      const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
+      txs.push({
+        tx: approvePositionRouterTx,
+        type: 'GMX_V1',
+        data: undefined,
+        chainId: ARBITRUM
+      })
+    }
+
+    return txs
   }
 
   supportedChains(): Chain[] {
@@ -94,7 +165,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
     this._getIndexTokens().forEach((it) => {
       const market: Market = {
-        marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, it.address[arbitrum.id]!),
+        marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, this.getTokenAddress(it)),
         chain: arbitrum,
         indexToken: it,
         longCollateral: this._getCollateralTokens(),
@@ -194,31 +265,455 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return metadata
   }
 
-  increasePosition(orderData: CreateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+  async increasePosition(orderData: CreateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+    this._validateSW()
+
+    let txs: UnsignedTxWithMetadata[] = []
+    const provider = this.provider
+
+    // get required approval amounts for all positions at once
+    let approveMap: Record<string, BigNumber> = {}
+    for (const order of orderData) {
+      if (!validDenomination(order.marginDelta, true)) throw new Error('Margin Delta must be in token denomination')
+      if (!validDenomination(order.sizeDelta, false)) throw new Error('Size Delta must be in USD denomination')
+
+      const inputCollateralAddress = order.collateral.address[ARBITRUM]!
+      const marginDeltaBN = getBNFromFN(order.marginDelta.amount)
+
+      if (inputCollateralAddress != ethers.constants.AddressZero) {
+        if (approveMap[inputCollateralAddress] === undefined) {
+          approveMap[inputCollateralAddress] = marginDeltaBN
+        } else {
+          approveMap[inputCollateralAddress] = approveMap[inputCollateralAddress].add(marginDeltaBN)
+        }
+      }
+    }
+
+    // approval txs
+    const tokenAddresses = Object.keys(approveMap)
+    const approvalAmounts = Object.values(approveMap)
+    let approvalTxs = await this.getApproveRouterSpendTxs(tokenAddresses, approvalAmounts)
+    txs.push(...approvalTxs)
+
+    for (const order of orderData) {
+      const inputCollateralAddress = order.collateral.address[ARBITRUM]!
+      const marginDeltaBN = getBNFromFN(order.marginDelta.amount)
+      const sizeDeltaBN = getBNFromFN(order.sizeDelta.amount)
+      const triggerPriceBN = getBNFromFN(order.triggerData!.triggerPrice)
+
+      const tokenAddressString = this.getTokenAddressString(inputCollateralAddress)
+      const market = (await this.getMarketsInfo([order.marketId]))[0]
+
+      let createOrderTx: UnsignedTransaction
+      let extraEthReq = BigNumber.from(0)
+      if (order.type == 'LIMIT') {
+        const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
+
+        const path: string[] = []
+        path.push(tokenAddressString)
+
+        const isEthCollateral = inputCollateralAddress == ethers.constants.AddressZero
+
+        if (isEthCollateral) {
+          extraEthReq = marginDeltaBN
+        }
+
+        createOrderTx = await orderBook.populateTransaction.createIncreaseOrder(
+          path,
+          marginDeltaBN,
+          market.indexToken.address[ARBITRUM]!,
+          0,
+          sizeDeltaBN,
+          market.indexToken.address[ARBITRUM]!,
+          order.direction == 'LONG' ? true : false,
+          triggerPriceBN,
+          !(order.direction == 'LONG'),
+          this.EXECUTION_FEE,
+          isEthCollateral,
+          {
+            value: isEthCollateral ? this.EXECUTION_FEE.add(marginDeltaBN) : this.EXECUTION_FEE
+          }
+        )
+      } else if (order.type == 'MARKET') {
+        const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, provider)
+
+        const path: string[] = []
+        path.push(tokenAddressString)
+        if (order.direction == 'LONG') {
+          if (tokenAddressString.toLowerCase() != market.indexToken.address[ARBITRUM]!.toLowerCase()) {
+            path.push(market.indexToken.address[ARBITRUM]!)
+          }
+        } else {
+          if (tokenAddressString != this.shortTokenAddress) {
+            path.push(this.shortTokenAddress)
+          }
+        }
+
+        const acceptablePrice =
+          order.slippage && order.slippage > 0
+            ? applySlippage(triggerPriceBN, order.slippage, order.direction == 'LONG')
+            : triggerPriceBN
+
+        if (inputCollateralAddress != ethers.constants.AddressZero) {
+          createOrderTx = await positionRouter.populateTransaction.createIncreasePosition(
+            path,
+            market.indexToken.address[ARBITRUM]!,
+            marginDeltaBN,
+            0,
+            sizeDeltaBN,
+            order.direction == 'LONG' ? true : false,
+            acceptablePrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE
+            }
+          )
+        } else {
+          extraEthReq = marginDeltaBN
+
+          createOrderTx = await positionRouter.populateTransaction.createIncreasePositionETH(
+            path,
+            market.indexToken.address[ARBITRUM]!,
+            0,
+            sizeDeltaBN,
+            order.direction == 'LONG' ? true : false,
+            acceptablePrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE.add(marginDeltaBN)
+            }
+          )
+        }
+      }
+
+      txs.push({
+        tx: createOrderTx!,
+        type: 'GMX_V1',
+        data: undefined,
+        ethRequired: await this.getEthRequired(extraEthReq),
+        chainId: ARBITRUM
+      })
+    }
+
+    return txs
   }
-  updateOrder(orderData: UpdateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+
+  async updateOrder(orderData: UpdateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
+
+    const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
+
+    let updateOrderTx
+
+    for (const updatedOrder of orderData) {
+      if (!validDenomination(updatedOrder.marginDelta, true))
+        throw new Error('Margin Delta must be in token denomination')
+      if (!validDenomination(updatedOrder.sizeDelta, false)) throw new Error('Size Delta must be in USD denomination')
+
+      let marginDeltaBN = getBNFromFN(updatedOrder.marginDelta.amount)
+      let sizeDeltaBN = getBNFromFN(updatedOrder.sizeDelta.amount)
+      let triggerPriceBN = getBNFromFN(updatedOrder.triggerData!.triggerPrice)
+
+      if (updatedOrder.orderType! == 'LIMIT') {
+        updateOrderTx = await orderBook.populateTransaction.updateIncreaseOrder(
+          BigNumber.from(updatedOrder.orderId),
+          sizeDeltaBN,
+          triggerPriceBN,
+          updatedOrder.triggerData!.triggerAboveThreshold!
+        )
+      } else if (updatedOrder.orderType! == 'STOP_LOSS' || updatedOrder.orderType! == 'TAKE_PROFIT') {
+        updateOrderTx = await orderBook.populateTransaction.updateDecreaseOrder(
+          BigNumber.from(updatedOrder.orderId),
+          marginDeltaBN,
+          sizeDeltaBN,
+          triggerPriceBN,
+          updatedOrder.triggerData!.triggerAboveThreshold!
+        )
+      } else {
+        throw new Error('Invalid order type')
+      }
+
+      txs.push({
+        tx: updateOrderTx!,
+        type: 'GMX_V1',
+        data: undefined,
+        chainId: ARBITRUM
+      })
+    }
+
+    return txs
   }
-  cancelOrder(orderData: CancelOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+
+  async cancelOrder(orderData: CancelOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+    const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
+
+    let txs: UnsignedTxWithMetadata[] = []
+    let cancelOrderTx
+
+    for (const order of orderData) {
+      if (order.type! == 'LIMIT') {
+        cancelOrderTx = await orderBook.populateTransaction.cancelIncreaseOrder(BigNumber.from(order.orderId))
+      } else if (order.type! == 'STOP_LOSS' || order.type! == 'TAKE_PROFIT') {
+        cancelOrderTx = await orderBook.populateTransaction.cancelDecreaseOrder(BigNumber.from(order.orderId))
+      } else {
+        throw new Error('Invalid order type')
+      }
+
+      txs.push({
+        tx: cancelOrderTx!,
+        type: 'GMX_V1',
+        data: undefined,
+        chainId: ARBITRUM
+      })
+    }
+
+    return txs
   }
-  closePosition(
+
+  async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     opts?: ApiOpts | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    this._validateSW()
+
+    let txs: UnsignedTxWithMetadata[] = []
+
+    const positionOrdersPromise = this.getAllOrdersForPosition(this.swAddr!, positionInfo, undefined, opts)
+    const marketPricesPromise = this.getMarketPrices(
+      positionInfo.map((pi) => pi.marketId),
+      opts
+    )
+    const [positionOrders, marketPrices] = await Promise.all([positionOrdersPromise, marketPricesPromise])
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      const pi = positionInfo[i]
+      const cpd = closePositionData[i]
+      const position = pi.metadata
+
+      if (!validDenomination(cpd.closeSize, false)) throw new Error('Close size must be in USD denomination')
+
+      const closeSizeBN = getBNFromFN(cpd.closeSize.amount)
+      const isTrigger = cpd.type != 'MARKET'
+      const indexAddress = this.getIndexTokenAddressFromPositionKey(pi.posId)
+
+      if (!isTrigger) {
+        let remainingSize = position.size.sub(closeSizeBN)
+
+        // close all related tp/sl orders if order.sizeDelta > remaining size
+        const orders = positionOrders[pi.posId].result.filter(
+          (order) =>
+            (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
+            getBNFromFN(order.sizeDelta.amount).gt(remainingSize)
+        )
+        const cancelOrderTxs = await this.cancelOrder(
+          orders.map((o) => {
+            return {
+              marketId: o.marketId,
+              orderId: o.orderId,
+              type: o.orderType
+            }
+          }),
+          opts
+        )
+        txs.push(...cancelOrderTxs)
+
+        // close position
+        let collateralOutAddr = cpd.outputCollateral
+          ? cpd.outputCollateral.address[ARBITRUM]!
+          : position.originalCollateralToken
+
+        const marketPrice = getBNFromFN(marketPrices[i])
+        const fillPrice = pi.direction == 'LONG' ? marketPrice.mul(99).div(100) : marketPrice.mul(101).div(100)
+
+        const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, this.provider)
+
+        const path: string[] = []
+        path.push(position.originalCollateralToken)
+        if (collateralOutAddr !== position.originalCollateralToken) {
+          path.push(this.getTokenAddressString(collateralOutAddr!))
+        }
+
+        let createOrderTx = await positionRouter.populateTransaction.createDecreasePosition(
+          path,
+          indexAddress,
+          BigNumber.from(0),
+          closeSizeBN,
+          pi.direction! == 'LONG' ? true : false,
+          this.swAddr!,
+          fillPrice,
+          0,
+          this.EXECUTION_FEE,
+          collateralOutAddr == ethers.constants.AddressZero,
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE
+          }
+        )
+        txs.push({
+          tx: createOrderTx,
+          type: 'GMX_V1',
+          data: undefined,
+          ethRequired: await this.getEthRequired(),
+          chainId: ARBITRUM
+        })
+      } else {
+        const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
+
+        let createOrderTx = await orderBook.populateTransaction.createDecreaseOrder(
+          indexAddress,
+          closeSizeBN,
+          position.originalCollateralToken,
+          BigNumber.from(0), // in USD e30
+          pi.direction == 'LONG' ? true : false,
+          getBNFromFN(cpd.triggerData!.triggerPrice),
+          cpd.triggerData!.triggerAboveThreshold,
+          {
+            value: this.EXECUTION_FEE
+          }
+        )
+        txs.push({
+          tx: createOrderTx,
+          type: 'GMX_V1',
+          data: undefined,
+          ethRequired: await this.getEthRequired(),
+          chainId: ARBITRUM
+        })
+      }
+    }
+
+    return txs
   }
-  updatePositionMargin(
+
+  async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
     opts?: ApiOpts | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    this._validateSW()
+
+    let txs: UnsignedTxWithMetadata[] = []
+    const marketPrices = await this.getMarketPrices(
+      positionInfo.map((pi) => pi.marketId),
+      opts
+    )
+    const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, this.provider)
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      const pi = positionInfo[i]
+      const upmd = updatePositionMarginData[i]
+      const position = pi.metadata
+      const transferToken = upmd.collateral
+      const isDeposit = upmd.isDeposit
+
+      if (isDeposit && !validDenomination(upmd.margin, true)) throw new Error('Margin must be in token denomination')
+      if (!isDeposit && !validDenomination(upmd.margin, false)) throw new Error('Margin must be in USD denomination')
+
+      const marginAmount = getBNFromFN(upmd.margin.amount)
+
+      const indexAddress = this.getIndexTokenAddressFromPositionKey(pi.posId)
+      const marketPrice = getBNFromFN(marketPrices[i])
+      const transferTokenAddress = transferToken.address[ARBITRUM]!
+      const transferTokenString = this.getTokenAddressString(transferTokenAddress)
+
+      const path: string[] = []
+
+      let marginTx: UnsignedTransaction
+      let extraEthReq = BigNumber.from(0)
+
+      if (isDeposit) {
+        //approve router for token spends
+        if (!isStrEq(transferTokenAddress, ethers.constants.AddressZero)) {
+          let approvalTx = await this.getApproveRouterSpendTx(transferTokenAddress, marginAmount)
+          if (approvalTx) txs.push(approvalTx)
+        }
+
+        const fillPrice = pi.direction == 'LONG' ? marketPrice.mul(101).div(100) : marketPrice.mul(99).div(100)
+
+        if (!isStrEq(transferTokenString, pi.collateral.address[ARBITRUM]!)) {
+          path.push(transferTokenString, pi.collateral.address[ARBITRUM]!)
+        } else {
+          path.push(pi.collateral.address[ARBITRUM]!)
+        }
+
+        if (isStrEq(transferTokenAddress, ethers.constants.AddressZero)) {
+          extraEthReq = marginAmount
+
+          marginTx = await positionRouter.populateTransaction.createIncreasePositionETH(
+            path,
+            indexAddress,
+            0,
+            BigNumber.from(0),
+            pi.direction == 'LONG' ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE.add(marginAmount)
+            }
+          )
+        } else {
+          marginTx = await positionRouter.populateTransaction.createIncreasePosition(
+            path,
+            indexAddress,
+            marginAmount,
+            0,
+            BigNumber.from(0),
+            pi.direction == 'LONG' ? true : false,
+            fillPrice,
+            this.EXECUTION_FEE,
+            ethers.constants.HashZero, // Referral code set during setup()
+            ethers.constants.AddressZero,
+            {
+              value: this.EXECUTION_FEE
+            }
+          )
+        }
+      } else {
+        path.push(pi.collateral.address[ARBITRUM]!)
+        if (!isStrEq(transferTokenString, pi.collateral.address[ARBITRUM]!)) {
+          path.push(transferTokenString)
+        }
+
+        const fillPrice = pi.direction == 'LONG' ? marketPrice.mul(99).div(100) : marketPrice.mul(101).div(100)
+
+        marginTx = await positionRouter.populateTransaction.createDecreasePosition(
+          path,
+          indexAddress,
+          marginAmount,
+          BigNumber.from(0),
+          pi.direction == 'LONG' ? true : false,
+          this.swAddr!,
+          fillPrice,
+          0,
+          this.EXECUTION_FEE,
+          transferTokenAddress == ethers.constants.AddressZero,
+          ethers.constants.AddressZero,
+          {
+            value: this.EXECUTION_FEE
+          }
+        )
+      }
+
+      txs.push({
+        tx: marginTx,
+        type: 'GMX_V1',
+        data: undefined,
+        ethRequired: await this.getEthRequired(extraEthReq),
+        chainId: ARBITRUM
+      })
+    }
+
+    return txs
   }
+
   claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+    return Promise.resolve([])
   }
 
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
@@ -312,8 +807,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         fundingFee: pos.fundingFee
       })
 
-      const collateralToken = getTokenBySymbolCommon(pos.collateralToken.symbol)
-      const indexToken = getTokenBySymbolCommon(pos.indexToken.symbol)
+      const collateralToken = getTokenByAddressCommon(this.getCollateralTokenAddressFromPositionKey(pos.key))
+      const indexToken = getTokenByAddressCommon(this.getIndexTokenAddressFromPositionKey(pos.key))
 
       const pi: PositionInfo = {
         marketId: encodeMarketId(
@@ -384,7 +879,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, order.indexToken),
         direction: order.isLong ? 'LONG' : 'SHORT',
         sizeDelta: toAmountInfo(order.sizeDelta, 30, false),
-        marginDelta: toAmountInfo(collateralAmount, collateralToken.decimals, true), //TODO: check
+        marginDelta: toAmountInfo(collateralAmount, collateralToken.decimals, true),
         triggerData: {
           triggerPrice: FixedNumber.fromValue(order.triggerPrice.toString(), 30, 30),
           triggerAboveThreshold: order.triggerAboveThreshold as boolean
@@ -574,7 +1069,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
             marginDelta: toAmountInfo(BigNumber.from(incTrade.collateralDelta), 30, false),
             collateralPrice: incTrade.isLong
               ? FixedNumber.fromValue(BigNumber.from(incTrade.price).toString(), 30, 30)
-              : FixedNumber.fromValue(parseUnits('1', 30).toString(), 30, 30), // TODO - get USDC price
+              : FixedNumber.fromValue(parseUnits('1', 30).toString(), 30, 30), // usdc price would be updated from pyth price below
             collateral: getTokenByAddressCommon(incTrade.collateralToken),
             realizedPnl: FixedNumber.fromValue(realisedPnl!.toString(), 30, 30),
             keeperFeesPaid: FixedNumber.fromValue('0', 30, 30),
@@ -615,7 +1110,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
             marginDelta: toAmountInfo(BigNumber.from(collateralDelta), 30, false),
             collateralPrice: decTrade.isLong
               ? FixedNumber.fromValue(BigNumber.from(decTrade.price).toString(), 30, 30)
-              : FixedNumber.fromValue(parseUnits('1', 30).toString(), 30, 30), // TODO - get USDC price
+              : FixedNumber.fromValue(parseUnits('1', 30).toString(), 30, 30), // usdc price would be updated from pyth price below
             collateral: getTokenByAddressCommon(decTrade.collateralToken),
             realizedPnl: FixedNumber.fromValue(realisedPnl!.toString(), 30, 30),
             keeperFeesPaid: FixedNumber.fromValue('0', 30, 30),
@@ -646,21 +1141,31 @@ export default class GmxV1Adapter implements IAdapterV1 {
           o: number[]
         }
 
-        let pricesData: BenchmarkData
+        let ethPricesData: BenchmarkData
+        let usdcPricesData: BenchmarkData
 
         const ethPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.ETH/USD&resolution=D&from=${fromTS}&to=${toTS}`
-        pricesData = await fetch(ethPriceUrl).then((d) => d.json())
-        let priceMap = new Array<number>()
+        const usdcPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.USDC/USD&resolution=D&from=${fromTS}&to=${toTS}`
+        const ethPricesDataPromise = fetch(ethPriceUrl).then((d) => d.json())
+        const usdcPricesDataPromise = fetch(usdcPriceUrl).then((d) => d.json())
+        ;[ethPricesData, usdcPricesData] = await Promise.all([ethPricesDataPromise, usdcPricesDataPromise])
 
-        for (const i in pricesData.t) {
-          priceMap.push(pricesData.o[i])
+        let ethPriceMap = new Array<number>()
+        let usdcPriceMap = new Array<number>()
+
+        for (const i in ethPricesData.t) {
+          ethPriceMap.push(ethPricesData.o[i])
+        }
+        for (const i in usdcPricesData.t) {
+          usdcPriceMap.push(usdcPricesData.o[i])
         }
         // console.log("PriceMapLength: ", priceMap.length, "Price map: ", priceMap);
 
         for (const each of tradesInfo) {
           const ts = each.timestamp
           const days = Math.floor((ts - fromTS) / 86400)
-          const etherPrice = ethers.utils.parseUnits(priceMap[days].toString(), 18)
+          const etherPrice = ethers.utils.parseUnits(ethPriceMap[days].toString(), 18)
+          const usdcPrice = ethers.utils.parseUnits(usdcPriceMap[days].toString(), 30)
           const PRECISION = BigNumber.from(10).pow(30)
 
           each.keeperFeesPaid = FixedNumber.fromValue(
@@ -672,6 +1177,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
             30,
             30
           )
+
+          if (each.direction == 'SHORT') {
+            each.collateralPrice = FixedNumber.fromValue(usdcPrice.toString(), 30, 30)
+          }
         }
       } catch (e) {
         console.log('<Gmx trade history> Error fetching price data: ', e)
@@ -686,34 +1195,37 @@ export default class GmxV1Adapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<LiquidationInfo>> {
-    const results = await fetch('https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats', {
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: `{
-            liquidatedPositions(where: {account: "${wallet.toLowerCase()}"}) {
-              id
-              loss
-              size
-              isLong
-              markPrice
-              borrowFee
-              timestamp
-              collateral
-              indexToken
-              averagePrice
-              collateralToken
-            }
+          liquidatePositions(
+            where: {account: "${wallet.toLowerCase()}"}
+          ) {
+            collateral
+            collateralToken
+            id
+            indexToken
+            isLong
+            key
+            markPrice
+            realisedPnl
+            reserveAmount
+            size
+            timestamp
           }
-      `
+        }`
       })
     })
+
+    // console.dir({ results }, { depth: 4 })
 
     const resultJson = await results.json()
 
     const liquidationHistory: LiquidationInfo[] = []
 
-    for (const each of resultJson.data.liquidatedPositions) {
+    for (const each of resultJson.data.liquidatePositions) {
       liquidationHistory.push({
         marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, each.indexToken),
         timestamp: each.timestamp as number,
@@ -725,7 +1237,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         realizedPnl: FixedNumber.fromValue(BigNumber.from(each.collateral).mul(-1).toString(), 30, 30),
         liquidationFees: FixedNumber.fromValue(BigNumber.from(LIQUIDATION_FEE_USD).toString(), 30, 30), // USD
         liqudationLeverage: FixedNumber.fromValue('1000000', 4, 4), //100x
-        txHash: '' // TODO - get tx hash
+        txHash: each.id.split(':')[2]
       })
     }
 
@@ -1058,5 +1570,109 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
   private getCollateralTokenAddressFromPositionKey(positionKey: string): string {
     return positionKey.split(':')[1]
+  }
+
+  // private async getApproveRouterSpendTx(
+  //   tokenAddress: string,
+  //   allowanceAmount: BigNumber
+  // ): Promise<UnsignedTxWithMetadata | undefined> {
+  //   let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
+  //   const router = getContract(ARBITRUM, 'Router')!
+
+  //   let allowance = await token.allowance(this.swAddr!, router)
+
+  //   if (allowance.lt(allowanceAmount)) {
+  //     let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
+  //     return {
+  //       tx,
+  //       type: 'ERC20_APPROVAL',
+  //       data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+  //       chainId: ARBITRUM
+  //     }
+  //   }
+  // }
+
+  private async getApproveRouterSpendTxs(
+    tokenAddresses: string[],
+    allowanceAmounts: BigNumber[]
+  ): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
+
+    const router = getContract(ARBITRUM, 'Router')!
+
+    // get all allowances
+    const allowances = await Promise.all(
+      tokenAddresses.map((tokenAddress) => {
+        let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
+
+        return token.allowance(this.swAddr!, router)
+      })
+    )
+
+    for (let i = 0; i < tokenAddresses.length; i++) {
+      let tokenAddress = tokenAddresses[i]
+      let allowanceAmount = allowanceAmounts[i]
+      let allowance = allowances[i]
+      let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
+
+      if (allowance.lt(allowanceAmount)) {
+        let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
+        txs.push({
+          tx,
+          type: 'ERC20_APPROVAL',
+          data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+          chainId: ARBITRUM
+        })
+      }
+    }
+
+    return txs
+  }
+
+  getTokenAddress(token: Token): string {
+    if (token.address[ARBITRUM]! === ethers.constants.AddressZero) {
+      return this.nativeTokenAddress
+    }
+    return token.address[ARBITRUM]!
+  }
+
+  getTokenAddressString(tokenAddress: string): string {
+    if (tokenAddress === ethers.constants.AddressZero) {
+      return this.nativeTokenAddress
+    }
+    return tokenAddress
+  }
+
+  async getEthRequired(extraEthReq: BigNumber = BigNumber.from(0)): Promise<BigNumber | undefined> {
+    const ethBalance = await this.provider.getBalance(this.swAddr!)
+    const ethRequired = this.EXECUTION_FEE.add(extraEthReq)
+
+    if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
+  }
+
+  async getApproveRouterSpendTx(
+    tokenAddress: string,
+    allowanceAmount: BigNumber
+  ): Promise<UnsignedTxWithMetadata | undefined> {
+    let token = IERC20__factory.connect(tokenAddress, this.provider)
+    const router = getContract(ARBITRUM, 'Router')!
+
+    let allowance = await token.allowance(this.swAddr!, router)
+
+    if (allowance.lt(allowanceAmount)) {
+      let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
+      return {
+        tx,
+        type: 'ERC20_APPROVAL',
+        data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+        chainId: ARBITRUM
+      }
+    }
+  }
+
+  private _validateSW() {
+    if (!this.swAddr) {
+      throw new Error('SW address not set')
+    }
   }
 }
