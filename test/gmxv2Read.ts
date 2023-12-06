@@ -12,11 +12,20 @@ import {
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { logObject, toAmountInfo } from '../src/common/helper'
 import { FixedNumber } from '../src/common/fixedNumber'
-import { parseEther, parseUnits } from 'ethers/lib/utils'
+import { formatEther, parseEther, parseUnits } from 'ethers/lib/utils'
 import { arbitrum } from 'viem/chains'
 import { tokens } from '../src/common/tokens'
 import RouterV1 from '../router/RouterV1'
 import { CACHE_SECOND } from '../src/common/cache'
+import {
+  estimateExecuteIncreaseOrderGasLimit,
+  getExecutionFee,
+  useGasLimits,
+  useGasPrice
+} from '../src/configs/gmxv2/fees/utils'
+import { useMarketsInfo } from '../src/configs/gmxv2/markets/useMarketsInfo'
+import { ARBITRUM } from '../src/configs/gmx/chains'
+import { ethers } from 'ethers'
 
 const ex = new GmxV2Service()
 const rt = new RouterV1()
@@ -468,6 +477,31 @@ async function testStaleAndCacheTime() {
   })
   console.timeEnd('fifth time')
 }
+
+// async function gas() {
+//   const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
+//
+//   const gasConfig = await useGasLimits(42161)
+//   console.log(gasConfig)
+//
+//   const gasPrice = await useGasPrice(42161)
+//   console.log('gp', gasPrice)
+//
+//   if (!gasConfig.gasLimits) throw new Error('gas config not found')
+//
+//   const estimatedGas = estimateExecuteIncreaseOrderGasLimit(gasConfig.gasLimits, {
+//     swapsCount: 0
+//   })
+//   console.log(estimatedGas)
+//
+//   const executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice.gasPrice)
+//
+//   if (!executionFee) throw new Error('executionFee not found')
+//
+//   console.log(executionFee)
+//
+//   console.log(formatEther(executionFee.feeTokenAmount))
+// }
 
 testStaleAndCacheTime()
   .then(() => process.exit(0))

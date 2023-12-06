@@ -62,7 +62,15 @@ import {
   getTotalAccruedFundingUsd,
   getTotalClaimableFundingUsd
 } from '../configs/gmxv2/markets/utils'
-import { getBorrowingFactorPerPeriod, getFundingFactorPerPeriod } from '../configs/gmxv2/fees/utils'
+import {
+  estimateExecuteDecreaseOrderGasLimit,
+  estimateExecuteIncreaseOrderGasLimit,
+  getBorrowingFactorPerPeriod,
+  getExecutionFee,
+  getFundingFactorPerPeriod,
+  useGasLimits,
+  useGasPrice
+} from '../configs/gmxv2/fees/utils'
 import { BASIS_POINTS_DIVISOR } from '../configs/gmx/tokens'
 import { convertToUsd, convertToTokenAmount, getIsEquivalentTokens, getTokenData } from '../configs/gmxv2/tokens/utils'
 import {
@@ -80,14 +88,10 @@ import {
 import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
 import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
-import { ReferralStorage__factory } from '../../typechain/gmx-v1'
-import { getContract } from '../configs/gmx/contracts'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
 import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../common/cache'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
-export const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
-
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
 
 enum SolidityOrderType {
@@ -135,7 +139,6 @@ export default class GmxV2Service implements IAdapterV1 {
   private provider = rpc[42161]
 
   private reader = Reader__factory.connect(this.READER_ADDR, this.provider)
-  private datastore = DataStore__factory.connect(this.DATASTORE_ADDR, this.provider)
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
   private minCollateralUsd = parseUnits('11', 30)
@@ -347,6 +350,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
     // checks for min collateral, min leverage should be done in preview or f/e
 
+    const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
+
     for (const od of orderData) {
       // get market details
       const mkt = (await this._cachedMarkets(undefined))[od.marketId]
@@ -378,6 +383,19 @@ export default class GmxV2Service implements IAdapterV1 {
         od.direction == 'LONG'
       )
 
+      const gasConfig = await useGasLimits(42161)
+      const { gasPrice } = await useGasPrice(42161)
+
+      if (!gasConfig.gasLimits) throw new Error('gas config not found')
+
+      const estimatedGas = estimateExecuteIncreaseOrderGasLimit(gasConfig.gasLimits, {
+        swapsCount: 0
+      })
+
+      const executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice)
+
+      if (!executionFee) throw new Error('executionFee not found')
+
       // prepare calldata
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
@@ -394,7 +412,7 @@ export default class GmxV2Service implements IAdapterV1 {
           initialCollateralDeltaAmount: od.marginDelta.amount.value,
           triggerPrice: resolvedTriggerPrice,
           acceptablePrice: acceptablePrice,
-          executionFee: DEFAULT_EXEUCTION_FEE,
+          executionFee: executionFee.feeTokenAmount,
           callbackGasLimit: ethers.constants.Zero,
           minOutputAmount: ethers.constants.Zero
         },
@@ -406,7 +424,7 @@ export default class GmxV2Service implements IAdapterV1 {
       })
 
       // set tx value for eth and execution fees
-      orderTx.value = DEFAULT_EXEUCTION_FEE
+      orderTx.value = executionFee.feeTokenAmount
 
       let requiresErc20Token = true
 
@@ -564,6 +582,8 @@ export default class GmxV2Service implements IAdapterV1 {
     if (positionInfo.length !== closePositionData.length) throw new Error('position close data mismatch')
     if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
 
+    const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
+
     for (let i = 0; i < positionInfo.length; i++) {
       // if market:
       // create oppsition market decrease order of that
@@ -620,6 +640,19 @@ export default class GmxV2Service implements IAdapterV1 {
         positionInfo[i].direction !== 'LONG'
       )
 
+      const gasConfig = await useGasLimits(42161)
+      const { gasPrice } = await useGasPrice(42161)
+
+      if (!gasConfig.gasLimits) throw new Error('gas config not found')
+
+      const estimatedGas = estimateExecuteDecreaseOrderGasLimit(gasConfig.gasLimits, {
+        swapsCount: 1
+      })
+
+      const executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice)
+
+      if (!executionFee) throw new Error('executionFee not found')
+
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
           receiver: this._smartWallet,
@@ -634,7 +667,7 @@ export default class GmxV2Service implements IAdapterV1 {
           initialCollateralDeltaAmount: ZERO,
           triggerPrice: triggerPrice,
           acceptablePrice: acceptablePrice,
-          executionFee: DEFAULT_EXEUCTION_FEE,
+          executionFee: executionFee.feeTokenAmount,
           callbackGasLimit: ethers.constants.Zero,
           minOutputAmount: ethers.constants.Zero
         },
@@ -645,7 +678,7 @@ export default class GmxV2Service implements IAdapterV1 {
         referralCode: REFERRAL_CODE
       })
 
-      orderTx.value = DEFAULT_EXEUCTION_FEE
+      orderTx.value = executionFee.feeTokenAmount
 
       const multicallData: string[] = []
 
@@ -682,6 +715,8 @@ export default class GmxV2Service implements IAdapterV1 {
     if (positionInfo.length !== updatePositionMarginData.length) throw new Error('position close data mismatch')
     if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
 
+    const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
+
     for (let i = 0; i < positionInfo.length; i++) {
       // check collateral is supported
       if (updatePositionMarginData[i].collateral?.address[42161]! !== positionInfo[i].collateral.address[42161]!) {
@@ -695,13 +730,34 @@ export default class GmxV2Service implements IAdapterV1 {
       let orderType
       let initialCollateralToken
 
+      let executionFee
+
+      const gasConfig = await useGasLimits(42161)
+      const { gasPrice } = await useGasPrice(42161)
+
+      if (!gasConfig.gasLimits) throw new Error('gas config not found')
+
       if (updatePositionMarginData[i].isDeposit) {
         orderType = SolidityOrderType.MarketIncrease
         initialCollateralToken = positionInfo[i].collateral.address[42161]!
+
+        const estimatedGas = estimateExecuteIncreaseOrderGasLimit(gasConfig.gasLimits, {
+          swapsCount: 0
+        })
+
+        executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice)
       } else {
         orderType = SolidityOrderType.MarketDecrease
         initialCollateralToken = positionInfo[i].collateral.address[42161]!
+
+        const estimatedGas = estimateExecuteDecreaseOrderGasLimit(gasConfig.gasLimits, {
+          swapsCount: 0
+        })
+
+        executionFee = getExecutionFee(42161, gasConfig.gasLimits, tokensData!, estimatedGas, gasPrice)
       }
+
+      if (!executionFee) throw new Error('executionFee not found')
 
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
@@ -717,7 +773,7 @@ export default class GmxV2Service implements IAdapterV1 {
           initialCollateralDeltaAmount: updatePositionMarginData[i].margin.amount.value,
           triggerPrice: ethers.constants.AddressZero,
           acceptablePrice: ethers.constants.AddressZero,
-          executionFee: DEFAULT_EXEUCTION_FEE,
+          executionFee: executionFee.feeTokenAmount,
           callbackGasLimit: ethers.constants.Zero,
           minOutputAmount: ethers.constants.Zero
         },
@@ -728,7 +784,7 @@ export default class GmxV2Service implements IAdapterV1 {
         referralCode: REFERRAL_CODE
       })
 
-      orderTx.value = DEFAULT_EXEUCTION_FEE
+      orderTx.value = executionFee.feeTokenAmount
 
       let requiresErc20Token = true && updatePositionMarginData[i].isDeposit
 
@@ -1771,6 +1827,8 @@ export default class GmxV2Service implements IAdapterV1 {
       const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, this._smartWallet, opts)
       tData = tokensData
     }
+
+    const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
 
     const nativeToken = getTokenData(tData, NATIVE_TOKEN_ADDRESS)
     const keeperFee = nativeToken

@@ -12,7 +12,7 @@ import { contractFetcher } from '../../lib/contracts/contractFetcher'
 import { ARBITRUM } from '../../../gmx/chains'
 import { isAddressZero, isHashZero } from '../../../../common/helper'
 import { rpc } from '../../../../common/provider'
-import {CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX} from '../../../../common/cache';
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../../../../common/cache'
 import { ApiOpts } from '../../../../interfaces/V1/IRouterAdapterBaseV1'
 
 // export * from './useReferralsData'
