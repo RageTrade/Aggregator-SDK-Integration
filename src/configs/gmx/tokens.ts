@@ -2774,7 +2774,14 @@ export const getTradePreviewInternal = async (
     }
   }
 
-  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded
+  let isNotEnoughAvailableLiq = false
+  // check max available liquidity
+  const availableLiq = order.direction == 'LONG' ? toTokenInfo.maxAvailableLong : toTokenInfo.maxAvailableShort
+  if (availableLiq && toUsdMax && availableLiq.lt(toUsdMax)) {
+    isNotEnoughAvailableLiq = true
+  }
+
+  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded || isNotEnoughAvailableLiq
 
   return {
     indexOrIdentifier: '',
@@ -2787,7 +2794,7 @@ export const getTradePreviewInternal = async (
     liqudationPrice: displayLiquidationPrice,
     fee: feesUsd,
     isError: isError,
-    error: isError ? 'Insufficient Liquidity for Collateral Swap' : '',
+    error: isError ? 'Insufficient Liquidity for Trade' : '',
     priceImpact: toNumberDecimal(BigNumber.from(0), 8)
   }
 }
@@ -2935,7 +2942,14 @@ export const getTradePreviewInternalV1 = async (
     }
   }
 
-  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded
+  let isNotEnoughAvailableLiq = false
+  // check max available liquidity
+  const availableLiq = orderData.direction == 'LONG' ? toTokenInfo.maxAvailableLong : toTokenInfo.maxAvailableShort
+  if (availableLiq && toUsdMax && availableLiq.lt(toUsdMax)) {
+    isNotEnoughAvailableLiq = true
+  }
+
+  let isError = isNotEnoughReceiveTokenLiquidity || isCollateralPoolCapacityExceeded || isNotEnoughAvailableLiq
 
   return {
     marketId: orderData.marketId,
@@ -2952,6 +2966,6 @@ export const getTradePreviewInternalV1 = async (
     fee: FixedNumber.fromValue(feesUsd.toString(), 30, 30),
     priceImpact: FixedNumber.fromValue('0', 30, 30),
     isError: isError,
-    errMsg: isError ? 'Insufficient Liquidity' : ''
+    errMsg: isError ? 'Insufficient Liquidity for Trade' : ''
   }
 }
