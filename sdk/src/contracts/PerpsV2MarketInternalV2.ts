@@ -13,7 +13,7 @@ import { multiplyDecimal, divideDecimal } from '../utils/number'
 
 import PerpsV2Market from './abis/PerpsV2Market.json'
 import { PerpsV2Market__factory } from './types'
-import { ApiOpts, CACHE_SECOND, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch } from '../common/cache'
+import { ApiOpts, CACHE_SECOND, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
 
 // Need to recreate postTradeDetails from the contract here locally
 // so we can modify margin for use with cross margin
@@ -101,7 +101,7 @@ class FuturesMarketInternal {
 
   getTradePreview = async (account: string, sizeDelta: BigNumber, marginDelta: BigNumber, tradePrice: BigNumber, opts?: ApiOpts) => {
     const multiCallContract = new MultiCallContract(this._perpsV2MarketContract.address, PerpsV2Market)
-    const sTimePFD = CACHE_SECOND * 20
+    const sTimePFD = getStaleTime(CACHE_SECOND * 5, opts)
     const preFetchedData = await cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'tradePreviewPrefetchData', this._perpsV2MarketContract.address, account],
       fn: () => this._sdk.context.multicallProvider.all([
@@ -118,11 +118,6 @@ class FuturesMarketInternal {
       cacheTime: sTimePFD * CACHE_TIME_MULT,
       opts
     })
-
-    // console.time('blockData')
-    // const blockNum = await this._provider?.getBlockNumber()
-    // this._block = await fetchBlockWithRetry(blockNum, this._provider)
-    // console.timeEnd('blockData')
 
     this._onChainData = {
       //@ts-ignore
@@ -153,7 +148,7 @@ class FuturesMarketInternal {
 
     const { newPos, fee, status } = await this._postTradeDetails(position, tradeParams, marginDelta)
 
-    const liqPrice = await this._approxLiquidationPrice(newPos, newPos.lastPrice)
+    const liqPrice = await this._approxLiquidationPrice(newPos, newPos.lastPrice, opts)
 
     return { ...newPos, liqPrice: liqPrice, fee, price: newPos.lastPrice, status: status, fillPrice: fillPrice }
   }
@@ -165,14 +160,14 @@ class FuturesMarketInternal {
   ): Promise<{ newPos: Position; status: PotentialTradeStatus; fee: BigNumber }> => {
     if (!this._sdk.context.contracts.Exchanger) throw new Error('Unsupported network')
     // Reverts if the user is trying to submit a size-zero order.
-    // if (tradeParams.sizeDelta.eq(0) && marginDelta.eq(0)) {
-    //   return { newPos: oldPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.NIL_ORDER }
-    // }
+    if (tradeParams.sizeDelta.eq(0) && marginDelta.eq(0)) {
+      return { newPos: oldPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.NIL_ORDER }
+    }
 
     // The order is not submitted if the user's existing position needs to be liquidated.
-    // if (await this._canLiquidate(oldPos, this._onChainData.assetPrice)) {
-    //   return { newPos: oldPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.CAN_LIQUIDATE }
-    // }
+    if (await this._canLiquidate(oldPos, this._onChainData.assetPrice)) {
+      return { newPos: oldPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.CAN_LIQUIDATE }
+    }
 
     const fee = await this._orderFee(tradeParams)
     const { margin, status } = await this._recomputeMarginWithDelta(oldPos, tradeParams.fillPrice, marginDelta.sub(fee))
@@ -205,35 +200,35 @@ class FuturesMarketInternal {
     //   }
     // }
 
-    // const liqPremium = await this._liquidationPremium(newPos.size, this._onChainData.assetPrice)
-    // let liqMargin = await this._liquidationMargin(newPos.size, this._onChainData.assetPrice)
-    // liqMargin = liqMargin.add(liqPremium)
+    const liqPremium = await this._liquidationPremium(newPos.size, this._onChainData.assetPrice)
+    let liqMargin = await this._liquidationMargin(newPos.size, this._onChainData.assetPrice)
+    liqMargin = liqMargin.add(liqPremium)
 
-    // if (margin.lte(liqMargin)) {
-    //   return { newPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.CAN_LIQUIDATE }
-    // }
-    // const maxLeverage = await this._getSetting('maxLeverage')
-    // const maxLeverageForSize = await this._maxLeverageForSize(newPos.size)
+    if (margin.lte(liqMargin)) {
+      return { newPos, fee: ZERO_BIG_NUM, status: PotentialTradeStatus.CAN_LIQUIDATE }
+    }
+    const maxLeverage = await this._getSetting('maxLeverage')
+    const maxLeverageForSize = await this._maxLeverageForSize(newPos.size)
 
-    // const leverage = divideDecimal(multiplyDecimal(newPos.size, tradeParams.fillPrice), margin.add(fee))
+    const leverage = divideDecimal(multiplyDecimal(newPos.size, tradeParams.fillPrice), margin.add(fee))
 
-    // if (maxLeverage.add(UNIT_BIG_NUM.div(100)).lt(leverage.abs()) || leverage.abs().gt(maxLeverageForSize)) {
-    //   return {
-    //     newPos: oldPos,
-    //     fee: ZERO_BIG_NUM,
-    //     status: PotentialTradeStatus.MAX_LEVERAGE_EXCEEDED
-    //   }
-    // }
+    if (maxLeverage.add(UNIT_BIG_NUM.div(100)).lt(leverage.abs()) || leverage.abs().gt(maxLeverageForSize)) {
+      return {
+        newPos: oldPos,
+        fee: ZERO_BIG_NUM,
+        status: PotentialTradeStatus.MAX_LEVERAGE_EXCEEDED
+      }
+    }
 
-    // const maxMarketValue = await this._getSetting('maxMarketValue')
-    // const tooLarge = await this._orderSizeTooLarge(maxMarketValue, oldPos.size, newPos.size)
-    // if (tooLarge) {
-    //   return {
-    //     newPos: oldPos,
-    //     fee: ZERO_BIG_NUM,
-    //     status: PotentialTradeStatus.MAX_MARKET_SIZE_EXCEEDED
-    //   }
-    // }
+    const maxMarketValue = await this._getSetting('maxMarketValue')
+    const tooLarge = await this._orderSizeTooLarge(maxMarketValue, oldPos.size, newPos.size)
+    if (tooLarge) {
+      return {
+        newPos: oldPos,
+        fee: ZERO_BIG_NUM,
+        status: PotentialTradeStatus.MAX_MARKET_SIZE_EXCEEDED
+      }
+    }
 
     return { newPos, fee: fee, status: PotentialTradeStatus.OK }
   }
@@ -355,20 +350,34 @@ class FuturesMarketInternal {
     return BigNumber.from(proportionalSkew.toString())
   }
 
-  _approxLiquidationPrice = async (position: Position, currentPrice: BigNumber) => {
+  _setBlockAndNetFundingPerUnit = async (startIndex: BigNumber, price: BigNumber) => {
+    const blockNum = await this._provider?.getBlockNumber()
+    this._block = await fetchBlockWithRetry(blockNum, this._provider)
+
+    return this._netFundingPerUnit(startIndex, price)
+  }
+
+
+  _approxLiquidationPrice = async (position: Position, currentPrice: BigNumber, opts?: ApiOpts) => {
     if (position.size.isZero()) {
       return BigNumber.from('0')
     }
 
-    // const fundingPerUnit = await this._netFundingPerUnit(position.lastFundingIndex, currentPrice)
-    // console.log('fundingPerUnit: ', fundingPerUnit.toString())
     const liqMargin = await this._liquidationMargin(position.size, currentPrice)
     const liqPremium = await this._liquidationPremium(position.size, currentPrice)
-    // const result = position.lastPrice
-    //   .add(divideDecimal(liqMargin.sub(position.margin.sub(liqPremium)), position.size))
-    //   .sub(fundingPerUnit)
-    const result = position.lastPrice
-      .add(divideDecimal(liqMargin.sub(position.margin.sub(liqPremium)), position.size))
+    let result = position.lastPrice.add(divideDecimal(liqMargin.sub(position.margin.sub(liqPremium)), position.size))
+
+    const sTimeFPU = getStaleTime(CACHE_SECOND * 5, opts)
+    const fundingPerUnit = await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, '_setBlockAndNetFundingPerUnit', this._perpsV2MarketContract.address, position.id],
+      fn: () => this._setBlockAndNetFundingPerUnit(position.lastFundingIndex, currentPrice),
+      staleTime: sTimeFPU,
+      cacheTime: sTimeFPU * CACHE_TIME_MULT,
+      opts
+    })
+    
+    result = result.sub(fundingPerUnit)
+    
     return result.lt(0) ? BigNumber.from(0) : result
   }
 

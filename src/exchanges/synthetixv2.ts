@@ -29,7 +29,7 @@ import {
 } from '../interface'
 import Wei, { wei } from '@synthetixio/wei'
 import { ContractOrderType, FuturesMarket, FuturesMarketKey, PositionSide } from '@kwenta/sdk/dist/types'
-import { FuturesMarketAsset, FuturesPosition } from '@kwenta/sdk/dist/types/futures'
+import { FuturesMarketAsset, FuturesPosition, PotentialTradeStatus } from '@kwenta/sdk/dist/types/futures'
 import {
   formatN,
   getEnumEntryByValue,
@@ -383,7 +383,8 @@ export default class SynthetixV2Service implements IExchange {
         sizeDelta: sizeDelta,
         marginDelta: wei(order.inputCollateralAmount).sub(sUsdBalanceInMarket),
         orderPrice: wei(order.trigger!.triggerPrice)
-      }
+      },
+      opts
     )
 
     const sTimeKF = getStaleTime(CACHE_DAY, opts)
@@ -417,7 +418,9 @@ export default class SynthetixV2Service implements IExchange {
         order.inputCollateralAmount && order.inputCollateralAmount.gt(0) && marketPrice
           ? tradePreview.size.mul(marketPrice.value).div(order.inputCollateralAmount).abs()
           : undefined,
-      priceImpact: toNumberDecimal(priceImpactPer, 18)
+      priceImpact: toNumberDecimal(priceImpactPer, 18),
+      isError: tradePreview.status != PotentialTradeStatus.OK,
+      error: this._getErrorString(tradePreview.status)
     }
   }
 
@@ -442,7 +445,8 @@ export default class SynthetixV2Service implements IExchange {
         sizeDelta: wei(0),
         marginDelta: isDeposit ? wei(marginDelta) : wei(marginDelta).neg(),
         orderPrice: wei(marketPrice)
-      }
+      },
+      opts
     )
 
     const sTimeKF = getStaleTime(CACHE_DAY, opts)
@@ -466,7 +470,9 @@ export default class SynthetixV2Service implements IExchange {
       otherFees: tradePreview.fee,
       status: tradePreview.status,
       fee: keeperFee as BigNumber,
-      leverage: tradePreview.margin ? tradePreview.size.mul(marketPrice).div(tradePreview.margin).abs() : undefined
+      leverage: tradePreview.margin ? tradePreview.size.mul(marketPrice).div(tradePreview.margin).abs() : undefined,
+      isError: tradePreview.status != PotentialTradeStatus.OK,
+      error: this._getErrorString(tradePreview.status)
     }
   }
 
@@ -497,7 +503,8 @@ export default class SynthetixV2Service implements IExchange {
         sizeDelta: sizeDeltaIn,
         marginDelta: wei(0),
         orderPrice: wei(marketPrice)
-      }
+      },
+      opts
     )
 
     const sTimeKF = getStaleTime(CACHE_DAY, opts)
@@ -523,7 +530,9 @@ export default class SynthetixV2Service implements IExchange {
       fee: keeperFee as BigNumber,
       leverage: tradePreview.margin ? tradePreview.size.mul(marketPrice).div(tradePreview.margin).abs() : undefined,
       receiveAmount: isFullClose ? tradePreview.margin : BigNumber.from(0),
-      receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0)
+      receiveUsd: isFullClose ? tradePreview.margin : BigNumber.from(0),
+      isError: tradePreview.status != PotentialTradeStatus.OK,
+      error: this._getErrorString(tradePreview.status)
     }
   }
 
@@ -892,5 +901,42 @@ export default class SynthetixV2Service implements IExchange {
       type: 'SNX_V2',
       data: undefined
     } as UnsignedTxWithMetadata
+  }
+
+  _getErrorString(status: PotentialTradeStatus): string {
+    switch (status) {
+      case PotentialTradeStatus.OK:
+        return ''
+      case PotentialTradeStatus.INVALID_PRICE:
+        return 'Invalid price'
+      case PotentialTradeStatus.INVALID_ORDER_PRICE:
+        return 'Invalid order price'
+      case PotentialTradeStatus.PRICE_OUT_OF_BOUNDS:
+        return 'Price out of bounds'
+      case PotentialTradeStatus.CAN_LIQUIDATE:
+        return 'Can liquidate'
+      case PotentialTradeStatus.CANNOT_LIQUIDATE:
+        return 'Cannot liquidate'
+      case PotentialTradeStatus.MAX_MARKET_SIZE_EXCEEDED:
+        return 'Max market size exceeded'
+      case PotentialTradeStatus.MAX_LEVERAGE_EXCEEDED:
+        return 'Max leverage exceeded'
+      case PotentialTradeStatus.INSUFFICIENT_MARGIN:
+        return 'Insufficient margin'
+      case PotentialTradeStatus.NOT_PERMITTED:
+        return 'Not permitted'
+      case PotentialTradeStatus.NIL_ORDER:
+        return 'Nil order'
+      case PotentialTradeStatus.NO_POSITION_OPEN:
+        return 'No position open'
+      case PotentialTradeStatus.PRICE_TOO_VOLATILE:
+        return 'Price too volatile'
+      case PotentialTradeStatus.PRICE_IMPACT_TOLERANCE_EXCEEDED:
+        return 'Price impact tolerance exceeded'
+      case PotentialTradeStatus.INSUFFICIENT_FREE_MARGIN:
+        return 'Insufficient free margin'
+      default:
+        return ''
+    }
   }
 }
