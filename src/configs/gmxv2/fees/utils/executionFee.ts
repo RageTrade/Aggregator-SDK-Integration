@@ -191,7 +191,7 @@ export const EXECUTION_FEE_CONFIG_V2: {
 } = {
   [42161]: {
     shouldUseMaxPriorityFeePerGas: false,
-    defaultBufferBps: 1000 // 10%
+    defaultBufferBps: 1500 // 15%
   }
 }
 
