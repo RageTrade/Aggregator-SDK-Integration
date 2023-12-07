@@ -994,13 +994,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getTradesHistory(
     wallet: string,
-    pageOptions: PageOptions | undefined
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
     const rawTrades = await this._getOrders(wallet, [2, 3, 4, 5, 6], pageOptions)
 
     const trades: HistoricalTradeInfo[] = []
 
-    const cachedMarkets = await this._cachedMarkets(undefined)
+    const cachedMarkets = await this._cachedMarkets(opts)
     rawTrades.forEach(async (trade: any) => {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
       const marketInfo = cachedMarkets[marketId]
@@ -1253,7 +1254,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getLiquidationHistory(
     wallet: string,
-    pageOptions: PageOptions | undefined
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
   ): Promise<PaginatedRes<LiquidationInfo>> {
     const rawTrades = await this._getOrders(wallet, [7], pageOptions)
     if (!rawTrades || rawTrades.length == 0) return { result: [], maxItemsCount: 0 }
@@ -1261,9 +1263,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const liquidations: LiquidationInfo[] = []
 
+    const cachedMarkets = await this._cachedMarkets(opts)
     rawTrades.forEach(async (trade: any) => {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
-      const marketInfo = (await this._cachedMarkets(undefined))[marketId]
+      const marketInfo = cachedMarkets[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
       const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
