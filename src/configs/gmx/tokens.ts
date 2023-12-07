@@ -1633,43 +1633,32 @@ function calculateNextCollateralAndReceiveUsd(
 export const getEditCollateralPreviewInternal = async (
   provider: Provider,
   position: ExtendedPosition,
-  marginDelta: BigNumber,
+  marginDelta: BigNumber, // always in token terms
   isDeposit: boolean,
   convertToToken: any,
   execFee: BigNumber,
   opts?: ApiOpts
 ): Promise<ExtendedPosition> => {
-  let collateralToken = position.collateralToken
-  let fundingFee = getFundingFee(position)
-
-  let liquidationPrice = getLiquidationPrice({
-    size: position.size,
-    collateral: position.collateral,
-    averagePrice: position.averageEntryPrice,
-    isLong: position.direction == 'LONG',
-    fundingFee
-  })
-
   let fromAmount = marginDelta
-  fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
-  let convertedAmount: BigNumber
+  // fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
+  let fromAmountUsd: BigNumber
 
   const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
 
-  if (isDeposit) {
-    convertedAmount = getUsd(fromAmount, position.collateralToken.address, false, infoTokens)!
-  } else {
-    convertedAmount = fromAmount
-      .mul(expandDecimals(1, Number(collateralToken.decimals)))
-      .div(getTokenInfo(infoTokens, position.collateralToken.address, undefined, undefined).maxPrice!)
-  }
+  // if (isDeposit) {
+  fromAmountUsd = getUsd(fromAmount, position.collateralToken.address, false, infoTokens)!
+  // } else {
+  //   fromAmountUsd = fromAmount
+  //     .mul(expandDecimals(1, Number(collateralToken.decimals)))
+  //     .div(getTokenInfo(infoTokens, position.collateralToken.address, undefined, undefined).maxPrice!)
+  // }
 
-  let collateralDelta = isDeposit ? convertedAmount : fromAmount
+  let collateralDelta = fromAmountUsd
   let depositFeeUSD = BigNumber.from(0)
 
   if (position.direction == 'LONG' && isDeposit) {
-    collateralDelta = collateralDelta.mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
-    depositFeeUSD = convertedAmount.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+    collateralDelta = fromAmountUsd.mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+    depositFeeUSD = fromAmountUsd.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
   }
 
   let nextCollateral = isDeposit
@@ -1730,37 +1719,28 @@ export const getEditCollateralPreviewInternalV1 = async (
   let collateralToken = existingPos.collateral
   let provider = rpc[ARBITRUM]
   let position = existingPos.metadata
-  let fundingFee = getFundingFee(position)
   let isLong = position.direction ? position.direction == 'LONG' : position.isLong
 
-  let liquidationPrice = getLiquidationPrice({
-    size: position.size,
-    collateral: position.collateral,
-    averagePrice: position.averageEntryPrice ? position.averageEntryPrice : position.averagePrice,
-    isLong: isLong,
-    fundingFee
-  })
-
   let fromAmount = getBNFromFN(marginDelta.amount)
-  fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
-  let convertedAmount: BigNumber
+  // fromAmount = isDeposit ? fromAmount : fromAmount.mul(expandDecimals(1, 30 - Number(collateralToken.decimals)))
+  let fromAmountUsd: BigNumber
 
   const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, undefined, undefined, opts)
 
-  if (isDeposit) {
-    convertedAmount = getUsd(fromAmount, collateralToken.address[ARBITRUM]!, false, infoTokens)!
-  } else {
-    convertedAmount = fromAmount
-      .mul(expandDecimals(1, Number(collateralToken.decimals)))
-      .div(getTokenInfo(infoTokens, collateralToken.address[ARBITRUM]!, undefined, undefined).maxPrice!)
-  }
+  // if (isDeposit) {
+  fromAmountUsd = getUsd(fromAmount, collateralToken.address[ARBITRUM]!, false, infoTokens)!
+  // } else {
+  //   fromAmountUsd = fromAmount
+  //     .mul(expandDecimals(1, Number(collateralToken.decimals)))
+  //     .div(getTokenInfo(infoTokens, collateralToken.address[ARBITRUM]!, undefined, undefined).maxPrice!)
+  // }
 
-  let collateralDelta = isDeposit ? convertedAmount : fromAmount
+  let collateralDelta = fromAmountUsd
   let depositFeeUSD = BigNumber.from(0)
 
   if (isLong && isDeposit) {
-    collateralDelta = collateralDelta.mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
-    depositFeeUSD = convertedAmount.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+    collateralDelta = fromAmountUsd.mul(BASIS_POINTS_DIVISOR - DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
+    depositFeeUSD = fromAmountUsd.mul(DEPOSIT_FEE).div(BASIS_POINTS_DIVISOR)
   }
 
   let nextCollateral = isDeposit

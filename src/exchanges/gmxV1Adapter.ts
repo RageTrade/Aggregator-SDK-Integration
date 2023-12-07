@@ -80,6 +80,7 @@ import {
 } from '../../typechain/gmx-v1'
 import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
+import { getUsd } from '../configs/gmx/tokens'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
@@ -610,8 +611,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       const transferToken = upmd.collateral
       const isDeposit = upmd.isDeposit
 
-      if (isDeposit && !validDenomination(upmd.margin, true)) throw new Error('Margin must be in token denomination')
-      if (!isDeposit && !validDenomination(upmd.margin, false)) throw new Error('Margin must be in USD denomination')
+      if (!validDenomination(upmd.margin, true)) throw new Error('Margin must be in token denomination')
 
       const marginAmount = getBNFromFN(upmd.margin.amount)
 
@@ -681,11 +681,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
         }
 
         const fillPrice = pi.direction == 'LONG' ? marketPrice.mul(99).div(100) : marketPrice.mul(101).div(100)
+        const { infoTokens } = await useInfoTokens(this.provider, ARBITRUM, false)
+        const marginAmountUSD = getUsd(marginAmount, transferTokenString, false, infoTokens)!
 
         marginTx = await positionRouter.populateTransaction.createDecreasePosition(
           path,
           indexAddress,
-          marginAmount,
+          marginAmountUSD,
           BigNumber.from(0),
           pi.direction == 'LONG' ? true : false,
           this.swAddr!,

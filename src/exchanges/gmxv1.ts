@@ -57,7 +57,8 @@ import {
   getEditCollateralPreviewInternal,
   GToken,
   checkTradePathLiquidiytInternal,
-  getTokenAmountFromUsd
+  getTokenAmountFromUsd,
+  getUsd
 } from '../configs/gmx/tokens'
 import { applySlippage, getPaginatedResponse, logObject, toNumberDecimal } from '../common/helper'
 import { timer } from 'execution-time-decorators'
@@ -674,7 +675,7 @@ export default class GmxV1Service implements IExchange {
   async updatePositionMargin(
     provider: Provider,
     position: ExtendedPosition,
-    marginAmount: BigNumber, // For deposit it's in token terms and for withdraw it's in USD terms (F/E)
+    marginAmount: BigNumber, // token terms
     isDeposit: boolean,
     transferToken: Token
   ): Promise<UnsignedTxWithMetadata[]> {
@@ -745,11 +746,13 @@ export default class GmxV1Service implements IExchange {
       }
 
       fillPrice = position.direction == 'LONG' ? fillPrice.mul(99).div(100) : fillPrice.mul(101).div(100)
+      const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false)
+      const marginAmountUSD = getUsd(marginAmount, transferTokenString, false, infoTokens)!
 
       marginTx = await positionRouter.populateTransaction.createDecreasePosition(
         path,
         indexAddress,
-        marginAmount,
+        marginAmountUSD,
         BigNumber.from(0),
         position.direction == 'LONG' ? true : false,
         this.swAddr,
@@ -1210,7 +1213,7 @@ export default class GmxV1Service implements IExchange {
     user: string,
     provider: Provider,
     position: ExtendedPosition,
-    marginDelta: ethers.BigNumber,
+    marginDelta: ethers.BigNumber, // always in token terms
     isDeposit: boolean,
     opts?: ApiOpts
   ): Promise<ExtendedPosition> {
