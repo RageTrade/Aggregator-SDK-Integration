@@ -10,7 +10,14 @@ import {
 } from '@kwenta/sdk/dist/types'
 import Wei, { wei } from '@synthetixio/wei'
 import SynthetixV2Service from '../src/exchanges/synthetixv2'
-import { ExtendedMarket, Mode, OrderDirection, OrderType, UnsignedTxWithMetadata } from '../src/interface'
+import {
+  ExtendedMarket,
+  ExtendedPosition,
+  Mode,
+  OrderDirection,
+  OrderType,
+  UnsignedTxWithMetadata
+} from '../src/interface'
 import GmxV1Service from '../src/exchanges/gmxv1'
 import { formatAmount, getTokenBySymbol } from '../src/configs/gmx/tokens'
 import { ARBITRUM } from '../src/configs/gmx/chains'
@@ -19,6 +26,8 @@ import { FuturesMarketKey } from '@kwenta/sdk/dist/types/futures'
 import { logObject } from '../src/common/helper'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD, startStreaming, startHermesStreaming } from '../src/configs/pyth/prices'
+import { PositionInfo } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { rpc } from '../src/common/provider'
 
 config()
 
@@ -37,11 +46,11 @@ const signer = new ethers.Wallet(wpk, provider)
 
 const sdk = new KwentaSDK({
   networkId: 10,
-  // provider: provider,
-  provider: new ethers.providers.JsonRpcProvider(
-    'https://optimism.blockpi.network/v1/rpc/e9eb838be05076b18bceb9e7efe3797c93bed264',
-    10
-  )
+  provider: rpc[10],
+  // provider: new ethers.providers.JsonRpcProvider(
+  //   'https://optimism.blockpi.network/v1/rpc/e9eb838be05076b18bceb9e7efe3797c93bed264',
+  //   10
+  // )
 })
 
 async function fireTxs(utxs: UnsignedTransaction[]) {
@@ -90,7 +99,7 @@ async function getTradePreview(
       },
       slippage: '1'
     },
-    undefined,
+    undefined
     // { bypassCache: true, overrideStaleTime: undefined }
   )
   return tradePreview
@@ -532,9 +541,12 @@ async function synService() {
   //   logObject("Trades History: ", t);
   // });
 
-  // const positions = (
-  //   await ss.getAllPositions('0xD81c12559fBfC78841bBFF3618eaB880646847BA', provider, undefined, undefined)
-  // ).result
+  console.log('Synthetix')
+  for (let i = 0; i < 10; i++) {
+    const positions = (
+      await ss.getAllPositions('0xD81c12559fBfC78841bBFF3618eaB880646847BA', provider, undefined, undefined)
+    ).result
+  }
   // positions.forEach((p) => logObject("Position: ", p));
   // logObject('Position: ', positions[0])
 
@@ -622,25 +634,25 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  for (let i = 0; i < 2; i++) {
-    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-    await delay(100)
-    console.time('getTradePreview')
-    const tradePreview = await getTradePreview(
-      '0x2f88a09ed4174750a464576FE49E586F90A34820',
-      ss,
-      sizeDelta,
-      '50.86',
-      direction,
-      // ethers.utils.parseUnits('2109', 18),
-      marketPrice,
-      ethMarket
-    )
-    console.timeEnd('getTradePreview')
-    console.log('\n')
-    logObject('Trade Preview: ', tradePreview)
-    // logObject('PriceImapct: ', tradePreview.priceImpact)
-  }
+  // for (let i = 0; i < 2; i++) {
+  //   const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+  //   await delay(100)
+  //   console.time('getTradePreview')
+  //   const tradePreview = await getTradePreview(
+  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
+  //     ss,
+  //     sizeDelta,
+  //     '50.86',
+  //     direction,
+  //     // ethers.utils.parseUnits('2109', 18),
+  //     marketPrice,
+  //     ethMarket
+  //   )
+  //   console.timeEnd('getTradePreview')
+  //   console.log('\n')
+  //   logObject('Trade Preview: ', tradePreview)
+  //   // logObject('PriceImapct: ', tradePreview.priceImpact)
+  // }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -715,11 +727,12 @@ async function gmxService() {
   //   42161,
   //   ALCHEMY_KEY_OP_MAIN!.toString()
   // );
-  const provider = new ethers.providers.JsonRpcProvider(
-    'https://arbitrum.blockpi.network/v1/rpc/6bee49eb5c39a712464e8f39182ff12127c84f48',
-    // "https://rpc.ankr.com/arbitrum",
-    ARBITRUM
-  )
+  // const provider = new ethers.providers.JsonRpcProvider(
+  //   'https://arbitrum.blockpi.network/v1/rpc/6bee49eb5c39a712464e8f39182ff12127c84f48',
+  //   // "https://rpc.ankr.com/arbitrum",
+  //   ARBITRUM
+  // )
+  const provider = rpc[ARBITRUM]
 
   const signer = new ethers.Wallet(wpk, provider)
   const gs = new GmxV1Service(signer.address)
@@ -869,7 +882,20 @@ async function gmxService() {
     address: ethers.constants.AddressZero
   }
 
-  // const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
+  console.log('LEGACY')
+  for (let i = 0; i < 5; i++) {
+    console.time('getAllPositions')
+    const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
+    // allPositions.forEach((p, index) => {
+    //   console.log('Position: ', index)
+    //   for (const key in p) {
+    //     const value = p[key as keyof ExtendedPosition]
+    //     console.log(key, '=>', value)
+    //   }
+    //   console.log('----------------\n')
+    // })
+    console.timeEnd('getAllPositions')
+  }
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject('Position: ', allPositions[i])
   //   // let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
@@ -905,37 +931,37 @@ async function gmxService() {
   // await fireTxs(updateMarginTx);
 
   // console.log({ market })
-  for (let i = 0; i < 1; i++) {
-    // console.time('tradePreview')
-    const tradePreview = await gs.getTradePreview(
-      w,
-      provider,
-      linkMarket,
-      {
-        type: 'MARKET_INCREASE',
-        direction: 'SHORT',
-        inputCollateral: eth,
-        inputCollateralAmount: ethers.utils.parseUnits('1', eth.decimals),
-        sizeDelta: ethers.utils.parseUnits('52000', 30),
-        isTriggerOrder: false,
-        referralCode: undefined,
-        trigger: {
-          triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-          // triggerPrice: ethers.utils.parseUnits("37371", 30),
-          triggerAboveThreshold: false
-        },
-        slippage: '1'
-      },
-      undefined,
-      // undefined,
-      {
-        bypassCache: true,
-        overrideStaleTime: 5 * 1000
-      }
-    )
-    // console.timeEnd('tradePreview')
-    logObject('Trade Preview: ', tradePreview)
-  }
+  // for (let i = 0; i < 1; i++) {
+  //   // console.time('tradePreview')
+  //   const tradePreview = await gs.getTradePreview(
+  //     w,
+  //     provider,
+  //     linkMarket,
+  //     {
+  //       type: 'MARKET_INCREASE',
+  //       direction: 'SHORT',
+  //       inputCollateral: eth,
+  //       inputCollateralAmount: ethers.utils.parseUnits('1', eth.decimals),
+  //       sizeDelta: ethers.utils.parseUnits('52000', 30),
+  //       isTriggerOrder: false,
+  //       referralCode: undefined,
+  //       trigger: {
+  //         triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+  //         // triggerPrice: ethers.utils.parseUnits("37371", 30),
+  //         triggerAboveThreshold: false
+  //       },
+  //       slippage: '1'
+  //     },
+  //     undefined,
+  //     // undefined,
+  //     {
+  //       bypassCache: true,
+  //       overrideStaleTime: 5 * 1000
+  //     }
+  //   )
+  //   // console.timeEnd('tradePreview')
+  //   logObject('Trade Preview: ', tradePreview)
+  // }
 
   // for (let i = 0; i < 1; i++) {
   //   // console.time('getCloseTradePreview')

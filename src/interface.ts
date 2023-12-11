@@ -352,7 +352,8 @@ export interface IExchange {
     user: string,
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
-    pageOptions: PageOptions | undefined
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
   ): Promise<PaginatedRes<ExtendedPosition>>
 
   getTradesHistory(

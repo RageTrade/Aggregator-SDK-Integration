@@ -17,7 +17,7 @@ const rt = new RouterV1()
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const liquidatedAddress = '0xC41427A0B49eB775E022E676F0412B12df1193a5'
-const w = liquidatedAddress
+const w = normalAddress
 
 const btcMarketId = '42161-GMXV1-0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'
 const ethMarketId = '42161-GMXV1-0x82aF49447D8a07e3bd95BD0d56f35241523fBab1'
@@ -30,8 +30,21 @@ async function supportedMarkets() {
 }
 
 async function getAllPositions() {
-  const positions = (await ex.getAllPositions(w, undefined)).result
-  console.dir({ positions }, { depth: 2 })
+  console.log('GMXV1Router')
+  for (let i = 0; i < 5; i++) {
+    console.time('getAllPositions')
+    const positions = (await ex.getAllPositions(w, undefined)).result
+    console.timeEnd('getAllPositions')
+    // positions.forEach((p, index) => {
+    //   console.log('Position: ', index)
+    //   const{metadata, ...rest} = p
+    //   for(const key in rest) {
+    //     const value = p[key as keyof PositionInfo]
+    //     console.log(key, '=>', value)
+    //   }
+    //   console.log('----------------\n')
+    // })
+  }
 }
 
 async function getAllOrders() {
@@ -211,7 +224,7 @@ async function cancelOrder() {
   })
 }
 
-getLiquidationHistory()
+getAllPositions()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

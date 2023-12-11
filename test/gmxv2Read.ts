@@ -34,8 +34,13 @@ const xrpMarketId = '42161-GMXV2-0x0CCB4fAa6f1F1B30911619f1184082aB4E25813c'
 const ethMarketId = '42161-GMXV2-0x70d95587d40A2caf56bd97485aB3Eec10Bee6336'
 
 async function testGetAllPositions() {
-  const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
-  console.dir({ res: res.result[0] }, { depth: 4 })
+  console.log('GMXV2')
+  for (let i = 0; i < 10; i++) {
+    console.time('getAllPositions')
+    const res = await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
+    console.timeEnd('getAllPositions')
+  }
+  // console.dir({ res: res.result[0] }, { depth: 4 })
 }
 
 async function testSupportedMarkets() {
@@ -503,7 +508,7 @@ async function testStaleAndCacheTime() {
 //   console.log(formatEther(executionFee.feeTokenAmount))
 // }
 
-testStaleAndCacheTime()
+testGetAllPositions()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

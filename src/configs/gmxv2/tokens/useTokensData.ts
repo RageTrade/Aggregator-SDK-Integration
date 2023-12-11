@@ -21,7 +21,7 @@ export async function useTokensData(chainId: number, wallet: string, opts?: ApiO
     cacheTime: sTimeTB * CACHE_TIME_MULT,
     opts
   })
-  const sTimeRP = getStaleTime(CACHE_SECOND * 10, opts)
+  const sTimeRP = getStaleTime(CACHE_SECOND * 5, opts)
   const tokenRecentPricesPromise = cacheFetch({
     key: [GMXV2_CACHE_PREFIX, 'useTokenRecentPrices', chainId],
     fn: () => useTokenRecentPrices(chainId),

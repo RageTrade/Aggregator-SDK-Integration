@@ -753,29 +753,24 @@ export default class GmxV1Adapter implements IAdapterV1 {
       positionQuery.isLong
     )
 
-    const tokenBalancesPromise = reader.getTokenBalances(wallet, tokenAddresses)
-
-    // console.log(tokenBalances)
-
-    const fundingRateInfoPromise = reader.getFundingRates(
-      getContract(ARBITRUM, 'Vault')!,
-      nativeTokenAddress!,
-      tokenAddresses
-    )
+    let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
+    const fundingRateInfoPromise = cacheFetch({
+      key: [GMXV1_CACHE_PREFIX, 'getFundingRates', 'ALL', getContract(ARBITRUM, 'Vault')!],
+      fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
+      staleTime: sTimeFR,
+      cacheTime: sTimeFR * CACHE_TIME_MULT,
+      opts
+    })
 
     // console.log(fundingRateInfo)
 
-    const [positionData, tokenBalances, fundingRateInfo] = await Promise.all([
-      positionDataPromise,
-      tokenBalancesPromise,
-      fundingRateInfoPromise
-    ])
+    const [positionData, fundingRateInfo] = await Promise.all([positionDataPromise, fundingRateInfoPromise])
 
     const { infoTokens } = await useInfoTokens(
       this.provider,
       ARBITRUM,
       false,
-      tokenBalances,
+      undefined,
       fundingRateInfo,
       undefined,
       opts

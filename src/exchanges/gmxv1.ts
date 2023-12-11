@@ -64,6 +64,7 @@ import { applySlippage, getPaginatedResponse, logObject, toNumberDecimal } from 
 import { timer } from 'execution-time-decorators'
 import { parseUnits } from 'ethers/lib/utils'
 import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { CACHE_SECOND, CACHE_TIME_MULT, GMXV1_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
@@ -547,7 +548,8 @@ export default class GmxV1Service implements IExchange {
     user: string,
     provider: Provider,
     openMarkers: OpenMarkets | undefined,
-    pageOptions: PageOptions | undefined
+    pageOptions: PageOptions | undefined,
+    opts?: ApiOpts
   ): Promise<PaginatedRes<ExtendedPosition>> {
     const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
 
@@ -575,25 +577,19 @@ export default class GmxV1Service implements IExchange {
       positionQuery.isLong
     )
 
-    const tokenBalancesPromise = reader.getTokenBalances(user, tokenAddresses)
-
-    // console.log(tokenBalances)
-
-    const fundingRateInfoPromise = reader.getFundingRates(
-      getContract(ARBITRUM, 'Vault')!,
-      nativeTokenAddress!,
-      tokenAddresses
-    )
+    let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
+    const fundingRateInfoPromise = cacheFetch({
+      key: [GMXV1_CACHE_PREFIX, 'getFundingRates', 'ALL', getContract(ARBITRUM, 'Vault')!],
+      fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
+      staleTime: sTimeFR,
+      cacheTime: sTimeFR * CACHE_TIME_MULT,
+      opts
+    })
 
     // console.log(fundingRateInfo)
+    const [positionData, fundingRateInfo] = await Promise.all([positionDataPromise, fundingRateInfoPromise])
 
-    const [positionData, tokenBalances, fundingRateInfo] = await Promise.all([
-      positionDataPromise,
-      tokenBalancesPromise,
-      fundingRateInfoPromise
-    ])
-
-    const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, tokenBalances, fundingRateInfo)
+    const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, undefined, fundingRateInfo, undefined, opts)
 
     // console.log(infoTokens)
 
