@@ -1094,26 +1094,27 @@ export default class GmxV1Service implements IExchange {
     _: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<LiquidationHistory>> {
-    const results = await fetch('https://api.thegraph.com/subgraphs/name/gmx-io/gmx-stats', {
+    const results = await fetch('https://api.thegraph.com/subgraphs/name/nissoh/gmx-arbitrum', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query: `{
-            liquidatedPositions(where: {account: "${user.toLowerCase()}"}) {
-              id
-              loss
-              size
-              isLong
-              markPrice
-              borrowFee
-              timestamp
-              collateral
-              indexToken
-              averagePrice
-              collateralToken
-            }
+          liquidatePositions(
+            where: {account: "${user.toLowerCase()}"}
+          ) {
+            collateral
+            collateralToken
+            id
+            indexToken
+            isLong
+            key
+            markPrice
+            realisedPnl
+            reserveAmount
+            size
+            timestamp
           }
-      `
+        }`
       })
     })
 
@@ -1121,7 +1122,7 @@ export default class GmxV1Service implements IExchange {
 
     const liquidationHistory: LiquidationHistory[] = []
 
-    for (const each of resultJson.data.liquidatedPositions) {
+    for (const each of resultJson.data.liquidatePositions) {
       liquidationHistory.push({
         marketIdentifier: each.indexToken,
         collateralToken: this.convertToToken(getToken(ARBITRUM, each.collateralToken)),
@@ -1136,7 +1137,8 @@ export default class GmxV1Service implements IExchange {
           value: '100000000',
           decimals: 6
         },
-        timestamp: each.timestamp
+        timestamp: each.timestamp,
+        txHash: each.id.split(':')[2]
       })
     }
 
