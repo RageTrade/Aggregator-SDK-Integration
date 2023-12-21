@@ -93,10 +93,10 @@ async function testOpenTradePreview() {
   })
 
   // const pos = (await ex.getAllPositions('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)).result[0]
-  console.time('getOpenTradePreview')
+  // console.time('getOpenTradePreview')
   const res = await ex.getOpenTradePreview('0x2f88a09ed4174750a464576FE49E586F90A34820', orders, [undefined])
-  console.timeEnd('getOpenTradePreview')
-  // logObject('res', res[0])
+  // console.timeEnd('getOpenTradePreview')
+  logObject('res', res[0])
   // logObject('res size: ', res[0].size)
   // logObject('res margin: ', res[0].margin)
   // logObject('res fees: ', res[0].fee)
@@ -508,7 +508,7 @@ async function testStaleAndCacheTime() {
 //   console.log(formatEther(executionFee.feeTokenAmount))
 // }
 
-testGetAllPositions()
+testOpenTradePreview()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

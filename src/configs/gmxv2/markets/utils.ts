@@ -440,3 +440,7 @@ export function getContractMarketPrices(tokensData: TokensData, market: Market):
     shortTokenPrice: convertToContractTokenPrices(shortToken.prices, shortToken.decimals)
   }
 }
+
+export function getOpenInterestUsd(marketInfo: MarketInfo, isLong: boolean) {
+  return isLong ? marketInfo.longInterestUsd : marketInfo.shortInterestUsd
+}

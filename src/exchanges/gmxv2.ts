@@ -59,6 +59,7 @@ import { encodeMarketId } from '../common/markets'
 import { FixedNumber } from '../common/fixedNumber'
 import {
   getAvailableUsdLiquidityForPosition,
+  getOpenInterestUsd,
   getTotalAccruedFundingUsd,
   getTotalClaimableFundingUsd
 } from '../configs/gmxv2/markets/utils'
@@ -90,6 +91,7 @@ import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
 import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../common/cache'
+import { PRECISION } from '../configs/gmxv2/lib/numbers'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -1457,6 +1459,40 @@ export default class GmxV2Service implements IAdapterV1 {
           ? longLiquidity.lt(increaseAmounts?.sizeDeltaUsd || 0)
           : shortLiquidity.lt(increaseAmounts?.sizeDeltaUsd || 0)
 
+      let isMaxLevExceed = false
+      let maxLeverageBasisOi = FixedNumber.fromValue('0', 4, 4)
+      if (nextPositionValues?.nextLeverage) {
+        const isLong = od.direction === 'LONG'
+        const openInterest = getOpenInterestUsd(marketInfo, isLong)
+        const minCollateralFactorMultiplier = isLong
+          ? marketInfo.minCollateralFactorForOpenInterestLong
+          : marketInfo.minCollateralFactorForOpenInterestShort
+        let minCollateralFactor = openInterest
+          .add(increaseAmounts.sizeDeltaUsd)
+          .mul(minCollateralFactorMultiplier)
+          .div(PRECISION)
+        const minCollateralFactorForMarket = marketInfo.minCollateralFactor
+
+        if (minCollateralFactorForMarket.gt(minCollateralFactor)) {
+          minCollateralFactor = minCollateralFactorForMarket
+        }
+
+        const maxLeverage = PRECISION.mul(BASIS_POINTS_DIVISOR).div(minCollateralFactor)
+        maxLeverageBasisOi = FixedNumber.fromValue(maxLeverage.toString(), 4, 4)
+
+        if (nextPositionValues.nextLeverage.gt(maxLeverage)) {
+          isMaxLevExceed = true
+        }
+      }
+
+      const isError = isOutPositionLiquidity || isMaxLevExceed
+      let errMsg = ''
+      if (isOutPositionLiquidity) {
+        errMsg = 'Not enough liquidity'
+      } else if (isMaxLevExceed) {
+        errMsg = `Max leverage of ${maxLeverageBasisOi._value} exceeded`
+      }
+
       previewsInfo.push({
         collateral: od.collateral,
         marketId: od.marketId,
@@ -1486,8 +1522,8 @@ export default class GmxV2Service implements IAdapterV1 {
           30
         ),
         priceImpact: FixedNumber.fromValue(priceImpact.toString(), 4, 4),
-        isError: isOutPositionLiquidity,
-        errMsg: isOutPositionLiquidity ? 'Not enough liquidity' : ''
+        isError: isError,
+        errMsg: errMsg
       })
     }
 
