@@ -54,13 +54,19 @@ async function getAllOrders() {
   console.dir(orders.result, { depth: 4 })
 }
 
+async function getAllOrdersForPosition() {
+  const positions = await hl.getAllPositions(w, undefined)
+  const orders = await hl.getAllOrdersForPosition(w, positions.result, undefined)
+  console.dir(orders, { depth: 6 })
+}
+
 async function getAccountInfo() {
   const accountInfo = await hl.getAccountInfo(w, undefined)
   console.dir(accountInfo, { depth: 4 })
 }
 
 hl.init(w).then(() => {
-  getAllPositions()
+  getAllOrdersForPosition()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

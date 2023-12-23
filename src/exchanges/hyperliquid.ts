@@ -472,14 +472,34 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return getPaginatedResponse(ordersInfo, pageOptions)
   }
 
-  getAllOrdersForPosition(
+  async getAllOrdersForPosition(
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<Record<string, PaginatedRes<OrderInfo>>> {
-    throw new Error('Method not implemented.')
+    const allOrders = (await this.getAllOrders(wallet, undefined, opts)).result
+    const ordersForPositionInternal: Record<string, OrderInfo[]> = {}
+
+    for (const o of allOrders) {
+      for (const p of positionInfo) {
+        if (o.marketId === p.marketId) {
+          if (ordersForPositionInternal[p.posId] === undefined) {
+            ordersForPositionInternal[p.posId] = []
+          }
+          ordersForPositionInternal[p.posId].push(o)
+        }
+      }
+    }
+
+    const ordersForPosition: Record<string, PaginatedRes<OrderInfo>> = {}
+    for (const posId of Object.keys(ordersForPositionInternal)) {
+      ordersForPosition[posId] = getPaginatedResponse(ordersForPositionInternal[posId], pageOptions)
+    }
+
+    return ordersForPosition
   }
+
   getTradesHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
