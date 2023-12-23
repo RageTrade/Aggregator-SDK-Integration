@@ -79,7 +79,7 @@ export default class RouterV1 implements IRouterV1 {
     return getPaginatedResponse(result, pageOptions)
   }
 
-  async init(swAddr: string|undefined, opts?: ApiOpts): Promise<void> {
+  async init(swAddr: string | undefined, opts?: ApiOpts): Promise<void> {
     const initPromises: Promise<void>[] = []
     for (const key in this.adapters) {
       initPromises.push(this.adapters[key].init(swAddr, opts))
