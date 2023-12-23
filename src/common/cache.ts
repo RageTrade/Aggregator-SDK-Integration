@@ -12,6 +12,7 @@ export const GMX_COMMON_CACHE_PREFIX = 'gmx'
 export const GMXV2_CACHE_PREFIX = 'gmxv2'
 export const GMXV1_CACHE_PREFIX = 'gmxv1'
 export const SYNV2_CACHE_PREFIX = 'synv2'
+export const HL_CACHE_PREFIX = 'hl'
 
 const queryClient = new QueryClient({
   defaultOptions: {

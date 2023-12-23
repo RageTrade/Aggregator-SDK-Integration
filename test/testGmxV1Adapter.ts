@@ -86,7 +86,8 @@ async function getOpenTradePreview() {
     marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
     triggerData: {
       triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
-      triggerAboveThreshold: false
+      triggerAboveThreshold: false,
+      triggerActivatePrice: undefined
     },
     collateral: getTokenBySymbol('ETH'),
     type: 'MARKET',
@@ -111,7 +112,8 @@ async function getCloseTradePreview() {
     type: 'TAKE_PROFIT',
     triggerData: {
       triggerPrice: FixedNumber.fromValue(parseUnits('40000', 30).toString(), 30, 30),
-      triggerAboveThreshold: true
+      triggerAboveThreshold: true,
+      triggerActivatePrice: undefined
     },
     outputCollateral: getTokenBySymbol('USDC')
   }
@@ -146,28 +148,25 @@ async function increasePosition() {
   // PREWARM CACHE
   await ex.init(w)
 
-  for (let i = 0; i < 10; i++) {
-    console.log('Iteration: ', i + 1)
-    console.time('increasePosition')
-    const createOrderData: CreateOrder = {
-      marketId: btcMarketId,
-      direction: 'LONG',
-      sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
-      marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
-      triggerData: {
-        // triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
-        triggerPrice: FixedNumber.fromValue(parseUnits('30000', 30).toString(), 30, 30),
-        triggerAboveThreshold: false
-      },
-      collateral: getTokenBySymbol('ETH'),
-      type: 'LIMIT',
-      slippage: 1
-    }
-
-    const txs = await ex.increasePosition([createOrderData], w)
-    console.timeEnd('increasePosition')
-    // console.dir({ txs }, { depth: 4 })
+  const createOrderData: CreateOrder = {
+    marketId: btcMarketId,
+    direction: 'LONG',
+    sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
+    marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
+    triggerData: {
+      // triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
+      triggerPrice: FixedNumber.fromValue(parseUnits('30000', 30).toString(), 30, 30),
+      triggerAboveThreshold: false,
+      triggerActivatePrice: undefined
+    },
+    collateral: getTokenBySymbol('ETH'),
+    type: 'LIMIT',
+    slippage: 1
   }
+
+  const txs = await ex.increasePosition([createOrderData], w)
+  console.timeEnd('increasePosition')
+  // console.dir({ txs }, { depth: 4 })
 }
 
 async function closePosition() {
@@ -180,7 +179,8 @@ async function closePosition() {
     type: 'TAKE_PROFIT',
     triggerData: {
       triggerPrice: FixedNumber.fromValue(parseUnits('125936', 30).toString(), 30, 30),
-      triggerAboveThreshold: true
+      triggerAboveThreshold: true,
+      triggerActivatePrice: undefined
     },
     outputCollateral: getTokenBySymbol('USDC')
   }

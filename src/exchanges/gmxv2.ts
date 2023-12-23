@@ -39,7 +39,7 @@ import {
   Reader
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
-import { OrderType, ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderType, ApiOpts, AccountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN, validDenomination } from '../common/helper'
@@ -278,11 +278,18 @@ export default class GmxV2Service implements IAdapterV1 {
             indexToken: getGmxV2TokenByAddress(mProp.indexToken),
             longCollateral: supportedCollateralTokens,
             shortCollateral: supportedCollateralTokens,
+            supportedModes: {
+              ISOLATED: true,
+              CROSS: false
+            },
             supportedOrderTypes: {
               LIMIT: true,
               MARKET: true,
               STOP_LOSS: true,
-              TAKE_PROFIT: true
+              TAKE_PROFIT: true,
+              STOP_LOSS_LIMIT: false,
+              TAKE_PROFIT_LIMIT: false,
+              REDUCE_LIMIT: false
             },
             supportedOrderActions: {
               CREATE: true,
@@ -1859,6 +1866,10 @@ export default class GmxV2Service implements IAdapterV1 {
     return FixedNumber.fromValue(fundingFees.toString(), 30, 30)
   }
 
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
+    throw new Error('Method not implemented.')
+  }
+
   ///////////////////////////////////
   //// Internal helper functions ////
   ///////////////////////////////////
@@ -1992,7 +2003,8 @@ export default class GmxV2Service implements IAdapterV1 {
       marginDelta: toAmountInfo(orderData.initialCollateralDeltaAmount, initialCollateralToken.decimals, true),
       triggerData: {
         triggerPrice: FixedNumber.fromValue(orderData.triggerPrice.toString(), 30, 30),
-        triggerAboveThreshold: orderData.triggerThresholdType == TriggerThresholdType.Above ? true : false
+        triggerAboveThreshold: orderData.triggerThresholdType == TriggerThresholdType.Above ? true : false,
+        triggerActivatePrice: undefined
       }
     }
     const oId: OrderIdentifier = {

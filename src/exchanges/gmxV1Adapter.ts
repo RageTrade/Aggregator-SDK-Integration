@@ -97,6 +97,7 @@ import {
   UPDATE_WITHDRAW_H,
   getApproveTokenHeading
 } from '../common/buttonHeadings'
+import { AccountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
@@ -289,11 +290,18 @@ export default class GmxV1Adapter implements IAdapterV1 {
           indexToken: it,
           longCollateral: this._getCollateralTokens(),
           shortCollateral: this._getCollateralTokens(),
+          supportedModes: {
+            ISOLATED: true,
+            CROSS: false
+          },
           supportedOrderTypes: {
             LIMIT: true,
             MARKET: true,
             STOP_LOSS: true,
-            TAKE_PROFIT: true
+            TAKE_PROFIT: true,
+            STOP_LOSS_LIMIT: false,
+            TAKE_PROFIT_LIMIT: false,
+            REDUCE_LIMIT: false
           },
           supportedOrderActions: {
             CREATE: true,
@@ -1113,7 +1121,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         marginDelta: toAmountInfo(collateralAmount, collateralToken.decimals, true),
         triggerData: {
           triggerPrice: FixedNumber.fromValue(order.triggerPrice.toString(), 30, 30),
-          triggerAboveThreshold: order.triggerAboveThreshold as boolean
+          triggerAboveThreshold: order.triggerAboveThreshold as boolean,
+          triggerActivatePrice: undefined
         }
       }
       const oId: OrderIdentifier = {
@@ -1583,6 +1592,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
   }
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     return Promise.resolve(FixedNumber.fromValue('0', 30, 30))
+  }
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
+    throw new Error('Method not implemented.')
   }
 
   ////////// GMX specific helper methods //////////

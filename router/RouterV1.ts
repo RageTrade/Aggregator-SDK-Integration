@@ -27,7 +27,8 @@ import {
   PositionData,
   ClaimInfo,
   ApiOpts,
-  AmountInfoInToken
+  AmountInfoInToken,
+  AccountInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -400,5 +401,29 @@ export default class RouterV1 implements IRouterV1 {
     }
     const out = await Promise.all(fundingPromises)
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
+  }
+
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
+    let cumAccountInfo: AccountInfo = {
+      totalMarginUsed: FixedNumber.fromString('0'),
+      crossMaintenanceMarginUsed: FixedNumber.fromString('0'),
+      accountValue: FixedNumber.fromString('0'),
+      withdrawable: FixedNumber.fromString('0')
+    }
+    const promises: Promise<AccountInfo>[] = []
+    for (const key in this.adapters) {
+      promises.push(this.adapters[key].getAccountInfo(wallet, opts))
+    }
+    const out = await Promise.all(promises)
+    out.forEach((accountInfo) => {
+      cumAccountInfo.totalMarginUsed = cumAccountInfo.totalMarginUsed.add(accountInfo.totalMarginUsed)
+      ;(cumAccountInfo.crossMaintenanceMarginUsed = cumAccountInfo.crossMaintenanceMarginUsed.add(
+        accountInfo.crossMaintenanceMarginUsed
+      )),
+        (cumAccountInfo.accountValue = cumAccountInfo.accountValue.add(accountInfo.accountValue))
+      cumAccountInfo.withdrawable = cumAccountInfo.withdrawable.add(accountInfo.withdrawable)
+    })
+
+    return cumAccountInfo
   }
 }

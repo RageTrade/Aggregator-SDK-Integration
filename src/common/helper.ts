@@ -2,7 +2,7 @@ import { BigNumber, BigNumberish, ethers } from 'ethers'
 import { NumberDecimal, PageOptions, PaginatedRes } from '../interface'
 import { AmountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { ZERO } from './constants'
-import { FixedNumber } from './fixedNumber'
+import { FixedFormat, FixedNumber } from './fixedNumber'
 
 export function getEnumKeyByEnumValue<T extends { [index: string]: string }>(
   myEnum: T,
@@ -64,6 +64,13 @@ export function getPaginatedResponse<T>(data: Array<T>, pageOptions: PageOptions
   return {
     result: data,
     maxItemsCount: data.length
+  }
+}
+
+export function toAmountInfoFN(val: FixedNumber, isTokens: boolean): AmountInfo {
+  return {
+    amount: val,
+    isTokenAmount: isTokens
   }
 }
 
