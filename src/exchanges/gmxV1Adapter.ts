@@ -1390,7 +1390,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         const usdcPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.USDC/USD&resolution=D&from=${fromTS}&to=${toTS}`
         const ethPricesDataPromise = fetch(ethPriceUrl).then((d) => d.json())
         const usdcPricesDataPromise = fetch(usdcPriceUrl).then((d) => d.json())
-        ;[ethPricesData, usdcPricesData] = await Promise.all([ethPricesDataPromise, usdcPricesDataPromise])
+          ;[ethPricesData, usdcPricesData] = await Promise.all([ethPricesDataPromise, usdcPricesDataPromise])
 
         let ethPriceMap = new Array<number>()
         let usdcPriceMap = new Array<number>()

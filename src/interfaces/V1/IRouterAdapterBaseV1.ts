@@ -74,17 +74,17 @@ export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
 
 export type StaticMarketMetadata =
   | {
-      protocolId: 'GMXV1'
-      data: GenericStaticMarketMetadata
-    }
+    protocolId: 'GMXV1'
+    data: GenericStaticMarketMetadata
+  }
   | {
-      protocolId: 'SYNTHETIX_V2'
-      data: SynV2StaticMarketMetadata
-    }
+    protocolId: 'SYNTHETIX_V2'
+    data: SynV2StaticMarketMetadata
+  }
   | {
-      protocolId: 'PERV2'
-      data: GenericStaticMarketMetadata
-    }
+    protocolId: 'PERV2'
+    data: GenericStaticMarketMetadata
+  }
 
 export type DynamicMarketMetadata = {
   oiLong: FixedNumber
@@ -258,68 +258,68 @@ export type PaginatedRes<T> = {
 
 export type UnsignedTxWithMetadata =
   | {
-      tx: UnsignedTransaction
-      type: 'ERC20_APPROVAL'
-      data: ERC20ApprovalAddtionalSessionData
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'ERC20_APPROVAL'
+    data: ERC20ApprovalAddtionalSessionData
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'GMX_V1'
-      data: undefined
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'GMX_V1'
+    data: undefined
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'LIFI'
-      data: undefined
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'LIFI'
+    data: undefined
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'SNX_V2'
-      data: undefined
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'SNX_V2'
+    data: undefined
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'NATIVE'
-      data: undefined
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'NATIVE'
+    data: undefined
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'ADDRESS'
-      data: AddressValidationAdditionalSessionData
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'ADDRESS'
+    data: AddressValidationAdditionalSessionData
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
   | {
-      tx: UnsignedTransaction
-      type: 'GMX_V2'
-      data: undefined
-      ethRequired?: BigNumber
-      chainId: number
-      heading: string
-      desc: string
-    }
+    tx: UnsignedTransaction
+    type: 'GMX_V2'
+    data: undefined
+    ethRequired?: BigNumber
+    chainId: number
+    heading: string
+    desc: string
+  }
 
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
