@@ -160,7 +160,7 @@ async function increasePosition() {
     slippage: 1
   }
 
-  const txs = await ex.increasePosition([createOrderData])
+  const txs = await ex.increasePosition([createOrderData], w)
   console.dir({ txs }, { depth: 4 })
 }
 
@@ -179,7 +179,7 @@ async function closePosition() {
     outputCollateral: getTokenBySymbol('USDC')
   }
 
-  const txs = await ex.closePosition([position], [closePositionData])
+  const txs = await ex.closePosition([position], [closePositionData], w)
   txs.forEach((tx) => {
     logObject('Close position tx: ', tx.tx)
   })
@@ -201,7 +201,7 @@ async function updatePositionMargin() {
     isDeposit: false
   }
 
-  const txs = await ex.updatePositionMargin([position], [upmd])
+  const txs = await ex.updatePositionMargin([position], [upmd], w)
   txs.forEach((tx) => {
     logObject('Update margin tx: ', tx.tx)
   })
@@ -218,13 +218,13 @@ async function cancelOrder() {
     }
   })
 
-  const txs = await ex.cancelOrder(cancelData)
+  const txs = await ex.cancelOrder(cancelData, w)
   txs.forEach((tx) => {
     logObject('Cancel order tx: ', tx.tx)
   })
 }
 
-getAllPositions()
+increasePosition()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

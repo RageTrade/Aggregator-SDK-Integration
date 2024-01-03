@@ -140,29 +140,29 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async increasePosition(orderData: CreateOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
       const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].increasePosition([order], opts))
+      promises.push(this.adapters[protocolId].increasePosition([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async updateOrder(orderData: UpdateOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
       const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].updateOrder([order], opts))
+      promises.push(this.adapters[protocolId].updateOrder([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async cancelOrder(orderData: CancelOrder[], opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
       const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].cancelOrder([order], opts))
+      promises.push(this.adapters[protocolId].cancelOrder([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -170,12 +170,13 @@ export default class RouterV1 implements IRouterV1 {
   async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
+    wallet: string,
     opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     const promises: Promise<UnsignedTxWithMetadata[]>[] = []
     positionInfo.forEach((position, index) => {
       const protocolId = this._checkAndGetProtocolId(position.marketId)
-      promises.push(this.adapters[protocolId].closePosition([position], [closePositionData[index]], opts))
+      promises.push(this.adapters[protocolId].closePosition([position], [closePositionData[index]], wallet, opts))
     })
     const out = await Promise.all(promises)
     return out.flat()
@@ -183,12 +184,15 @@ export default class RouterV1 implements IRouterV1 {
   async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
+    wallet: string,
     opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     const promises: Promise<UnsignedTxWithMetadata[]>[] = []
     positionInfo.forEach((position, index) => {
       const protocolId = this._checkAndGetProtocolId(position.marketId)
-      promises.push(this.adapters[protocolId].updatePositionMargin([position], [updatePositionMarginData[index]], opts))
+      promises.push(
+        this.adapters[protocolId].updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts)
+      )
     })
     const out = await Promise.all(promises)
     return out.flat()

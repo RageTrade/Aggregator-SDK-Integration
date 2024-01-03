@@ -44,10 +44,14 @@ import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD } from '../configs/pyth/prices'
 import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
+import { rpc } from '../common/provider'
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10
-  private sdk: KwentaSDK
+  private sdk: KwentaSDK = new KwentaSDK({
+    networkId: 10,
+    provider: rpc[10]
+  })
   private sUSDAddr = '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
   private sUsd: Token = {
     name: 'Synthetix USD',
@@ -55,14 +59,8 @@ export default class SynthetixV2Service implements IExchange {
     decimals: '18',
     address: this.sUSDAddr
   }
-  private swAddr: string
   private protocolIdentifier: PROTOCOL_NAME = 'SYNTHETIX_V2'
   private decimals = 18
-
-  constructor(sdk: KwentaSDK, _swAddr: string) {
-    this.sdk = sdk
-    this.swAddr = _swAddr
-  }
 
   async getMarketAddress(market: ExtendedMarket): Promise<string> {
     let marketAddress = market.address
@@ -182,7 +180,12 @@ export default class SynthetixV2Service implements IExchange {
     }
   }
 
-  async createOrder(provider: Provider, market: ExtendedMarket, order: Order): Promise<UnsignedTxWithMetadata[]> {
+  async createOrder(
+    provider: Provider,
+    market: ExtendedMarket,
+    order: Order,
+    wallet: string
+  ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     if (order.sizeDelta.eq(0)) return txs
 
@@ -191,7 +194,7 @@ export default class SynthetixV2Service implements IExchange {
 
     if (order.inputCollateralAmount.gt(0)) {
       // withdraw unused collateral tx's
-      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, provider)))
+      txs.push(...(await this.withdrawUnusedCollateral(wallet, provider)))
 
       // deposit
       let depositTx = await this.formulateDepositTx(marketAddress, wei(order.inputCollateralAmount))
@@ -214,7 +217,9 @@ export default class SynthetixV2Service implements IExchange {
         wei(acceptablePrice)
       )) as UnsignedTransaction,
       type: 'SNX_V2',
-      data: undefined
+      data: undefined,
+      heading: 'Create Order',
+      desc: 'Create Order'
     })
 
     return txs
@@ -223,7 +228,8 @@ export default class SynthetixV2Service implements IExchange {
   updateOrder(
     provider: Provider,
     market: Market | undefined,
-    updatedOrder: Partial<ExtendedOrder>
+    updatedOrder: Partial<ExtendedOrder>,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not Supported.')
   }
@@ -231,15 +237,18 @@ export default class SynthetixV2Service implements IExchange {
   async cancelOrder(
     provider: Provider,
     market: ExtendedMarket,
-    order: Partial<ExtendedOrder>
+    order: Partial<ExtendedOrder>,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     const marketAddress = await this.getMarketAddress(market)
 
     return [
       {
-        tx: await this.sdk.futures.cancelDelayedOrder(marketAddress, this.swAddr, true),
+        tx: await this.sdk.futures.cancelDelayedOrder(marketAddress, wallet, true),
         type: 'SNX_V2',
-        data: undefined
+        data: undefined,
+        heading: 'Cancel Order',
+        desc: 'Cancel Order'
       }
     ]
   }
@@ -251,7 +260,8 @@ export default class SynthetixV2Service implements IExchange {
     isTrigger: boolean,
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
-    outputToken: Token | undefined
+    outputToken: Token | undefined,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     if (closeSize.eq(0) || closeSize.gt(position.size)) {
       throw new Error('Invalid close size')
@@ -300,7 +310,8 @@ export default class SynthetixV2Service implements IExchange {
           triggerAboveThreshold: true
         },
         slippage: '1'
-      }
+      },
+      wallet
     )
   }
 
@@ -308,7 +319,9 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     position: ExtendedPosition,
     marginAmount: BigNumber,
-    isDeposit: boolean
+    isDeposit: boolean,
+    transferToken: Token | undefined,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
@@ -319,7 +332,7 @@ export default class SynthetixV2Service implements IExchange {
 
     if (isDeposit) {
       // withdraw unused collateral tx's
-      txs.push(...(await this.withdrawUnusedCollateral(this.swAddr, provider)))
+      txs.push(...(await this.withdrawUnusedCollateral(wallet, provider)))
 
       // deposit
       let depositTx = await this.formulateDepositTx(position.marketAddress!, wei(marginAmount))
@@ -364,9 +377,8 @@ export default class SynthetixV2Service implements IExchange {
     const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
     const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
     const sUsdBalanceInMarket = await cacheFetch({
-      key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', this.swAddr, market.indexOrIdentifier],
-      fn: () =>
-        this.sdk.futures.getIdleMarginInMarketsCached(this.swAddr, [futureMarket]).then((r) => r.totalIdleInMarkets),
+      key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', user, market.indexOrIdentifier],
+      fn: () => this.sdk.futures.getIdleMarginInMarketsCached(user, [futureMarket]).then((r) => r.totalIdleInMarkets),
       staleTime: sTimeSB,
       cacheTime: sTimeSB * CACHE_TIME_MULT,
       opts
@@ -809,6 +821,14 @@ export default class SynthetixV2Service implements IExchange {
     }
 
     return txs
+  }
+
+  deposit(provider: Provider, market: ExtendedMarket, depositAmount: BigNumber): Promise<UnsignedTxWithMetadata[]> {
+    throw new Error('Method not implemented.')
+  }
+
+  withdraw(provider: Provider, market: ExtendedMarket, withdrawAmount: BigNumber): Promise<UnsignedTxWithMetadata[]> {
+    throw new Error('Method not implemented.')
   }
 
   //// HELPERS ////

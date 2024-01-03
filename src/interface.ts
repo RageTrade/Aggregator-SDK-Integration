@@ -232,36 +232,48 @@ export type UnsignedTxWithMetadata =
       type: 'ERC20_APPROVAL'
       data: ERC20ApprovalAddtionalSessionData
       ethRequired?: BigNumber
+      heading?: string
+      desc?: string
     }
   | {
       tx: UnsignedTransaction
       type: 'GMX_V1'
       data: undefined
       ethRequired?: BigNumber
+      heading: string
+      desc: string
     }
   | {
       tx: UnsignedTransaction
       type: 'LIFI'
       data: undefined
       ethRequired?: BigNumber
+      heading: string
+      desc: string
     }
   | {
       tx: UnsignedTransaction
       type: 'SNX_V2'
       data: undefined
       ethRequired?: BigNumber
+      heading: string
+      desc: string
     }
   | {
       tx: UnsignedTransaction
       type: 'NATIVE'
       data: undefined
       ethRequired?: BigNumber
+      heading: string
+      desc: string
     }
   | {
       tx: UnsignedTransaction
       type: 'ADDRESS'
       data: AddressValidationAdditionalSessionData
       ethRequired?: BigNumber
+      heading: string
+      desc: string
     }
 
 export type PaginatedRes<T> = {
@@ -282,18 +294,25 @@ export interface IExchange {
 
   supportedMarkets(network: Network): Promise<ExtendedMarket[]>
 
-  createOrder(provider: Provider, market: ExtendedMarket, order: Order): Promise<UnsignedTxWithMetadata[]>
+  createOrder(
+    provider: Provider,
+    market: ExtendedMarket,
+    order: Order,
+    wallet: string
+  ): Promise<UnsignedTxWithMetadata[]>
 
   updateOrder(
     provider: Provider,
     market: ExtendedMarket | undefined,
-    updatedOrder: Partial<ExtendedOrder>
+    updatedOrder: Partial<ExtendedOrder>,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]>
 
   cancelOrder(
     provider: Provider,
     market: ExtendedMarket | undefined,
-    order: Partial<ExtendedOrder>
+    order: Partial<ExtendedOrder>,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]>
 
   closePosition(
@@ -303,7 +322,8 @@ export interface IExchange {
     isTrigger: boolean,
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
-    outputToken: Token | undefined
+    outputToken: Token | undefined,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]>
 
   updatePositionMargin(
@@ -311,7 +331,8 @@ export interface IExchange {
     position: ExtendedPosition,
     marginAmount: BigNumber,
     isDeposit: boolean,
-    transferToken: Token | undefined
+    transferToken: Token | undefined,
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]>
 
   getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal | null>
@@ -399,4 +420,8 @@ export interface IExchange {
     isDeposit: boolean,
     opts?: ApiOpts
   ): Promise<ExtendedPosition>
+
+  deposit(provider: Provider, market: ExtendedMarket, depositAmount: BigNumber): Promise<UnsignedTxWithMetadata[]>
+
+  withdraw(provider: Provider, market: ExtendedMarket, withdrawAmount: BigNumber): Promise<UnsignedTxWithMetadata[]>
 }

@@ -92,6 +92,8 @@ import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
 import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../common/cache'
 import { PRECISION } from '../configs/gmxv2/lib/numbers'
+import { ReferralStorage__factory } from '../../typechain/gmx-v1'
+import { getContract } from '../configs/gmx/contracts'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -145,15 +147,35 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private minCollateralUsd = parseUnits('11', 30)
 
-  private _smartWallet: string | undefined
-
   async init(swAddr: string): Promise<void> {
-    this._smartWallet = ethers.utils.getAddress(swAddr)
     return Promise.resolve()
   }
 
   async setup(): Promise<UnsignedTxWithMetadata[]> {
     return Promise.resolve([])
+  }
+
+  async checkAndSetReferralCodeTx(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
+    const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
+
+    // Fetch user referral code
+    const code = await referralStorage.traderReferralCodes(wallet)
+
+    if (code.toLowerCase() != REFERRAL_CODE.toLowerCase()) {
+      // set referral code
+      const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(REFERRAL_CODE)
+      txs.push({
+        tx: setReferralCodeTx,
+        type: 'GMX_V2',
+        data: undefined,
+        chainId: arbitrum.id,
+        heading: 'Set Referral Code',
+        desc: 'Set Referral Code'
+      })
+    }
+
+    return txs
   }
 
   supportedChains(): Chain[] {
@@ -316,12 +338,12 @@ export default class GmxV2Service implements IAdapterV1 {
     return metadata
   }
 
-  async _approveIfNeeded(token: string, amount: bigint): Promise<UnsignedTxWithMetadata | undefined> {
+  async _approveIfNeeded(token: string, amount: bigint, wallet: string): Promise<UnsignedTxWithMetadata | undefined> {
     if (token == ethers.constants.AddressZero) return
 
     const tokenContract = IERC20__factory.connect(token, this.provider)
 
-    const allowance = await tokenContract.allowance(this._smartWallet!, this.ROUTER_ADDR)
+    const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
 
     if (allowance.gt(amount)) return
 
@@ -335,7 +357,9 @@ export default class GmxV2Service implements IAdapterV1 {
         spender: this.ROUTER_ADDR,
         chainId: 42161
       },
-      chainId: arbitrum.id
+      chainId: arbitrum.id,
+      heading: 'Approve Token spend',
+      desc: 'Approve Token spend'
     }
   }
 
@@ -345,10 +369,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
   ///// Action api's //////
 
-  async increasePosition(orderData: CreateOrder[]): Promise<UnsignedTxWithMetadata[]> {
-    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
-
+  async increasePosition(orderData: CreateOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     // checks for min collateral, min leverage should be done in preview or f/e
 
@@ -401,7 +425,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // prepare calldata
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
-          receiver: this._smartWallet,
+          receiver: wallet,
           callbackContract: ethers.constants.AddressZero,
           uiFeeReceiver: ethers.constants.AddressZero,
           market: mkt.market.marketToken,
@@ -436,7 +460,7 @@ export default class GmxV2Service implements IAdapterV1 {
       }
 
       // check if collateral token has enough amount approved
-      const approvalTx = await this._approveIfNeeded(od.collateral.address[42161]!, od.marginDelta.amount.value)
+      const approvalTx = await this._approveIfNeeded(od.collateral.address[42161]!, od.marginDelta.amount.value, wallet)
       if (approvalTx) txs.push(approvalTx)
 
       const multicallData: string[] = []
@@ -469,16 +493,20 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!),
-        chainId: arbitrum.id
+        ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
+        chainId: arbitrum.id,
+        heading: 'Increase Position',
+        desc: 'Increase Position'
       })
     }
 
     return txs
   }
 
-  async updateOrder(orderData: UpdateOrder[]): Promise<UnsignedTxWithMetadata[]> {
+  async updateOrder(orderData: UpdateOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     for (const od of orderData) {
       // get order details
@@ -542,15 +570,19 @@ export default class GmxV2Service implements IAdapterV1 {
         type: 'GMX_V2',
         data: undefined,
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to update
-        chainId: arbitrum.id
+        chainId: arbitrum.id,
+        heading: 'Update Order',
+        desc: 'Update Order'
       })
     }
 
     return txs
   }
 
-  async cancelOrder(orderData: CancelOrder[]): Promise<UnsignedTxWithMetadata[]> {
+  async cancelOrder(orderData: CancelOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     for (const od of orderData) {
       // get order details
@@ -568,7 +600,9 @@ export default class GmxV2Service implements IAdapterV1 {
         type: 'GMX_V2',
         data: undefined,
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to cancel order
-        chainId: arbitrum.id
+        chainId: arbitrum.id,
+        heading: 'Cancel Order',
+        desc: 'Cancel Order'
       })
     }
 
@@ -577,12 +611,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async closePosition(
     positionInfo: PositionInfo[],
-    closePositionData: ClosePositionData[]
+    closePositionData: ClosePositionData[],
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     if (positionInfo.length !== closePositionData.length) throw new Error('position close data mismatch')
-    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
 
     const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
 
@@ -657,7 +693,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
-          receiver: this._smartWallet,
+          receiver: wallet,
           callbackContract: ethers.constants.AddressZero,
           uiFeeReceiver: ethers.constants.AddressZero,
           market: positionInfo[i].marketId.split('-')[2],
@@ -700,8 +736,10 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!), // max eth can be upto keeper fee in close
-        chainId: arbitrum.id
+        ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!), // max eth can be upto keeper fee in close
+        chainId: arbitrum.id,
+        heading: 'Close Position',
+        desc: 'Close Position'
       })
     }
 
@@ -710,12 +748,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async updatePositionMargin(
     positionInfo: PositionInfo[],
-    updatePositionMarginData: UpdatePositionMarginData[]
+    updatePositionMarginData: UpdatePositionMarginData[],
+    wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     if (positionInfo.length !== updatePositionMarginData.length) throw new Error('position close data mismatch')
-    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
 
     const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
 
@@ -763,7 +803,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
       let orderTx = await this.exchangeRouter.populateTransaction.createOrder({
         addresses: {
-          receiver: this._smartWallet,
+          receiver: wallet,
           callbackContract: ethers.constants.AddressZero,
           uiFeeReceiver: ethers.constants.AddressZero,
           market: positionInfo[i].marketId.split('-')[2],
@@ -799,7 +839,8 @@ export default class GmxV2Service implements IAdapterV1 {
       if (updatePositionMarginData[i].isDeposit) {
         const approvalTx = await this._approveIfNeeded(
           updatePositionMarginData[i].collateral.address[42161]!,
-          updatePositionMarginData[i].margin.amount.value
+          updatePositionMarginData[i].margin.amount.value,
+          wallet
         )
 
         if (approvalTx) txs.push(approvalTx)
@@ -834,8 +875,10 @@ export default class GmxV2Service implements IAdapterV1 {
         tx: multicallEncoded,
         type: 'GMX_V2',
         data: undefined,
-        ethRequired: await this._getEthRequired(this.provider, multicallEncoded.value!),
-        chainId: arbitrum.id
+        ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
+        chainId: arbitrum.id,
+        heading: 'Update Position Margin',
+        desc: 'Update Position Margin'
       })
     }
 
@@ -844,6 +887,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
+    // check and set referral code
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
 
     const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
     const markets = Object.values(marketsInfoData ?? {})
@@ -879,7 +924,9 @@ export default class GmxV2Service implements IAdapterV1 {
         type: 'GMX_V2',
         data: undefined,
         ethRequired: ethers.constants.Zero,
-        chainId: arbitrum.id
+        chainId: arbitrum.id,
+        heading: 'Claim Funding',
+        desc: 'Claim Funding'
       })
     }
 
@@ -1371,7 +1418,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const previewsInfo: OpenTradePreviewInfo[] = []
 
-    const keeperFee = await this._KeeperFeeUsd(tokensData, opts)
+    const keeperFee = await this._KeeperFeeUsd(tokensData, wallet, opts)
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
       const ePos = existingPos[i]
@@ -1541,7 +1588,7 @@ export default class GmxV2Service implements IAdapterV1 {
     if (!minCollateralUsd || !minPositionSizeUsd) throw new Error('Info not found')
 
     const previewsInfo: CloseTradePreviewInfo[] = []
-    const keeperFee = await this._KeeperFeeUsd(undefined, opts)
+    const keeperFee = await this._KeeperFeeUsd(undefined, wallet, opts)
     for (let i = 0; i < positionInfo.length; i++) {
       const cpd = closePositionData[i]
       const ePos = positionInfo[i]
@@ -1645,7 +1692,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, wallet, opts)
 
     const previewsInfo: PreviewInfo[] = []
-    const keeperFee = await this._KeeperFeeUsd(tokensData, opts)
+    const keeperFee = await this._KeeperFeeUsd(tokensData, wallet, opts)
     for (let i = 0; i < existingPos.length; i++) {
       let preview: PreviewInfo
       if (!marginDelta[i].isTokenAmount) throw new Error('margin delta must be in token terms')
@@ -1861,9 +1908,9 @@ export default class GmxV2Service implements IAdapterV1 {
     return token.symbol === 'WETH' ? 'ETH' : token.symbol
   }
 
-  private async _KeeperFeeUsd(tData: TokensData | undefined, opts?: ApiOpts): Promise<BigNumber> {
-    if (!tData && this._smartWallet !== undefined) {
-      const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, this._smartWallet, opts)
+  private async _KeeperFeeUsd(tData: TokensData | undefined, wallet: string, opts?: ApiOpts): Promise<BigNumber> {
+    if (!tData) {
+      const { tokensData, pricesUpdatedAt } = await useTokensData(ARBITRUM, wallet, opts)
       tData = tokensData
     }
 
@@ -1878,11 +1925,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private async _getEthRequired(
     provider: Provider,
+    wallet: string,
     totalEthReq: BigNumber = BigNumber.from(0) // incl. of keeper fees
   ): Promise<BigNumber | undefined> {
-    if (!this._smartWallet) throw new Error('smart wallet not set in adapter')
-
-    const ethBalance = await provider.getBalance(this._smartWallet!)
+    const ethBalance = await provider.getBalance(wallet)
 
     if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
   }
