@@ -233,7 +233,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
     const sTimeFI = getStaleTime(CACHE_SECOND * 30, opts)
     const fundingRateInfo = await cacheFetch({
-      key: [GMXV1_CACHE_PREFIX, 'fundingRateInfo'],
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
       fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
       staleTime: sTimeFI,
       cacheTime: sTimeFI * CACHE_TIME_MULT,
@@ -755,7 +761,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
     let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
     const fundingRateInfoPromise = cacheFetch({
-      key: [GMXV1_CACHE_PREFIX, 'getFundingRates', 'ALL', getContract(ARBITRUM, 'Vault')!],
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
       fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
       staleTime: sTimeFR,
       cacheTime: sTimeFR * CACHE_TIME_MULT,

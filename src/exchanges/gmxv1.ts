@@ -105,18 +105,27 @@ export default class GmxV1Service implements IExchange {
     this.swAddr = _swAddr
   }
 
-  async getDynamicMetadata(market: ExtendedMarket, provider: Provider): Promise<DynamicMarketMetadata> {
+  async getDynamicMetadata(market: ExtendedMarket, provider: Provider, opts?: ApiOpts): Promise<DynamicMarketMetadata> {
     const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
 
     const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
     const whitelistedTokens = V1_TOKENS[ARBITRUM]
     const tokenAddresses = whitelistedTokens.map((x) => x.address)
 
-    const fundingRateInfo = await reader.getFundingRates(
-      getContract(ARBITRUM, 'Vault')!,
-      nativeTokenAddress!,
-      tokenAddresses
-    )
+    const sTimeFI = getStaleTime(CACHE_SECOND * 30, opts)
+    const fundingRateInfo = await cacheFetch({
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
+      fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
+      staleTime: sTimeFI,
+      cacheTime: sTimeFI * CACHE_TIME_MULT,
+      opts
+    })
 
     const { infoTokens } = await useInfoTokens(provider, ARBITRUM, false, [BigNumber.from(0)], fundingRateInfo)
 
@@ -579,7 +588,13 @@ export default class GmxV1Service implements IExchange {
 
     let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
     const fundingRateInfoPromise = cacheFetch({
-      key: [GMXV1_CACHE_PREFIX, 'getFundingRates', 'ALL', getContract(ARBITRUM, 'Vault')!],
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
       fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
       staleTime: sTimeFR,
       cacheTime: sTimeFR * CACHE_TIME_MULT,

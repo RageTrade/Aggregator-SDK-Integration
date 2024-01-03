@@ -1188,7 +1188,7 @@ export async function useInfoTokens(
       vaultAddress!,
       positionRouterAddress!,
       nativeTokenAddress!,
-      whitelistedTokenAddresses
+      whitelistedTokenAddresses.join('-')
     ],
     fn: () =>
       vr.getVaultTokenInfoV4(
