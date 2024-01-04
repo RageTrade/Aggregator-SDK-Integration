@@ -99,8 +99,8 @@ async function getTradePreview(
       },
       slippage: '1'
     },
-    undefined
-    // { bypassCache: true, overrideStaleTime: undefined }
+    undefined,
+    { bypassCache: true, overrideStaleTime: undefined }
   )
   return tradePreview
 }
@@ -412,6 +412,8 @@ const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function synService() {
   startHermesStreaming()
+  startStreaming()
+  await delay(1000)
   const ss = new SynthetixV2Service()
 
   // const tradeHistory = await ss.getTradesHistory(
@@ -518,8 +520,8 @@ async function synService() {
   const direction = 'LONG'
   const marketAddress = '0x2b3bb4c683bfc5239b029131eef3b1d214478d93'
 
-  const margins = await ss.getIdleMargins('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
-  console.dir({ margins }, { depth: 4 })
+  // const margins = await ss.getIdleMargins('0x2f88a09ed4174750a464576FE49E586F90A34820', undefined)
+  // console.dir({ margins }, { depth: 4 })
 
   // const openMarkets = await compositeService();
   // const futureMarkets = await ss.getPartialFutureMarketsFromOpenMarkets(
@@ -645,25 +647,26 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  // for (let i = 0; i < 2; i++) {
-  //   const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-  //   await delay(100)
-  //   console.time('getTradePreview')
-  //   const tradePreview = await getTradePreview(
-  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
-  //     ss,
-  //     sizeDelta,
-  //     '50.86',
-  //     direction,
-  //     // ethers.utils.parseUnits('2109', 18),
-  //     marketPrice,
-  //     ethMarket
-  //   )
-  //   console.timeEnd('getTradePreview')
-  //   console.log('\n')
-  //   logObject('Trade Preview: ', tradePreview)
-  //   // logObject('PriceImapct: ', tradePreview.priceImpact)
-  // }
+  for (let i = 0; i < 1; i++) {
+    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+    // await delay(100)
+    // console.time('getTradePreview')
+    const tradePreview = await getTradePreview(
+      '0x2f88a09ed4174750a464576FE49E586F90A34820',
+      ss,
+      sizeDelta,
+      '50.86',
+      direction,
+      // ethers.utils.parseUnits('2109', 18),
+      marketPrice,
+      ethMarket
+    )
+    // console.timeEnd('getTradePreview')
+    console.log('\n')
+    // console.dir({ tradePreview }, { depth: 4 })
+    logObject('Trade Preview: ', tradePreview)
+    logObject('PriceImpact: ', tradePreview.priceImpact)
+  }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")

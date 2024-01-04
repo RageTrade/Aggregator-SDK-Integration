@@ -250,7 +250,15 @@ export default class GmxV1Adapter implements IAdapterV1 {
   }
 
   async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
-    return (await this.supportedMarkets(this.supportedChains(), opts)).filter((m) => marketIds.includes(m.marketId))
+    const result: MarketInfo[] = []
+    const markets = await this.supportedMarkets(this.supportedChains(), opts)
+
+    marketIds.forEach((marketId) => {
+      const market = markets.find((m) => m.marketId == marketId)!
+      result.push(market)
+    })
+
+    return result
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
@@ -1374,8 +1382,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     const previews: CloseTradePreviewInfo[] = []
 
     for (let i = 0; i < positionInfo.length; i++) {
-      if (!validDenomination(closePositionData[i].closeSize, true))
-        throw new Error('Close size must be token denominated')
+      if (!validDenomination(closePositionData[i].closeSize, false))
+        throw new Error('Close size must be USD denominated')
       previews.push(
         await getCloseTradePreviewInternalV1(positionInfo[i], closePositionData[i], this.EXECUTION_FEE, opts)
       )

@@ -44,6 +44,7 @@ export type Market = {
   supportedOrderTypes: Record<OrderType, Boolean>
   supportedOrderActions: Record<OrderAction, Boolean>
   marketSymbol: string
+  metadata?: any
 }
 
 export type GenericStaticMarketMetadata = {

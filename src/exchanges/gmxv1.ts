@@ -259,7 +259,9 @@ export default class GmxV1Service implements IExchange {
       return {
         tx,
         type: 'ERC20_APPROVAL',
-        data: { chainId: ARBITRUM, spender: router, token: tokenAddress }
+        data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+        heading: 'Approve Router Spend',
+        desc: 'Approve Router Spend'
       }
     }
   }

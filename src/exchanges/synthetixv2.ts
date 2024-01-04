@@ -406,7 +406,7 @@ export default class SynthetixV2Service implements IExchange {
       staleTime: sTimeKF,
       cacheTime: sTimeKF * CACHE_TIME_MULT,
       opts
-    })
+    }) as Promise<BigNumber>
 
     const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
 

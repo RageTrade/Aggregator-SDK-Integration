@@ -41,7 +41,7 @@ import { BigNumber, ethers } from 'ethers'
 import { OrderType, ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
-import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN } from '../common/helper'
+import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN, validDenomination } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
 import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
@@ -1421,6 +1421,10 @@ export default class GmxV2Service implements IAdapterV1 {
     const keeperFee = await this._KeeperFeeUsd(tokensData, wallet, opts)
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
+
+      if (!validDenomination(od.sizeDelta, false)) throw new Error('Size delta must be usd denominated')
+      if (!validDenomination(od.marginDelta, true)) throw new Error('Margin delta must be token denominated')
+
       const ePos = existingPos[i]
       const marketInfo = marketsInfoData[(await this._cachedMarkets(undefined))[od.marketId].market.marketToken]
       const toToken = tokensData[marketInfo.indexToken.address]
