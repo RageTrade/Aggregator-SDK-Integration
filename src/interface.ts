@@ -232,8 +232,8 @@ export type UnsignedTxWithMetadata =
       type: 'ERC20_APPROVAL'
       data: ERC20ApprovalAddtionalSessionData
       ethRequired?: BigNumber
-      heading?: string
-      desc?: string
+      heading: string
+      desc: string
     }
   | {
       tx: UnsignedTransaction

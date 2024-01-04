@@ -823,12 +823,26 @@ export default class SynthetixV2Service implements IExchange {
     return txs
   }
 
-  deposit(provider: Provider, market: ExtendedMarket, depositAmount: BigNumber): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+  async deposit(
+    provider: Provider,
+    market: ExtendedMarket,
+    depositAmount: BigNumber
+  ): Promise<UnsignedTxWithMetadata[]> {
+    const marketAddress = await this.getMarketAddress(market)
+    const depositTx = await this.formulateDepositTx(marketAddress, wei(depositAmount))
+
+    return [depositTx]
   }
 
-  withdraw(provider: Provider, market: ExtendedMarket, withdrawAmount: BigNumber): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+  async withdraw(
+    provider: Provider,
+    market: ExtendedMarket,
+    withdrawAmount: BigNumber
+  ): Promise<UnsignedTxWithMetadata[]> {
+    const marketAddress = await this.getMarketAddress(market)
+    let withdrawTx = await this.formulateWithdrawTx(marketAddress, wei(withdrawAmount))
+
+    return [withdrawTx]
   }
 
   //// HELPERS ////
@@ -906,7 +920,9 @@ export default class SynthetixV2Service implements IExchange {
     return {
       tx: withdrawTx,
       type: 'SNX_V2',
-      data: undefined
+      data: undefined,
+      heading: 'Withdraw',
+      desc: 'Withdraw'
     } as UnsignedTxWithMetadata
   }
 
@@ -919,7 +935,9 @@ export default class SynthetixV2Service implements IExchange {
     return {
       tx: depositTx,
       type: 'SNX_V2',
-      data: undefined
+      data: undefined,
+      heading: 'Deposit',
+      desc: 'Deposit'
     } as UnsignedTxWithMetadata
   }
 
