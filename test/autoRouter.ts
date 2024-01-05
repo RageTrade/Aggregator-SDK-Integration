@@ -23,9 +23,9 @@ async function testBestRoute() {
       { token: sUsd, price: FixedNumber.fromValue(parseUnits('1', 30), 30, 30) }
     ],
     direction: 'LONG',
-    sizeDeltaToken: FixedNumber.fromValue(parseUnits('1', 18), 18, 18),
-    sizeDeltaUSD: FixedNumber.fromValue(parseUnits('2200', 30), 30, 30),
-    marginDeltaUSD: FixedNumber.fromValue(parseUnits('1000', 30), 30, 30)
+    sizeDeltaToken: FixedNumber.fromValue(parseUnits('1', 8), 8, 18), // Can be different per chain - Improbable
+    sizeDeltaUSD: FixedNumber.fromValue(parseUnits('42000', 30), 30, 30), // Check if this will lead to proper result
+    marginDeltaUSD: FixedNumber.fromValue(parseUnits('10000', 30), 30, 30)
   }
   console.timeEnd('RouteData')
 
