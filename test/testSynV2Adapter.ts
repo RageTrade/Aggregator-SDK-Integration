@@ -8,8 +8,8 @@ import { startHermesStreaming, startStreaming } from '../src/configs/pyth/prices
 
 const ex = new SynthetixV2Adapter()
 
-const btcMarketId = '10-SYNTHETIXV2-0x59b007E9ea8F89b069c43F8f45834d30853e3699'
-const ethMarketId = '10-SYNTHETIXV2-0x2B3bb4c683BFc5239B029131EEf3B1d214478d93'
+const btcMarketId = '10-SYNTHETIX_V2-0x59b007E9ea8F89b069c43F8f45834d30853e3699'
+const ethMarketId = '10-SYNTHETIX_V2-0x2B3bb4c683BFc5239B029131EEf3B1d214478d93'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress

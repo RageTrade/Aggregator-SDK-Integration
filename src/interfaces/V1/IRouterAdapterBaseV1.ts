@@ -25,7 +25,7 @@ export type OrderType = CreateOrderType | CloseOrderType
 
 export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 
-export type ProtocolId = 'GMXV1' | 'SYNTHETIXV2' | 'PERV2' | 'GMXV2'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'PERV2' | 'GMXV2'
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
@@ -70,7 +70,7 @@ export type StaticMarketMetadata =
       data: GenericStaticMarketMetadata
     }
   | {
-      protocolId: 'SYNTHETIXV2'
+      protocolId: 'SYNTHETIX_V2'
       data: SynV2StaticMarketMetadata
     }
   | {
