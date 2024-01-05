@@ -26,8 +26,12 @@ import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
 export default class AutoRouterV1 extends RouterV1 {
   private _logMarkets(markets: MarketInfo[]) {
+    if (markets.length == 0) {
+      console.log('## >> NO ELIGIBLE MARKETS << ##')
+      return
+    }
     markets.forEach((market) => {
-      console.log({
+      console.log('eligible Market', {
         marketId: market.marketId,
         indexToken: market.indexToken.symbol,
         longCollateral: market.longCollateral.map((token) => token.symbol),
@@ -44,13 +48,13 @@ export default class AutoRouterV1 extends RouterV1 {
     const markets = await this.supportedMarkets(chains)
     const collateralTokenSymbols = collateralTokenWithPriceList.map((tokenWithPrice) => tokenWithPrice.token.symbol)
     const eligibleMarkets = markets.filter((market) => {
-      const correctIndex = market.indexToken.symbol == indexToken.symbol
+      const correctMarketSymbol = market.marketSymbol == indexToken.symbol
       const collateralSymbols =
         direction == 'LONG'
           ? market.longCollateral.map((token) => token.symbol)
           : market.shortCollateral.map((token) => token.symbol)
       const correctCollateral = collateralSymbols.some((cSymbol) => collateralTokenSymbols.includes(cSymbol))
-      return correctIndex && correctCollateral
+      return correctMarketSymbol && correctCollateral
     })
     this._logMarkets(eligibleMarkets)
     return eligibleMarkets
@@ -75,10 +79,11 @@ export default class AutoRouterV1 extends RouterV1 {
     adapter: IAdapterV1,
     market: MarketInfo,
     routeData: RouteData,
-    collateralTokenWithPrice: TokenWithPrice
+    collateralTokenWithPrice: TokenWithPrice,
+    marketPrice: FixedNumber
   ): CreateOrder {
     const amountInfoInToken = adapter.getAmountInfoType()
-    
+
     let sizeDeltaAmountInfo: AmountInfo = amountInfoInToken.sizeDeltaInToken
       ? { isTokenAmount: true, amount: routeData.sizeDeltaToken }
       : { isTokenAmount: false, amount: routeData.sizeDeltaUSD }
@@ -98,7 +103,7 @@ export default class AutoRouterV1 extends RouterV1 {
       direction: routeData.direction,
       sizeDelta: sizeDeltaAmountInfo,
       marginDelta: marginDeltaAmountInfo,
-      triggerData: { triggerPrice: FixedNumber.fromValue(parseUnits('42000', 30), 30), triggerAboveThreshold: true },
+      triggerData: { triggerPrice: marketPrice, triggerAboveThreshold: true },
       slippage: undefined,
       type: 'MARKET'
     }
@@ -137,7 +142,14 @@ export default class AutoRouterV1 extends RouterV1 {
       collateralTokenSymbolMap.set(tokenWithPrice.token.symbol, tokenWithPrice)
     )
     const collateralTokenSymbols = Array.from(collateralTokenSymbolMap.keys())
-    eligibleMarkets.forEach((market) => {
+    const marketPrices = await this.getMarketPrices(
+      eligibleMarkets.map((m) => m.marketId),
+      opts
+    )
+
+    for (let i = 0; i < eligibleMarkets.length; i++) {
+      const market = eligibleMarkets[i]
+      const marketPrice = marketPrices[i].toFormat(30)
       const adapter = this._checkAndGetAdapter(market.marketId)
       const marketCollateralTokens = routeData.direction == 'LONG' ? market.longCollateral : market.shortCollateral
 
@@ -148,19 +160,20 @@ export default class AutoRouterV1 extends RouterV1 {
 
       if (!marketCollateralToken) {
         console.log(`market ${market.marketId} has no eligible collateral tokens`)
-        return
+        continue
       }
 
       const order = this._getCreateOrder(
         adapter,
         market,
         routeData,
-        collateralTokenSymbolMap.get(marketCollateralToken.symbol)!
+        collateralTokenSymbolMap.get(marketCollateralToken.symbol)!,
+        marketPrice
       )
 
       const marketWithPreviewPromise = Promise.all([market, adapter.getOpenTradePreview(wallet, [order], [], opts)])
       promises.push(marketWithPreviewPromise)
-    })
+    }
     const out = await Promise.all(promises)
     return out.map((tuple) => {
       return {
@@ -185,12 +198,16 @@ export default class AutoRouterV1 extends RouterV1 {
     const avgEntryPriceReduceCB = getReduceCallback(routeData.direction)
 
     const dynamicMetadata = await dynamicMetadataPromise
-    const bestFundingMarket = dynamicMetadata.reduce(fundingReduceCB)
-    marketTags.push({ market: bestFundingMarket.market, tagDesc: 'Best Funding', tagColor: '#00FF09' })
+    const bestFundingMarket = dynamicMetadata.length > 0 ? dynamicMetadata.reduce(fundingReduceCB) : undefined
+    if (bestFundingMarket) {
+      marketTags.push({ market: bestFundingMarket.market, tagDesc: 'Best Funding', tagColor: '#00FF09' })
+    }
 
     const tradePreviews = await tradePreviewsPromise
-    const bestAvgEntryPriceMarket = tradePreviews.reduce(avgEntryPriceReduceCB)
-    marketTags.push({ market: bestAvgEntryPriceMarket.market, tagDesc: 'Best Price', tagColor: '#003CFF' })
+    const bestAvgEntryPriceMarket = tradePreviews.length > 0 ? tradePreviews.reduce(avgEntryPriceReduceCB) : undefined
+    if (bestAvgEntryPriceMarket) {
+      marketTags.push({ market: bestAvgEntryPriceMarket.market, tagDesc: 'Best Price', tagColor: '#003CFF' })
+    }
 
     return marketTags
   }

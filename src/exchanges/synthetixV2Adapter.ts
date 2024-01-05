@@ -151,8 +151,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     const markets = await this.getMarketsInfo(marketIds, opts)
 
     return markets.map((m) => {
-      const price = getTokenPriceD(m.indexToken.symbol, D18)!
-      return FixedNumber.fromValue(price.toString(), D18, D18)
+      const price = getTokenPriceD(m.indexToken.symbol, 30)!
+      return FixedNumber.fromValue(price.toString(), 30, 30)
     })
   }
 
@@ -315,7 +315,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       if (!validDenomination(o.marginDelta, true)) throw new Error('Margin delta must be token denominated')
 
       const marginDeltaBN = getBNFromFN(o.marginDelta.amount)
-      const sizeDeltaBN = getBNFromFN(o.sizeDelta.amount)
+      const sizeDeltaBN = getBNFromFN(o.sizeDelta.amount.toFormat(18))
 
       const marketAddress = decodeMarketId(m.marketId).protocolMarketId
       const marketPrice = getTokenPriceD(m.indexToken.symbol, 18)!
