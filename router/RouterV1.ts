@@ -126,7 +126,7 @@ export default class RouterV1 implements IRouterV1 {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getMarketPrices(marketIds, opts))
+      promises.push(adapter.getMarketPrices([marketId], opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -135,7 +135,7 @@ export default class RouterV1 implements IRouterV1 {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getMarketsInfo(marketIds, opts))
+      promises.push(adapter.getMarketsInfo([marketId], opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -144,7 +144,7 @@ export default class RouterV1 implements IRouterV1 {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getDynamicMarketMetadata(marketIds, opts))
+      promises.push(adapter.getDynamicMarketMetadata([marketId], opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -362,9 +362,7 @@ export default class RouterV1 implements IRouterV1 {
     const promises: Promise<CloseTradePreviewInfo[]>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
-      promises.push(
-        adapter.getCloseTradePreview(wallet, [position], [closePositionData[index]], opts)
-      )
+      promises.push(adapter.getCloseTradePreview(wallet, [position], [closePositionData[index]], opts))
     })
     const out = await Promise.all(promises)
     return out.flat()
@@ -381,13 +379,7 @@ export default class RouterV1 implements IRouterV1 {
     existingPos.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(
-        adapter.getUpdateMarginPreview(
-          wallet,
-          [isDeposit[index]],
-          [marginDelta[index]],
-          [existingPos[index]],
-          opts
-        )
+        adapter.getUpdateMarginPreview(wallet, [isDeposit[index]], [marginDelta[index]], [existingPos[index]], opts)
       )
     })
 
