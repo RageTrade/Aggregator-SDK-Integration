@@ -25,7 +25,8 @@ import {
   PreviewInfo,
   Market,
   GenericStaticMarketMetadata,
-  Protocol
+  Protocol,
+  AmountInfoInToken
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -52,7 +53,7 @@ import { PotentialTradeStatus } from '@kwenta/sdk/dist/types/futures'
 
 const SYN_V2 = 'SYNTHETIXV2'
 const sUSDAddr = '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
-const sUsd: Token = {
+export const sUsd: Token = {
   name: 'Synthetix USD',
   symbol: 'sUSD',
   decimals: 18,
@@ -64,6 +65,12 @@ const sUsd: Token = {
 const D18 = 18
 
 export default class SynthetixV2Adapter implements IAdapterV1 {
+  getAmountInfoType(): AmountInfoInToken {
+    return {
+      sizeDeltaInToken: true,
+      collateralDeltaInToken: true
+    }
+  }
   private sdk: KwentaSDK = new KwentaSDK({
     networkId: 10,
     provider: rpc[10]

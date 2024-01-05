@@ -1,4 +1,4 @@
-import { Chain } from 'viem'
+import { Chain, zeroAddress } from 'viem'
 import {
   Protocol,
   MarketInfo,
@@ -26,7 +26,8 @@ import {
   RouterAdapterMethod,
   PositionData,
   ClaimInfo,
-  ApiOpts
+  ApiOpts,
+  AmountInfoInToken
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -35,19 +36,27 @@ import GMXV2Service from '../src/exchanges/gmxv2'
 import { getPaginatedResponse } from '../src/common/helper'
 import { decodeMarketId } from '../src/common/markets'
 import { FixedNumber } from '../src/common/fixedNumber'
+import GmxV1Adapter from '../src/exchanges/gmxV1Adapter'
+import SynthetixV2Adapter from '../src/exchanges/synthetixV2Adapter'
 
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}
 
-  _checkAndGetProtocolId(marketId: Market['marketId']) {
+  _checkAndGetAdapter(marketId: Market['marketId']) {
     const { protocolId } = decodeMarketId(marketId)
     const adapter = this.adapters[protocolId]
     if (!adapter) throw new Error(`Protocol ${protocolId} not supported`)
-    return protocolId
+    return adapter
   }
 
   constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+    this.adapters[protocols.GMXV1.symbol] = new GmxV1Adapter()
+    this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
+  }
+
+  getAmountInfoType(): AmountInfoInToken {
+    throw new Error('Method not implemented.')
   }
 
   async getClaimHistory(
@@ -116,8 +125,8 @@ export default class RouterV1 implements IRouterV1 {
   async getMarketPrices(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<FixedNumber[]> {
     const promises = []
     for (const marketId of marketIds) {
-      const protocolId = this._checkAndGetProtocolId(marketId)
-      promises.push(this.adapters[protocolId].getMarketPrices(marketIds, opts))
+      const adapter = this._checkAndGetAdapter(marketId)
+      promises.push(adapter.getMarketPrices(marketIds, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -125,8 +134,8 @@ export default class RouterV1 implements IRouterV1 {
   async getMarketsInfo(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketInfo[]> {
     const promises = []
     for (const marketId of marketIds) {
-      const protocolId = this._checkAndGetProtocolId(marketId)
-      promises.push(this.adapters[protocolId].getMarketsInfo(marketIds, opts))
+      const adapter = this._checkAndGetAdapter(marketId)
+      promises.push(adapter.getMarketsInfo(marketIds, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -134,8 +143,8 @@ export default class RouterV1 implements IRouterV1 {
   async getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]> {
     const promises = []
     for (const marketId of marketIds) {
-      const protocolId = this._checkAndGetProtocolId(marketId)
-      promises.push(this.adapters[protocolId].getDynamicMarketMetadata(marketIds, opts))
+      const adapter = this._checkAndGetAdapter(marketId)
+      promises.push(adapter.getDynamicMarketMetadata(marketIds, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -143,8 +152,8 @@ export default class RouterV1 implements IRouterV1 {
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
-      const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].increasePosition([order], wallet, opts))
+      const adapter = this._checkAndGetAdapter(order.marketId)
+      promises.push(adapter.increasePosition([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -152,8 +161,8 @@ export default class RouterV1 implements IRouterV1 {
   async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
-      const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].updateOrder([order], wallet, opts))
+      const adapter = this._checkAndGetAdapter(order.marketId)
+      promises.push(adapter.updateOrder([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -161,8 +170,8 @@ export default class RouterV1 implements IRouterV1 {
   async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const promises = []
     for (const order of orderData) {
-      const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].cancelOrder([order], wallet, opts))
+      const adapter = this._checkAndGetAdapter(order.marketId)
+      promises.push(adapter.cancelOrder([order], wallet, opts))
     }
     const out = await Promise.all(promises)
     return out.flat()
@@ -175,8 +184,8 @@ export default class RouterV1 implements IRouterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     const promises: Promise<UnsignedTxWithMetadata[]>[] = []
     positionInfo.forEach((position, index) => {
-      const protocolId = this._checkAndGetProtocolId(position.marketId)
-      promises.push(this.adapters[protocolId].closePosition([position], [closePositionData[index]], wallet, opts))
+      const adapter = this._checkAndGetAdapter(position.marketId)
+      promises.push(adapter.closePosition([position], [closePositionData[index]], wallet, opts))
     })
     const out = await Promise.all(promises)
     return out.flat()
@@ -189,10 +198,8 @@ export default class RouterV1 implements IRouterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     const promises: Promise<UnsignedTxWithMetadata[]>[] = []
     positionInfo.forEach((position, index) => {
-      const protocolId = this._checkAndGetProtocolId(position.marketId)
-      promises.push(
-        this.adapters[protocolId].updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts)
-      )
+      const adapter = this._checkAndGetAdapter(position.marketId)
+      promises.push(adapter.updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts))
     })
     const out = await Promise.all(promises)
     return out.flat()
@@ -280,8 +287,8 @@ export default class RouterV1 implements IRouterV1 {
     const result: Record<PositionData['posId'], PaginatedRes<OrderInfo>> = {}
 
     for (const position of positionInfo) {
-      const protocolId = this._checkAndGetProtocolId(position.marketId)
-      promises.push(this.adapters[protocolId].getAllOrdersForPosition(wallet, [position], pageOptions, opts))
+      const adapter = this._checkAndGetAdapter(position.marketId)
+      promises.push(adapter.getAllOrdersForPosition(wallet, [position], pageOptions, opts))
     }
 
     const out = await Promise.all(promises)
@@ -340,8 +347,8 @@ export default class RouterV1 implements IRouterV1 {
   ): Promise<OpenTradePreviewInfo[]> {
     const promises: Promise<OpenTradePreviewInfo[]>[] = []
     orderData.forEach((order, index) => {
-      const protocolId = this._checkAndGetProtocolId(order.marketId)
-      promises.push(this.adapters[protocolId].getOpenTradePreview(wallet, [order], [existingPos[index]], opts))
+      const adapter = this._checkAndGetAdapter(order.marketId)
+      promises.push(adapter.getOpenTradePreview(wallet, [order], [existingPos[index]], opts))
     })
     const out = await Promise.all(promises)
     return out.flat()
@@ -354,9 +361,9 @@ export default class RouterV1 implements IRouterV1 {
   ): Promise<CloseTradePreviewInfo[]> {
     const promises: Promise<CloseTradePreviewInfo[]>[] = []
     positionInfo.forEach((position, index) => {
-      const protocolId = this._checkAndGetProtocolId(position.marketId)
+      const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(
-        this.adapters[protocolId].getCloseTradePreview(wallet, [position], [closePositionData[index]], opts)
+        adapter.getCloseTradePreview(wallet, [position], [closePositionData[index]], opts)
       )
     })
     const out = await Promise.all(promises)
@@ -372,9 +379,9 @@ export default class RouterV1 implements IRouterV1 {
     const promises: Promise<PreviewInfo[]>[] = []
 
     existingPos.forEach((position, index) => {
-      const protocolId = this._checkAndGetProtocolId(position.marketId)
+      const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(
-        this.adapters[protocolId].getUpdateMarginPreview(
+        adapter.getUpdateMarginPreview(
           wallet,
           [isDeposit[index]],
           [marginDelta[index]],

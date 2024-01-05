@@ -40,6 +40,7 @@ import {
 import { IAdapterV1 } from '../../src/interfaces/V1/IAdapterV1'
 import {
   AmountInfo,
+  AmountInfoInToken,
   ApiOpts,
   CancelOrder,
   ClaimInfo,
@@ -89,6 +90,12 @@ const GMX_V1_PROTOCOL_ID = 'GMXV1'
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 
 export default class GmxV1Adapter implements IAdapterV1 {
+  getAmountInfoType(): AmountInfoInToken {
+    return {
+      sizeDeltaInToken: false,
+      collateralDeltaInToken: true
+    }
+  }
   private provider = rpc[42161]
 
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'

@@ -35,6 +35,11 @@ export type Protocol = {
   protocolId: ProtocolId
 }
 
+export type AmountInfoInToken = {
+  sizeDeltaInToken: boolean
+  collateralDeltaInToken: boolean
+}
+
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
   chain: Chain
@@ -410,4 +415,7 @@ export interface IRouterAdapterBaseV1 {
   getTotalClaimableFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
+
+  //Helper
+  getAmountInfoType(): AmountInfoInToken
 }
