@@ -12,7 +12,7 @@ export const protocols = {
     supportedChains: [arbitrum]
   },
   SNXV2: {
-    symbol: 'SNXV2',
+    symbol: 'SYNTHETIXV2',
     supportedChains: [optimism]
   },
   GMXV2: {
