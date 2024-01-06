@@ -51,6 +51,8 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
 
   constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+    this.adapters[protocols.GMXV1.symbol] = new GmxV1Adapter()
+    this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
   }
 
   getAmountInfoType(): AmountInfoInToken {
