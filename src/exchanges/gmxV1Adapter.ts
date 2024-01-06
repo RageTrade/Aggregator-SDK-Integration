@@ -269,7 +269,15 @@ export default class GmxV1Adapter implements IAdapterV1 {
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
-    const priceRes = await this._getOraclePrices()
+    // 2 second cache for (almost) frequent queries
+    const sTimeP = getStaleTime(CACHE_SECOND * 2, opts)
+    const priceRes = await cacheFetch({
+      key: [GMXV1_CACHE_PREFIX, '_getOraclePrices'],
+      fn: () => this._getOraclePrices(),
+      staleTime: sTimeP,
+      cacheTime: sTimeP * CACHE_TIME_MULT,
+      opts
+    })
 
     return marketIds.map((marketId) => {
       const indexTokenAddress = decodeMarketId(marketId).protocolMarketId

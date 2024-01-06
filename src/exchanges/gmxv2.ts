@@ -91,7 +91,7 @@ import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
 import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
-import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX } from '../common/cache'
+import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX, CACHE_SECOND } from '../common/cache'
 import { PRECISION } from '../configs/gmxv2/lib/numbers'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
@@ -276,10 +276,19 @@ export default class GmxV2Service implements IAdapterV1 {
     return Object.values(marketProps).map((e: (typeof marketProps)[keyof typeof marketProps]) => e.marketInfo)
   }
 
-  async getMarketPrices(marketIds: string[]): Promise<FixedNumber[]> {
+  async getMarketPrices(marketIds: string[], opts?: ApiOpts): Promise<FixedNumber[]> {
     const marketsInfo = await this.getMarketsInfo(marketIds)
     const prices: FixedNumber[] = []
-    const priceRes = await this._getOraclePrices()
+
+    // 2 second cache for (almost) frequent queries
+    const sTimeP = getStaleTime(CACHE_SECOND * 2, opts)
+    const priceRes = await cacheFetch({
+      key: [GMXV2_CACHE_PREFIX, '_getOraclePrices'],
+      fn: () => this._getOraclePrices(),
+      staleTime: sTimeP,
+      cacheTime: sTimeP * CACHE_TIME_MULT,
+      opts
+    })
 
     for (const mInfo of marketsInfo) {
       const tokenPrice = this._getMinMaxPrice(mInfo.indexToken.address[42161]!, priceRes)
