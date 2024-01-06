@@ -11,7 +11,7 @@ import {
   PositionInfo,
   TradeDirection
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
-import RouterV1 from './RouterV1'
+import ConsolidatedRouterV1 from './ConsolidatedRouterV1'
 import {
   MarketTag,
   MarketWithMetadata,
@@ -25,7 +25,7 @@ import {
 import { IAdapterV1 } from '../src/interfaces/V1/IAdapterV1'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
-export default class AutoRouterV1 extends RouterV1 {
+export default class AutoRouterV1 extends ConsolidatedRouterV1 {
   private _logMarkets(markets: MarketInfo[]) {
     if (markets.length == 0) {
       console.log('## >> NO ELIGIBLE MARKETS << ##')
