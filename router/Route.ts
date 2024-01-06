@@ -27,9 +27,9 @@ export type RouteData = {
   opts?: RouteOptions
 }
 
-// TODO: Add optional collateral
 export type MarketTag = {
   market: MarketInfo
+  collateralToken: Token | undefined
   tagDesc: String
   tagColor: String
 }
@@ -39,9 +39,9 @@ export type MarketWithMetadata = {
   metadata: DynamicMarketMetadata
 }
 
-// TODO: Add optional collateral
 export type MarketWithPreview = {
   market: MarketInfo
+  collateralToken: Token
   preview: OpenTradePreviewInfo
 }
 
@@ -64,11 +64,16 @@ export function getBestFundingReduceCallback(tradeDirection: TradeDirection) {
         : curr
 }
 
-export function getReduceCallback(tradeDirection: TradeDirection) {
+export function getBestPriceReduceCallback(tradeDirection: TradeDirection) {
   if (tradeDirection == 'LONG')
     return (prev: MarketWithPreview, curr: MarketWithPreview) =>
       prev && prev.preview.avgEntryPrice.lt(curr.preview.avgEntryPrice) ? prev : curr
   else
     return (prev: MarketWithPreview, curr: MarketWithPreview) =>
       prev && prev.preview.avgEntryPrice.gt(curr.preview.avgEntryPrice) ? prev : curr
+}
+
+export function getMinFeeReduceCallback() {
+  return (prev: MarketWithPreview, curr: MarketWithPreview) =>
+    prev && prev.preview.fee.lt(curr.preview.fee) ? prev : curr
 }

@@ -53,7 +53,7 @@ import { PotentialTradeStatus } from '@kwenta/sdk/dist/types/futures'
 
 const SYN_V2 = 'SYNTHETIX_V2'
 const sUSDAddr = '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
-export const sUsd: Token = {
+export const sUSD: Token = {
   name: 'Synthetix USD',
   symbol: 'sUSD',
   decimals: 18,
@@ -107,8 +107,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
         marketId: encodeMarketId(optimism.id.toString(), SYN_V2, m.market!),
         chain: optimism,
         indexToken: this._getPartialToken(this._getTokenSymbol(m.asset!)), // TODO: convert to full token once we have index token list
-        longCollateral: [sUsd],
-        shortCollateral: [sUsd],
+        longCollateral: [sUSD],
+        shortCollateral: [sUSD],
         supportedOrderTypes: {
           LIMIT: false,
           MARKET: true,
@@ -315,10 +315,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       if (!validDenomination(o.marginDelta, true)) throw new Error('Margin delta must be token denominated')
 
       const marginDeltaBN = getBNFromFN(o.marginDelta.amount)
-      const sizeDeltaBN = getBNFromFN(o.sizeDelta.amount.toFormat(18))
+      const sizeDeltaBN = getBNFromFN(o.sizeDelta.amount.toFormat(D18))
 
       const marketAddress = decodeMarketId(m.marketId).protocolMarketId
-      const marketPrice = getTokenPriceD(m.indexToken.symbol, 18)!
+      const marketPrice = getTokenPriceD(m.indexToken.symbol, D18)!
 
       const futureMarket = m.metadata! as FuturesMarket
       const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
@@ -341,7 +341,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
         {
           sizeDelta: sizeDelta,
           marginDelta: wei(marginDeltaBN).sub(sUsdBalanceInMarket),
-          orderPrice: wei(getBNFromFN(o.triggerData!.triggerPrice))
+          orderPrice: wei(getBNFromFN(o.triggerData!.triggerPrice.toFormat(D18)))
         },
         opts
       )

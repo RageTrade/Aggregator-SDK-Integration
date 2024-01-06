@@ -19,7 +19,8 @@ import {
   RouteData,
   TokenWithPrice,
   getBestFundingReduceCallback,
-  getReduceCallback
+  getBestPriceReduceCallback,
+  getMinFeeReduceCallback
 } from './Route'
 import { IAdapterV1 } from '../src/interfaces/V1/IAdapterV1'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
@@ -136,12 +137,13 @@ export default class AutoRouterV1 extends RouterV1 {
     opts?: ApiOpts
   ): Promise<MarketWithPreview[]> {
     const wallet = ethers.ZeroAddress
-    const promises: Promise<[MarketInfo, OpenTradePreviewInfo[]]>[] = []
-    const collateralTokenSymbolMap = new Map<string, TokenWithPrice>()
+    const promises: Promise<[MarketInfo, Token, OpenTradePreviewInfo[]]>[] = []
+
+    const routeCollateralTokenSymbolMap = new Map<string, TokenWithPrice>()
     routeData.collateralTokens.forEach((tokenWithPrice) =>
-      collateralTokenSymbolMap.set(tokenWithPrice.token.symbol, tokenWithPrice)
+      routeCollateralTokenSymbolMap.set(tokenWithPrice.token.symbol, tokenWithPrice)
     )
-    const collateralTokenSymbols = Array.from(collateralTokenSymbolMap.keys())
+    const routeCollateralTokenSymbols = Array.from(routeCollateralTokenSymbolMap.keys())
     const marketPrices = await this.getMarketPrices(
       eligibleMarkets.map((m) => m.marketId),
       opts
@@ -153,32 +155,40 @@ export default class AutoRouterV1 extends RouterV1 {
       const adapter = this._checkAndGetAdapter(market.marketId)
       const marketCollateralTokens = routeData.direction == 'LONG' ? market.longCollateral : market.shortCollateral
 
-      // TODO: handle case where market has multiple eligible collateral tokens
-      const marketCollateralToken = marketCollateralTokens.find((token) =>
-        collateralTokenSymbols.includes(token.symbol)
+      const eligibleCollateralTokens = marketCollateralTokens.filter((token) =>
+        routeCollateralTokenSymbols.includes(token.symbol)
       )
 
-      if (!marketCollateralToken) {
-        console.log(`market ${market.marketId} has no eligible collateral tokens`)
+      if (eligibleCollateralTokens.length == 0) {
+        console.log(`## >> market ${market.marketId} has no eligible collateral tokens << ##`)
         continue
       }
 
-      const order = this._getCreateOrder(
-        adapter,
-        market,
-        routeData,
-        collateralTokenSymbolMap.get(marketCollateralToken.symbol)!,
-        marketPrice
-      )
+      for (let j = 0; j < eligibleCollateralTokens.length; j++) {
+        const collateralToken = eligibleCollateralTokens[j]
 
-      const marketWithPreviewPromise = Promise.all([market, adapter.getOpenTradePreview(wallet, [order], [], opts)])
-      promises.push(marketWithPreviewPromise)
+        const order = this._getCreateOrder(
+          adapter,
+          market,
+          routeData,
+          routeCollateralTokenSymbolMap.get(collateralToken.symbol)!,
+          marketPrice
+        )
+
+        const marketWithPreviewPromise = Promise.all([
+          market,
+          collateralToken,
+          adapter.getOpenTradePreview(wallet, [order], [], opts)
+        ])
+        promises.push(marketWithPreviewPromise)
+      }
     }
     const out = await Promise.all(promises)
     return out.map((tuple) => {
       return {
         market: tuple[0],
-        preview: tuple[1][0]
+        collateralToken: tuple[1],
+        preview: tuple[2][0]
       }
     })
   }
@@ -195,18 +205,40 @@ export default class AutoRouterV1 extends RouterV1 {
     const tradePreviewsPromise = this._getTradePreview(eligibleMarkets, routeData, opts)
 
     const fundingReduceCB = getBestFundingReduceCallback(routeData.direction)
-    const avgEntryPriceReduceCB = getReduceCallback(routeData.direction)
+    const avgEntryPriceReduceCB = getBestPriceReduceCallback(routeData.direction)
+    const minFeeReduceCB = getMinFeeReduceCallback()
 
     const dynamicMetadata = await dynamicMetadataPromise
     const bestFundingMarket = dynamicMetadata.length > 0 ? dynamicMetadata.reduce(fundingReduceCB) : undefined
     if (bestFundingMarket) {
-      marketTags.push({ market: bestFundingMarket.market, tagDesc: 'Best Funding', tagColor: '#00FF09' })
+      marketTags.push({
+        market: bestFundingMarket.market,
+        collateralToken: undefined,
+        tagDesc: 'Best Funding',
+        tagColor: '#00FF09'
+      })
     }
 
     const tradePreviews = await tradePreviewsPromise
+    // console.dir({ tps: tradePreviews.map((tp) => tp.preview) }, { depth: 4 })
     const bestAvgEntryPriceMarket = tradePreviews.length > 0 ? tradePreviews.reduce(avgEntryPriceReduceCB) : undefined
     if (bestAvgEntryPriceMarket) {
-      marketTags.push({ market: bestAvgEntryPriceMarket.market, tagDesc: 'Best Price', tagColor: '#003CFF' })
+      marketTags.push({
+        market: bestAvgEntryPriceMarket.market,
+        collateralToken: undefined,
+        tagDesc: 'Best Price',
+        tagColor: '#003CFF'
+      })
+    }
+
+    const bestMinFeeMarket = tradePreviews.length > 0 ? tradePreviews.reduce(minFeeReduceCB) : undefined
+    if (bestMinFeeMarket) {
+      marketTags.push({
+        market: bestMinFeeMarket.market,
+        collateralToken: bestMinFeeMarket.collateralToken,
+        tagDesc: 'Minimum Fee',
+        tagColor: '#FF0000'
+      })
     }
 
     return marketTags
@@ -220,7 +252,7 @@ export default class AutoRouterV1 extends RouterV1 {
     )
     const routes = await this._getTradePreview(eligibleMarkets, routeData, opts)
     console.log({ routes })
-    const reduceCallback = getReduceCallback(routeData.direction)
+    const reduceCallback = getBestPriceReduceCallback(routeData.direction)
     let bestRoute = routes.reduce(reduceCallback)
     return bestRoute.preview
   }

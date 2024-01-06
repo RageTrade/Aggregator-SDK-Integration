@@ -5,7 +5,7 @@ import { toAmountInfo } from '../src/common/helper'
 import { getGmxV2TokenBySymbol } from '../src/configs/gmxv2/gmxv2Tokens'
 import { BigNumber } from 'ethers'
 import { FixedNumber } from '../src/common/fixedNumber'
-import { sUsd } from '../src/exchanges/synthetixV2Adapter'
+import { sUSD } from '../src/exchanges/synthetixV2Adapter'
 import { getTokenPrice, getTokenPriceD, startHermesStreaming, startStreaming } from '../src/configs/pyth/prices'
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
@@ -20,15 +20,20 @@ async function testBestRoute() {
   const marketTokenSymbol = 'ETH'
   const indexToken = getGmxV2TokenBySymbol(marketTokenSymbol)
   const indexTokenPrice = getTokenPriceD(marketTokenSymbol, 30)!
-  const sizeDelta = '1'
-  const marginDelta = '1000'
+  const sizeDelta = '100'
+  const marginDelta = '5000'
+
+  const collateralTokenSymbols = ['USDC', 'sUSD', 'USDT', 'LINK', 'ETH']
+  const collateralTokensList = collateralTokenSymbols.map((symbol) => {
+    return {
+      token: symbol == 'sUSD' ? sUSD : getGmxV2TokenBySymbol(symbol),
+      price: FixedNumber.fromValue(getTokenPriceD(symbol, 30)!.toString(), 30, 30)
+    }
+  })
 
   const routeData: RouteData = {
     indexToken: indexToken,
-    collateralTokens: [
-      { token: getGmxV2TokenBySymbol('USDC'), price: FixedNumber.fromValue(parseUnits('1', 30), 30, 30) },
-      { token: sUsd, price: FixedNumber.fromValue(parseUnits('1', 30), 30, 30) }
-    ],
+    collateralTokens: collateralTokensList,
     direction: 'LONG',
     sizeDeltaToken: FixedNumber.fromValue(
       parseUnits(sizeDelta, indexToken.decimals),
@@ -40,10 +45,17 @@ async function testBestRoute() {
   }
   console.log({ routeData })
 
-  const tags = await router.getMarketTags(routeData)
+  const tags = await router.getMarketTags(routeData, {
+    bypassCache: true
+  })
 
   tags.forEach((tag) => {
-    console.log({ marketId: tag.market.marketId, tagDesc: tag.tagDesc, tagColor: tag.tagColor })
+    console.log({
+      marketId: tag.market.marketId,
+      token: tag.collateralToken,
+      tagDesc: tag.tagDesc,
+      tagColor: tag.tagColor
+    })
   })
 
   // console.time('getMarketTags-2')
@@ -53,7 +65,6 @@ async function testBestRoute() {
 
 testBestRoute()
   .then(() => {
-    console.log('done')
     process.exit(0)
   })
   .catch((err) => {
