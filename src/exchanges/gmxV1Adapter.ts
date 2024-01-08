@@ -603,24 +603,26 @@ export default class GmxV1Adapter implements IAdapterV1 {
       if (!isTrigger) {
         let remainingSize = position.size.sub(closeSizeBN)
 
-        // close all related tp/sl orders if order.sizeDelta > remaining size
-        const orders = positionOrders[pi.posId].result.filter(
-          (order) =>
-            (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
-            getBNFromFN(order.sizeDelta.amount).gt(remainingSize)
-        )
-        const cancelOrderTxs = await this.cancelOrder(
-          orders.map((o) => {
-            return {
-              marketId: o.marketId,
-              orderId: o.orderId,
-              type: o.orderType
-            }
-          }),
-          wallet,
-          opts
-        )
-        txs.push(...cancelOrderTxs)
+        if (positionOrders[pi.posId]) {
+          // close all related tp/sl orders if order.sizeDelta > remaining size
+          const orders = positionOrders[pi.posId].result.filter(
+            (order) =>
+              (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
+              getBNFromFN(order.sizeDelta.amount).gt(remainingSize)
+          )
+          const cancelOrderTxs = await this.cancelOrder(
+            orders.map((o) => {
+              return {
+                marketId: o.marketId,
+                orderId: o.orderId,
+                type: o.orderType
+              }
+            }),
+            wallet,
+            opts
+          )
+          txs.push(...cancelOrderTxs)
+        }
 
         // close position
         let collateralOutAddr = cpd.outputCollateral
