@@ -636,7 +636,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
         const path: string[] = []
         path.push(position.originalCollateralToken)
-        if (collateralOutAddr !== position.originalCollateralToken) {
+        if (
+          this.getTokenAddressString(collateralOutAddr!).toLowerCase() != position.originalCollateralToken.toLowerCase()
+        ) {
           path.push(this.getTokenAddressString(collateralOutAddr!))
         }
 
