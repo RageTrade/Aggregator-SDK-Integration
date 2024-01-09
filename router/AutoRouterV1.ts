@@ -116,7 +116,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       direction: routeData.direction,
       sizeDelta: sizeDeltaAmountInfo,
       marginDelta: marginDeltaAmountInfo,
-      triggerData: { triggerPrice: marketPrice, triggerAboveThreshold: true },
+      triggerData: { triggerPrice: marketPrice, triggerAboveThreshold: true, triggerActivatePrice: undefined },
       slippage: undefined,
       type: 'MARKET'
     }

@@ -27,7 +27,8 @@ import {
   PositionData,
   ClaimInfo,
   ApiOpts,
-  AmountInfoInToken
+  AmountInfoInToken,
+  AccountInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -55,6 +56,10 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
   }
 
+  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo> {
+    throw new Error('Method not implemented.')
+  }
+
   getAmountInfoType(): AmountInfoInToken {
     throw new Error('Method not implemented.')
   }
@@ -79,7 +84,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     return getPaginatedResponse(result, pageOptions)
   }
 
-  async init(swAddr: string|undefined, opts?: ApiOpts): Promise<void> {
+  async init(swAddr: string, opts?: ApiOpts): Promise<void> {
     const initPromises: Promise<void>[] = []
     for (const key in this.adapters) {
       initPromises.push(this.adapters[key].init(swAddr, opts))

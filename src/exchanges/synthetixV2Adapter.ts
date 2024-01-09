@@ -26,7 +26,8 @@ import {
   Market,
   GenericStaticMarketMetadata,
   Protocol,
-  AmountInfoInToken
+  AmountInfoInToken,
+  AccountInfo
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -66,12 +67,6 @@ const D18 = 18
 const opProvider = rpc[10]
 
 export default class SynthetixV2Adapter implements IAdapterV1 {
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      sizeDeltaInToken: true,
-      collateralDeltaInToken: true
-    }
-  }
   private sdk: KwentaSDK = new KwentaSDK({
     networkId: 10,
     provider: rpc[10]
@@ -118,12 +113,19 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
             LIMIT: false,
             MARKET: true,
             STOP_LOSS: false,
-            TAKE_PROFIT: false
+            TAKE_PROFIT: false,
+            STOP_LOSS_LIMIT: false,
+            TAKE_PROFIT_LIMIT: false,
+            REDUCE_LIMIT: false
           },
           supportedOrderActions: {
             CREATE: true,
             UPDATE: false,
             CANCEL: true
+          },
+          supportedModes: {
+            ISOLATED: true,
+            CROSS: false
           },
           marketSymbol: this._getTokenSymbol(m.asset!),
           metadata: m
@@ -422,6 +424,17 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
   }
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     throw new Error('Method not implemented.')
+  }
+
+  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo> {
+    throw new Error('Method not implemented.')
+  }
+
+  getAmountInfoType(): AmountInfoInToken {
+    return {
+      sizeDeltaInToken: true,
+      collateralDeltaInToken: true
+    }
   }
 
   ////////// Internal helper methods //////////

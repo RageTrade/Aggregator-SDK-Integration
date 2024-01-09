@@ -30,7 +30,8 @@ import {
   TradeData,
   TriggerData,
   OrderType,
-  AccountInfo
+  AccountInfo,
+  AmountInfoInToken
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
 import {
@@ -266,18 +267,23 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return dynamicMarketMetadata
   }
 
-  increasePosition(orderData: CreateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  increasePosition(
+    orderData: CreateOrder[],
+    wallet: string,
+    opts?: ApiOpts | undefined
+  ): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
   }
-  updateOrder(orderData: UpdateOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
   }
-  cancelOrder(orderData: CancelOrder[], opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
   }
   closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
+    wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
@@ -285,6 +291,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
+    wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
@@ -564,5 +571,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     }
 
     return accountInfo
+  }
+
+  getAmountInfoType(): AmountInfoInToken {
+    return {
+      sizeDeltaInToken: false,
+      collateralDeltaInToken: true
+    }
   }
 }

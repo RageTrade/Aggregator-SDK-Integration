@@ -52,7 +52,8 @@ async function getOpenTradePreview() {
     marginDelta: toAmountInfo(parseUnits('50.86', 18), 18, true),
     triggerData: {
       triggerPrice: marketPrice,
-      triggerAboveThreshold: false
+      triggerAboveThreshold: false,
+      triggerActivatePrice: undefined
     },
     collateral: sUsd,
     type: 'MARKET',
