@@ -830,4 +830,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     })
   }
+
+  getAmountInfoType(): AmountInfoInToken {
+    return {
+      sizeDeltaInToken: false,
+      collateralDeltaInToken: true
+    }
+  }
 }
