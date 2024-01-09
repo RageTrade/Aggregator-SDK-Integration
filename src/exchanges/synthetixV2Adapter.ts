@@ -321,30 +321,23 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       const marketPrice = getTokenPriceD(m.indexToken.symbol, D18)!
 
       const futureMarket = m.metadata! as FuturesMarket
-      const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
-      const sUsdBalanceInMarket = (await cacheFetch({
-        key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', wallet, m.marketId],
+      const sTimeAM = getStaleTime(CACHE_SECOND * 10, opts)
+      const accessibleMarginPromise = cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'accessibleMargin', wallet, futureMarket.market],
         fn: () =>
-          this.sdk.futures.getIdleMarginInMarketsCached(wallet, [futureMarket]).then((r) => r.totalIdleInMarkets),
-        staleTime: sTimeSB,
-        cacheTime: sTimeSB * CACHE_TIME_MULT,
+          this.sdk.futures
+            .getFuturesPositions(wallet, [
+              {
+                asset: futureMarket.asset!,
+                marketKey: futureMarket.marketKey!,
+                address: futureMarket.market!
+              }
+            ])
+            .then((r) => r[0].accessibleMargin.toBN()),
+        staleTime: sTimeAM,
+        cacheTime: sTimeAM * CACHE_TIME_MULT,
         opts
-      })) as Wei
-
-      let sizeDelta = wei(sizeDeltaBN)
-      sizeDelta = o.direction == 'LONG' ? sizeDelta : sizeDelta.neg()
-
-      const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
-        wallet,
-        getEnumEntryByValue(FuturesMarketKey, m.metadata.marketKey!)!,
-        marketAddress,
-        {
-          sizeDelta: sizeDelta,
-          marginDelta: wei(marginDeltaBN).sub(sUsdBalanceInMarket),
-          orderPrice: wei(getBNFromFN(o.triggerData!.triggerPrice.toFormat(D18)))
-        },
-        opts
-      )
+      }) as Promise<BigNumber>
 
       const sTimeKF = getStaleTime(CACHE_DAY, opts)
       const keeperFeePromise = cacheFetch({
@@ -355,13 +348,30 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
         opts
       }) as Promise<BigNumber>
 
-      const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
+      const [accessibleMargin, keeperFee] = await Promise.all([accessibleMarginPromise, keeperFeePromise])
+
+      const inputCollateralAmount = marginDeltaBN.gt(accessibleMargin.sub(keeperFee)) ? marginDeltaBN : ZERO
+
+      let sizeDelta = wei(sizeDeltaBN)
+      sizeDelta = o.direction == 'LONG' ? sizeDelta : sizeDelta.neg()
+
+      const tradePreview = await this.sdk.futures.getSimulatedIsolatedTradePreview(
+        wallet,
+        getEnumEntryByValue(FuturesMarketKey, m.metadata.marketKey!)!,
+        marketAddress,
+        {
+          sizeDelta: sizeDelta,
+          marginDelta: wei(inputCollateralAmount),
+          orderPrice: wei(getBNFromFN(o.triggerData!.triggerPrice.toFormat(D18)))
+        },
+        opts
+      )
 
       // We are using fillPrice instead of tradePreview.Price for priceimpact calculation
       // because tradePreview.Price takes into account existing position also and gives final average price basis that
       const fillPrice = tradePreview.fillPrice
       const priceImpactPer = marketPrice.sub(fillPrice).abs().mul(100).mul(BigNumber.from(10).pow(18)).div(marketPrice)
-      const leverage = marginDeltaBN.gt(ZERO) ? tradePreview.size.mul(marketPrice).div(marginDeltaBN).abs() : undefined
+      const leverage = tradePreview.size.mul(marketPrice!).div(tradePreview.margin.add(inputCollateralAmount)).abs()
 
       previews.push({
         marketId: o.marketId,

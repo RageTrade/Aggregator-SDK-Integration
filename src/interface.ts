@@ -298,7 +298,8 @@ export interface IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
   updateOrder(

@@ -655,7 +655,7 @@ async function synService() {
       '0x2f88a09ed4174750a464576FE49E586F90A34820',
       ss,
       sizeDelta,
-      '50.86',
+      '50',
       direction,
       // ethers.utils.parseUnits('2109', 18),
       marketPrice,
@@ -674,16 +674,18 @@ async function synService() {
   //     : tradePreview.averageEntryPrice!.mul(101).div(100);
   //   console.log("Trigger Price: ", triggerPrice.toString());
 
-  //   const createLongOrderTxs = await createLongOrder(
-  //     ss,
-  //     sizeDelta,
-  //     direction,
-  //     triggerPrice,
-  //     "50"
-  //   );
-  //   createLongOrderTxs.forEach((tx) => {
-  //     logObject("Tx: ", tx);
-  //   });
+  // const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+  // const createLongOrderTxs = await createLongOrder(
+  //   ss,
+  //   sizeDelta,
+  //   direction,
+  //   marketPrice,
+  //   '50',
+  //   '0x2f88a09ed4174750a464576FE49E586F90A34820'
+  // )
+  // createLongOrderTxs.forEach((tx) => {
+  //   logObject('Tx: ', tx)
+  // })
   //   //await fireTxs(createLongOrderTxs);
   // } else {
   //   console.log("Trade Will Fail".toUpperCase());
