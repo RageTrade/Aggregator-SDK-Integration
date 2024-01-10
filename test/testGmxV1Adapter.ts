@@ -145,23 +145,28 @@ async function getUpdateMarginPreview() {
 async function increasePosition() {
   await ex.init(w)
 
-  const createOrderData: CreateOrder = {
-    marketId: btcMarketId,
-    direction: 'LONG',
-    sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
-    marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
-    triggerData: {
-      // triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
-      triggerPrice: FixedNumber.fromValue(parseUnits('30000', 30).toString(), 30, 30),
-      triggerAboveThreshold: false
-    },
-    collateral: getTokenBySymbol('ETH'),
-    type: 'LIMIT',
-    slippage: 1
-  }
+  for (let i = 0; i < 10; i++) {
+    console.log('Iteration: ', i + 1)
+    console.time('increasePosition')
+    const createOrderData: CreateOrder = {
+      marketId: btcMarketId,
+      direction: 'LONG',
+      sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
+      marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
+      triggerData: {
+        // triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
+        triggerPrice: FixedNumber.fromValue(parseUnits('30000', 30).toString(), 30, 30),
+        triggerAboveThreshold: false
+      },
+      collateral: getTokenBySymbol('ETH'),
+      type: 'LIMIT',
+      slippage: 1
+    }
 
-  const txs = await ex.increasePosition([createOrderData], w)
-  console.dir({ txs }, { depth: 4 })
+    const txs = await ex.increasePosition([createOrderData], w)
+    console.timeEnd('increasePosition')
+    // console.dir({ txs }, { depth: 4 })
+  }
 }
 
 async function closePosition() {

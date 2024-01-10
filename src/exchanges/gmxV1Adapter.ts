@@ -83,6 +83,7 @@ import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
 import { getUsd } from '../configs/gmx/tokens'
 import { Provider } from '../interface'
+import { CACHE_HOUR, CACHE_MINUTE, GMX_COMMON_CACHE_PREFIX } from '../common/cache'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
@@ -104,6 +105,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
   private isPluginApprovedMap: Record<string, boolean> = {}
+  private tokenSpentApprovedMap: Record<string, boolean> = {}
 
   init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     return Promise.resolve()
@@ -113,11 +115,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async getReferralAndPluginApprovals(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async getReferralAndPluginApprovals(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check and set referral code
-    const referralCodeTxsPromise = this.checkAndSetReferralCodeTx(wallet)
+    const referralCodeTxsPromise = this.checkAndSetReferralCodeTx(wallet, opts)
 
     // check and set plugin approvals
     const pluginApprovalTxsPromise = this.checkAndGetPluginApprovalTxs(wallet)
@@ -180,12 +182,19 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async checkAndSetReferralCodeTx(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async checkAndSetReferralCodeTx(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
     // Fetch user referral code
-    const code = await referralStorage.traderReferralCodes(wallet)
+    const sTimeTRC = getStaleTime(CACHE_MINUTE * 5, opts)
+    const code = await cacheFetch({
+      key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+      fn: () => referralStorage.traderReferralCodes(wallet),
+      staleTime: sTimeTRC,
+      cacheTime: CACHE_HOUR,
+      opts
+    })
 
     if (code.toLowerCase() != this.REFERRAL_CODE.toLowerCase()) {
       // set referral code
@@ -344,7 +353,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet)))
+    let refAndPluginTxsPromise = this.getReferralAndPluginApprovals(wallet, opts)
 
     const provider = this.provider
 
@@ -369,7 +378,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
     // approval txs
     const tokenAddresses = Object.keys(approveMap)
     const approvalAmounts = Object.values(approveMap)
-    let approvalTxs = await this.getApproveRouterSpendTxs(tokenAddresses, approvalAmounts, wallet)
+    let approvalTxsPromise = this.getApproveRouterSpendTxs(tokenAddresses, approvalAmounts, wallet)
+
+    const [refAndPluginTxs, approvalTxs] = await Promise.all([refAndPluginTxsPromise, approvalTxsPromise])
+    txs.push(...refAndPluginTxs)
     txs.push(...approvalTxs)
 
     for (const order of orderData) {
@@ -490,7 +502,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
 
@@ -544,7 +556,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
 
@@ -580,7 +592,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
 
     const positionOrdersPromise = this.getAllOrdersForPosition(wallet, positionInfo, undefined, opts)
     const marketPricesPromise = this.getMarketPrices(
@@ -705,7 +717,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
 
     const marketPrices = await this.getMarketPrices(
       positionInfo.map((pi) => pi.marketId),
@@ -1715,14 +1727,30 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
     const router = getContract(ARBITRUM, 'Router')!
 
-    // get all allowances
-    const allowances = await Promise.all(
-      tokenAddresses.map((tokenAddress) => {
-        let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
+    let allowancePromises = []
+    for (let i = 0; i < tokenAddresses.length; i++) {
+      const tokenAddress = tokenAddresses[i]
+      const key = `${wallet}-${tokenAddress}-${router}`
 
-        return token.allowance(wallet, router)
-      })
-    )
+      if (this.tokenSpentApprovedMap[key]) {
+        allowancePromises.push(Promise.resolve(ethers.constants.MaxUint256))
+      } else {
+        let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
+        allowancePromises.push(token.allowance(wallet, router))
+      }
+    }
+    const allowances = await Promise.all(allowancePromises)
+
+    for (let i = 0; i < tokenAddresses.length; i++) {
+      const allowance = allowances[i]
+      const tokenAddress = tokenAddresses[i]
+      const key = `${wallet}-${tokenAddress}-${router}`
+
+      // if allowance is 80% of Max then set cache
+      if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+        this.tokenSpentApprovedMap[key] = true
+      }
+    }
 
     for (let i = 0; i < tokenAddresses.length; i++) {
       let tokenAddress = tokenAddresses[i]
@@ -1774,8 +1802,15 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata | undefined> {
     let token = IERC20__factory.connect(tokenAddress, this.provider)
     const router = getContract(ARBITRUM, 'Router')!
+    const key = `${wallet}-${tokenAddress}-${router}`
+
+    if (this.tokenSpentApprovedMap[key]) return
 
     let allowance = await token.allowance(wallet, router)
+    // if allowance is 80% of Max then set cache
+    if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+      this.tokenSpentApprovedMap[key] = true
+    }
 
     if (allowance.lt(allowanceAmount)) {
       let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)

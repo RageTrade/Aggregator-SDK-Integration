@@ -306,14 +306,16 @@ export interface IExchange {
     provider: Provider,
     market: ExtendedMarket | undefined,
     updatedOrder: Partial<ExtendedOrder>,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
   cancelOrder(
     provider: Provider,
     market: ExtendedMarket | undefined,
     order: Partial<ExtendedOrder>,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
   closePosition(
@@ -324,7 +326,8 @@ export interface IExchange {
     triggerPrice: BigNumber | undefined,
     triggerAboveThreshold: boolean | undefined,
     outputToken: Token | undefined,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
   updatePositionMargin(
@@ -333,7 +336,8 @@ export interface IExchange {
     marginAmount: BigNumber,
     isDeposit: boolean,
     transferToken: Token | undefined,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]>
 
   getMarketPrice(market: ExtendedMarket): Promise<NumberDecimal | null>

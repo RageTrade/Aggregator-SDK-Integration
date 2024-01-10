@@ -205,24 +205,34 @@ export default class SynthetixV2Service implements IExchange {
     if (order.inputCollateralAmount.gt(0)) {
       // get the accessible margin for the market
       const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
-      const accessibleMargin = (
-        await this.sdk.futures.getFuturesPositions(wallet, [
-          {
-            asset: futureMarket.asset!,
-            marketKey: futureMarket.marketKey!,
-            address: futureMarket.market!
-          }
-        ])
-      )[0].accessibleMargin.toBN()
+      const sTimeAM = getStaleTime(CACHE_SECOND * 10, opts)
+      const accessibleMarginPromise = cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'accessibleMargin', wallet, futureMarket.market],
+        fn: () =>
+          this.sdk.futures
+            .getFuturesPositions(wallet, [
+              {
+                asset: futureMarket.asset!,
+                marketKey: futureMarket.marketKey!,
+                address: futureMarket.market!
+              }
+            ])
+            .then((r) => r[0].accessibleMargin.toBN()),
+        staleTime: sTimeAM,
+        cacheTime: sTimeAM * CACHE_TIME_MULT,
+        opts
+      }) as Promise<BigNumber>
 
       const sTimeKF = getStaleTime(CACHE_DAY, opts)
-      const keeperFee = (await cacheFetch({
+      const keeperFeePromise = cacheFetch({
         key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
         fn: () => this.sdk.futures.getMinKeeperFee(),
         staleTime: sTimeKF,
         cacheTime: sTimeKF * CACHE_TIME_MULT,
         opts
-      })) as BigNumber
+      }) as Promise<BigNumber>
+
+      const [accessibleMargin, keeperFee] = await Promise.all([accessibleMarginPromise, keeperFeePromise])
 
       // deposit will only happen if (Collateral > Available Margin - keeperFees)
       if (order.inputCollateralAmount.gt(accessibleMargin.sub(keeperFee))) {

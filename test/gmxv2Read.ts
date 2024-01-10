@@ -115,16 +115,16 @@ async function increasePosition() {
 
   // direction x type combinations for eth and erc20
 
-  // orders.push({
-  //   type: 'MARKET',
-  //   marketId: ethMarketId,
-  //   direction: 'LONG',
-  //   sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30), 30), isTokenAmount: false },
-  //   marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02'), 18), isTokenAmount: true },
-  //   triggerData: undefined,
-  //   collateral: tokens.ETH,
-  //   slippage: undefined
-  // })
+  orders.push({
+    type: 'MARKET',
+    marketId: ethMarketId,
+    direction: 'LONG',
+    sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30).toString(), 30), isTokenAmount: false },
+    marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02').toString(), 18), isTokenAmount: true },
+    triggerData: undefined,
+    collateral: tokens.ETH,
+    slippage: undefined
+  })
   //
   // orders.push({
   //   type: 'LIMIT',
@@ -203,7 +203,12 @@ async function increasePosition() {
   //   slippage: 2
   // })
 
-  // console.dir(await ex.increasePosition(orders), { depth: 4 })
+  for (let i = 0; i < 10; i++) {
+    console.log('Iteration: ', i + 1)
+    console.time('increasePosition')
+    const txs = await ex.increasePosition(orders, '0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
+    console.timeEnd('increasePosition')
+  }
 
   // updateOrders.push({
   //   type: "LIMIT",
@@ -491,7 +496,7 @@ async function testStaleAndCacheTime() {
 //     process.exit(1)
 //   })
 
-testTradeHistory()
+increasePosition()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

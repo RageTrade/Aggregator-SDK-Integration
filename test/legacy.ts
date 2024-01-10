@@ -111,25 +111,12 @@ async function createLongOrder(
   direction: 'LONG' | 'SHORT',
   triggerPrice: BigNumber,
   inputCollateral: string,
-  wallet: string
+  wallet: string,
+  market: ExtendedMarket
 ): Promise<UnsignedTxWithMetadata[]> {
   const createOrderTxs = await ss.createOrder(
     provider,
-    {
-      mode: 'ASYNC',
-      longCollateral: [],
-      shortCollateral: [],
-      indexOrIdentifier: 'sETHPERP',
-      supportedOrderTypes: {
-        LIMIT_DECREASE: true,
-        LIMIT_INCREASE: true,
-        MARKET_INCREASE: true,
-        MARKET_DECREASE: true,
-        DEPOSIT: true,
-        WITHDRAW: true
-      },
-      protocolName: 'SYNTHETIX_V2'
-    },
+    market,
     {
       type: direction == 'LONG' ? 'MARKET_INCREASE' : 'MARKET_DECREASE',
       direction: direction,
@@ -647,26 +634,26 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  for (let i = 0; i < 1; i++) {
-    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-    // await delay(100)
-    // console.time('getTradePreview')
-    const tradePreview = await getTradePreview(
-      '0x2f88a09ed4174750a464576FE49E586F90A34820',
-      ss,
-      sizeDelta,
-      '50',
-      direction,
-      // ethers.utils.parseUnits('2109', 18),
-      marketPrice,
-      ethMarket
-    )
-    // console.timeEnd('getTradePreview')
-    console.log('\n')
-    // console.dir({ tradePreview }, { depth: 4 })
-    logObject('Trade Preview: ', tradePreview)
-    logObject('PriceImpact: ', tradePreview.priceImpact)
-  }
+  // for (let i = 0; i < 1; i++) {
+  //   const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+  //   // await delay(100)
+  //   // console.time('getTradePreview')
+  //   const tradePreview = await getTradePreview(
+  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
+  //     ss,
+  //     sizeDelta,
+  //     '50',
+  //     direction,
+  //     // ethers.utils.parseUnits('2109', 18),
+  //     marketPrice,
+  //     ethMarket
+  //   )
+  //   // console.timeEnd('getTradePreview')
+  //   console.log('\n')
+  //   // console.dir({ tradePreview }, { depth: 4 })
+  //   logObject('Trade Preview: ', tradePreview)
+  //   logObject('PriceImpact: ', tradePreview.priceImpact)
+  // }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -674,15 +661,22 @@ async function synService() {
   //     : tradePreview.averageEntryPrice!.mul(101).div(100);
   //   console.log("Trigger Price: ", triggerPrice.toString());
 
-  // const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-  // const createLongOrderTxs = await createLongOrder(
-  //   ss,
-  //   sizeDelta,
-  //   direction,
-  //   marketPrice,
-  //   '50',
-  //   '0x2f88a09ed4174750a464576FE49E586F90A34820'
-  // )
+  const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+
+  for (let i = 0; i < 10; i++) {
+    console.log('Iteration ', i + 1)
+    console.time('createOrder')
+    const createLongOrderTxs = await createLongOrder(
+      ss,
+      sizeDelta,
+      direction,
+      marketPrice,
+      '50',
+      '0x2f88a09ed4174750a464576FE49E586F90A34820',
+      ethMarket
+    )
+    console.timeEnd('createOrder')
+  }
   // createLongOrderTxs.forEach((tx) => {
   //   logObject('Tx: ', tx)
   // })
@@ -898,20 +892,20 @@ async function gmxService() {
     address: ethers.constants.AddressZero
   }
 
-  console.log('LEGACY')
-  for (let i = 0; i < 5; i++) {
-    console.time('getAllPositions')
-    const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
-    // allPositions.forEach((p, index) => {
-    //   console.log('Position: ', index)
-    //   for (const key in p) {
-    //     const value = p[key as keyof ExtendedPosition]
-    //     console.log(key, '=>', value)
-    //   }
-    //   console.log('----------------\n')
-    // })
-    console.timeEnd('getAllPositions')
-  }
+  // console.log('LEGACY')
+  // for (let i = 0; i < 5; i++) {
+  //   console.time('getAllPositions')
+  //   const allPositions = (await gs.getAllPositions(w, provider, undefined, undefined)).result
+  //   // allPositions.forEach((p, index) => {
+  //   //   console.log('Position: ', index)
+  //   //   for (const key in p) {
+  //   //     const value = p[key as keyof ExtendedPosition]
+  //   //     console.log(key, '=>', value)
+  //   //   }
+  //   //   console.log('----------------\n')
+  //   // })
+  //   console.timeEnd('getAllPositions')
+  // }
   // for (let i = 0; i < allPositions.length; i++) {
   //   logObject('Position: ', allPositions[i])
   //   // let positionOrders = await gs.getAllOrdersForPosition(w, provider, allPositions[i], undefined)
@@ -1046,22 +1040,32 @@ async function gmxService() {
   // await gs.setup(provider);
   // console.log("Finished Setup".toUpperCase());
 
-  // const txs = await gs.createOrder(provider, market, {
-  //   type: 'LIMIT_INCREASE',
-  //   direction: 'LONG',
-  //   inputCollateral: eth,
-  //   inputCollateralAmount: ethers.utils.parseUnits('0.014', eth.decimals),
-  //   sizeDelta: ethers.utils.parseUnits('52', 30),
-  //   isTriggerOrder: false,
-  //   referralCode: undefined,
-  //   trigger: {
-  //     // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
-  //     triggerPrice: ethers.utils.parseUnits('30000', 30),
-  //     triggerAboveThreshold: false
-  //   },
-  //   slippage: '1'
-  // })
-  // console.dir({ txs }, { depth: 4 })
+  for (let i = 0; i < 10; i++) {
+    console.log('Iteration ', i + 1)
+    console.time('createOrder')
+    const txs = await gs.createOrder(
+      provider,
+      market,
+      {
+        type: 'LIMIT_INCREASE',
+        direction: 'LONG',
+        inputCollateral: eth,
+        inputCollateralAmount: ethers.utils.parseUnits('0.014', eth.decimals),
+        sizeDelta: ethers.utils.parseUnits('52', 30),
+        isTriggerOrder: false,
+        referralCode: undefined,
+        trigger: {
+          // triggerPrice: BigNumber.from((await gs.getMarketPrice(market)).value),
+          triggerPrice: ethers.utils.parseUnits('30000', 30),
+          triggerAboveThreshold: false
+        },
+        slippage: '1'
+      },
+      w
+    )
+    console.timeEnd('createOrder')
+    // console.dir({ txs }, { depth: 4 })
+  }
 
   // const positions = await gs.getAllPositions(w, provider);
   // positions.forEach((p) => {

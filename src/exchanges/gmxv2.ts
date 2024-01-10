@@ -91,7 +91,17 @@ import { NATIVE_TOKEN_ADDRESS } from '../configs/gmxv2/config/tokens'
 import { useTokensData } from '../configs/gmxv2/tokens/useTokensData'
 import { getNextUpdateMarginValues } from '../configs/gmxv2/trade/utils/edit'
 import { useUserReferralInfo } from '../configs/gmxv2/referrals/hooks'
-import { CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX, CACHE_SECOND } from '../common/cache'
+import {
+  CACHE_DAY,
+  CACHE_TIME_MULT,
+  cacheFetch,
+  getStaleTime,
+  GMXV2_CACHE_PREFIX,
+  CACHE_SECOND,
+  CACHE_HOUR,
+  CACHE_MINUTE,
+  GMX_COMMON_CACHE_PREFIX
+} from '../common/cache'
 import { PRECISION } from '../configs/gmxv2/lib/numbers'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
@@ -154,6 +164,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private minCollateralUsd = parseUnits('11', 30)
 
+  private tokenSpentApprovedMap: Record<string, boolean> = {}
+
   async init(swAddr: string): Promise<void> {
     return Promise.resolve()
   }
@@ -162,12 +174,19 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async checkAndSetReferralCodeTx(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async checkAndSetReferralCodeTx(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
     // Fetch user referral code
-    const code = await referralStorage.traderReferralCodes(wallet)
+    const sTimeTRC = getStaleTime(CACHE_MINUTE * 5, opts)
+    const code = await cacheFetch({
+      key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+      fn: () => referralStorage.traderReferralCodes(wallet),
+      staleTime: sTimeTRC,
+      cacheTime: CACHE_HOUR,
+      opts
+    })
 
     if (code.toLowerCase() != REFERRAL_CODE.toLowerCase()) {
       // set referral code
@@ -357,10 +376,16 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async _approveIfNeeded(token: string, amount: bigint, wallet: string): Promise<UnsignedTxWithMetadata | undefined> {
     if (token == ethers.constants.AddressZero) return
-
     const tokenContract = IERC20__factory.connect(token, this.provider)
+    const key = `${wallet}-${token}-${this.ROUTER_ADDR}`
+
+    if (this.tokenSpentApprovedMap[key]) return
 
     const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
+    // if allowance is 80% of Max then
+    if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+      this.tokenSpentApprovedMap[key] = true
+    }
 
     if (allowance.gt(amount)) return
 
@@ -386,14 +411,16 @@ export default class GmxV2Service implements IAdapterV1 {
 
   ///// Action api's //////
 
-  async increasePosition(orderData: CreateOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    const referralCodeTxPromise = this.checkAndSetReferralCodeTx(wallet, opts)
 
     // checks for min collateral, min leverage should be done in preview or f/e
+    const marketsInfoPromise = useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
 
-    const { tokensData } = await useMarketsInfo(ARBITRUM, ethers.constants.AddressZero)
+    const [referralCodeTx, { tokensData }] = await Promise.all([referralCodeTxPromise, marketsInfoPromise])
+    txs.push(...referralCodeTx)
 
     for (const od of orderData) {
       // get market details
@@ -401,17 +428,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
       const indexToken = getGmxV2TokenByAddress(mkt.market.indexToken)
 
-      const price = BigNumber.from((await this.getMarketPrices([od.marketId]))[0].toFormat(18).value)
-        .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
-        // dividing by 18 because internal prices are 1e18 precision
-        .div(BigNumber.from(10).pow(18))
-
+      let marketPrice = ethers.constants.Zero
       let resolvedTriggerPrice = ethers.constants.Zero
 
       if (od.triggerData) {
-        // ensure type is limit
-        if (od.type !== 'LIMIT') throw new Error('trigger data supplied with non-limit order')
-
         // caller needs to ensure trigger price is in 18 decimals
         // trigger direction (above or below) is implicit from contract logic during increase
         resolvedTriggerPrice = BigNumber.from(od.triggerData.triggerPrice.toFormat(18).value)
@@ -419,9 +439,19 @@ export default class GmxV2Service implements IAdapterV1 {
           .div(BigNumber.from(10).pow(18))
       }
 
+      // f/e can also send marketPrice as od.triggerData.triggerPrice for market orders
+      if (!resolvedTriggerPrice.isZero() && od.type == 'MARKET') {
+        marketPrice = resolvedTriggerPrice
+      } else {
+        marketPrice = BigNumber.from((await this.getMarketPrices([od.marketId]))[0].toFormat(18).value)
+          .mul(BigNumber.from(10).pow(indexToken.priceDecimals))
+          // dividing by 18 because internal prices are 1e18 precision
+          .div(BigNumber.from(10).pow(18))
+      }
+
       // calculate acceptable price for trade
       const acceptablePrice = applySlippage(
-        od.triggerData ? resolvedTriggerPrice : price,
+        od.type === 'LIMIT' ? resolvedTriggerPrice : marketPrice,
         od.slippage ?? DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE,
         od.direction == 'LONG'
       )
@@ -520,10 +550,10 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async updateOrder(orderData: UpdateOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
     for (const od of orderData) {
       // get order details
@@ -596,10 +626,10 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async cancelOrder(orderData: CancelOrder[], wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
     for (const od of orderData) {
       // get order details
@@ -629,11 +659,12 @@ export default class GmxV2Service implements IAdapterV1 {
   async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
     if (positionInfo.length !== closePositionData.length) throw new Error('position close data mismatch')
 
@@ -766,11 +797,12 @@ export default class GmxV2Service implements IAdapterV1 {
   async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     const txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
     if (positionInfo.length !== updatePositionMarginData.length) throw new Error('position close data mismatch')
 
@@ -902,10 +934,10 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async claimFunding(wallet: string): Promise<UnsignedTxWithMetadata[]> {
+  async claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check and set referral code
-    txs.push(...(await this.checkAndSetReferralCodeTx(wallet)))
+    txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
     const { marketsInfoData, tokensData, pricesUpdatedAt } = await useMarketsInfo(ARBITRUM, wallet)
     const markets = Object.values(marketsInfoData ?? {})

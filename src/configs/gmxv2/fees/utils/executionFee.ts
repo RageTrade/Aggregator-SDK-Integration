@@ -18,7 +18,7 @@ import { hashString } from '../../hash'
 import { useMulticall } from '../../lib/multicall/useMulticall'
 import DataStore from '../../abis/DataStore.json'
 import { GAS_PRICE_ADJUSTMENT_MAP } from '../../../gmx/chains'
-import { cacheFetch } from '../../../../common/cache'
+import { CACHE_TIME_MULT, GMXV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../../../common/cache'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { CACHE_MINUTE } from '@kwenta/sdk/src/common/cache'
 
@@ -112,70 +112,77 @@ type GasLimitsResult = {
 }
 
 export async function useGasLimits(chainId: number): Promise<GasLimitsResult> {
-  const { data } = await useMulticall(chainId, 'useGasLimitsConfig', {
-    key: [],
+  const sTimeGL = getStaleTime(CACHE_MINUTE * 5)
+  const { data } = await cacheFetch({
+    key: [GMXV2_CACHE_PREFIX, 'gasLimits', chainId],
+    fn: () =>
+      useMulticall(chainId, 'useGasLimitsConfig', {
+        key: [],
 
-    refreshInterval: 60000,
+        refreshInterval: 60000,
 
-    request: () => ({
-      dataStore: {
-        contractAddress: getContract(chainId, 'DataStore'),
-        abi: DataStore.abi,
-        calls: {
-          depositSingleToken: {
-            methodName: 'getUint',
-            params: [depositGasLimitKey(true)]
-          },
-          depositMultiToken: {
-            methodName: 'getUint',
-            params: [depositGasLimitKey(false)]
-          },
-          withdrawalMultiToken: {
-            methodName: 'getUint',
-            params: [withdrawalGasLimitKey()]
-          },
-          singleSwap: {
-            methodName: 'getUint',
-            params: [singleSwapGasLimitKey()]
-          },
-          swapOrder: {
-            methodName: 'getUint',
-            params: [swapOrderGasLimitKey()]
-          },
-          increaseOrder: {
-            methodName: 'getUint',
-            params: [increaseOrderGasLimitKey()]
-          },
-          decreaseOrder: {
-            methodName: 'getUint',
-            params: [decreaseOrderGasLimitKey()]
-          },
-          estimatedFeeBaseGasLimit: {
-            methodName: 'getUint',
-            params: [ESTIMATED_GAS_FEE_BASE_AMOUNT]
-          },
-          estimatedFeeMultiplierFactor: {
-            methodName: 'getUint',
-            params: [ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR]
+        request: () => ({
+          dataStore: {
+            contractAddress: getContract(chainId, 'DataStore'),
+            abi: DataStore.abi,
+            calls: {
+              depositSingleToken: {
+                methodName: 'getUint',
+                params: [depositGasLimitKey(true)]
+              },
+              depositMultiToken: {
+                methodName: 'getUint',
+                params: [depositGasLimitKey(false)]
+              },
+              withdrawalMultiToken: {
+                methodName: 'getUint',
+                params: [withdrawalGasLimitKey()]
+              },
+              singleSwap: {
+                methodName: 'getUint',
+                params: [singleSwapGasLimitKey()]
+              },
+              swapOrder: {
+                methodName: 'getUint',
+                params: [swapOrderGasLimitKey()]
+              },
+              increaseOrder: {
+                methodName: 'getUint',
+                params: [increaseOrderGasLimitKey()]
+              },
+              decreaseOrder: {
+                methodName: 'getUint',
+                params: [decreaseOrderGasLimitKey()]
+              },
+              estimatedFeeBaseGasLimit: {
+                methodName: 'getUint',
+                params: [ESTIMATED_GAS_FEE_BASE_AMOUNT]
+              },
+              estimatedFeeMultiplierFactor: {
+                methodName: 'getUint',
+                params: [ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR]
+              }
+            }
+          }
+        }),
+        parseResponse: (res) => {
+          const results = res.data.dataStore
+
+          return {
+            depositSingleToken: BigNumber.from(results.depositSingleToken.returnValues[0]),
+            depositMultiToken: BigNumber.from(results.depositMultiToken.returnValues[0]),
+            withdrawalMultiToken: BigNumber.from(results.withdrawalMultiToken.returnValues[0]),
+            singleSwap: BigNumber.from(results.singleSwap.returnValues[0]),
+            swapOrder: BigNumber.from(results.swapOrder.returnValues[0]),
+            increaseOrder: BigNumber.from(results.increaseOrder.returnValues[0]),
+            decreaseOrder: BigNumber.from(results.decreaseOrder.returnValues[0]),
+            estimatedFeeBaseGasLimit: BigNumber.from(results.estimatedFeeBaseGasLimit.returnValues[0]),
+            estimatedFeeMultiplierFactor: BigNumber.from(results.estimatedFeeMultiplierFactor.returnValues[0])
           }
         }
-      }
-    }),
-    parseResponse: (res) => {
-      const results = res.data.dataStore
-
-      return {
-        depositSingleToken: BigNumber.from(results.depositSingleToken.returnValues[0]),
-        depositMultiToken: BigNumber.from(results.depositMultiToken.returnValues[0]),
-        withdrawalMultiToken: BigNumber.from(results.withdrawalMultiToken.returnValues[0]),
-        singleSwap: BigNumber.from(results.singleSwap.returnValues[0]),
-        swapOrder: BigNumber.from(results.swapOrder.returnValues[0]),
-        increaseOrder: BigNumber.from(results.increaseOrder.returnValues[0]),
-        decreaseOrder: BigNumber.from(results.decreaseOrder.returnValues[0]),
-        estimatedFeeBaseGasLimit: BigNumber.from(results.estimatedFeeBaseGasLimit.returnValues[0]),
-        estimatedFeeMultiplierFactor: BigNumber.from(results.estimatedFeeMultiplierFactor.returnValues[0])
-      }
-    }
+      }),
+    staleTime: sTimeGL,
+    cacheTime: sTimeGL * CACHE_TIME_MULT
   })
 
   return {
