@@ -287,6 +287,8 @@ export type PageOptions = {
 }
 
 export interface IExchange {
+  init(wallet: string | undefined): Promise<void>
+
   // something to indicate when setup should be called
   setup(provider: Provider): Promise<UnsignedTxWithMetadata[]>
 

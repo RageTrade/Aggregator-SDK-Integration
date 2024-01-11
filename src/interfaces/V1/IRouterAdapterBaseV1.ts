@@ -313,7 +313,7 @@ export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export interface IRouterAdapterBaseV1 {
   ///// Init Api //////
-  init(swAddr: string, opts?: ApiOpts): Promise<void>
+  init(wallet: string | undefined, opts?: ApiOpts): Promise<void>
 
   ///// Setup api //////
   setup(): Promise<UnsignedTxWithMetadata[]>
