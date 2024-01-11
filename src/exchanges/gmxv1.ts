@@ -80,6 +80,9 @@ import { ZERO } from '../common/constants'
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 
 export default class GmxV1Service implements IExchange {
+  init(wallet: string | undefined): Promise<void> {
+    return Promise.resolve()
+  }
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber

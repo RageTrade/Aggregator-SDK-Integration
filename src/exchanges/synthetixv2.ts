@@ -48,6 +48,9 @@ import { rpc } from '../common/provider'
 import { ZERO } from '../common/constants'
 
 export default class SynthetixV2Service implements IExchange {
+  init(wallet: string | undefined): Promise<void> {
+    return Promise.resolve()
+  }
   private opChainId = 10
   private sdk: KwentaSDK = new KwentaSDK({
     networkId: 10,
