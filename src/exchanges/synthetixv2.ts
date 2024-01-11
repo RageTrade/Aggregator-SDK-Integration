@@ -47,6 +47,8 @@ import { CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetc
 import { rpc } from '../common/provider'
 import { ZERO } from '../common/constants'
 
+const opProvider = rpc[10]
+
 export default class SynthetixV2Service implements IExchange {
   init(wallet: string | undefined): Promise<void> {
     return Promise.resolve()
@@ -67,6 +69,7 @@ export default class SynthetixV2Service implements IExchange {
   private decimals = 18
 
   async getMarketAddress(market: ExtendedMarket): Promise<string> {
+    await this.sdk.setProvider(opProvider)
     let marketAddress = market.address
     if (!marketAddress) {
       const targetMarket = await this.findMarketByKey(market.indexOrIdentifier)
@@ -79,6 +82,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async findMarketByKey(marketKey: string): Promise<FuturesMarket | undefined> {
+    await this.sdk.setProvider(opProvider)
     // find the market
     const markets = await this.sdk.futures.getMarkets()
     return markets.find((m) => m.marketKey == marketKey)
@@ -98,6 +102,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async supportedMarkets(network: { name: string; chainId: number }): Promise<ExtendedMarket[]> {
+    await this.sdk.setProvider(opProvider)
     const markets = (await this.sdk.futures.getProxiedMarkets()).filter((m) => !m.isSuspended)
 
     let extendedMarkets: ExtendedMarket[] = []
@@ -137,6 +142,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getDynamicMetadata(market: ExtendedMarket): Promise<DynamicMarketMetadata> {
+    await this.sdk.setProvider(opProvider)
     const futureMarket = await this.sdk.futures.getMarketMetadata(market.address!)
 
     return {
@@ -194,7 +200,7 @@ export default class SynthetixV2Service implements IExchange {
     if (order.sizeDelta.eq(0)) return txs
 
     const marketAddress = await this.getMarketAddress(market)
-    await this.sdk.setProvider(provider)
+    await this.sdk.setProvider(opProvider)
 
     if (order.inputCollateralAmount.gt(0)) {
       // withdraw unused collateral tx's
@@ -244,6 +250,7 @@ export default class SynthetixV2Service implements IExchange {
     order: Partial<ExtendedOrder>,
     wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     const marketAddress = await this.getMarketAddress(market)
 
     return [
@@ -267,6 +274,7 @@ export default class SynthetixV2Service implements IExchange {
     outputToken: Token | undefined,
     wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     if (closeSize.eq(0) || closeSize.gt(position.size)) {
       throw new Error('Invalid close size')
     }
@@ -327,6 +335,7 @@ export default class SynthetixV2Service implements IExchange {
     transferToken: Token | undefined,
     wallet: string
   ): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     let txs: UnsignedTxWithMetadata[] = []
 
     // validation
@@ -342,8 +351,6 @@ export default class SynthetixV2Service implements IExchange {
       let depositTx = await this.formulateDepositTx(position.marketAddress!, wei(marginAmount))
       txs.push(depositTx)
     } else {
-      await this.sdk.setProvider(provider)
-
       // no need to withdraw from 0-positioned markets
       // withdraw from the position
       let withdrawTx = await this.formulateWithdrawTx(position.marketAddress!, wei(marginAmount))
@@ -354,12 +361,14 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getFillPrice(market: ExtendedMarket, order: Order): Promise<BigNumber> {
+    await this.sdk.setProvider(opProvider)
     const marketAddress = await this.getMarketAddress(market)
 
     return this.getFillPriceInternal(marketAddress, wei(order.sizeDelta))
   }
 
   async getFillPriceInternal(marketAddress: string, sizeDelta: Wei) {
+    await this.sdk.setProvider(opProvider)
     let fillPrice = await this.sdk.futures.getFillPrice(marketAddress, sizeDelta)
 
     return fillPrice.price
@@ -376,7 +385,7 @@ export default class SynthetixV2Service implements IExchange {
     const marketAddress = await this.getMarketAddress(market)
     const marketPrice = await this.getMarketPrice(market)
 
-    await this.sdk.setProvider(provider)
+    await this.sdk.setProvider(opProvider)
 
     // const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
     // const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
@@ -450,7 +459,7 @@ export default class SynthetixV2Service implements IExchange {
     const marketAddress = position.marketAddress!
     const marketPrice = BigNumber.from(this.getMarketPriceByIdentifier(position.marketIdentifier!)!.value)
 
-    await this.sdk.setProvider(provider)
+    await this.sdk.setProvider(opProvider)
 
     const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
       user,
@@ -505,7 +514,7 @@ export default class SynthetixV2Service implements IExchange {
     const marketAddress = position.marketAddress!
     const marketPrice = BigNumber.from(this.getMarketPriceByIdentifier(position.marketIdentifier!)!.value)
     const isFullClose = closeSize.eq(position.size)
-    await this.sdk.setProvider(provider)
+    await this.sdk.setProvider(opProvider)
 
     // because simulation is for only (partial) close position
     let sizeDeltaIn = position.direction == 'LONG' ? wei(closeSize).neg() : wei(closeSize)
@@ -556,6 +565,7 @@ export default class SynthetixV2Service implements IExchange {
     orderIdentifier: OrderIdentifier, // serves as market identifier for SNX
     market: ExtendedMarket
   ): Promise<ExtendedOrder> {
+    await this.sdk.setProvider(opProvider)
     const marketAddress = await this.getMarketAddress(market)
 
     const orderData = await this.sdk.futures.getDelayedOrder(user, marketAddress)
@@ -625,6 +635,7 @@ export default class SynthetixV2Service implements IExchange {
 
   // will work as getOrder for SNX
   async getMarketOrders(user: string, market: ExtendedMarket): Promise<Array<ExtendedOrder>> {
+    await this.sdk.setProvider(opProvider)
     let ordersData: ExtendedOrder[] = []
 
     ordersData.push(await this.getOrder(user, market.indexOrIdentifier, market))
@@ -637,6 +648,7 @@ export default class SynthetixV2Service implements IExchange {
     market: OpenMarketData,
     user: string | undefined
   ): Promise<ExtendedPosition> {
+    await this.sdk.setProvider(opProvider)
     let extendedPosition: ExtendedPosition = {} as ExtendedPosition
     let marketAddress = await this.getMarketAddress(market)
 
@@ -663,7 +675,7 @@ export default class SynthetixV2Service implements IExchange {
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<ExtendedPosition>> {
     let extendedPositions: ExtendedPosition[] = []
-    await this.sdk.setProvider(rpc[10])
+    await this.sdk.setProvider(opProvider)
 
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets)
 
@@ -707,6 +719,7 @@ export default class SynthetixV2Service implements IExchange {
     openMarkets: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<TradeHistory>> {
+    await this.sdk.setProvider(opProvider)
     let trades: TradeHistory[] = []
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets)
 
@@ -743,6 +756,7 @@ export default class SynthetixV2Service implements IExchange {
     openMarkers: OpenMarkets | undefined,
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<LiquidationHistory>> {
+    await this.sdk.setProvider(opProvider)
     let trades: LiquidationHistory[] = []
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkers)
 
@@ -783,6 +797,7 @@ export default class SynthetixV2Service implements IExchange {
     user: string,
     openMarkets: OpenMarkets | undefined
   ): Promise<(MarketIdentifier & CollateralData)[]> {
+    await this.sdk.setProvider(opProvider)
     const result = await this.sdk.futures.getIdleMarginInMarketsCached(
       user,
       await this.getPartialFutureMarketsFromOpenMarkets(openMarkets)
@@ -796,6 +811,7 @@ export default class SynthetixV2Service implements IExchange {
   }
 
   async getAvailableSusdBalance(user: string, openMarkets: OpenMarkets | undefined): Promise<BigNumber> {
+    await this.sdk.setProvider(opProvider)
     const result = await this.sdk.futures.getIdleMarginInMarketsCached(
       user,
       await this.getPartialFutureMarketsFromOpenMarkets(openMarkets)
@@ -806,7 +822,7 @@ export default class SynthetixV2Service implements IExchange {
   async withdrawUnusedCollateral(user: string, provider: Provider): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
-    await this.sdk.setProvider(provider)
+    await this.sdk.setProvider(opProvider)
     // withdraw unused collateral tx's
     const idleMargins = await this.sdk.futures.getIdleMarginInMarkets(user)
 
@@ -832,6 +848,7 @@ export default class SynthetixV2Service implements IExchange {
     market: ExtendedMarket,
     depositAmount: BigNumber
   ): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     const marketAddress = await this.getMarketAddress(market)
     const depositTx = await this.formulateDepositTx(marketAddress, wei(depositAmount))
 
@@ -843,6 +860,7 @@ export default class SynthetixV2Service implements IExchange {
     market: ExtendedMarket,
     withdrawAmount: BigNumber
   ): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     const marketAddress = await this.getMarketAddress(market)
     let withdrawTx = await this.formulateWithdrawTx(marketAddress, wei(withdrawAmount))
 

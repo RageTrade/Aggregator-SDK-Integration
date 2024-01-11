@@ -63,6 +63,7 @@ export const sUSD: Token = {
   }
 }
 const D18 = 18
+const opProvider = rpc[10]
 
 export default class SynthetixV2Adapter implements IAdapterV1 {
   getAmountInfoType(): AmountInfoInToken {
@@ -76,11 +77,13 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     provider: rpc[10]
   })
 
-  init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
+  async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
+    await this.sdk.setProvider(opProvider)
     return Promise.resolve()
   }
 
-  setup(): Promise<UnsignedTxWithMetadata[]> {
+  async setup(): Promise<UnsignedTxWithMetadata[]> {
+    await this.sdk.setProvider(opProvider)
     return Promise.resolve([])
   }
 
