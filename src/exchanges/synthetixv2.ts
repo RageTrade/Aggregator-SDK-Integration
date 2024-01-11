@@ -453,8 +453,8 @@ export default class SynthetixV2Service implements IExchange {
 
     const [accessibleMargin, keeperFee] = await Promise.all([accessibleMarginPromise, keeperFeePromise])
 
-    const inputCollateralAmount = order.inputCollateralAmount.gt(accessibleMargin.sub(keeperFee))
-      ? order.inputCollateralAmount
+    const inputCollateralAmount = order.inputCollateralAmount.sub(accessibleMargin.add(keeperFee)).gt(ZERO)
+      ? order.inputCollateralAmount.sub(accessibleMargin.add(keeperFee))
       : ZERO
     // console.log('inputCollateralAmount: ', formatUnits(inputCollateralAmount, 18))
 
