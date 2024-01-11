@@ -654,6 +654,7 @@ async function synService() {
     console.log('\n')
     // console.dir({ tradePreview }, { depth: 4 })
     logObject('Trade Preview: ', tradePreview)
+    console.log('fee: ', formatAmount(tradePreview.fee, 18))
     // logObject('PriceImpact: ', tradePreview.priceImpact)
   }
 

@@ -439,7 +439,7 @@ export default class SynthetixV2Service implements IExchange {
       liqudationPrice: tradePreview.liqPrice,
       otherFees: tradePreview.fee,
       status: tradePreview.status,
-      fee: keeperFee as BigNumber,
+      fee: keeperFee.add(tradePreview.fee),
       leverage: tradePreview.margin.gt(ZERO)
         ? tradePreview.size.mul(marketPrice!.value).div(tradePreview.margin).abs()
         : ZERO,
