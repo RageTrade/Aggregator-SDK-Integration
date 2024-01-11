@@ -663,6 +663,7 @@ export default class SynthetixV2Service implements IExchange {
     pageOptions: PageOptions | undefined
   ): Promise<PaginatedRes<ExtendedPosition>> {
     let extendedPositions: ExtendedPosition[] = []
+    await this.sdk.setProvider(rpc[10])
 
     let markets = await this.getExtendedMarketsFromOpenMarkets(openMarkets)
 
