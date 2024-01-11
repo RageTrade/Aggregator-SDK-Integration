@@ -26,7 +26,7 @@ import { FuturesMarketKey } from '@kwenta/sdk/dist/types/futures'
 import { logObject } from '../src/common/helper'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD, startStreaming, startHermesStreaming } from '../src/configs/pyth/prices'
-import { PositionInfo } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { ApiOpts, PositionInfo } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../src/common/provider'
 
 config()
@@ -74,7 +74,8 @@ async function getTradePreview(
   marginDelta: string,
   direction: 'LONG' | 'SHORT',
   triggerPrice: BigNumber,
-  market: ExtendedMarket
+  market: ExtendedMarket,
+  opts?: ApiOpts
 ) {
   const tradePreview = await ss.getTradePreview(
     user,
@@ -100,7 +101,7 @@ async function getTradePreview(
       slippage: '1'
     },
     undefined,
-    { bypassCache: true, overrideStaleTime: undefined }
+    opts
   )
   return tradePreview
 }
@@ -503,7 +504,7 @@ async function synService() {
   //   }
   // }
 
-  const sizeDelta = '0.05'
+  const sizeDelta = '50'
   const direction = 'LONG'
   const marketAddress = '0x2b3bb4c683bfc5239b029131eef3b1d214478d93'
 
@@ -634,26 +635,27 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  // for (let i = 0; i < 1; i++) {
-  //   const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-  //   // await delay(100)
-  //   // console.time('getTradePreview')
-  //   const tradePreview = await getTradePreview(
-  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
-  //     ss,
-  //     sizeDelta,
-  //     '50',
-  //     direction,
-  //     // ethers.utils.parseUnits('2109', 18),
-  //     marketPrice,
-  //     ethMarket
-  //   )
-  //   // console.timeEnd('getTradePreview')
-  //   console.log('\n')
-  //   // console.dir({ tradePreview }, { depth: 4 })
-  //   logObject('Trade Preview: ', tradePreview)
-  //   logObject('PriceImpact: ', tradePreview.priceImpact)
-  // }
+  for (let i = 0; i < 1; i++) {
+    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+    // await delay(100)
+    // console.time('getTradePreview')
+    const tradePreview = await getTradePreview(
+      '0x2f88a09ed4174750a464576FE49E586F90A34820',
+      ss,
+      sizeDelta,
+      '40000',
+      direction,
+      // ethers.utils.parseUnits('2109', 18),
+      marketPrice,
+      ethMarket
+      // { bypassCache: true, overrideStaleTime: undefined }
+    )
+    // console.timeEnd('getTradePreview')
+    console.log('\n')
+    // console.dir({ tradePreview }, { depth: 4 })
+    logObject('Trade Preview: ', tradePreview)
+    // logObject('PriceImpact: ', tradePreview.priceImpact)
+  }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -661,25 +663,26 @@ async function synService() {
   //     : tradePreview.averageEntryPrice!.mul(101).div(100);
   //   console.log("Trigger Price: ", triggerPrice.toString());
 
-  const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+  // const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
 
-  for (let i = 0; i < 10; i++) {
-    console.log('Iteration ', i + 1)
-    console.time('createOrder')
-    const createLongOrderTxs = await createLongOrder(
-      ss,
-      sizeDelta,
-      direction,
-      marketPrice,
-      '50',
-      '0x2f88a09ed4174750a464576FE49E586F90A34820',
-      ethMarket
-    )
-    console.timeEnd('createOrder')
-  }
-  // createLongOrderTxs.forEach((tx) => {
-  //   logObject('Tx: ', tx)
-  // })
+  // for (let i = 0; i < 2; i++) {
+  //   console.log('Iteration ', i + 1)
+  //   console.time('createOrder')
+  //   const createLongOrderTxs = await createLongOrder(
+  //     ss,
+  //     sizeDelta,
+  //     direction,
+  //     marketPrice,
+  //     '50',
+  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
+  //     ethMarket
+  //   )
+  //   console.timeEnd('createOrder')
+  //   createLongOrderTxs.forEach((tx) => {
+  //     logObject('Tx: ', tx)
+  //   })
+  // }
+
   //   //await fireTxs(createLongOrderTxs);
   // } else {
   //   console.log("Trade Will Fail".toUpperCase());
@@ -1040,6 +1043,8 @@ async function gmxService() {
   // await gs.setup(provider);
   // console.log("Finished Setup".toUpperCase());
 
+  // PREWARM cache
+  await gs.init(w)
   for (let i = 0; i < 10; i++) {
     console.log('Iteration ', i + 1)
     console.time('createOrder')

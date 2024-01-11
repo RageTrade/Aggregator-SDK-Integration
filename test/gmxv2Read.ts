@@ -108,8 +108,8 @@ async function increasePosition() {
   const cancelOrders: CancelOrder[] = []
 
   await ex.init('0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
-  await ex.setup()
-  await ex.supportedMarkets(ex.supportedChains())
+  // await ex.setup()
+  // await ex.supportedMarkets(ex.supportedChains())
 
   // pass size delta in usd terms and margin delta in token terms
 
@@ -121,7 +121,10 @@ async function increasePosition() {
     direction: 'LONG',
     sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30).toString(), 30), isTokenAmount: false },
     marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02').toString(), 18), isTokenAmount: true },
-    triggerData: undefined,
+    triggerData: {
+      triggerPrice: (await ex.getMarketPrices([ethMarketId]))[0],
+      triggerAboveThreshold: true
+    },
     collateral: tokens.ETH,
     slippage: undefined
   })

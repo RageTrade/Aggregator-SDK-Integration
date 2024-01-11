@@ -50,9 +50,6 @@ import { ZERO } from '../common/constants'
 const opProvider = rpc[10]
 
 export default class SynthetixV2Service implements IExchange {
-  init(wallet: string | undefined): Promise<void> {
-    return Promise.resolve()
-  }
   private opChainId = 10
   private sdk: KwentaSDK = new KwentaSDK({
     networkId: 10,
@@ -67,6 +64,10 @@ export default class SynthetixV2Service implements IExchange {
   }
   private protocolIdentifier: PROTOCOL_NAME = 'SYNTHETIX_V2'
   private decimals = 18
+
+  async init(wallet: string | undefined) {
+    await this._preWarmCache(wallet)
+  }
 
   async getMarketAddress(market: ExtendedMarket): Promise<string> {
     await this.sdk.setProvider(opProvider)
@@ -412,7 +413,7 @@ export default class SynthetixV2Service implements IExchange {
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -473,7 +474,7 @@ export default class SynthetixV2Service implements IExchange {
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -531,7 +532,7 @@ export default class SynthetixV2Service implements IExchange {
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_DAY, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -998,5 +999,15 @@ export default class SynthetixV2Service implements IExchange {
       default:
         return ''
     }
+  }
+
+  async _preWarmCache(wallet: string | undefined) {
+    // keeper fee
+    await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+      fn: () => this.sdk.futures.getMinKeeperFee(),
+      staleTime: 0,
+      cacheTime: 0
+    })
   }
 }

@@ -77,8 +77,9 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     provider: rpc[10]
   })
 
-  async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
+  async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
     await this.sdk.setProvider(opProvider)
+    await this._preWarmCache(wallet)
     return Promise.resolve()
   }
 
@@ -342,7 +343,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       //   opts
       // }) as Promise<BigNumber>
 
-      const sTimeKF = getStaleTime(CACHE_DAY, opts)
+      const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
       const keeperFeePromise = cacheFetch({
         key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
         fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -422,6 +423,24 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
   }
 
   ////////// Internal helper methods //////////
+
+  async _preWarmCache(wallet: string | undefined): Promise<void> {
+    // keeper fee
+    await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+      fn: () => this.sdk.futures.getMinKeeperFee(),
+      staleTime: 0,
+      cacheTime: 0
+    })
+
+    // all markets
+    await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'getProxiedMarkets'],
+      fn: () => this.sdk.futures.getProxiedMarkets().then((m) => m.filter((m) => !m.isSuspended)),
+      staleTime: 0,
+      cacheTime: 0
+    })
+  }
 
   // to be used because we don't have index token list for snx
   private _getPartialToken(symbol: string): Token {

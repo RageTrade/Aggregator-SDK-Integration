@@ -75,14 +75,12 @@ import {
   getStaleTime
 } from '../common/cache'
 import { ZERO } from '../common/constants'
+import { rpc } from '../common/provider'
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 
 export default class GmxV1Service implements IExchange {
-  init(wallet: string | undefined): Promise<void> {
-    return Promise.resolve()
-  }
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber
@@ -114,6 +112,10 @@ export default class GmxV1Service implements IExchange {
       }
       return tokenIn
     })
+
+  async init(wallet: string | undefined): Promise<void> {
+    await this._preWarmCache(wallet)
+  }
 
   async getDynamicMetadata(market: ExtendedMarket, provider: Provider, opts?: ApiOpts): Promise<DynamicMarketMetadata> {
     const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
@@ -1639,5 +1641,53 @@ export default class GmxV1Service implements IExchange {
     const ethRequired = this.EXECUTION_FEE.add(extraEthReq || ZERO)
 
     if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
+  }
+
+  async _preWarmCache(wallet: string | undefined) {
+    const provider = rpc[ARBITRUM]
+
+    // funding Rates
+    const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
+    const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
+    const whitelistedTokens = V1_TOKENS[ARBITRUM]
+    const tokenAddresses = whitelistedTokens.map((x) => x.address)
+    await cacheFetch({
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
+      fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
+      staleTime: 0,
+      cacheTime: 0
+    })
+
+    if (wallet) {
+      // trader referral code
+      const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, provider)
+      await cacheFetch({
+        key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+        fn: () => referralStorage.traderReferralCodes(wallet),
+        staleTime: 0,
+        cacheTime: 0
+      })
+
+      // token approvals
+      for (const tokenAddress of tokenAddresses) {
+        if (tokenAddress == ethers.constants.AddressZero) continue
+
+        let token = IERC20__factory.connect(tokenAddress, provider)
+        const router = getContract(ARBITRUM, 'Router')!
+        const key = `${wallet}-${tokenAddress}-${router}`
+
+        let allowance = await token.allowance(wallet, router)
+        // if allowance is 80% of Max then set cache
+        if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+          this.tokenSpentApprovedMap[key] = true
+        }
+      }
+    }
   }
 }

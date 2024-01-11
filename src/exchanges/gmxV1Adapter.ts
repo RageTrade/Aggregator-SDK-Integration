@@ -107,7 +107,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
   private isPluginApprovedMap: Record<string, boolean> = {}
   private tokenSpentApprovedMap: Record<string, boolean> = {}
 
-  init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
+  async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
+    await this._preWarmCache(wallet)
     return Promise.resolve()
   }
 
@@ -1821,6 +1822,54 @@ export default class GmxV1Adapter implements IAdapterV1 {
         chainId: ARBITRUM,
         heading: 'Approve Router spend',
         desc: 'Approve Router spend'
+      }
+    }
+  }
+
+  async _preWarmCache(wallet: string | undefined) {
+    const provider = rpc[ARBITRUM]
+
+    // funding Rates
+    const reader = Reader__factory.connect(getContract(ARBITRUM, 'Reader')!, provider)
+    const nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')
+    const whitelistedTokens = V1_TOKENS[ARBITRUM]
+    const tokenAddresses = whitelistedTokens.map((x) => x.address)
+    await cacheFetch({
+      key: [
+        GMXV1_CACHE_PREFIX,
+        'getFundingRates',
+        nativeTokenAddress!,
+        tokenAddresses.join('-'),
+        getContract(ARBITRUM, 'Vault')!
+      ],
+      fn: () => reader.getFundingRates(getContract(ARBITRUM, 'Vault')!, nativeTokenAddress!, tokenAddresses),
+      staleTime: 0,
+      cacheTime: 0
+    })
+
+    if (wallet) {
+      // trader referral code
+      const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, provider)
+      await cacheFetch({
+        key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+        fn: () => referralStorage.traderReferralCodes(wallet),
+        staleTime: 0,
+        cacheTime: 0
+      })
+
+      // token approvals
+      for (const tokenAddress of tokenAddresses) {
+        if (tokenAddress == ethers.constants.AddressZero) continue
+
+        let token = IERC20__factory.connect(tokenAddress, provider)
+        const router = getContract(ARBITRUM, 'Router')!
+        const key = `${wallet}-${tokenAddress}-${router}`
+
+        let allowance = await token.allowance(wallet, router)
+        // if allowance is 80% of Max then set cache
+        if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+          this.tokenSpentApprovedMap[key] = true
+        }
       }
     }
   }

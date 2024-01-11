@@ -44,7 +44,12 @@ import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN, validDenomination } from '../common/helper'
 import { Chain, arbitrum } from 'viem/chains'
-import { GMX_V2_TOKEN, GMX_V2_TOKENS, getGmxV2TokenByAddress } from '../configs/gmxv2/gmxv2Tokens'
+import {
+  GMX_V2_TOKEN,
+  GMX_V2_TOKENS,
+  getGmxV2TokenByAddress,
+  GMX_V2_COLLATERAL_TOKENS
+} from '../configs/gmxv2/gmxv2Tokens'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { hashedPositionKey } from '../configs/gmxv2/config/dataStore'
 import { ContractMarketPrices } from '../configs/gmxv2/markets/types'
@@ -105,6 +110,7 @@ import {
 import { PRECISION } from '../configs/gmxv2/lib/numbers'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
+import { useMarkets } from '../configs/gmxv2/markets/useMarkets'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -166,7 +172,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private tokenSpentApprovedMap: Record<string, boolean> = {}
 
-  async init(swAddr: string): Promise<void> {
+  async init(wallet: string | undefined): Promise<void> {
+    await this._preWarmCache(wallet)
     return Promise.resolve()
   }
 
@@ -1984,5 +1991,55 @@ export default class GmxV2Service implements IAdapterV1 {
     const ethBalance = await provider.getBalance(wallet)
 
     if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
+  }
+
+  async _preWarmCache(wallet: string | undefined) {
+    // markets
+    await this._cachedMarkets({ bypassCache: true })
+
+    // usePositionsConstants - contains minCollateralUsd and minPositionSizeUsd
+    await usePositionsConstants(ARBITRUM, { bypassCache: true })
+
+    // useMarkets - contains marketsInfoData
+    await useMarkets(ARBITRUM, { bypassCache: true })
+
+    // gasPrice and gasLimits
+    await useGasPrice(ARBITRUM)
+    await useGasLimits(ARBITRUM)
+
+    if (wallet) {
+      // trader referral code
+      const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
+      await cacheFetch({
+        key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+        fn: () => referralStorage.traderReferralCodes(wallet),
+        staleTime: 0,
+        cacheTime: 0
+      })
+
+      // token approvals
+      const tokenAddresses = Object.values(GMX_V2_COLLATERAL_TOKENS).map((t) => t.address[42161]!)
+      for (const tokenAddress of tokenAddresses) {
+        if (tokenAddress == ethers.constants.AddressZero) continue
+
+        const tokenContract = IERC20__factory.connect(tokenAddress, this.provider)
+        const key = `${wallet}-${tokenAddress}-${this.ROUTER_ADDR}`
+
+        const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
+        // if allowance is 80% of Max then set cache
+        if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
+          this.tokenSpentApprovedMap[key] = true
+        }
+      }
+
+      // useTokenInfo - contain token balances
+      await useTokensData(ARBITRUM, wallet, { bypassCache: true })
+
+      // useUserReferralInfo - contains trader referral code, tier, and discount info
+      await useUserReferralInfo(ARBITRUM, wallet, { bypassCache: true })
+
+      // useTokensData - contains token balances and data
+      await useTokensData(ARBITRUM, wallet, { bypassCache: true })
+    }
   }
 }

@@ -206,7 +206,6 @@ const provider = new StaticJsonRpcProvider('https://arb1.arbitrum.io/rpc')
 
 export async function useGasPrice(chainId: number) {
   const executionFeeConfig = EXECUTION_FEE_CONFIG_V2[chainId]
-
   const data = await cacheFetch({
     key: ['gasPrice', chainId, executionFeeConfig.shouldUseMaxPriorityFeePerGas, 1000],
     fn: async () => {
