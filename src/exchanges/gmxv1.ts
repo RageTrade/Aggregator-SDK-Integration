@@ -952,7 +952,7 @@ export default class GmxV1Service implements IExchange {
       }
 
       // close position
-      let collateralOutAddr = outputToken ? outputToken.address : position.originalCollateralToken
+      let collateralOutAddr = outputToken ? outputToken.address : position.originalCollateralToken!
 
       let fillPrice = await this.getMarketPriceByIndexAddress(indexAddress)
 
@@ -962,8 +962,8 @@ export default class GmxV1Service implements IExchange {
 
       const path: string[] = []
       path.push(position.collateralToken.address)
-      if (collateralOutAddr !== position.collateralToken.address) {
-        path.push(this.getTokenAddressString(collateralOutAddr!))
+      if (this.getTokenAddressString(collateralOutAddr) !== position.collateralToken.address) {
+        path.push(this.getTokenAddressString(collateralOutAddr))
       }
 
       let createOrderTx = await positionRouter.populateTransaction.createDecreasePosition(
