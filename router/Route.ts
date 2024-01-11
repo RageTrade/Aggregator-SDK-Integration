@@ -49,7 +49,7 @@ export function getBestFundingReduceCallback(tradeDirection: TradeDirection) {
   if (tradeDirection == 'LONG')
     return (prev: MarketWithMetadata, curr: MarketWithMetadata) =>
       prev &&
-      addFN(prev.metadata.longFundingRate, prev.metadata.longBorrowRate).lt(
+      addFN(prev.metadata.longFundingRate, prev.metadata.longBorrowRate).gt(
         addFN(curr.metadata.longFundingRate, curr.metadata.longBorrowRate)
       )
         ? prev
@@ -57,7 +57,7 @@ export function getBestFundingReduceCallback(tradeDirection: TradeDirection) {
   else
     return (prev: MarketWithMetadata, curr: MarketWithMetadata) =>
       prev &&
-      addFN(prev.metadata.shortFundingRate, prev.metadata.shortBorrowRate).lt(
+      addFN(prev.metadata.shortFundingRate, prev.metadata.shortBorrowRate).gt(
         addFN(curr.metadata.shortFundingRate, curr.metadata.shortBorrowRate)
       )
         ? prev

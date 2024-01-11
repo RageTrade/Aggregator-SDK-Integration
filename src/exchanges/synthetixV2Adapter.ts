@@ -206,8 +206,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
           D18,
           D18
         ),
-        longFundingRate: FixedNumber.fromValue(futureMarket.currentFundingRate.toBN().toString(), D18, D18),
-        shortFundingRate: FixedNumber.fromValue(futureMarket.currentFundingRate.neg().toBN().toString(), D18, D18),
+        longFundingRate: FixedNumber.fromValue(futureMarket.currentFundingRate.neg().toBN().toString(), D18, D18),
+        shortFundingRate: FixedNumber.fromValue(futureMarket.currentFundingRate.toBN().toString(), D18, D18),
         longBorrowRate: FixedNumber.fromValue(ZERO.toString(), D18, D18),
         shortBorrowRate: FixedNumber.fromValue(ZERO.toString(), D18, D18)
       }

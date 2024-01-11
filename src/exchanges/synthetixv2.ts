@@ -149,7 +149,7 @@ export default class SynthetixV2Service implements IExchange {
     return {
       oiLong: futureMarket.openInterest.long.toBN(),
       oiShort: futureMarket.openInterest.short.toBN(),
-      fundingRate: futureMarket.currentFundingRate.toBN(),
+      fundingRate: futureMarket.currentFundingRate.neg().toBN(),
       fundingVelocity: futureMarket.currentFundingVelocity.toBN(),
       makerFee: futureMarket.feeRates.makerFeeOffchainDelayedOrder.toBN(),
       takerFee: futureMarket.feeRates.takerFeeOffchainDelayedOrder.toBN(),

@@ -149,13 +149,13 @@ export default class GmxV1Service implements IExchange {
       oiLongUsd: info.guaranteedUsd!,
       oiShortUsd: info.globalShortSize!,
       fundingRate: BigNumber.from(0),
-      borrowRate: fundingRateInfo[0],
+      borrowRate: fundingRateInfo[0].mul(-1),
       availableLiquidityLongUSD: info.maxAvailableLong,
       availableLiquidityShortUSD: info.maxAvailableShort,
       marketLimitUsd: BigNumber.from(0),
       marketLimitNative: BigNumber.from(0),
-      borrowRateLong: longTokenInfo.fundingRate,
-      borrowRateShort: shortTokenInfo.fundingRate
+      borrowRateLong: longTokenInfo.fundingRate!.mul(-1),
+      borrowRateShort: shortTokenInfo.fundingRate!.mul(-1)
     }
   }
 

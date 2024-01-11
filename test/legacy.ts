@@ -924,6 +924,9 @@ async function gmxService() {
     (m) => m.indexOrIdentifier.toLowerCase() === '0x2f2a2543B76A4166549F7aaB2e75Bef0aefC5B0f'.toLowerCase() //BTC market
   )!
 
+  const dm = await gs.getDynamicMetadata(market, provider)
+  logObject('Dynamic Metadata: ', dm)
+
   let linkMarket = supportedMarkets.find(
     (m) => m.indexOrIdentifier.toLowerCase() === '0xf97f4df75117a78c1A5a0DBb814Af92458539FB4'.toLowerCase() //LINK market
   )!
@@ -1321,7 +1324,7 @@ async function testPrice() {
 
 // startStreaming()
 
-synService()
+gmxService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)
