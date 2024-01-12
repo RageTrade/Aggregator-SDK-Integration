@@ -85,8 +85,10 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
   ): CreateOrder {
     const amountInfoInToken = adapter.getAmountInfoType()
 
+    const sizeDeltaToken = divFN(routeData.sizeDeltaUSD, marketPrice, market.indexToken.decimals)
+
     let sizeDeltaAmountInfo: AmountInfo = amountInfoInToken.sizeDeltaInToken
-      ? { isTokenAmount: true, amount: routeData.sizeDeltaToken }
+      ? { isTokenAmount: true, amount: sizeDeltaToken }
       : { isTokenAmount: false, amount: routeData.sizeDeltaUSD }
 
     const marginDeltaToken = divFN(

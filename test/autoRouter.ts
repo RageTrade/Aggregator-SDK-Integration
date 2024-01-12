@@ -35,11 +35,6 @@ async function testBestRoute() {
     marketSymbol: marketTokenSymbol,
     collateralTokens: collateralTokensList,
     direction: 'LONG',
-    sizeDeltaToken: FixedNumber.fromValue(
-      parseUnits(sizeDelta, indexToken.decimals),
-      indexToken.decimals,
-      indexToken.decimals
-    ),
     sizeDeltaUSD: FixedNumber.fromValue(indexTokenPrice.mul(sizeDelta).toString(), 30, 30),
     marginDeltaUSD: FixedNumber.fromValue(parseUnits(marginDelta, 30), 30, 30)
   }

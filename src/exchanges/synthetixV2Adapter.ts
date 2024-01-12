@@ -447,7 +447,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return {
       symbol: symbol,
       name: '',
-      decimals: 0,
+      decimals: 18,
       address: {
         [arbitrum.id]: undefined,
         [optimism.id]: undefined

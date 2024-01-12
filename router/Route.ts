@@ -21,7 +21,6 @@ export type RouteData = {
   marketSymbol: string
   collateralTokens: TokenWithPrice[]
   direction: TradeDirection
-  sizeDeltaToken: FixedNumber
   sizeDeltaUSD: FixedNumber
   marginDeltaUSD: FixedNumber
   opts?: RouteOptions
