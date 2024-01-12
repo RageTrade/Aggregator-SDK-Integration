@@ -217,7 +217,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         market: bestFundingMarket.market,
         collateralToken: undefined,
         tagDesc: 'Best Funding',
-        tagColor: '#00FF09'
+        tagColor: '#0CAC6C'
       })
     }
 
@@ -229,7 +229,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         market: bestAvgEntryPriceMarket.market,
         collateralToken: undefined,
         tagDesc: 'Best Price',
-        tagColor: '#003CFF'
+        tagColor: '#38bdf8'
       })
     }
 
@@ -239,7 +239,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         market: bestMinFeeMarket.market,
         collateralToken: bestMinFeeMarket.collateralToken,
         tagDesc: 'Minimum Fee',
-        tagColor: '#FF0000'
+        tagColor: '#F24040'
       })
     }
 
