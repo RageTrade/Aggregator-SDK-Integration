@@ -30,8 +30,8 @@ export type RouteData = {
 export type MarketTag = {
   market: MarketInfo
   collateralToken: Token | undefined
-  tagDesc: String
-  tagColor: String
+  tagDesc: string
+  tagColor: string
 }
 
 export type MarketWithMetadata = {
