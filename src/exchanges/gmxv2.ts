@@ -487,7 +487,7 @@ export default class GmxV2Service implements IAdapterV1 {
           swapPath: []
         },
         numbers: {
-          sizeDeltaUsd: od.sizeDelta.amount.value,
+          sizeDeltaUsd: od.sizeDelta.amount.toFormat(30).value,
           initialCollateralDeltaAmount: od.marginDelta.amount.value,
           triggerPrice: resolvedTriggerPrice,
           acceptablePrice: acceptablePrice,
@@ -607,7 +607,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // size delta should be in usd terms 1e30
       const orderTx = await this.exchangeRouter.populateTransaction.updateOrder(
         od.orderId,
-        od.sizeDelta.amount.value,
+        od.sizeDelta.amount.toFormat(30).value,
         acceptablePrice,
         triggerPrice,
         ethers.constants.Zero

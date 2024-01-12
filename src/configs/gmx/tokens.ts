@@ -2944,9 +2944,10 @@ export const getTradePreviewInternalV1 = async (
     avgEntryPrice: nextAveragePrice
       ? FixedNumber.fromValue(nextAveragePrice.toString(), 30, 30)
       : FixedNumber.fromString('0', 30),
-    liqudationPrice: displayLiquidationPrice
-      ? FixedNumber.fromValue(displayLiquidationPrice.toString(), 30, 30)
-      : FixedNumber.fromString('0', 30),
+    liqudationPrice:
+      displayLiquidationPrice && displayLiquidationPrice.gt(0)
+        ? FixedNumber.fromValue(displayLiquidationPrice.toString(), 30, 30)
+        : FixedNumber.fromString('0', 30),
     fee: feesUsd ? FixedNumber.fromValue(feesUsd.toString(), 30, 30) : FixedNumber.fromString('0', 30),
     priceImpact: FixedNumber.fromValue('0', 30, 30),
     isError: isError,

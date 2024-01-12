@@ -388,7 +388,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     for (const order of orderData) {
       const inputCollateralAddress = order.collateral.address[ARBITRUM]!
       const marginDeltaBN = getBNFromFN(order.marginDelta.amount)
-      const sizeDeltaBN = getBNFromFN(order.sizeDelta.amount)
+      const sizeDeltaBN = getBNFromFN(order.sizeDelta.amount.toFormat(30))
       const triggerPriceBN = getBNFromFN(order.triggerData!.triggerPrice)
 
       const tokenAddressString = this.getTokenAddressString(inputCollateralAddress)
@@ -515,7 +515,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       if (!validDenomination(updatedOrder.sizeDelta, false)) throw new Error('Size Delta must be in USD denomination')
 
       let marginDeltaBN = getBNFromFN(updatedOrder.marginDelta.amount)
-      let sizeDeltaBN = getBNFromFN(updatedOrder.sizeDelta.amount)
+      let sizeDeltaBN = getBNFromFN(updatedOrder.sizeDelta.amount.toFormat(30))
       let triggerPriceBN = getBNFromFN(updatedOrder.triggerData!.triggerPrice)
 
       if (updatedOrder.orderType! == 'LIMIT') {
@@ -621,7 +621,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           const orders = positionOrders[pi.posId].result.filter(
             (order) =>
               (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
-              getBNFromFN(order.sizeDelta.amount).gt(remainingSize)
+              getBNFromFN(order.sizeDelta.amount.toFormat(30)).gt(remainingSize)
           )
           const cancelOrderTxs = await this.cancelOrder(
             orders.map((o) => {
@@ -1400,6 +1400,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
       if (!validDenomination(orderData[i].marginDelta, true)) throw new Error('Margin delta must be token denominated')
       if (!validDenomination(orderData[i].sizeDelta, false)) throw new Error('Size delta must be usd denominated')
 
+      // size should be in 30 decimals
+      orderData[i].sizeDelta.amount = orderData[i].sizeDelta.amount.toFormat(30)
+
       previews.push(await getTradePreviewInternalV1(orderData[i], existingPos[i], markets[i], this.EXECUTION_FEE, opts))
     }
 
@@ -1417,6 +1420,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
     for (let i = 0; i < positionInfo.length; i++) {
       if (!validDenomination(closePositionData[i].closeSize, false))
         throw new Error('Close size must be USD denominated')
+
+      // size should be in 30 decimals
+      closePositionData[i].closeSize.amount = closePositionData[i].closeSize.amount.toFormat(30)
+
       previews.push(
         await getCloseTradePreviewInternalV1(positionInfo[i], closePositionData[i], this.EXECUTION_FEE, opts)
       )
