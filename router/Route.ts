@@ -18,7 +18,7 @@ export type TokenWithPrice = {
 }
 
 export type RouteData = {
-  indexToken: Token
+  marketSymbol: string
   collateralTokens: TokenWithPrice[]
   direction: TradeDirection
   sizeDeltaToken: FixedNumber

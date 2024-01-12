@@ -41,7 +41,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     })
   }
   private async _getEligibleMarkets(
-    indexToken: Token,
+    marketSymbol: string,
     collateralTokenWithPriceList: TokenWithPrice[],
     direction: TradeDirection
   ): Promise<MarketInfo[]> {
@@ -49,7 +49,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     const markets = await this.supportedMarkets(chains)
     const collateralTokenSymbols = collateralTokenWithPriceList.map((tokenWithPrice) => tokenWithPrice.token.symbol)
     const eligibleMarkets = markets.filter((market) => {
-      const correctMarketSymbol = market.marketSymbol == indexToken.symbol
+      const correctMarketSymbol = market.marketSymbol == marketSymbol
       const collateralSymbols =
         direction == 'LONG'
           ? market.longCollateral.map((token) => token.symbol)
@@ -197,7 +197,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     const marketTags: MarketTag[] = []
 
     const eligibleMarkets = await this._getEligibleMarkets(
-      routeData.indexToken,
+      routeData.marketSymbol,
       routeData.collateralTokens,
       routeData.direction
     )
@@ -246,7 +246,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
 
   async getBestRoute(routeData: RouteData, opts?: ApiOpts): Promise<OpenTradePreviewInfo> {
     const eligibleMarkets = await this._getEligibleMarkets(
-      routeData.indexToken,
+      routeData.marketSymbol,
       routeData.collateralTokens,
       routeData.direction
     )

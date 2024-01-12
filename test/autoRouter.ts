@@ -32,7 +32,7 @@ async function testBestRoute() {
   })
 
   const routeData: RouteData = {
-    indexToken: indexToken,
+    marketSymbol: marketTokenSymbol,
     collateralTokens: collateralTokensList,
     direction: 'LONG',
     sizeDeltaToken: FixedNumber.fromValue(
