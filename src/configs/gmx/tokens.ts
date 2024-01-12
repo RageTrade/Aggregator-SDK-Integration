@@ -2941,9 +2941,13 @@ export const getTradePreviewInternalV1 = async (
     margin: existingPos
       ? toAmountInfo(internalPos.collateral.add(fromUsdMin!), 30, false)
       : toAmountInfo(fromUsdMin!, 30, false),
-    avgEntryPrice: FixedNumber.fromValue(nextAveragePrice.toString(), 30, 30),
-    liqudationPrice: FixedNumber.fromValue(displayLiquidationPrice.toString(), 30, 30),
-    fee: FixedNumber.fromValue(feesUsd.toString(), 30, 30),
+    avgEntryPrice: nextAveragePrice
+      ? FixedNumber.fromValue(nextAveragePrice.toString(), 30, 30)
+      : FixedNumber.fromString('0', 30),
+    liqudationPrice: displayLiquidationPrice
+      ? FixedNumber.fromValue(displayLiquidationPrice.toString(), 30, 30)
+      : FixedNumber.fromString('0', 30),
+    fee: feesUsd ? FixedNumber.fromValue(feesUsd.toString(), 30, 30) : FixedNumber.fromString('0', 30),
     priceImpact: FixedNumber.fromValue('0', 30, 30),
     isError: isError,
     errMsg: isError ? 'Insufficient Liquidity for Trade' : ''
