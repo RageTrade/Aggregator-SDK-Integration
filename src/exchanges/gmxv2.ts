@@ -168,7 +168,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private reader = Reader__factory.connect(this.READER_ADDR, this.provider)
   private exchangeRouter = ExchangeRouter__factory.connect(this.EXCHANGE_ROUTER, this.provider)
 
-  private minCollateralUsd = parseUnits('11', 30)
+  private minCollateralUsd = parseUnits('3', 30)
 
   private tokenSpentApprovedMap: Record<string, boolean> = {}
 
