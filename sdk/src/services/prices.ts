@@ -36,7 +36,7 @@ export default class PricesService {
   constructor(sdk: KwentaSDK) {
     this.sdk = sdk
     this.setEventListeners()
-    this.connectToPyth(sdk.context.networkId, this.server)
+    // this.connectToPyth(sdk.context.networkId, this.server)
   }
 
   get currentPrices() {
@@ -221,7 +221,7 @@ export default class PricesService {
 
   private setEventListeners() {
     this.sdk.context.events.on('network_changed', (params) => {
-      this.connectToPyth(params.networkId, this.server)
+      // this.connectToPyth(params.networkId, this.server)
     })
   }
 
@@ -239,7 +239,7 @@ export default class PricesService {
 
   private switchConnection() {
     this.server = this.server === 'KWENTA' ? 'PYTH' : 'KWENTA'
-    this.connectToPyth(this.sdk.context.networkId, this.server)
+    // this.connectToPyth(this.sdk.context.networkId, this.server)
   }
 
   private formatPythPrice(priceFeed: PriceFeed): Wei {
