@@ -101,7 +101,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   private minCollateralUsd = parseUnits('11', 30)
-  private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber
+  private MARKET_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_MARKET_ACTION_V1')! as BigNumber
+  private LIMIT_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_LIMIT_ACTION_v1')! as BigNumber
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
   private isPluginApprovedMap: Record<string, boolean> = {}
@@ -419,10 +420,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
           order.direction == 'LONG' ? true : false,
           triggerPriceBN,
           !(order.direction == 'LONG'),
-          this.EXECUTION_FEE,
+          this.LIMIT_EXEC_FEE,
           isEthCollateral,
           {
-            value: isEthCollateral ? this.EXECUTION_FEE.add(marginDeltaBN) : this.EXECUTION_FEE
+            value: isEthCollateral ? this.LIMIT_EXEC_FEE.add(marginDeltaBN) : this.LIMIT_EXEC_FEE
           }
         )
       } else if (order.type == 'MARKET') {
@@ -454,11 +455,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
             sizeDeltaBN,
             order.direction == 'LONG' ? true : false,
             acceptablePrice,
-            this.EXECUTION_FEE,
+            this.MARKET_EXEC_FEE,
             ethers.constants.HashZero, // Referral code set separately
             ethers.constants.AddressZero,
             {
-              value: this.EXECUTION_FEE
+              value: this.MARKET_EXEC_FEE
             }
           )
         } else {
@@ -471,11 +472,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
             sizeDeltaBN,
             order.direction == 'LONG' ? true : false,
             acceptablePrice,
-            this.EXECUTION_FEE,
+            this.MARKET_EXEC_FEE,
             ethers.constants.HashZero, // Referral code set seprately
             ethers.constants.AddressZero,
             {
-              value: this.EXECUTION_FEE.add(marginDeltaBN)
+              value: this.MARKET_EXEC_FEE.add(marginDeltaBN)
             }
           )
         }
@@ -485,7 +486,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
         tx: createOrderTx!,
         type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(wallet, extraEthReq),
+        ethRequired: await this.getEthRequired(
+          wallet,
+          extraEthReq,
+          order.type == 'MARKET' ? this.MARKET_EXEC_FEE : this.LIMIT_EXEC_FEE
+        ),
         chainId: ARBITRUM,
         heading: 'Increase Position',
         desc: 'Increase Position'
@@ -664,18 +669,18 @@ export default class GmxV1Adapter implements IAdapterV1 {
           wallet,
           fillPrice,
           0,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           collateralOutAddr == ethers.constants.AddressZero,
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE
+            value: this.MARKET_EXEC_FEE
           }
         )
         txs.push({
           tx: createOrderTx,
           type: 'GMX_V1',
           data: undefined,
-          ethRequired: await this.getEthRequired(wallet),
+          ethRequired: await this.getEthRequired(wallet, undefined, this.MARKET_EXEC_FEE),
           chainId: ARBITRUM,
           heading: 'Close Position',
           desc: 'Close Position'
@@ -692,14 +697,14 @@ export default class GmxV1Adapter implements IAdapterV1 {
           getBNFromFN(cpd.triggerData!.triggerPrice),
           cpd.triggerData!.triggerAboveThreshold,
           {
-            value: this.EXECUTION_FEE
+            value: this.LIMIT_EXEC_FEE
           }
         )
         txs.push({
           tx: createOrderTx,
           type: 'GMX_V1',
           data: undefined,
-          ethRequired: await this.getEthRequired(wallet),
+          ethRequired: await this.getEthRequired(wallet, undefined, this.LIMIT_EXEC_FEE),
           chainId: ARBITRUM,
           heading: 'Close Position',
           desc: 'Close Position'
@@ -772,11 +777,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
             BigNumber.from(0),
             pi.direction == 'LONG' ? true : false,
             fillPrice,
-            this.EXECUTION_FEE,
+            this.MARKET_EXEC_FEE,
             ethers.constants.HashZero, // Referral code set during setup()
             ethers.constants.AddressZero,
             {
-              value: this.EXECUTION_FEE.add(marginAmount)
+              value: this.MARKET_EXEC_FEE.add(marginAmount)
             }
           )
         } else {
@@ -788,11 +793,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
             BigNumber.from(0),
             pi.direction == 'LONG' ? true : false,
             fillPrice,
-            this.EXECUTION_FEE,
+            this.MARKET_EXEC_FEE,
             ethers.constants.HashZero, // Referral code set during setup()
             ethers.constants.AddressZero,
             {
-              value: this.EXECUTION_FEE
+              value: this.MARKET_EXEC_FEE
             }
           )
         }
@@ -815,11 +820,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
           wallet,
           fillPrice,
           0,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           transferTokenAddress == ethers.constants.AddressZero,
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE
+            value: this.MARKET_EXEC_FEE
           }
         )
       }
@@ -828,7 +833,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         tx: marginTx,
         type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(wallet, extraEthReq),
+        ethRequired: await this.getEthRequired(wallet, extraEthReq, this.MARKET_EXEC_FEE),
         chainId: ARBITRUM,
         heading: 'Update Margin',
         desc: 'Update Margin'
@@ -1296,7 +1301,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           const PRECISION = BigNumber.from(10).pow(30)
 
           each.keeperFeesPaid = FixedNumber.fromValue(
-            this.EXECUTION_FEE.mul(PRECISION)
+            this.LIMIT_EXEC_FEE.mul(PRECISION)
               .mul(etherPrice)
               .div(ethers.constants.WeiPerEther)
               .div(ethers.constants.WeiPerEther)
@@ -1403,7 +1408,16 @@ export default class GmxV1Adapter implements IAdapterV1 {
       // size should be in 30 decimals
       orderData[i].sizeDelta.amount = orderData[i].sizeDelta.amount.toFormat(30)
 
-      previews.push(await getTradePreviewInternalV1(orderData[i], existingPos[i], markets[i], this.EXECUTION_FEE, opts))
+      previews.push(
+        await getTradePreviewInternalV1(
+          orderData[i],
+          existingPos[i],
+          markets[i],
+          this.MARKET_EXEC_FEE,
+          this.LIMIT_EXEC_FEE,
+          opts
+        )
+      )
     }
 
     return previews
@@ -1425,7 +1439,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
       closePositionData[i].closeSize.amount = closePositionData[i].closeSize.amount.toFormat(30)
 
       previews.push(
-        await getCloseTradePreviewInternalV1(positionInfo[i], closePositionData[i], this.EXECUTION_FEE, opts)
+        await getCloseTradePreviewInternalV1(
+          positionInfo[i],
+          closePositionData[i],
+          this.MARKET_EXEC_FEE,
+          this.LIMIT_EXEC_FEE,
+          opts
+        )
       )
     }
 
@@ -1450,7 +1470,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           isDeposit[i],
           marginDelta[i],
           existingPos[i],
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           opts
         )
       )
@@ -1796,9 +1816,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return tokenAddress
   }
 
-  async getEthRequired(wallet: string, extraEthReq: BigNumber = BigNumber.from(0)): Promise<BigNumber | undefined> {
+  async getEthRequired(
+    wallet: string,
+    extraEthReq: BigNumber = BigNumber.from(0),
+    executionFee: BigNumber
+  ): Promise<BigNumber | undefined> {
     const ethBalance = await this.provider.getBalance(wallet)
-    const ethRequired = this.EXECUTION_FEE.add(extraEthReq || ZERO)
+    const ethRequired = executionFee.add(extraEthReq || ZERO)
 
     if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
   }

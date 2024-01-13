@@ -1852,7 +1852,8 @@ export const getCloseTradePreviewInternal = async (
   provider: Provider,
   position: ExtendedPosition,
   closeSize: BigNumber,
-  execFee: BigNumber,
+  marketExecutionFee: BigNumber,
+  limitExecutionFree: BigNumber,
   isTrigger: boolean,
   triggerPrice: BigNumber | undefined,
   outputToken: GToken | undefined,
@@ -1876,6 +1877,7 @@ export const getCloseTradePreviewInternal = async (
   let fundingFee = position.borrowFee!
   let nextLeverage
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
+  const execFee = isTrigger ? limitExecutionFree : marketExecutionFee
 
   liquidationPrice = getLiquidationPrice({
     size: position.size,
@@ -2066,7 +2068,8 @@ export const getCloseTradePreviewInternal = async (
 export const getCloseTradePreviewInternalV1 = async (
   positionInfo: PositionInfo,
   closePositionData: ClosePositionData,
-  executionFee: BigNumber,
+  marketExecutionFee: BigNumber,
+  limitExecutionFree: BigNumber,
   opts?: ApiOpts | undefined
 ): Promise<CloseTradePreviewInfo> => {
   let closeSize = getBNFromFN(closePositionData.closeSize.amount)
@@ -2092,6 +2095,7 @@ export const getCloseTradePreviewInternalV1 = async (
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
   let isTrigger = closePositionData.type !== 'MARKET'
   let triggerPrice = isTrigger ? getBNFromFN(closePositionData.triggerData!.triggerPrice) : undefined
+  const executionFee = closePositionData.type == 'MARKET' ? marketExecutionFee : limitExecutionFree
 
   liquidationPrice = getLiquidationPrice({
     size: position.size,
@@ -2621,11 +2625,14 @@ export const getTradePreviewInternal = async (
   market: ExtendedMarket,
   convertToToken: any,
   order: Order,
-  executionFee: BigNumber,
+  marketExecutionFee: BigNumber,
+  limitExecutionFree: BigNumber,
   existingPosition: ExtendedPosition | undefined,
   opts?: ApiOpts
 ): Promise<ExtendedPosition> => {
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
+  const executionFee =
+    order.type == 'MARKET_INCREASE' || order.type == 'MARKET_DECREASE' ? marketExecutionFee : limitExecutionFree
 
   const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({
@@ -2783,11 +2790,13 @@ export const getTradePreviewInternalV1 = async (
   orderData: CreateOrder,
   existingPos: PositionInfo | undefined,
   market: MarketInfo,
-  executionFee: BigNumber,
+  marketExecutionFee: BigNumber,
+  limitExecutionFree: BigNumber,
   opts?: ApiOpts | undefined
 ): Promise<OpenTradePreviewInfo> => {
   const provider = rpc[ARBITRUM]
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
+  const executionFee = orderData.type == 'MARKET' ? marketExecutionFee : limitExecutionFree
 
   const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
   const usdgSupplyPromise = cacheFetch({

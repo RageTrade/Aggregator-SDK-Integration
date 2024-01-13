@@ -83,7 +83,8 @@ const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
-  private EXECUTION_FEE = getConstant(ARBITRUM, 'DECREASE_ORDER_EXECUTION_GAS_FEE')! as BigNumber
+  private MARKET_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_MARKET_ACTION_V1')! as BigNumber
+  private LIMIT_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_LIMIT_ACTION_v1')! as BigNumber
   private protocolIdentifier: PROTOCOL_NAME = 'GMX_V1'
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
@@ -431,10 +432,10 @@ export default class GmxV1Service implements IExchange {
         order.direction == 'LONG' ? true : false,
         order.trigger?.triggerPrice!,
         !(order.direction == 'LONG'),
-        this.EXECUTION_FEE,
+        this.LIMIT_EXEC_FEE,
         isEthCollateral,
         {
-          value: isEthCollateral ? this.EXECUTION_FEE.add(order.inputCollateralAmount) : this.EXECUTION_FEE
+          value: isEthCollateral ? this.LIMIT_EXEC_FEE.add(order.inputCollateralAmount) : this.LIMIT_EXEC_FEE
         }
       )
     } else if (order.type == 'MARKET_INCREASE') {
@@ -466,11 +467,11 @@ export default class GmxV1Service implements IExchange {
           order.sizeDelta,
           order.direction == 'LONG' ? true : false,
           acceptablePrice,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE
+            value: this.MARKET_EXEC_FEE
           }
         )
       } else {
@@ -483,11 +484,11 @@ export default class GmxV1Service implements IExchange {
           order.sizeDelta,
           order.direction == 'LONG' ? true : false,
           acceptablePrice,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE.add(order.inputCollateralAmount)
+            value: this.MARKET_EXEC_FEE.add(order.inputCollateralAmount)
           }
         )
       }
@@ -497,7 +498,12 @@ export default class GmxV1Service implements IExchange {
       tx: createOrderTx!,
       type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider, extraEthReq, wallet),
+      ethRequired: await this.getEthRequired(
+        provider,
+        extraEthReq,
+        order.type == 'MARKET_INCREASE' ? this.MARKET_EXEC_FEE : this.LIMIT_EXEC_FEE,
+        wallet
+      ),
       heading: 'Create Order',
       desc: 'Create Order'
     })
@@ -857,11 +863,11 @@ export default class GmxV1Service implements IExchange {
           BigNumber.from(0),
           position.direction == 'LONG' ? true : false,
           fillPrice,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE.add(marginAmount)
+            value: this.MARKET_EXEC_FEE.add(marginAmount)
           }
         )
       } else {
@@ -873,11 +879,11 @@ export default class GmxV1Service implements IExchange {
           BigNumber.from(0),
           position.direction == 'LONG' ? true : false,
           fillPrice,
-          this.EXECUTION_FEE,
+          this.MARKET_EXEC_FEE,
           ethers.constants.HashZero, // Referral code set during setup()
           ethers.constants.AddressZero,
           {
-            value: this.EXECUTION_FEE
+            value: this.MARKET_EXEC_FEE
           }
         )
       }
@@ -900,11 +906,11 @@ export default class GmxV1Service implements IExchange {
         wallet,
         fillPrice,
         0,
-        this.EXECUTION_FEE,
+        this.MARKET_EXEC_FEE,
         transferToken.address == ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         {
-          value: this.EXECUTION_FEE
+          value: this.MARKET_EXEC_FEE
         }
       )
     }
@@ -913,7 +919,7 @@ export default class GmxV1Service implements IExchange {
       tx: marginTx,
       type: 'GMX_V1',
       data: undefined,
-      ethRequired: await this.getEthRequired(provider, extraEthReq, wallet),
+      ethRequired: await this.getEthRequired(provider, extraEthReq, this.MARKET_EXEC_FEE, wallet),
       heading: 'Update Margin',
       desc: 'Update Margin'
     })
@@ -975,18 +981,18 @@ export default class GmxV1Service implements IExchange {
         wallet,
         fillPrice,
         0,
-        this.EXECUTION_FEE,
+        this.MARKET_EXEC_FEE,
         collateralOutAddr == ethers.constants.AddressZero,
         ethers.constants.AddressZero,
         {
-          value: this.EXECUTION_FEE
+          value: this.MARKET_EXEC_FEE
         }
       )
       txs.push({
         tx: createOrderTx,
         type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(provider, undefined, wallet),
+        ethRequired: await this.getEthRequired(provider, undefined, this.MARKET_EXEC_FEE, wallet),
         heading: 'Close Position',
         desc: 'Close Position'
       })
@@ -1002,14 +1008,14 @@ export default class GmxV1Service implements IExchange {
         triggerPrice!,
         triggerAboveThreshold!,
         {
-          value: this.EXECUTION_FEE
+          value: this.LIMIT_EXEC_FEE
         }
       )
       txs.push({
         tx: createOrderTx,
         type: 'GMX_V1',
         data: undefined,
-        ethRequired: await this.getEthRequired(provider, undefined, wallet),
+        ethRequired: await this.getEthRequired(provider, undefined, this.LIMIT_EXEC_FEE, wallet),
         heading: 'Close Position',
         desc: 'Close Position'
       })
@@ -1234,7 +1240,7 @@ export default class GmxV1Service implements IExchange {
           const etherPrice = ethers.utils.parseUnits(priceMap[days].toString(), 18)
           const PRECISION = BigNumber.from(10).pow(30)
 
-          each.keeperFeesPaid = this.EXECUTION_FEE.mul(PRECISION)
+          each.keeperFeesPaid = this.LIMIT_EXEC_FEE.mul(PRECISION)
             .mul(etherPrice)
             .div(ethers.constants.WeiPerEther)
             .div(ethers.constants.WeiPerEther)
@@ -1335,7 +1341,8 @@ export default class GmxV1Service implements IExchange {
       market,
       this.convertToToken,
       order,
-      this.EXECUTION_FEE,
+      this.MARKET_EXEC_FEE,
+      this.LIMIT_EXEC_FEE,
       existingPosition,
       opts
     )
@@ -1356,7 +1363,8 @@ export default class GmxV1Service implements IExchange {
       provider,
       position,
       closeSize,
-      this.EXECUTION_FEE,
+      this.MARKET_EXEC_FEE,
+      this.LIMIT_EXEC_FEE,
       isTrigger,
       triggerPrice,
       outputToken ? this.convertToGToken(outputToken) : undefined,
@@ -1379,7 +1387,7 @@ export default class GmxV1Service implements IExchange {
       marginDelta,
       isDeposit,
       this.convertToToken,
-      this.EXECUTION_FEE,
+      this.MARKET_EXEC_FEE,
       opts
     )
   }
@@ -1635,10 +1643,11 @@ export default class GmxV1Service implements IExchange {
   async getEthRequired(
     provider: Provider,
     extraEthReq: BigNumber = BigNumber.from(0),
+    executionFee: BigNumber,
     wallet: string
   ): Promise<BigNumber | undefined> {
     const ethBalance = await provider.getBalance(wallet)
-    const ethRequired = this.EXECUTION_FEE.add(extraEthReq || ZERO)
+    const ethRequired = executionFee.add(extraEthReq || ZERO)
 
     if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
   }
