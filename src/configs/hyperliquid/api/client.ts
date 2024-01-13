@@ -1,5 +1,5 @@
 import { getAddress } from 'ethers-v6'
-import { HL_INFO_URL } from './config'
+import { HL_BASE_URL, HL_EXCHANGE_URL, HL_INFO_URL } from './config'
 import {
   ActiveAssetData,
   AllMids,
@@ -14,6 +14,11 @@ import {
   UserFunding
 } from './types'
 import { Token } from '../../../common/tokens'
+import { BigNumber, Wallet } from 'ethers'
+import { signWithdrawFromBridgeAction } from './signing'
+import { parseUnits } from 'ethers/lib/utils'
+
+const TWO_USDC = parseUnits("2", 6)
 
 export const HL_TOKENS_MAP: Record<
   string,
@@ -53,7 +58,23 @@ async function makeRequest(url: string, reqData: string) {
       'Content-Type': 'application/json'
     },
     body: reqData
-  }).then((res) => res.json())
+  })
+    .then((res) => {
+      if (res.ok) return res.json()
+      return res
+    })
+}
+
+async function makeRequestExecutable(url: string, reqData: string) {
+  const params = [url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: reqData
+  }]
+
+  return params
 }
 
 export async function getMeta(): Promise<Meta> {
@@ -170,4 +191,36 @@ export async function getActiveAssetData(wallet: string, assetIndex: number): Pr
     asset: assetIndex
   })
   return makeRequest(HL_INFO_URL, reqData)
+}
+
+export async function withdrawFromBridge(wallet: Wallet, amount: string) {
+  console.log('using eoa', wallet.address)
+  const timestamp = Math.floor((new Date()).getTime());
+
+  const payload = {
+    destination: wallet.address,
+    usd: amount,
+    time: timestamp,
+  }
+
+  const signature = (await signWithdrawFromBridgeAction(wallet, payload, true)).slice(2)
+
+  const rawSignature = {
+    r: "0x" + signature.slice(0, 64),
+    s: "0x" + signature.slice(64, 128),
+    v: parseInt(signature.slice(128), 16)
+  }
+
+  const reqData = JSON.stringify({
+    action: {
+      chain: "Arbitrum",
+      payload: payload,
+      type: "withdraw2"
+    },
+    nonce: timestamp,
+    signature: rawSignature,
+  })
+
+  console.log(reqData)
+  console.log(await makeRequest(HL_EXCHANGE_URL, reqData))
 }

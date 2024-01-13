@@ -1,10 +1,9 @@
-import { BigNumber, UnsignedTransaction } from 'ethers'
+import { BigNumber, UnsignedTransaction, Wallet } from 'ethers'
 import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from '../../tx-metadata-types'
 import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
-import { arbitrum, optimism } from 'viem/chains'
-import { protocols } from '../../common/protocols'
 import { FixedNumber } from '../../common/fixedNumber'
+import { ActionParams } from '../IActionExecutor'
 
 export type ApiOpts = {
   bypassCache: boolean // bypass query client cache altogether
@@ -349,6 +348,10 @@ export interface IRouterAdapterBaseV1 {
 
   ///// Setup api //////
   setup(): Promise<UnsignedTxWithMetadata[]>
+
+  deposit(token: Token, amount: FixedNumber): Promise<ActionParams[]>
+
+  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]>
 
   ///// Network api //////
   supportedChains(opts?: ApiOpts): Chain[]

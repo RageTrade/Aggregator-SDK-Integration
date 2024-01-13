@@ -71,6 +71,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
   private minPositionUsd = parseUnits('11', 30)
 
+  private provider = rpc[42161]
+  private usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
+
+  private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
+
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     await cacheFetch({
       key: [HL_CACHE_PREFIX, 'meta'],
@@ -82,6 +87,32 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   setup(): Promise<UnsignedTxWithMetadata[]> {
+    return Promise.resolve([])
+  }
+
+  async deposit(token: Token, amount: FixedNumber): Promise<ActionParams[]> {
+    if (token.symbol !== 'USDC') throw new Error('token not supported')
+
+    const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
+
+    const txs: ActionParams = [{
+      ...tx,
+      type: 'hyperliquid Deposit',
+      desc: 'Depositing into hyperliquid DEX',
+      chainId: ARBITRUM,
+      heading: 'hyperliquid liquid',
+      ethRequired: BigNumber.from(0)
+
+    }]
+
+    return txs
+  }
+
+  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]> {
+    if (token.symbol !== 'USDC') throw new Error('token not supported')
+
+    return withdrawFromBridge(wallet, amount)
+
     return Promise.resolve([])
   }
 
