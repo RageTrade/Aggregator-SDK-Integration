@@ -100,7 +100,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   private provider = rpc[42161]
 
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
-  private minCollateralUsd = parseUnits('11', 30)
+  private minCollateralUsd = parseUnits('10', 30)
   private MARKET_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_MARKET_ACTION_V1')! as BigNumber
   private LIMIT_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_LIMIT_ACTION_v1')! as BigNumber
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
