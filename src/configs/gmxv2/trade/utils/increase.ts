@@ -158,6 +158,62 @@ export function getIncreasePositionAmounts(p: {
       collateralToken.decimals,
       values.collateralPrice
     )!
+  } else if (strategy === 'independent') {
+    if (indexTokenAmount?.gt(0)) {
+      values.indexTokenAmount = indexTokenAmount
+      values.sizeDeltaUsd = convertToUsd(indexTokenAmount, indexToken.decimals, values.indexPrice)!
+
+      const basePriceImpactDeltaUsd = getPriceImpactForPosition(marketInfo, values.sizeDeltaUsd, isLong)
+
+      const positionFeeInfo = getPositionFee(
+        marketInfo,
+        values.sizeDeltaUsd,
+        basePriceImpactDeltaUsd.gt(0),
+        userReferralInfo
+      )
+
+      values.positionFeeUsd = positionFeeInfo.positionFeeUsd
+      values.feeDiscountUsd = positionFeeInfo.discountUsd
+    }
+
+    if (initialCollateralAmount?.gt(0)) {
+      values.initialCollateralAmount = initialCollateralAmount
+      values.initialCollateralUsd = convertToUsd(
+        initialCollateralAmount,
+        initialCollateralToken.decimals,
+        values.initialCollateralPrice
+      )!
+
+      const swapAmounts = getSwapAmountsByFromValue({
+        tokenIn: initialCollateralToken,
+        tokenOut: collateralToken,
+        amountIn: initialCollateralAmount,
+        isLimit: false
+      })
+
+      values.swapPathStats = swapAmounts.swapPathStats
+
+      const baseCollateralUsd = convertToUsd(swapAmounts.amountOut, collateralToken.decimals, values.collateralPrice)!
+
+      values.collateralDeltaUsd = baseCollateralUsd
+        .sub(values.positionFeeUsd)
+        .sub(values.borrowingFeeUsd)
+        .sub(values.fundingFeeUsd)
+
+      values.collateralDeltaAmount = convertToTokenAmount(
+        values.collateralDeltaUsd,
+        collateralToken.decimals,
+        values.collateralPrice
+      )!
+    }
+
+    values.estimatedLeverage = getLeverage({
+      sizeInUsd: values.sizeDeltaUsd,
+      collateralUsd: values.collateralDeltaUsd,
+      pnl: BigNumber.from(0),
+      pendingBorrowingFeesUsd: BigNumber.from(0),
+      pendingFundingFeesUsd: BigNumber.from(0)
+    })
   }
 
   const acceptablePriceInfo = getAcceptablePriceInfo({

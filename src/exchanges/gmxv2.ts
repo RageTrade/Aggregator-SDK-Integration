@@ -1516,7 +1516,7 @@ export default class GmxV2Service implements IAdapterV1 {
         position: existingPosition,
         savedAcceptablePriceImpactBps: BigNumber.from(100),
         userReferralInfo: userReferralInfo,
-        strategy: 'leverageByCollateral'
+        strategy: orderMarginDelta.isZero() ? 'independent' : 'leverageByCollateral'
       })
 
       const nextPositionValues = getNextPositionValuesForIncreaseTrade({
