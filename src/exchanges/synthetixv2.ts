@@ -444,8 +444,8 @@ export default class SynthetixV2Service implements IExchange {
         ? tradePreview.size.mul(marketPrice!.value).div(tradePreview.margin).abs()
         : ZERO,
       priceImpact: toNumberDecimal(priceImpactPer, 18),
-      isError: false /* tradePreview.status != PotentialTradeStatus.OK */,
-      error: '' /* this._getErrorString(tradePreview.status) */
+      isError: tradePreview.status != PotentialTradeStatus.OK,
+      error: this._getErrorString(tradePreview.status)
     }
   }
 
