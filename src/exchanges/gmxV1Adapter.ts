@@ -335,10 +335,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
         oiShort: FixedNumber.fromValue(longTokenInfo.globalShortSize!.toString(), 30, 30),
         availableLiquidityLong: FixedNumber.fromValue(longTokenInfo.maxAvailableLong!.toString(), 30, 30),
         availableLiquidityShort: FixedNumber.fromValue(shortTokenInfo.maxAvailableShort!.toString(), 30, 30),
-        longFundingRate: FixedNumber.fromValue(ZERO.toString(), 30, 30),
-        shortFundingRate: FixedNumber.fromValue(ZERO.toString(), 30, 30),
-        longBorrowRate: FixedNumber.fromValue(longTokenInfo.fundingRate!.mul(-1).toString(), 30, 30),
-        shortBorrowRate: FixedNumber.fromValue(shortTokenInfo.fundingRate!.mul(-1).toString(), 30, 30)
+        longFundingRate: FixedNumber.fromValue(ZERO.toString(), 6, 30),
+        shortFundingRate: FixedNumber.fromValue(ZERO.toString(), 6, 30),
+        longBorrowRate: FixedNumber.fromValue(longTokenInfo.fundingRate!.mul(-1).toString(), 6, 30),
+        shortBorrowRate: FixedNumber.fromValue(shortTokenInfo.fundingRate!.mul(-1).toString(), 6, 30)
       }
 
       metadata.push(dynamicMetadata)

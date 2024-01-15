@@ -359,8 +359,8 @@ export default class GmxV2Service implements IAdapterV1 {
       const availLiqShort = getAvailableUsdLiquidityForPosition(info, false)
 
       // funding
-      const borrowingRateLong = getBorrowingFactorPerPeriod(info, true, 3_600)
-      const borrowingRateShort = getBorrowingFactorPerPeriod(info, false, 3_600)
+      const borrowingRateLong = getBorrowingFactorPerPeriod(info, true, 3_600).mul(-1)
+      const borrowingRateShort = getBorrowingFactorPerPeriod(info, false, 3_600).mul(-1)
 
       const fundingRateLong = getFundingFactorPerPeriod(info, true, 3_600)
       const fundingRateShort = getFundingFactorPerPeriod(info, false, 3_600)
