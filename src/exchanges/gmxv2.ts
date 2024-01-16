@@ -1973,7 +1973,7 @@ export default class GmxV2Service implements IAdapterV1 {
       tData = tokensData
     }
 
-    const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.00131')
+    const DEFAULT_EXEUCTION_FEE = ethers.utils.parseEther('0.0011')
 
     const nativeToken = getTokenData(tData, NATIVE_TOKEN_ADDRESS)
     const keeperFee = nativeToken
