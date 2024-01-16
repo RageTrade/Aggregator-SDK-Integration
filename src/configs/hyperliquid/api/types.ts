@@ -154,6 +154,8 @@ export type Order = {
 
 export type HlOrderType = 'Limit' | 'Stop Market' | 'Stop Limit' | 'Take Profit Market' | 'Take Profit Limit'
 
+export type Grouping = 'na' | 'normalTpsl' | 'positionTpsl'
+
 export type OrderData = {
   children: any[]
   cloid: null | number
@@ -180,93 +182,94 @@ export type ActiveAssetData = {
   maxTradeSzs: string[]
   user: string
 }
-type Cloid = string;
 
-type Tif = "Alo" | "Ioc" | "Gtc";
-type Tpsl = "tp" | "sl";
+type Cloid = string | null
 
-interface LimitOrderType {
-  tif: Tif;
+type Tif = 'Alo' | 'Ioc' | 'Gtc'
+type Tpsl = 'tp' | 'sl'
+
+export interface LimitOrderType {
+  tif: Tif
 }
 
-interface TriggerOrderType {
-  triggerPx: number;
-  isMarket: boolean;
-  tpsl: Tpsl;
+export interface TriggerOrderType {
+  triggerPx: number
+  isMarket: boolean
+  tpsl: Tpsl
 }
 
-interface TriggerOrderTypeWire {
-  triggerPx: string;
-  isMarket: boolean;
-  tpsl: Tpsl;
+export interface TriggerOrderTypeWire {
+  triggerPx: string
+  isMarket: boolean
+  tpsl: Tpsl
 }
 
-interface OrderType {
-  limit?: LimitOrderType;
-  trigger?: TriggerOrderType;
+export interface OrderType {
+  limit?: LimitOrderType
+  trigger?: TriggerOrderType
 }
 
-interface OrderTypeWire {
-  limit?: LimitOrderType;
-  trigger?: TriggerOrderTypeWire;
+export interface OrderTypeWire {
+  limit?: LimitOrderType
+  trigger?: TriggerOrderTypeWire
 }
 
-interface OrderRequest {
-  coin: string;
-  is_buy: boolean;
-  sz: number;
-  limit_px: number;
-  order_type: OrderType;
-  reduce_only: boolean;
-  cloid?: Cloid;
+export interface OrderRequest {
+  coin: string
+  is_buy: boolean
+  sz: number
+  limit_px: number
+  order_type: OrderType
+  reduce_only: boolean
+  cloid: Cloid
 }
 
-interface ModifyRequest {
-  oid: number;
-  order: OrderRequest;
+export interface ModifyRequest {
+  oid: number
+  order: OrderRequest
 }
 
-interface CancelRequest {
-  coin: string;
-  oid: number;
+export interface CancelRequest {
+  coin: string
+  oid: number
 }
 
-interface CancelByCloidRequest {
-  coin: string;
-  cloid: Cloid;
+export interface CancelByCloidRequest {
+  coin: string
+  cloid: Cloid
 }
 
-interface OrderPayload {
-  asset: number;
-  isBuy: boolean;
-  limitPx: number;
-  sz: number;
-  reduceOnly: boolean;
-  cloid?: Cloid;
+export interface OrderPayload {
+  asset: number
+  isBuy: boolean
+  limitPx: number
+  sz: number
+  reduceOnly: boolean
+  cloid: Cloid
 }
 
-interface OrderSpec {
-  order: Order;
-  orderType: OrderType;
+export interface OrderSpec {
+  order: OrderPayload
+  orderType: OrderType
 }
 
-interface ModifySpec {
-  oid: number;
-  order: OrderSpec;
-  orderType: OrderType;
+export interface ModifySpec {
+  oid: number
+  order: OrderSpec
+  orderType: OrderType
 }
 
-interface OrderWire {
-  asset: number;
-  isBuy: boolean;
-  limitPx: string;
-  sz: string;
-  reduceOnly: boolean;
-  orderType: OrderTypeWire;
-  cloid?: Cloid;
+export interface OrderWire {
+  asset: number
+  isBuy: boolean
+  limitPx: string
+  sz: string
+  reduceOnly: boolean
+  orderType: OrderTypeWire
+  cloid: Cloid
 }
 
-interface ModifyWire {
-  oid: number;
-  order: OrderWire;
+export interface ModifyWire {
+  oid: number
+  order: OrderWire
 }

@@ -72,7 +72,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minPositionUsd = parseUnits('11', 30)
 
   private provider = rpc[42161]
-  private usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
+  public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
 
   private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
 
@@ -95,25 +95,33 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
 
-    const txs: ActionParams = [{
-      ...tx,
-      type: 'hyperliquid Deposit',
-      desc: 'Depositing into hyperliquid DEX',
-      chainId: ARBITRUM,
-      heading: 'hyperliquid liquid',
-      ethRequired: BigNumber.from(0)
-
-    }]
+    const txs: ActionParams[] = [
+      {
+        ...tx,
+        desc: 'Depositing into hyperliquid DEX',
+        chainId: ARBITRUM,
+        heading: 'hyperliquid',
+        ethRequired: BigNumber.from(0)
+      }
+    ]
 
     return txs
   }
 
-  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]> {
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]> {
     if (token.symbol !== 'USDC') throw new Error('token not supported')
 
-    return withdrawFromBridge(wallet, amount)
+    const reqData = await withdrawFromBridge(wallet, amount.toString())
 
-    return Promise.resolve([])
+    return [
+      {
+        apiArgs: reqData,
+        desc: 'Withdraw from Hyperliquid DEX',
+        chainId: ARBITRUM,
+        heading: 'hyperliquid',
+        ethRequired: BigNumber.from(0)
+      }
+    ]
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
