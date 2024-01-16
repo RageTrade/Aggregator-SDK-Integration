@@ -9,6 +9,7 @@ import {
   MarketInfo,
   OpenTradePreviewInfo,
   PositionInfo,
+  ProtocolId,
   TradeDirection
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import ConsolidatedRouterV1 from './ConsolidatedRouterV1'
@@ -24,6 +25,7 @@ import {
 } from './Route'
 import { IAdapterV1 } from '../src/interfaces/V1/IAdapterV1'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
+import { Chain } from 'viem'
 
 export default class AutoRouterV1 extends ConsolidatedRouterV1 {
   private _logMarkets(markets: MarketInfo[]) {
@@ -43,10 +45,18 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
   private async _getEligibleMarkets(
     marketSymbol: string,
     collateralTokenWithPriceList: TokenWithPrice[],
-    direction: TradeDirection
+    direction: TradeDirection,
+    allowedChains?: Chain[],
+    allowedProtocols?: ProtocolId[],
+    opts?: ApiOpts
   ): Promise<MarketInfo[]> {
     const chains = this.supportedChains()
-    const markets = await this.supportedMarkets(chains)
+    let markets = await this.supportedMarkets(allowedChains ? allowedChains : chains, opts)
+
+    if (allowedProtocols && allowedProtocols.length > 0) {
+      markets = markets.filter((market) => allowedProtocols.includes(market.protocolId))
+    }
+
     const collateralTokenSymbols = collateralTokenWithPriceList.map((tokenWithPrice) => tokenWithPrice.token.symbol)
     const eligibleMarkets = markets.filter((market) => {
       const correctMarketSymbol = market.marketSymbol == marketSymbol
@@ -195,13 +205,20 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     })
   }
 
-  async getMarketTags(routeData: RouteData, opts?: ApiOpts): Promise<MarketTag[]> {
+  async getMarketTags(
+    routeData: RouteData,
+    allowedChains?: Chain[],
+    allowedProtocols?: ProtocolId[],
+    opts?: ApiOpts
+  ): Promise<MarketTag[]> {
     const marketTags: MarketTag[] = []
 
     const eligibleMarkets = await this._getEligibleMarkets(
       routeData.marketSymbol,
       routeData.collateralTokens,
-      routeData.direction
+      routeData.direction,
+      allowedChains,
+      allowedProtocols
     )
     const dynamicMetadataPromise = this._getDynamicMarketMetadata(eligibleMarkets, opts)
     const tradePreviewsPromise = this._getTradePreview(eligibleMarkets, routeData, opts)

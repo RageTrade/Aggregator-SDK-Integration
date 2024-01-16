@@ -223,46 +223,48 @@ export default class GmxV1Adapter implements IAdapterV1 {
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     const marketsInfo: MarketInfo[] = []
 
-    this._getIndexTokens().forEach((it) => {
-      const market: Market = {
-        marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, this.getTokenAddress(it)),
-        chain: arbitrum,
-        indexToken: it,
-        longCollateral: this._getCollateralTokens(),
-        shortCollateral: this._getCollateralTokens(),
-        supportedOrderTypes: {
-          LIMIT: true,
-          MARKET: true,
-          STOP_LOSS: true,
-          TAKE_PROFIT: true
-        },
-        supportedOrderActions: {
-          CREATE: true,
-          UPDATE: true,
-          CANCEL: true
-        },
-        marketSymbol: this._getMarketSymbol(it)
-      }
+    if (chains == undefined || chains.includes(arbitrum)) {
+      this._getIndexTokens().forEach((it) => {
+        const market: Market = {
+          marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, this.getTokenAddress(it)),
+          chain: arbitrum,
+          indexToken: it,
+          longCollateral: this._getCollateralTokens(),
+          shortCollateral: this._getCollateralTokens(),
+          supportedOrderTypes: {
+            LIMIT: true,
+            MARKET: true,
+            STOP_LOSS: true,
+            TAKE_PROFIT: true
+          },
+          supportedOrderActions: {
+            CREATE: true,
+            UPDATE: true,
+            CANCEL: true
+          },
+          marketSymbol: this._getMarketSymbol(it)
+        }
 
-      const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: FixedNumber.fromValue('500000', 4, 4),
-        minLeverage: FixedNumber.fromValue('11000', 4, 4),
-        minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-        minPositionSize: FixedNumber.fromValue(MIN_ORDER_USD.toString(), 30, 30)
-      }
+        const staticMetadata: GenericStaticMarketMetadata = {
+          maxLeverage: FixedNumber.fromValue('500000', 4, 4),
+          minLeverage: FixedNumber.fromValue('11000', 4, 4),
+          minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
+          minPositionSize: FixedNumber.fromValue(MIN_ORDER_USD.toString(), 30, 30)
+        }
 
-      const protocol: Protocol = {
-        protocolId: GMX_V1_PROTOCOL_ID
-      }
+        const protocol: Protocol = {
+          protocolId: GMX_V1_PROTOCOL_ID
+        }
 
-      const marketInfo: MarketInfo = {
-        ...market,
-        ...staticMetadata,
-        ...protocol
-      }
+        const marketInfo: MarketInfo = {
+          ...market,
+          ...staticMetadata,
+          ...protocol
+        }
 
-      marketsInfo.push(marketInfo)
-    })
+        marketsInfo.push(marketInfo)
+      })
+    }
 
     return Promise.resolve(marketsInfo)
   }

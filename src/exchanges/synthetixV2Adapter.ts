@@ -95,58 +95,60 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     const marketsInfo: MarketInfo[] = []
 
-    // get markets from sdk
-    const sTimeM = getStaleTime(CACHE_DAY, opts)
-    const markets = await cacheFetch({
-      key: [SYNV2_CACHE_PREFIX, 'getProxiedMarkets'],
-      fn: () => this.sdk.futures.getProxiedMarkets().then((m) => m.filter((m) => !m.isSuspended)),
-      staleTime: sTimeM,
-      cacheTime: sTimeM * CACHE_TIME_MULT,
-      opts
-    })
+    if (chains == undefined || chains.includes(optimism)) {
+      // get markets from sdk
+      const sTimeM = getStaleTime(CACHE_DAY, opts)
+      const markets = await cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'getProxiedMarkets'],
+        fn: () => this.sdk.futures.getProxiedMarkets().then((m) => m.filter((m) => !m.isSuspended)),
+        staleTime: sTimeM,
+        cacheTime: sTimeM * CACHE_TIME_MULT,
+        opts
+      })
 
-    // build MarketInfo
-    markets.forEach((m: FuturesMarket) => {
-      const market: Market = {
-        marketId: encodeMarketId(optimism.id.toString(), SYN_V2, m.market!),
-        chain: optimism,
-        indexToken: this._getPartialToken(this._getTokenSymbol(m.asset!)), // TODO: convert to full token once we have index token list
-        longCollateral: [sUSD],
-        shortCollateral: [sUSD],
-        supportedOrderTypes: {
-          LIMIT: false,
-          MARKET: true,
-          STOP_LOSS: false,
-          TAKE_PROFIT: false
-        },
-        supportedOrderActions: {
-          CREATE: true,
-          UPDATE: false,
-          CANCEL: true
-        },
-        marketSymbol: this._getTokenSymbol(m.asset!),
-        metadata: m
-      }
+      // build MarketInfo
+      markets.forEach((m: FuturesMarket) => {
+        const market: Market = {
+          marketId: encodeMarketId(optimism.id.toString(), SYN_V2, m.market!),
+          chain: optimism,
+          indexToken: this._getPartialToken(this._getTokenSymbol(m.asset!)), // TODO: convert to full token once we have index token list
+          longCollateral: [sUSD],
+          shortCollateral: [sUSD],
+          supportedOrderTypes: {
+            LIMIT: false,
+            MARKET: true,
+            STOP_LOSS: false,
+            TAKE_PROFIT: false
+          },
+          supportedOrderActions: {
+            CREATE: true,
+            UPDATE: false,
+            CANCEL: true
+          },
+          marketSymbol: this._getTokenSymbol(m.asset!),
+          metadata: m
+        }
 
-      const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: FixedNumber.fromValue(m.contractMaxLeverage!.toBN().toString(), D18, D18),
-        minLeverage: FixedNumber.fromValue(parseUnits('1', D18).toString(), D18, D18),
-        minInitialMargin: FixedNumber.fromValue(parseUnits('50', D18).toString(), D18, D18),
-        minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18)
-      }
+        const staticMetadata: GenericStaticMarketMetadata = {
+          maxLeverage: FixedNumber.fromValue(m.contractMaxLeverage!.toBN().toString(), D18, D18),
+          minLeverage: FixedNumber.fromValue(parseUnits('1', D18).toString(), D18, D18),
+          minInitialMargin: FixedNumber.fromValue(parseUnits('50', D18).toString(), D18, D18),
+          minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18)
+        }
 
-      const protocol: Protocol = {
-        protocolId: SYN_V2
-      }
+        const protocol: Protocol = {
+          protocolId: SYN_V2
+        }
 
-      const marketInfo: MarketInfo = {
-        ...market,
-        ...staticMetadata,
-        ...protocol
-      }
+        const marketInfo: MarketInfo = {
+          ...market,
+          ...staticMetadata,
+          ...protocol
+        }
 
-      marketsInfo.push(marketInfo)
-    })
+        marketsInfo.push(marketInfo)
+      })
+    }
 
     return marketsInfo
   }

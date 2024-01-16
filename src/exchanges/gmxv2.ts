@@ -295,11 +295,15 @@ export default class GmxV2Service implements IAdapterV1 {
     return res
   }
 
-  async supportedMarkets(_: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
-    // get from cache if available
-    const marketProps = await this._cachedMarkets(opts)
+  async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
+    if (chains == undefined || chains.includes(arbitrum)) {
+      // get from cache if available
+      const marketProps = await this._cachedMarkets(opts)
 
-    return Object.values(marketProps).map((e: (typeof marketProps)[keyof typeof marketProps]) => e.marketInfo)
+      return Object.values(marketProps).map((e: (typeof marketProps)[keyof typeof marketProps]) => e.marketInfo)
+    }
+
+    return []
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts): Promise<FixedNumber[]> {

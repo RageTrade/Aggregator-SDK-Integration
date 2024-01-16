@@ -7,6 +7,7 @@ import { BigNumber } from 'ethers'
 import { FixedNumber } from '../src/common/fixedNumber'
 import { sUSD } from '../src/exchanges/synthetixV2Adapter'
 import { getTokenPrice, getTokenPriceD, startHermesStreaming, startStreaming } from '../src/configs/pyth/prices'
+import { arbitrum, optimism } from 'viem/chains'
 
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
@@ -40,9 +41,7 @@ async function testBestRoute() {
   }
   console.log({ routeData })
 
-  const tags = await router.getMarketTags(routeData, {
-    bypassCache: true
-  })
+  const tags = await router.getMarketTags(routeData, undefined, undefined, undefined)
 
   tags.forEach((tag) => {
     console.log({
