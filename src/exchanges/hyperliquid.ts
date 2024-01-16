@@ -418,27 +418,26 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       {
         order: OpenOrders
         status: OrderStatusInfo
-        pos: AssetPosition
+        pos: AssetPosition | undefined
       }
     > = {}
     orders.forEach((o) => {
       ordersMap[o.oid] = {
         order: o,
         status: ordersStatus.find((os) => os.order.order.oid === o.oid)!,
-        pos: assetPositions.find((ap) => ap.position.coin === o.coin)!
+        pos: assetPositions.find((ap) => ap.position.coin === o.coin)
       }
     })
 
     Object.entries(ordersMap).forEach(([oid, o]) => {
       const order = o.order
       const status = o.status.order.order
-      const pos = o.pos
-      const posSize = pos.position.szi
+      const posSize = o.pos?.position.szi
 
       const coin = order.coin
       const collateral = HL_COLLATERAL_TOKEN
       const orderSizeDelta = FixedNumber.fromString(order.sz)
-      const sizeDelta = orderSizeDelta.isZero() ? FixedNumber.fromString(posSize) : orderSizeDelta
+      const sizeDelta = orderSizeDelta.isZero() ? FixedNumber.fromString(posSize!) : orderSizeDelta
 
       const tradeData: TradeData = {
         marketId: encodeMarketId(hyperliquid.id.toString(), 'HL', coin),
