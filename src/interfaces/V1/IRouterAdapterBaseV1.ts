@@ -324,10 +324,13 @@ export type UnsignedTxWithMetadata =
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export type AccountInfo = {
-  accountValue: FixedNumber
+  protocolId: ProtocolId
+  accountEquity: FixedNumber
   totalMarginUsed: FixedNumber
-  crossMaintenanceMarginUsed: FixedNumber
+  maintainenceMargin: FixedNumber
   withdrawable: FixedNumber
+  availableToTrade: FixedNumber
+  crossAccountLeverage: FixedNumber
 }
 
 export type MarketState = {
@@ -439,7 +442,7 @@ export interface IRouterAdapterBaseV1 {
 
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
-  getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo>
+  getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]>
 
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 

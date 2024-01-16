@@ -1595,8 +1595,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     return Promise.resolve(FixedNumber.fromValue('0', 30, 30))
   }
-  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
-    throw new Error('Method not implemented.')
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
+    return Promise.resolve([])
   }
 
   ////////// GMX specific helper methods //////////

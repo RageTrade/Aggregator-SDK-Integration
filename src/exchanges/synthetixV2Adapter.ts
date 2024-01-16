@@ -427,8 +427,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo> {
-    throw new Error('Method not implemented.')
+  async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
+    return []
   }
 
   getAmountInfoType(): AmountInfoInToken {

@@ -413,27 +413,13 @@ export default class RouterV1 implements IRouterV1 {
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
   }
 
-  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
-    let cumAccountInfo: AccountInfo = {
-      totalMarginUsed: FixedNumber.fromString('0'),
-      crossMaintenanceMarginUsed: FixedNumber.fromString('0'),
-      accountValue: FixedNumber.fromString('0'),
-      withdrawable: FixedNumber.fromString('0')
-    }
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
     const promises: Promise<AccountInfo>[] = []
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAccountInfo(wallet, opts))
+      promises.push(this.adapters[key].getAccountInfo(wallet, opts).then((res) => res[0]))
     }
     const out = await Promise.all(promises)
-    out.forEach((accountInfo) => {
-      cumAccountInfo.totalMarginUsed = cumAccountInfo.totalMarginUsed.add(accountInfo.totalMarginUsed)
-      ;(cumAccountInfo.crossMaintenanceMarginUsed = cumAccountInfo.crossMaintenanceMarginUsed.add(
-        accountInfo.crossMaintenanceMarginUsed
-      )),
-        (cumAccountInfo.accountValue = cumAccountInfo.accountValue.add(accountInfo.accountValue))
-      cumAccountInfo.withdrawable = cumAccountInfo.withdrawable.add(accountInfo.withdrawable)
-    })
 
-    return cumAccountInfo
+    return out.flat()
   }
 }

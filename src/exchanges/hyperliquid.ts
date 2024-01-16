@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, abs, bipsDiff } from '../common/fixedNumber'
+import { FixedNumber, abs, bipsDiff, divFN } from '../common/fixedNumber'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
@@ -599,17 +599,25 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
     const clearinghouseState = await getClearinghouseState(wallet)
 
+    const crossAccountValue = FixedNumber.fromString(clearinghouseState.crossMarginSummary.accountValue)
+    const crossTotalNtlPos = FixedNumber.fromString(clearinghouseState.crossMarginSummary.totalNtlPos)
+
     const accountInfo: AccountInfo = {
-      accountValue: FixedNumber.fromString(clearinghouseState.marginSummary.accountValue),
+      protocolId: 'HL',
+      accountEquity: FixedNumber.fromString(clearinghouseState.marginSummary.accountValue),
       totalMarginUsed: FixedNumber.fromString(clearinghouseState.marginSummary.totalMarginUsed),
-      crossMaintenanceMarginUsed: FixedNumber.fromString(clearinghouseState.crossMaintenanceMarginUsed),
-      withdrawable: FixedNumber.fromString(clearinghouseState.withdrawable)
+      maintainenceMargin: FixedNumber.fromString(clearinghouseState.crossMaintenanceMarginUsed),
+      withdrawable: FixedNumber.fromString(clearinghouseState.withdrawable),
+      availableToTrade: FixedNumber.fromString(clearinghouseState.withdrawable),
+      crossAccountLeverage: crossAccountValue.isZero()
+        ? FixedNumber.fromString('0')
+        : divFN(crossTotalNtlPos, crossAccountValue)
     }
 
-    return accountInfo
+    return [accountInfo]
   }
 
   getAmountInfoType(): AmountInfoInToken {

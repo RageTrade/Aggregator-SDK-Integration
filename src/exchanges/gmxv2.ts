@@ -1867,8 +1867,8 @@ export default class GmxV2Service implements IAdapterV1 {
     return FixedNumber.fromValue(fundingFees.toString(), 30, 30)
   }
 
-  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
-    throw new Error('Method not implemented.')
+  async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
+    return []
   }
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {

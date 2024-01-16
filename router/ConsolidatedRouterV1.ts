@@ -57,7 +57,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
   }
 
-  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo> {
+  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
     throw new Error('Method not implemented.')
   }
 
