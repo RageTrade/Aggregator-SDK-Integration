@@ -238,10 +238,21 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       marketTags.push({
         market: bestMinFeeMarket.market,
         collateralToken: bestMinFeeMarket.collateralToken,
-        tagDesc: 'Minimum Fee',
+        tagDesc: 'Lowest Fee',
         tagColor: '#F24040'
       })
     }
+
+    eligibleMarkets
+      .filter((m) => m.protocolId == 'GMXV2')
+      .forEach((m) => {
+        marketTags.push({
+          market: m,
+          collateralToken: undefined,
+          tagDesc: 'Fee Rebates',
+          tagColor: '#FBBE24'
+        })
+      })
 
     return marketTags
   }
