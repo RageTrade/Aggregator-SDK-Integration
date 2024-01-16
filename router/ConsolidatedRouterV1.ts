@@ -28,7 +28,8 @@ import {
   ClaimInfo,
   ApiOpts,
   AmountInfoInToken,
-  AccountInfo
+  AccountInfo,
+  MarketState
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -141,6 +142,15 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
       promises.push(adapter.getMarketsInfo([marketId], opts))
+    }
+    const out = await Promise.all(promises)
+    return out.flat()
+  }
+  async getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    const promises = []
+    for (const marketId of marketIds) {
+      const adapter = this._checkAndGetAdapter(marketId)
+      promises.push(adapter.getMarketState(wallet, [marketId], opts))
     }
     const out = await Promise.all(promises)
     return out.flat()

@@ -65,8 +65,13 @@ async function getAccountInfo() {
   console.dir(accountInfo, { depth: 4 })
 }
 
+async function getMarketState() {
+  const marketState = await hl.getMarketState(w, [ethMarketId, btcMarketId, ntrnMarketId], undefined)
+  console.dir(marketState, { depth: 4 })
+}
+
 hl.init(w).then(() => {
-  getAllOrdersForPosition()
+  getMarketState()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

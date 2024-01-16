@@ -162,6 +162,7 @@ export type PositionData = {
   direction: TradeDirection
   collateral: Token
   indexToken: Token
+  // mode: MarketMode // both types of positions are supported per market
 }
 
 export type PositionInfo = PositionData & {
@@ -329,6 +330,11 @@ export type AccountInfo = {
   withdrawable: FixedNumber
 }
 
+export type MarketState = {
+  leverage: FixedNumber
+  marketMode: MarketMode
+}
+
 export interface IRouterAdapterBaseV1 {
   ///// Init Api //////
   init(wallet: string | undefined, opts?: ApiOpts): Promise<void>
@@ -434,6 +440,8 @@ export interface IRouterAdapterBaseV1 {
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
   getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo>
+
+  getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
   //Helper
   getAmountInfoType(): AmountInfoInToken

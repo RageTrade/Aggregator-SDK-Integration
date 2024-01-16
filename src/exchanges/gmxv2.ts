@@ -39,7 +39,7 @@ import {
   Reader
 } from '../../typechain/gmx-v2'
 import { BigNumber, ethers } from 'ethers'
-import { OrderType, ApiOpts, AccountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderType, ApiOpts, AccountInfo, MarketState } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN, validDenomination } from '../common/helper'
@@ -1868,6 +1868,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
   async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo> {
     throw new Error('Method not implemented.')
+  }
+
+  getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    return Promise.resolve([])
   }
 
   ///////////////////////////////////

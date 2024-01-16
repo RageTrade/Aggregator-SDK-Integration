@@ -55,6 +55,7 @@ import {
   LiquidationInfo,
   Market,
   MarketInfo,
+  MarketState,
   OpenTradePreviewInfo,
   OrderData,
   OrderIdentifier,
@@ -2036,5 +2037,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
         }
       }
     }
+  }
+
+  getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    return Promise.resolve([])
   }
 }

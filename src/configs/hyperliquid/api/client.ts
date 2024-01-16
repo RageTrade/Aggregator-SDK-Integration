@@ -1,6 +1,7 @@
 import { getAddress } from 'ethers-v6'
 import { HL_INFO_URL } from './config'
 import {
+  ActiveAssetData,
   AllMids,
   ClearinghouseState,
   FundingHistory,
@@ -157,6 +158,16 @@ export async function getOrderStatus(wallet: string, oid: number): Promise<Order
     type: 'orderStatus',
     user: user,
     oid: oid
+  })
+  return makeRequest(HL_INFO_URL, reqData)
+}
+
+export async function getActiveAssetData(wallet: string, assetIndex: number): Promise<ActiveAssetData> {
+  const user = getAddress(wallet)
+  const reqData = JSON.stringify({
+    type: 'activeAssetData',
+    user: user,
+    asset: assetIndex
   })
   return makeRequest(HL_INFO_URL, reqData)
 }

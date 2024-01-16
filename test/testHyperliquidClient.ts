@@ -1,5 +1,6 @@
 import { BigNumber } from 'ethers'
 import {
+  getActiveAssetData,
   getAllMids,
   getClearinghouseState,
   getFundingHistory,
@@ -93,7 +94,12 @@ async function generateTokens() {
   console.log(tokenMap)
 }
 
-generateTokens()
+async function activeAssetData() {
+  const activeAssetData = await getActiveAssetData(w, 1)
+  console.log(activeAssetData)
+}
+
+activeAssetData()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

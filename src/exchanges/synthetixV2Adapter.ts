@@ -27,7 +27,8 @@ import {
   GenericStaticMarketMetadata,
   Protocol,
   AmountInfoInToken,
-  AccountInfo
+  AccountInfo,
+  MarketState
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -435,6 +436,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       sizeDeltaInToken: true,
       collateralDeltaInToken: true
     }
+  }
+
+  getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    return Promise.resolve([])
   }
 
   ////////// Internal helper methods //////////

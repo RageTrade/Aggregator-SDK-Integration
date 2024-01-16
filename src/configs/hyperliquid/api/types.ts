@@ -59,9 +59,11 @@ export type CumFunding = {
   sinceOpen: string
 }
 
+export type MarkedModeType = 'isolated' | 'cross'
+
 export type Leverage = {
   rawUsd: string
-  type: string
+  type: MarkedModeType
   value: number
 }
 
@@ -169,4 +171,12 @@ export type OrderData = {
   timestamp: number
   triggerCondition: string
   triggerPx: string
+}
+
+export type ActiveAssetData = {
+  coin: string
+  leverage: Leverage
+  marginUsedByOpenOrders: string[]
+  maxTradeSzs: string[]
+  user: string
 }

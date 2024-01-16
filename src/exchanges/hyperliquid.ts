@@ -31,12 +31,14 @@ import {
   TriggerData,
   OrderType,
   AccountInfo,
-  AmountInfoInToken
+  AmountInfoInToken,
+  MarketState
 } from '../interfaces/V1/IRouterAdapterBaseV1'
-import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
+import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
   HL_COLLATERAL_TOKEN,
   HL_TOKENS_MAP,
+  getActiveAssetData,
   getAllMids,
   getClearinghouseState,
   getL2Book,
@@ -68,7 +70,13 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minPositionUsd = parseUnits('11', 30)
 
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
-    await getMeta()
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: 0,
+      cacheTime: 0,
+      opts: opts
+    })
   }
 
   setup(): Promise<UnsignedTxWithMetadata[]> {
@@ -84,7 +92,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
     const meta = (await cacheFetch({
-      key: ['hl', 'meta'],
+      key: [HL_CACHE_PREFIX, 'meta'],
       fn: () => getMeta(),
       staleTime: sTimeMarkets,
       cacheTime: sTimeMarkets * CACHE_TIME_MULT,
@@ -155,6 +163,30 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return marketInfo
   }
 
+  async getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    // populate meta
+    await this._populateMeta(opts)
+
+    // get markets
+    const markets = await this.getMarketsInfo(marketIds, opts)
+
+    // get active asset data for all markets
+    const activeAssetsData = await Promise.all(
+      markets.map((m) => getActiveAssetData(wallet, HL_TOKENS_MAP[m.marketSymbol].assetIndex))
+    )
+
+    // populate marketStates
+    const marketStates: MarketState[] = []
+    for (const ad of activeAssetsData) {
+      marketStates.push({
+        leverage: FixedNumber.fromString(ad.leverage.value.toString()),
+        marketMode: ad.leverage.type === 'isolated' ? 'ISOLATED' : 'CROSS'
+      })
+    }
+
+    return marketStates
+  }
+
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
     const prices: FixedNumber[] = []
 
@@ -182,7 +214,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // metaAndAssetCtxs promise
     const sTimeDM = getStaleTime(CACHE_SECOND * 20, opts)
     const metaAndAssetCtxsPromise = cacheFetch({
-      key: ['hl', 'metaAndAssetCtxs'],
+      key: [HL_CACHE_PREFIX, 'metaAndAssetCtxs'],
       fn: () => getMetaAndAssetCtxs(),
       staleTime: sTimeDM,
       cacheTime: sTimeDM * CACHE_TIME_MULT,
@@ -197,7 +229,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     coins.forEach(async (c) => {
       l2BookPromises.push(
         cacheFetch({
-          key: ['hl', 'l2Book', c, nSigFigs],
+          key: [HL_CACHE_PREFIX, 'l2Book', c, nSigFigs],
           fn: () => getL2Book(c, nSigFigs),
           staleTime: sTimeL2Book,
           cacheTime: sTimeL2Book * CACHE_TIME_MULT,
@@ -578,5 +610,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       sizeDeltaInToken: false,
       collateralDeltaInToken: true
     }
+  }
+
+  async _populateMeta(opts?: ApiOpts) {
+    let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMarkets,
+      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      opts: opts
+    })
   }
 }
