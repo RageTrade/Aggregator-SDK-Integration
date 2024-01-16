@@ -338,6 +338,11 @@ export type MarketState = {
   marketMode: MarketMode
 }
 
+export type MarketState = {
+  leverage: FixedNumber
+  marketMode: MarketMode
+}
+
 export interface IRouterAdapterBaseV1 {
   ///// Init Api //////
   init(wallet: string | undefined, opts?: ApiOpts): Promise<void>
@@ -443,6 +448,8 @@ export interface IRouterAdapterBaseV1 {
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
   getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]>
+
+  getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 

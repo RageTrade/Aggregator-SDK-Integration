@@ -837,4 +837,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       collateralDeltaInToken: true
     }
   }
+
+  async _populateMeta(opts?: ApiOpts) {
+    let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMarkets,
+      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
 }
