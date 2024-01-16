@@ -162,7 +162,7 @@ export type PositionData = {
   direction: TradeDirection
   collateral: Token
   indexToken: Token
-  // mode: MarketMode // both types of positions are supported per market
+  mode: MarketMode
 }
 
 export type PositionInfo = PositionData & {

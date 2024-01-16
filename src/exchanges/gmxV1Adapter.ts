@@ -1073,7 +1073,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         indexToken: indexToken,
         protocolId: GMX_V1_PROTOCOL_ID,
         roe: FixedNumber.fromString(upnl.div(pos.collateral).toString()),
-        metadata: pos
+        metadata: pos,
+        mode: 'ISOLATED'
       }
 
       positionsInfo.push(pi)

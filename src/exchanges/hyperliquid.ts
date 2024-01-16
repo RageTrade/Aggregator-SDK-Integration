@@ -346,8 +346,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const clearinghouseState = await getClearinghouseState(wallet)
     const assetPositions = clearinghouseState.assetPositions
+    const marketModes = (
+      await this.getMarketState(
+        wallet,
+        assetPositions.map((ap) => encodeMarketId(hyperliquid.id.toString(), 'HL', ap.position.coin)),
+        opts
+      )
+    ).map((ms) => ms.marketMode)
 
-    assetPositions.forEach((ap) => {
+    assetPositions.forEach((ap, index) => {
       const position = ap.position
       const coin = position.coin
       const collateral = HL_COLLATERAL_TOKEN
@@ -384,7 +391,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         collateral: collateral,
         indexToken: indexToken,
         protocolId: 'HL',
-        metadata: ap
+        metadata: ap,
+        mode: marketModes[index]
       }
 
       positions.push(posInfo)
