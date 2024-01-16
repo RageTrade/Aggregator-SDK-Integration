@@ -1621,7 +1621,7 @@ export default class GmxV2Service implements IAdapterV1 {
           fees
             .positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd)
             .add(fees.fundingFee!.deltaUsd)
-            .add(keeperFee)
+            .add(keeperFee.mul(-1))
             .abs()
             .toString(),
           30,
@@ -1725,7 +1725,7 @@ export default class GmxV2Service implements IAdapterV1 {
           fees
             .positionFee!.deltaUsd.add(fees.borrowFee!.deltaUsd)
             .add(fees.fundingFee!.deltaUsd)
-            .add(keeperFee)
+            .add(keeperFee.mul(-1))
             .abs()
             .toString(),
           30,
@@ -1774,7 +1774,7 @@ export default class GmxV2Service implements IAdapterV1 {
         liqudationPrice: nextLiqPrice
           ? FixedNumber.fromValue(nextLiqPrice.toString(), 30, 30)
           : FixedNumber.fromString('0'),
-        fee: FixedNumber.fromValue(totalFeesUsd.add(keeperFee).abs().toString(), 30, 30),
+        fee: FixedNumber.fromValue(totalFeesUsd.add(keeperFee.mul(-1)).abs().toString(), 30, 30),
         collateral: existingPos[i].collateral,
         isError: false,
         errMsg: ''
