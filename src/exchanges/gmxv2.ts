@@ -422,7 +422,7 @@ export default class GmxV2Service implements IAdapterV1 {
         chainId: 42161
       },
       chainId: arbitrum.id,
-      heading: TOKEN_APPROVAL_H,
+      heading: TOKEN_APPROVAL_H + ` ${getGmxV2TokenByAddress(token).symbol}`,
       desc: EMPTY_DESC
     }
   }
