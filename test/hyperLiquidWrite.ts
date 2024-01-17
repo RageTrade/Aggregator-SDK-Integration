@@ -9,6 +9,8 @@ import { isPopulatedTransaction } from '../src/interfaces/IActionExecutor'
 import {
   approveAgent,
   cancelOrders,
+  checkIfRageTradeAgent,
+  getExtraAgents,
   getMeta,
   getOpenOrders,
   getWebdata2,
@@ -108,7 +110,8 @@ async function main() {
 
   // ** GET ACTIVE AGENT ADDRESS ** //
 
-  // console.log((await getWebdata2(wallet.address)).agentAddress)
+  // console.dir((await getWebdata2(wallet.address)), { depth: 6 })
+  // console.dir((await getExtraAgents(wallet.address)), { depth: 6 })
 
   // ** EDIT ORDER ** //
 
@@ -188,6 +191,10 @@ async function main() {
   // } else {
   //   console.log(response)
   // }
+
+  // ** CHECK RAGE TRADE PERSISTENT AGENT ** //
+
+  // console.log(await checkIfRageTradeAgent(wallet.address))
 }
 
 main()
