@@ -102,6 +102,7 @@ const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
+type Plugin = 'ORDERBOOK' | 'POSITION_ROUTER' | 'BOTH'
 
 export default class GmxV1Adapter implements IAdapterV1 {
   getAmountInfoType(): AmountInfoInToken {
@@ -118,7 +119,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
   private LIMIT_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_LIMIT_ACTION_v1')! as BigNumber
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
-  private isPluginApprovedMap: Record<string, boolean> = {}
+  private isOBPluginApprovedMap: Record<string, boolean> = {}
+  private isPRPluginApprovedMap: Record<string, boolean> = {}
   private tokenSpentApprovedMap: Record<string, boolean> = {}
 
   async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
@@ -130,14 +132,18 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async getReferralAndPluginApprovals(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async getReferralAndPluginApprovals(
+    wallet: string,
+    plugin: Plugin,
+    opts?: ApiOpts
+  ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check and set referral code
     const referralCodeTxsPromise = this.checkAndSetReferralCodeTx(wallet, opts)
 
     // check and set plugin approvals
-    const pluginApprovalTxsPromise = this.checkAndGetPluginApprovalTxs(wallet)
+    const pluginApprovalTxsPromise = this.checkAndGetPluginApprovalTxs(wallet, plugin)
 
     const [referralCodeTxs, pluginApprovalTxs] = await Promise.all([referralCodeTxsPromise, pluginApprovalTxsPromise])
 
@@ -147,13 +153,38 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async checkAndGetPluginApprovalTxs(wallet: string): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async _getOBApprovalTx(): Promise<UnsignedTxWithMetadata> {
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
+    const orderBook = getContract(ARBITRUM, 'OrderBook')!
 
-    // fetch approval status from cache
-    if (this.isPluginApprovedMap[wallet]) {
-      return txs
+    const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
+    return {
+      tx: approveOrderBookTx,
+      type: 'GMX_V1',
+      data: undefined,
+      chainId: ARBITRUM,
+      heading: GMXV1_ENABLE_ORDERBOOK_H,
+      desc: EMPTY_DESC
     }
+  }
+
+  async _getPRApprovalTx(): Promise<UnsignedTxWithMetadata> {
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
+    const positionRouter = getContract(ARBITRUM, 'PositionRouter')!
+
+    const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
+    return {
+      tx: approvePositionRouterTx,
+      type: 'GMX_V1',
+      data: undefined,
+      chainId: ARBITRUM,
+      heading: GMXV1_ENABLE_POSITION_ROUTER_H,
+      desc: EMPTY_DESC
+    }
+  }
+
+  async checkAndGetPluginApprovalTxs(wallet: string, plugin: Plugin): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
 
     // check whether plugins are approved or not
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
@@ -163,35 +194,42 @@ export default class GmxV1Adapter implements IAdapterV1 {
     const obApprovalPromise = router.approvedPlugins(wallet, orderBook)
     const prApprovalPromise = router.approvedPlugins(wallet, positionRouter)
 
-    const [obApproval, prApproval] = await Promise.all([obApprovalPromise, prApprovalPromise])
+    if (plugin == 'ORDERBOOK') {
+      if (this.isOBPluginApprovedMap[wallet]) {
+        return txs
+      }
 
-    if (!obApproval) {
-      const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
-      txs.push({
-        tx: approveOrderBookTx,
-        type: 'GMX_V1',
-        data: undefined,
-        chainId: ARBITRUM,
-        heading: GMXV1_ENABLE_ORDERBOOK_H,
-        desc: EMPTY_DESC
-      })
-    }
+      const obApproval = await obApprovalPromise
+      if (!obApproval) {
+        txs.push(await this._getOBApprovalTx())
+      } else {
+        this.isOBPluginApprovedMap[wallet] = true
+      }
+    } else if (plugin == 'POSITION_ROUTER') {
+      if (this.isPRPluginApprovedMap[wallet]) {
+        return txs
+      }
 
-    if (!prApproval) {
-      const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
-      txs.push({
-        tx: approvePositionRouterTx,
-        type: 'GMX_V1',
-        data: undefined,
-        chainId: ARBITRUM,
-        heading: GMXV1_ENABLE_POSITION_ROUTER_H,
-        desc: EMPTY_DESC
-      })
-    }
+      const prApproval = await prApprovalPromise
+      if (!prApproval) {
+        txs.push(await this._getPRApprovalTx())
+      } else {
+        this.isPRPluginApprovedMap[wallet] = true
+      }
+    } else if (plugin == 'BOTH') {
+      const [obApproval, prApproval] = await Promise.all([obApprovalPromise, prApprovalPromise])
 
-    // update cache if both plugins are approved already
-    if (obApproval && prApproval) {
-      this.isPluginApprovedMap[wallet] = true
+      if (!obApproval) {
+        txs.push(await this._getOBApprovalTx())
+      } else {
+        this.isOBPluginApprovedMap[wallet] = true
+      }
+
+      if (!prApproval) {
+        txs.push(await this._getPRApprovalTx())
+      } else {
+        this.isPRPluginApprovedMap[wallet] = true
+      }
     }
 
     return txs
@@ -369,8 +407,20 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
+    // check which plugins are required
+    let isObReq = false
+    let isPrReq = false
+    for (const o of orderData) {
+      if (o.type == 'LIMIT') {
+        isObReq = true
+      } else if (o.type == 'MARKET') {
+        isPrReq = true
+      }
+    }
+    const plugin: Plugin = isObReq && isPrReq ? 'BOTH' : isObReq ? 'ORDERBOOK' : 'POSITION_ROUTER'
+
     // check for referral and plugin approvals
-    let refAndPluginTxsPromise = this.getReferralAndPluginApprovals(wallet, opts)
+    let refAndPluginTxsPromise = this.getReferralAndPluginApprovals(wallet, plugin, opts)
 
     const provider = this.provider
 
@@ -523,7 +573,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'ORDERBOOK', opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
 
@@ -577,7 +627,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'ORDERBOOK', opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
 
@@ -612,8 +662,20 @@ export default class GmxV1Adapter implements IAdapterV1 {
     opts?: ApiOpts | undefined
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
+
+    // check which plugins are required
+    let isObReq = false
+    let isPrReq = false
+    for (const cpd of closePositionData) {
+      if (cpd.type != 'MARKET') {
+        isObReq = true
+      } else {
+        isPrReq = true
+      }
+    }
+    const plugin: Plugin = isObReq && isPrReq ? 'BOTH' : isObReq ? 'ORDERBOOK' : 'POSITION_ROUTER'
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, plugin, opts)))
 
     const positionOrdersPromise = this.getAllOrdersForPosition(wallet, positionInfo, undefined, opts)
     const marketPricesPromise = this.getMarketPrices(
@@ -747,7 +809,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'POSITION_ROUTER', opts)))
 
     const marketPrices = await this.getMarketPrices(
       positionInfo.map((pi) => pi.marketId),
@@ -1911,6 +1973,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
         staleTime: 0,
         cacheTime: 0
       })
+
+      // plugin approvals
+      await this.checkAndGetPluginApprovalTxs(wallet, 'BOTH')
 
       // token approvals
       for (const tokenAddress of tokenAddresses) {

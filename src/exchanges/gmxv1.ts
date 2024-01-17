@@ -92,6 +92,7 @@ import {
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
+type Plugin = 'ORDERBOOK' | 'POSITION_ROUTER' | 'BOTH'
 
 export default class GmxV1Service implements IExchange {
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -102,7 +103,8 @@ export default class GmxV1Service implements IExchange {
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
   private whitelistedTokens = getWhitelistedTokens(ARBITRUM)
-  private isPluginApprovedMap: Record<string, boolean> = {}
+  private isOBPluginApprovedMap: Record<string, boolean> = {}
+  private isPRPluginApprovedMap: Record<string, boolean> = {}
   private tokenSpentApprovedMap: Record<string, boolean> = {}
   private indexTokens = this.whitelistedTokens
     .filter((token) => !token.isStable && !token.isWrapped)
@@ -186,6 +188,7 @@ export default class GmxV1Service implements IExchange {
   async getReferralAndPluginApprovals(
     provider: Provider,
     wallet: string,
+    plugin: Plugin,
     opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
@@ -194,7 +197,7 @@ export default class GmxV1Service implements IExchange {
     const referralCodeTxsPromise = this.checkAndSetReferralCodeTx(provider, wallet, opts)
 
     // check and set plugin approvals
-    const pluginApprovalTxsPromise = this.checkAndGetPluginApprovalTxs(provider, wallet)
+    const pluginApprovalTxsPromise = this.checkAndGetPluginApprovalTxs(provider, wallet, plugin)
 
     const [referralCodeTxs, pluginApprovalTxs] = await Promise.all([referralCodeTxsPromise, pluginApprovalTxsPromise])
 
@@ -204,13 +207,40 @@ export default class GmxV1Service implements IExchange {
     return txs
   }
 
-  async checkAndGetPluginApprovalTxs(provider: Provider, wallet: string): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async _getOBApprovalTx(provider: Provider): Promise<UnsignedTxWithMetadata> {
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, provider)
+    const orderBook = getContract(ARBITRUM, 'OrderBook')!
 
-    // fetch approval status from cache
-    if (this.isPluginApprovedMap[wallet]) {
-      return txs
+    const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
+    return {
+      tx: approveOrderBookTx,
+      type: 'GMX_V1',
+      data: undefined,
+      heading: GMXV1_ENABLE_ORDERBOOK_H,
+      desc: EMPTY_DESC
     }
+  }
+
+  async _getPRApprovalTx(provider: Provider): Promise<UnsignedTxWithMetadata> {
+    const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, provider)
+    const positionRouter = getContract(ARBITRUM, 'PositionRouter')!
+
+    const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
+    return {
+      tx: approvePositionRouterTx,
+      type: 'GMX_V1',
+      data: undefined,
+      heading: GMXV1_ENABLE_POSITION_ROUTER_H,
+      desc: EMPTY_DESC
+    }
+  }
+
+  async checkAndGetPluginApprovalTxs(
+    provider: Provider,
+    wallet: string,
+    plugin: Plugin
+  ): Promise<UnsignedTxWithMetadata[]> {
+    let txs: UnsignedTxWithMetadata[] = []
 
     // check whether plugins are approved or not
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, provider)
@@ -220,33 +250,42 @@ export default class GmxV1Service implements IExchange {
     const obApprovalPromise = router.approvedPlugins(wallet, orderBook)
     const prApprovalPromise = router.approvedPlugins(wallet, positionRouter)
 
-    const [obApproval, prApproval] = await Promise.all([obApprovalPromise, prApprovalPromise])
+    if (plugin == 'ORDERBOOK') {
+      if (this.isOBPluginApprovedMap[wallet]) {
+        return txs
+      }
 
-    if (!obApproval) {
-      const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
-      txs.push({
-        tx: approveOrderBookTx,
-        type: 'GMX_V1',
-        data: undefined,
-        heading: GMXV1_ENABLE_ORDERBOOK_H,
-        desc: EMPTY_DESC
-      })
-    }
+      const obApproval = await obApprovalPromise
+      if (!obApproval) {
+        txs.push(await this._getOBApprovalTx(provider))
+      } else {
+        this.isOBPluginApprovedMap[wallet] = true
+      }
+    } else if (plugin == 'POSITION_ROUTER') {
+      if (this.isPRPluginApprovedMap[wallet]) {
+        return txs
+      }
 
-    if (!prApproval) {
-      const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
-      txs.push({
-        tx: approvePositionRouterTx,
-        type: 'GMX_V1',
-        data: undefined,
-        heading: GMXV1_ENABLE_POSITION_ROUTER_H,
-        desc: EMPTY_DESC
-      })
-    }
+      const prApproval = await prApprovalPromise
+      if (!prApproval) {
+        txs.push(await this._getPRApprovalTx(provider))
+      } else {
+        this.isPRPluginApprovedMap[wallet] = true
+      }
+    } else if (plugin == 'BOTH') {
+      const [obApproval, prApproval] = await Promise.all([obApprovalPromise, prApprovalPromise])
 
-    // update cache if both plugins are approved already
-    if (obApproval && prApproval) {
-      this.isPluginApprovedMap[wallet] = true
+      if (!obApproval) {
+        txs.push(await this._getOBApprovalTx(provider))
+      } else {
+        this.isOBPluginApprovedMap[wallet] = true
+      }
+
+      if (!prApproval) {
+        txs.push(await this._getPRApprovalTx(provider))
+      } else {
+        this.isPRPluginApprovedMap[wallet] = true
+      }
     }
 
     return txs
@@ -396,7 +435,12 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    let refAndPluginTxsPromise = this.getReferralAndPluginApprovals(provider, wallet, opts)
+    let refAndPluginTxsPromise = this.getReferralAndPluginApprovals(
+      provider,
+      wallet,
+      order.type == 'LIMIT_INCREASE' ? 'ORDERBOOK' : 'POSITION_ROUTER',
+      opts
+    )
 
     // approval tx
     let approvalTxPromise = undefined
@@ -534,7 +578,7 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, 'ORDERBOOK', opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
 
@@ -580,7 +624,7 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, 'ORDERBOOK', opts)))
 
     const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
     let cancelOrderTx
@@ -839,7 +883,7 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, opts)))
+    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, 'POSITION_ROUTER', opts)))
 
     const positionRouter = PositionRouter__factory.connect(getContract(ARBITRUM, 'PositionRouter')!, provider)
     let indexAddress = this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)
@@ -954,7 +998,9 @@ export default class GmxV1Service implements IExchange {
     let txs: UnsignedTxWithMetadata[] = []
 
     // check for referral and plugin approvals
-    txs.push(...(await this.getReferralAndPluginApprovals(provider, wallet, opts)))
+    txs.push(
+      ...(await this.getReferralAndPluginApprovals(provider, wallet, isTrigger ? 'ORDERBOOK' : 'POSITION_ROUTER', opts))
+    )
 
     let indexAddress = this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)
 
@@ -1701,6 +1747,9 @@ export default class GmxV1Service implements IExchange {
         staleTime: 0,
         cacheTime: 0
       })
+
+      // plugin approvals
+      await this.checkAndGetPluginApprovalTxs(provider, wallet, 'BOTH')
 
       // token approvals
       for (const tokenAddress of tokenAddresses) {
