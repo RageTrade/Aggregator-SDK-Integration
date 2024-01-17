@@ -564,7 +564,7 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
-        heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.market.marketToken),
+        heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.market.marketSymbol),
         desc: EMPTY_DESC
       })
     }
