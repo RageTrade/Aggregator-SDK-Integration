@@ -138,6 +138,15 @@ export async function getWebdata2(wallet: string): Promise<{ agentAddress: strin
   return makeRequest(HL_INFO_URL, reqData)
 }
 
+export async function getExtraAgents(wallet: string): Promise<{ address: string, name: string }[]> {
+  const user = getAddress(wallet)
+  const reqData = JSON.stringify({
+    type: 'extraAgents',
+    user: user
+  })
+  return makeRequest(HL_INFO_URL, reqData)
+}
+
 // Number of fills is limited to 2000
 export async function getUserFillsByTime(wallet: string, startTimeMs: number, endTimeMs?: number): Promise<UserFill[]> {
   const user = getAddress(wallet)
@@ -356,6 +365,19 @@ export function coinToAsset(coin: string, meta: Meta): number {
   return meta.universe.findIndex((e) => e.name === coin)
 }
 
+export async function checkIfRageTradeAgent(wallet: string, expectedAgentAddress?: string) {
+  const agents = await getExtraAgents(wallet)
+
+  for (const agent of agents) {
+    if (agent.name === 'rage_trade') {
+      if (expectedAgentAddress) return getAddress(expectedAgentAddress) === agent.address
+      return true
+    }
+  }
+
+  return false
+}
+
 export async function withdrawFromBridge(wallet: Wallet, amount: string) {
   const timestamp = Math.floor(new Date().getTime())
 
@@ -390,7 +412,7 @@ export async function approveAgent(userWallet: Wallet, agentWallet: string) {
   const timestamp = Math.floor(new Date().getTime())
   const connectionId = ethers.utils.solidityKeccak256(
     ['address'],
-    [ethers.utils.defaultAbiCoder.encode(['address'], [agentWallet])]
+    [ethers.utils.defaultAbiCoder.encode(['address', 'string'], [agentWallet, 'rage_trade'])]
   )
 
   const agentData = {
@@ -411,6 +433,7 @@ export async function approveAgent(userWallet: Wallet, agentWallet: string) {
       chain: 'Arbitrum',
       agent: agentData,
       agentAddress: agentWallet,
+      extraAgentName: 'rage_trade',
       type: 'connect'
     },
     nonce: timestamp,
