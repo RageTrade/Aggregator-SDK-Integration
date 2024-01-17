@@ -84,6 +84,19 @@ import { arbitrum, optimism } from 'viem/chains'
 import { getUsd } from '../configs/gmx/tokens'
 import { Provider } from '../interface'
 import { CACHE_HOUR, CACHE_MINUTE, GMX_COMMON_CACHE_PREFIX } from '../common/cache'
+import {
+  EMPTY_DESC,
+  GMXV1_ENABLE_ORDERBOOK_H,
+  GMXV1_ENABLE_POSITION_ROUTER_H,
+  GMX_SET_REFERRAL_CODE_H,
+  getIncreasePositionHeading,
+  UPDATE_ORDER_H,
+  CANCEL_ORDER_H,
+  getClosePositionHeading,
+  UPDATE_DEPOSIT_H,
+  UPDATE_WITHDRAW_H,
+  TOKEN_APPROVAL_H
+} from '../common/buttonHeadings'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
@@ -159,8 +172,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'GMX_V1',
         data: undefined,
         chainId: ARBITRUM,
-        heading: 'Approve OrderBook',
-        desc: 'Approve OrderBook'
+        heading: GMXV1_ENABLE_ORDERBOOK_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -171,8 +184,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'GMX_V1',
         data: undefined,
         chainId: ARBITRUM,
-        heading: 'Approve PositionRouter',
-        desc: 'Approve PositionRouter'
+        heading: GMXV1_ENABLE_POSITION_ROUTER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -208,8 +221,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'GMX_V1',
         data: undefined,
         chainId: ARBITRUM,
-        heading: 'Set Referral Code',
-        desc: 'Set Referral Code'
+        heading: GMX_SET_REFERRAL_CODE_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -494,8 +507,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
           order.type == 'MARKET' ? this.MARKET_EXEC_FEE : this.LIMIT_EXEC_FEE
         ),
         chainId: ARBITRUM,
-        heading: 'Increase Position',
-        desc: 'Increase Position'
+        heading: getIncreasePositionHeading('GMXV1', order.direction, market.marketSymbol),
+        desc: EMPTY_DESC
       })
     }
 
@@ -549,8 +562,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'GMX_V1',
         data: undefined,
         chainId: ARBITRUM,
-        heading: 'Update Order',
-        desc: 'Update Order'
+        heading: UPDATE_ORDER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -584,8 +597,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'GMX_V1',
         data: undefined,
         chainId: ARBITRUM,
-        heading: 'Cancel Order',
-        desc: 'Cancel Order'
+        heading: CANCEL_ORDER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -607,12 +620,21 @@ export default class GmxV1Adapter implements IAdapterV1 {
       positionInfo.map((pi) => pi.marketId),
       opts
     )
-    const [positionOrders, marketPrices] = await Promise.all([positionOrdersPromise, marketPricesPromise])
+    const marketsInfoPromise = this.getMarketsInfo(
+      positionInfo.map((pi) => pi.marketId),
+      opts
+    )
+    const [positionOrders, marketPrices, marketsInfo] = await Promise.all([
+      positionOrdersPromise,
+      marketPricesPromise,
+      marketsInfoPromise
+    ])
 
     for (let i = 0; i < positionInfo.length; i++) {
       const pi = positionInfo[i]
       const cpd = closePositionData[i]
       const position = pi.metadata
+      const market = marketsInfo[i]
 
       if (!validDenomination(cpd.closeSize, false)) throw new Error('Close size must be in USD denomination')
 
@@ -684,8 +706,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
           data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.MARKET_EXEC_FEE),
           chainId: ARBITRUM,
-          heading: 'Close Position',
-          desc: 'Close Position'
+          heading: getClosePositionHeading('GMXV1', market.marketSymbol),
+          desc: EMPTY_DESC
         })
       } else {
         const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, this.provider)
@@ -708,8 +730,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
           data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.LIMIT_EXEC_FEE),
           chainId: ARBITRUM,
-          heading: 'Close Position',
-          desc: 'Close Position'
+          heading: getClosePositionHeading('GMXV1', market.marketSymbol),
+          desc: EMPTY_DESC
         })
       }
     }
@@ -837,8 +859,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         data: undefined,
         ethRequired: await this.getEthRequired(wallet, extraEthReq, this.MARKET_EXEC_FEE),
         chainId: ARBITRUM,
-        heading: 'Update Margin',
-        desc: 'Update Margin'
+        heading: isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -1795,8 +1817,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
           type: 'ERC20_APPROVAL',
           data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
           chainId: ARBITRUM,
-          heading: 'Approve Router spend',
-          desc: 'Approve Router spend'
+          heading: TOKEN_APPROVAL_H,
+          desc: EMPTY_DESC
         })
       }
     }
@@ -1853,8 +1875,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'ERC20_APPROVAL',
         data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
         chainId: ARBITRUM,
-        heading: 'Approve Router spend',
-        desc: 'Approve Router spend'
+        heading: TOKEN_APPROVAL_H,
+        desc: EMPTY_DESC
       }
     }
   }

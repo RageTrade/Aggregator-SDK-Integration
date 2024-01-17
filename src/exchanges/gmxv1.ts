@@ -76,6 +76,19 @@ import {
 } from '../common/cache'
 import { ZERO } from '../common/constants'
 import { rpc } from '../common/provider'
+import {
+  EMPTY_DESC,
+  GMXV1_ENABLE_ORDERBOOK_H,
+  GMXV1_ENABLE_POSITION_ROUTER_H,
+  GMX_SET_REFERRAL_CODE_H,
+  TOKEN_APPROVAL_H,
+  getIncreasePositionHeading,
+  UPDATE_ORDER_H,
+  CANCEL_ORDER_H,
+  UPDATE_DEPOSIT_H,
+  UPDATE_WITHDRAW_H,
+  getClosePositionHeading
+} from '../common/buttonHeadings'
 
 // taken from contract Vault.sol
 const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
@@ -215,8 +228,8 @@ export default class GmxV1Service implements IExchange {
         tx: approveOrderBookTx,
         type: 'GMX_V1',
         data: undefined,
-        heading: 'Approve OrderBook',
-        desc: 'Approve OrderBook'
+        heading: GMXV1_ENABLE_ORDERBOOK_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -226,8 +239,8 @@ export default class GmxV1Service implements IExchange {
         tx: approvePositionRouterTx,
         type: 'GMX_V1',
         data: undefined,
-        heading: 'Approve PositionRouter',
-        desc: 'Approve PositionRouter'
+        heading: GMXV1_ENABLE_POSITION_ROUTER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -266,8 +279,8 @@ export default class GmxV1Service implements IExchange {
         tx: setReferralCodeTx,
         type: 'GMX_V1',
         data: undefined,
-        heading: 'Set Referral Code',
-        desc: 'Set Referral Code'
+        heading: GMX_SET_REFERRAL_CODE_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -298,8 +311,8 @@ export default class GmxV1Service implements IExchange {
         tx,
         type: 'ERC20_APPROVAL',
         data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
-        heading: 'Approve Router Spend',
-        desc: 'Approve Router Spend'
+        heading: TOKEN_APPROVAL_H,
+        desc: EMPTY_DESC
       }
     }
   }
@@ -504,8 +517,8 @@ export default class GmxV1Service implements IExchange {
         order.type == 'MARKET_INCREASE' ? this.MARKET_EXEC_FEE : this.LIMIT_EXEC_FEE,
         wallet
       ),
-      heading: 'Create Order',
-      desc: 'Create Order'
+      heading: getIncreasePositionHeading('GMXV1', order.direction, market.asset ? market.asset : ''),
+      desc: EMPTY_DESC
     })
 
     return txs
@@ -550,8 +563,8 @@ export default class GmxV1Service implements IExchange {
       tx: updateOrderTx,
       type: 'GMX_V1',
       data: undefined,
-      heading: 'Update Order',
-      desc: 'Update Order'
+      heading: UPDATE_ORDER_H,
+      desc: EMPTY_DESC
     })
 
     return txs
@@ -584,8 +597,8 @@ export default class GmxV1Service implements IExchange {
       tx: cancelOrderTx,
       type: 'GMX_V1',
       data: undefined,
-      heading: 'Cancel Order',
-      desc: 'Cancel Order'
+      heading: CANCEL_ORDER_H,
+      desc: EMPTY_DESC
     })
 
     return txs
@@ -920,8 +933,8 @@ export default class GmxV1Service implements IExchange {
       type: 'GMX_V1',
       data: undefined,
       ethRequired: await this.getEthRequired(provider, extraEthReq, this.MARKET_EXEC_FEE, wallet),
-      heading: 'Update Margin',
-      desc: 'Update Margin'
+      heading: isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
+      desc: EMPTY_DESC
     })
 
     return txs
@@ -993,8 +1006,11 @@ export default class GmxV1Service implements IExchange {
         type: 'GMX_V1',
         data: undefined,
         ethRequired: await this.getEthRequired(provider, undefined, this.MARKET_EXEC_FEE, wallet),
-        heading: 'Close Position',
-        desc: 'Close Position'
+        heading: getClosePositionHeading(
+          'GMXV1',
+          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol
+        ),
+        desc: EMPTY_DESC
       })
     } else {
       const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
@@ -1016,8 +1032,11 @@ export default class GmxV1Service implements IExchange {
         type: 'GMX_V1',
         data: undefined,
         ethRequired: await this.getEthRequired(provider, undefined, this.LIMIT_EXEC_FEE, wallet),
-        heading: 'Close Position',
-        desc: 'Close Position'
+        heading: getClosePositionHeading(
+          'GMXV1',
+          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol
+        ),
+        desc: EMPTY_DESC
       })
     }
 

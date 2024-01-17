@@ -42,10 +42,18 @@ import { getExplorerUrl } from '../configs/gmx/chains'
 import { timer } from 'execution-time-decorators'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD } from '../configs/pyth/prices'
-import { ApiOpts } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { ApiOpts, ProtocolId } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
 import { rpc } from '../common/provider'
 import { ZERO } from '../common/constants'
+import {
+  EMPTY_DESC,
+  SYN_V2_WITHDRAW_H,
+  SYN_V2_DEPOSIT_H,
+  getIncreasePositionHeading,
+  getClosePositionHeading,
+  CANCEL_ORDER_H
+} from '../common/buttonHeadings'
 
 const opProvider = rpc[10]
 
@@ -229,8 +237,15 @@ export default class SynthetixV2Service implements IExchange {
       )) as UnsignedTransaction,
       type: 'SNX_V2',
       data: undefined,
-      heading: 'Create Order',
-      desc: 'Create Order'
+      heading:
+        order.type == 'MARKET_DECREASE'
+          ? getClosePositionHeading(this.protocolIdentifier as ProtocolId, this._getTokenSymbol(market.asset!))
+          : getIncreasePositionHeading(
+              this.protocolIdentifier as ProtocolId,
+              order.direction,
+              this._getTokenSymbol(market.asset!)
+            ),
+      desc: EMPTY_DESC
     })
 
     return txs
@@ -259,8 +274,8 @@ export default class SynthetixV2Service implements IExchange {
         tx: await this.sdk.futures.cancelDelayedOrder(marketAddress, wallet, true),
         type: 'SNX_V2',
         data: undefined,
-        heading: 'Cancel Order',
-        desc: 'Cancel Order'
+        heading: CANCEL_ORDER_H,
+        desc: EMPTY_DESC
       }
     ]
   }
@@ -944,8 +959,8 @@ export default class SynthetixV2Service implements IExchange {
       tx: withdrawTx,
       type: 'SNX_V2',
       data: undefined,
-      heading: 'Withdraw',
-      desc: 'Withdraw'
+      heading: SYN_V2_WITHDRAW_H,
+      desc: EMPTY_DESC
     } as UnsignedTxWithMetadata
   }
 
@@ -959,8 +974,8 @@ export default class SynthetixV2Service implements IExchange {
       tx: depositTx,
       type: 'SNX_V2',
       data: undefined,
-      heading: 'Deposit',
-      desc: 'Deposit'
+      heading: SYN_V2_DEPOSIT_H,
+      desc: EMPTY_DESC
     } as UnsignedTxWithMetadata
   }
 
@@ -1009,5 +1024,16 @@ export default class SynthetixV2Service implements IExchange {
       staleTime: 0,
       cacheTime: 0
     })
+  }
+
+  // get token symbol from FutureMarketAsset type
+  private _getTokenSymbol(asset: string): string {
+    if (asset == 'sBTC') {
+      return 'BTC'
+    } else if (asset == 'sETH') {
+      return 'ETH'
+    } else {
+      return asset
+    }
   }
 }

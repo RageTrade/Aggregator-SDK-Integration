@@ -111,6 +111,18 @@ import { PRECISION } from '../configs/gmxv2/lib/numbers'
 import { ReferralStorage__factory } from '../../typechain/gmx-v1'
 import { getContract } from '../configs/gmx/contracts'
 import { useMarkets } from '../configs/gmxv2/markets/useMarkets'
+import {
+  EMPTY_DESC,
+  GMX_SET_REFERRAL_CODE_H,
+  TOKEN_APPROVAL_H,
+  GMXV2_CLAIM_FUNDING_H,
+  getIncreasePositionHeading,
+  UPDATE_ORDER_H,
+  CANCEL_ORDER_H,
+  getClosePositionHeading,
+  UPDATE_DEPOSIT_H,
+  UPDATE_WITHDRAW_H
+} from '../common/buttonHeadings'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -203,8 +215,8 @@ export default class GmxV2Service implements IAdapterV1 {
         type: 'GMX_V2',
         data: undefined,
         chainId: arbitrum.id,
-        heading: 'Set Referral Code',
-        desc: 'Set Referral Code'
+        heading: GMX_SET_REFERRAL_CODE_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -410,8 +422,8 @@ export default class GmxV2Service implements IAdapterV1 {
         chainId: 42161
       },
       chainId: arbitrum.id,
-      heading: 'Approve Token spend',
-      desc: 'Approve Token spend'
+      heading: TOKEN_APPROVAL_H,
+      desc: EMPTY_DESC
     }
   }
 
@@ -552,8 +564,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
-        heading: 'Increase Position',
-        desc: 'Increase Position'
+        heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.market.marketToken),
+        desc: EMPTY_DESC
       })
     }
 
@@ -628,8 +640,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to update
         chainId: arbitrum.id,
-        heading: 'Update Order',
-        desc: 'Update Order'
+        heading: UPDATE_ORDER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -658,8 +670,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to cancel order
         chainId: arbitrum.id,
-        heading: 'Cancel Order',
-        desc: 'Cancel Order'
+        heading: CANCEL_ORDER_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -796,8 +808,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!), // max eth can be upto keeper fee in close
         chainId: arbitrum.id,
-        heading: 'Close Position',
-        desc: 'Close Position'
+        heading: getClosePositionHeading('GMXV2', mkt.market.marketSymbol),
+        desc: EMPTY_DESC
       })
     }
 
@@ -936,8 +948,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
-        heading: 'Update Position Margin',
-        desc: 'Update Position Margin'
+        heading: updatePositionMarginData[i].isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
+        desc: EMPTY_DESC
       })
     }
 
@@ -984,8 +996,8 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: ethers.constants.Zero,
         chainId: arbitrum.id,
-        heading: 'Claim Funding',
-        desc: 'Claim Funding'
+        heading: GMXV2_CLAIM_FUNDING_H,
+        desc: EMPTY_DESC
       })
     }
 
