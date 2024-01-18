@@ -15,15 +15,22 @@ export const SYN_V2_DEPOSIT_H = 'SNXv2: Deposit'
 export const SYN_V2_WITHDRAW_H = 'SNXv2: Withdraw'
 
 export function getIncreasePositionHeading(protocolId: ProtocolId, direction: TradeDirection, marketSymbol: string) {
-  return `${_getDirectionString(direction)} ${marketSymbol} on ${_getProtocolString(protocolId)}`
+  return `${_getDirectionString(direction)} ${_getMarketSymbol(marketSymbol)} on ${_getProtocolString(protocolId)}`
 }
 
 export function getClosePositionHeading(protocolId: ProtocolId, marketSymbol: string) {
-  return `Close ${marketSymbol} on ${_getProtocolString(protocolId)}`
+  return `Close ${_getMarketSymbol(marketSymbol)} on ${_getProtocolString(protocolId)}`
 }
 
 export function getApproveTokenHeading(tokenSymbol: string) {
   return `${TOKEN_APPROVAL_H} ${_getTokenSymbol(tokenSymbol)}`
+}
+
+function _getMarketSymbol(marketSymbol: string) {
+  if (marketSymbol == 'WETH') {
+    return 'ETH'
+  }
+  return marketSymbol
 }
 
 function _getTokenSymbol(tokenSymbol: string) {

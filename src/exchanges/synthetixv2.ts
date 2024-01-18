@@ -318,7 +318,8 @@ export default class SynthetixV2Service implements IExchange {
           DEPOSIT: true,
           WITHDRAW: true
         },
-        protocolName: this.protocolIdentifier
+        protocolName: this.protocolIdentifier,
+        asset: position.asset
       },
       {
         type: 'MARKET_DECREASE',
@@ -902,7 +903,8 @@ export default class SynthetixV2Service implements IExchange {
       marketIdentifier: futurePosition.marketKey.toString(),
       protocolMetadata: {
         protocolName: this.protocolIdentifier
-      }
+      },
+      asset: this._getTokenSymbol(futurePosition.asset.toString())
     }
   }
 
