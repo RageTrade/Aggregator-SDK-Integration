@@ -677,7 +677,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     // check for referral and plugin approvals
     txs.push(...(await this.getReferralAndPluginApprovals(wallet, plugin, opts)))
 
-    const positionOrdersPromise = this.getAllOrdersForPosition(wallet, positionInfo, undefined, opts)
+    // const positionOrdersPromise = this.getAllOrdersForPosition(wallet, positionInfo, undefined, opts)
     const marketPricesPromise = this.getMarketPrices(
       positionInfo.map((pi) => pi.marketId),
       opts
@@ -686,8 +686,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
       positionInfo.map((pi) => pi.marketId),
       opts
     )
-    const [positionOrders, marketPrices, marketsInfo] = await Promise.all([
-      positionOrdersPromise,
+    const [/* positionOrders, */ marketPrices, marketsInfo] = await Promise.all([
+      // positionOrdersPromise,
       marketPricesPromise,
       marketsInfoPromise
     ])
@@ -705,28 +705,28 @@ export default class GmxV1Adapter implements IAdapterV1 {
       const indexAddress = this.getIndexTokenAddressFromPositionKey(pi.posId)
 
       if (!isTrigger) {
-        let remainingSize = position.size.sub(closeSizeBN)
+        // let remainingSize = position.size.sub(closeSizeBN)
 
-        if (positionOrders[pi.posId]) {
-          // close all related tp/sl orders if order.sizeDelta > remaining size
-          const orders = positionOrders[pi.posId].result.filter(
-            (order) =>
-              (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
-              getBNFromFN(order.sizeDelta.amount.toFormat(30)).gt(remainingSize)
-          )
-          const cancelOrderTxs = await this.cancelOrder(
-            orders.map((o) => {
-              return {
-                marketId: o.marketId,
-                orderId: o.orderId,
-                type: o.orderType
-              }
-            }),
-            wallet,
-            opts
-          )
-          txs.push(...cancelOrderTxs)
-        }
+        // if (positionOrders[pi.posId]) {
+        //   // close all related tp/sl orders if order.sizeDelta > remaining size
+        //   const orders = positionOrders[pi.posId].result.filter(
+        //     (order) =>
+        //       (order.orderType == 'TAKE_PROFIT' || order.orderType == 'STOP_LOSS') &&
+        //       getBNFromFN(order.sizeDelta.amount.toFormat(30)).gt(remainingSize)
+        //   )
+        //   const cancelOrderTxs = await this.cancelOrder(
+        //     orders.map((o) => {
+        //       return {
+        //         marketId: o.marketId,
+        //         orderId: o.orderId,
+        //         type: o.orderType
+        //       }
+        //     }),
+        //     wallet,
+        //     opts
+        //   )
+        //   txs.push(...cancelOrderTxs)
+        // }
 
         // close position
         let collateralOutAddr = cpd.outputCollateral

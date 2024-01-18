@@ -1005,16 +1005,16 @@ export default class GmxV1Service implements IExchange {
     let indexAddress = this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)
 
     if (!isTrigger) {
-      let remainingSize = position.size.sub(closeSize)
+      // let remainingSize = position.size.sub(closeSize)
 
       // close all related tp/sl orders if order.sizeDelta > remaining size
-      const orders = (await this.getAllOrdersForPosition(wallet, provider, position, undefined)).filter(
-        (order) => order.triggerType != 'NONE' && order.sizeDelta.gt(remainingSize)
-      )
-      for (const order of orders) {
-        const cancelOrderTx = await this.cancelOrder(provider, undefined, order, wallet)
-        txs.push(...cancelOrderTx)
-      }
+      // const orders = (await this.getAllOrdersForPosition(wallet, provider, position, undefined)).filter(
+      //   (order) => order.triggerType != 'NONE' && order.sizeDelta.gt(remainingSize)
+      // )
+      // for (const order of orders) {
+      //   const cancelOrderTx = await this.cancelOrder(provider, undefined, order, wallet)
+      //   txs.push(...cancelOrderTx)
+      // }
 
       // close position
       let collateralOutAddr = outputToken ? outputToken.address : position.originalCollateralToken!
