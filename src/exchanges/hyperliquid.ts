@@ -32,7 +32,9 @@ import {
   OrderType,
   AccountInfo,
   AmountInfoInToken,
-  MarketState
+  MarketState,
+  CollateralData,
+  TradeOperationType
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -45,7 +47,8 @@ import {
   getMeta,
   getMetaAndAssetCtxs,
   getOpenOrders,
-  getOrderStatus
+  getOrderStatus,
+  getUserFills
 } from '../configs/hyperliquid/api/client'
 import {
   AssetCtx,
@@ -546,20 +549,88 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return ordersForPosition
   }
 
-  getTradesHistory(
+  async getTradesHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    throw new Error('Method not implemented.')
+    const trades: HistoricalTradeInfo[] = []
+
+    // get user fills except liquidations
+    const userFills = (await getUserFills(wallet)).filter((uf) => uf.liquidationMarkPx == null)
+
+    for (const uf of userFills) {
+      const marketId = encodeMarketId(hyperliquid.id.toString(), 'HL', uf.coin)
+
+      const tradeData: TradeData = {
+        marketId: marketId,
+        direction: uf.side === 'B' ? 'LONG' : 'SHORT',
+        sizeDelta: toAmountInfoFN(FixedNumber.fromString(uf.sz), true),
+        marginDelta: toAmountInfoFN(FixedNumber.fromString('0'), true) // TODO: no margin delta for fills
+      }
+
+      const collateralData: CollateralData = {
+        collateral: HL_COLLATERAL_TOKEN
+      }
+
+      trades.push({
+        ...tradeData,
+        ...collateralData,
+        timestamp: Math.floor(uf.time / 1000),
+        indexPrice: FixedNumber.fromString(uf.px),
+        collateralPrice: FixedNumber.fromString('1'),
+        realizedPnl: FixedNumber.fromString(uf.closedPnl),
+        keeperFeesPaid: FixedNumber.fromString('0'),
+        positionFee: FixedNumber.fromString(uf.fee),
+        operationType: uf.dir as TradeOperationType,
+        txHash: uf.hash
+      })
+    }
+
+    return getPaginatedResponse(trades, pageOptions)
   }
-  getLiquidationHistory(
+
+  async getLiquidationHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<LiquidationInfo>> {
-    throw new Error('Method not implemented.')
+    const liquidations: LiquidationInfo[] = []
+
+    // get user fills for liquidtions
+    const userFills = (await getUserFills(wallet)).filter((uf) => uf.liquidationMarkPx != null)
+    // get unique marketIds
+    const marketIds = [...new Set(userFills.map((uf) => encodeMarketId(hyperliquid.id.toString(), 'HL', uf.coin)))]
+    const marketMaxLevMap: Record<string, FixedNumber> = {}
+    ;(await this.getMarketsInfo(marketIds, opts)).forEach((m) => {
+      marketMaxLevMap[m.marketId] = m.maxLeverage
+    })
+
+    for (const uf of userFills) {
+      const marketId = encodeMarketId(hyperliquid.id.toString(), 'HL', uf.coin)
+
+      const collateralData: CollateralData = {
+        collateral: HL_COLLATERAL_TOKEN
+      }
+
+      liquidations.push({
+        ...collateralData,
+        marketId: marketId,
+        liquidationPrice: FixedNumber.fromString(uf.liquidationMarkPx!),
+        direction: uf.side === 'B' ? 'LONG' : 'SHORT',
+        sizeClosed: toAmountInfoFN(FixedNumber.fromString(uf.sz), true),
+        realizedPnl: FixedNumber.fromString(uf.closedPnl),
+        liquidationFees: FixedNumber.fromString(uf.fee),
+        remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true),
+        liqudationLeverage: marketMaxLevMap[marketId],
+        timestamp: Math.floor(uf.time / 1000),
+        txHash: uf.hash
+      })
+    }
+
+    return getPaginatedResponse(liquidations, pageOptions)
   }
+
   getClaimHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,

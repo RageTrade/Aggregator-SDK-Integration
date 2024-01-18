@@ -1,3 +1,4 @@
+import { getCrossLiqPx } from '../src/configs/hyperliquid/liqPrice'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
@@ -70,8 +71,21 @@ async function getMarketState() {
   console.dir(marketState, { depth: 4 })
 }
 
+async function getTradesHistory() {
+  const tradesHistory = await hl.getTradesHistory(w, {
+    skip: 0,
+    limit: 4
+  })
+  console.dir(tradesHistory, { depth: 4 })
+}
+
+async function getLiquidationHistory() {
+  const liquidationHistory = await hl.getLiquidationHistory(w, undefined)
+  console.dir(liquidationHistory, { depth: 4 })
+}
+
 hl.init(w).then(() => {
-  getAccountInfo()
+  getLiquidationHistory()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
