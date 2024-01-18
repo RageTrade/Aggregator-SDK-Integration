@@ -206,11 +206,12 @@ async function increasePosition() {
   //   slippage: 2
   // })
 
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 1; i++) {
     console.log('Iteration: ', i + 1)
     console.time('increasePosition')
     const txs = await ex.increasePosition(orders, '0x92B54cA40F1d7aca2E9c140176fabC1f7D7B387A')
     console.timeEnd('increasePosition')
+    console.dir({ txs }, { depth: 4 })
   }
 
   // updateOrders.push({

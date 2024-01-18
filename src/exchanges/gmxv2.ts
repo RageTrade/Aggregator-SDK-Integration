@@ -114,14 +114,14 @@ import { useMarkets } from '../configs/gmxv2/markets/useMarkets'
 import {
   EMPTY_DESC,
   GMX_SET_REFERRAL_CODE_H,
-  TOKEN_APPROVAL_H,
   GMXV2_CLAIM_FUNDING_H,
   getIncreasePositionHeading,
   UPDATE_ORDER_H,
   CANCEL_ORDER_H,
   getClosePositionHeading,
   UPDATE_DEPOSIT_H,
-  UPDATE_WITHDRAW_H
+  UPDATE_WITHDRAW_H,
+  getApproveTokenHeading
 } from '../common/buttonHeadings'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
@@ -227,7 +227,15 @@ export default class GmxV2Service implements IAdapterV1 {
     return [arbitrum]
   }
 
-  async _cachedMarkets(opts?: ApiOpts) {
+  async _cachedMarkets(opts?: ApiOpts): Promise<
+    Record<
+      string,
+      {
+        marketInfo: MarketInfo
+        market: Awaited<ReturnType<Reader['getMarket']>>
+      }
+    >
+  > {
     const sTime = getStaleTime(CACHE_DAY, opts)
     const res = cacheFetch({
       key: [GMXV2_CACHE_PREFIX, 'cachedMarkets'],
@@ -422,7 +430,7 @@ export default class GmxV2Service implements IAdapterV1 {
         chainId: 42161
       },
       chainId: arbitrum.id,
-      heading: TOKEN_APPROVAL_H + ` ${getGmxV2TokenByAddress(token).symbol}`,
+      heading: getApproveTokenHeading(getGmxV2TokenByAddress(token).symbol),
       desc: EMPTY_DESC
     }
   }
@@ -564,7 +572,7 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
-        heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.market.marketSymbol),
+        heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.marketInfo.marketSymbol),
         desc: EMPTY_DESC
       })
     }
@@ -808,7 +816,7 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!), // max eth can be upto keeper fee in close
         chainId: arbitrum.id,
-        heading: getClosePositionHeading('GMXV2', mkt.market.marketSymbol),
+        heading: getClosePositionHeading('GMXV2', mkt.marketInfo.marketSymbol),
         desc: EMPTY_DESC
       })
     }

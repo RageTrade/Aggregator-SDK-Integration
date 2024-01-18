@@ -15,9 +15,44 @@ export const SYN_V2_DEPOSIT_H = 'SNXv2: Deposit'
 export const SYN_V2_WITHDRAW_H = 'SNXv2: Withdraw'
 
 export function getIncreasePositionHeading(protocolId: ProtocolId, direction: TradeDirection, marketSymbol: string) {
-  return `${direction} ${marketSymbol} on ${protocolId}`
+  return `${_getDirectionString(direction)} ${marketSymbol} on ${_getProtocolString(protocolId)}`
 }
 
 export function getClosePositionHeading(protocolId: ProtocolId, marketSymbol: string) {
-  return `Close ${marketSymbol} on ${protocolId}`
+  return `Close ${marketSymbol} on ${_getProtocolString(protocolId)}`
+}
+
+export function getApproveTokenHeading(tokenSymbol: string) {
+  return `${TOKEN_APPROVAL_H} ${_getTokenSymbol(tokenSymbol)}`
+}
+
+function _getTokenSymbol(tokenSymbol: string) {
+  if (tokenSymbol == 'WBTC.b') {
+    return 'WBTC'
+  }
+  return tokenSymbol
+}
+
+function _getDirectionString(direction: TradeDirection) {
+  switch (direction) {
+    case 'LONG':
+      return 'Long'
+    case 'SHORT':
+      return 'Short'
+    default:
+      return ''
+  }
+}
+
+function _getProtocolString(protocolId: ProtocolId) {
+  switch (protocolId) {
+    case 'GMXV1':
+      return 'GMXv1'
+    case 'GMXV2':
+      return 'GMXv2'
+    case 'SYNTHETIX_V2':
+      return 'SNXv2'
+    default:
+      return ''
+  }
 }

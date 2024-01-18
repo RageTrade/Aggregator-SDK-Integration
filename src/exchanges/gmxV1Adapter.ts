@@ -95,7 +95,7 @@ import {
   getClosePositionHeading,
   UPDATE_DEPOSIT_H,
   UPDATE_WITHDRAW_H,
-  TOKEN_APPROVAL_H
+  getApproveTokenHeading
 } from '../common/buttonHeadings'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
@@ -1879,7 +1879,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           type: 'ERC20_APPROVAL',
           data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
           chainId: ARBITRUM,
-          heading: TOKEN_APPROVAL_H + ` ${getToken(ARBITRUM, tokenAddress).symbol}`,
+          heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
           desc: EMPTY_DESC
         })
       }
@@ -1937,7 +1937,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         type: 'ERC20_APPROVAL',
         data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
         chainId: ARBITRUM,
-        heading: TOKEN_APPROVAL_H + ` ${getToken(ARBITRUM, tokenAddress).symbol}`,
+        heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
         desc: EMPTY_DESC
       }
     }

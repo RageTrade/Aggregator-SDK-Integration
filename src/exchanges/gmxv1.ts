@@ -81,13 +81,13 @@ import {
   GMXV1_ENABLE_ORDERBOOK_H,
   GMXV1_ENABLE_POSITION_ROUTER_H,
   GMX_SET_REFERRAL_CODE_H,
-  TOKEN_APPROVAL_H,
   getIncreasePositionHeading,
   UPDATE_ORDER_H,
   CANCEL_ORDER_H,
   UPDATE_DEPOSIT_H,
   UPDATE_WITHDRAW_H,
-  getClosePositionHeading
+  getClosePositionHeading,
+  getApproveTokenHeading
 } from '../common/buttonHeadings'
 
 // taken from contract Vault.sol
@@ -350,7 +350,7 @@ export default class GmxV1Service implements IExchange {
         tx,
         type: 'ERC20_APPROVAL',
         data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
-        heading: TOKEN_APPROVAL_H + ` ${getToken(ARBITRUM, tokenAddress).symbol}`,
+        heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
         desc: EMPTY_DESC
       }
     }
