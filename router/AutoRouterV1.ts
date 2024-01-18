@@ -256,7 +256,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         market: bestMinFeeMarket.market,
         collateralToken: bestMinFeeMarket.collateralToken,
         tagDesc: 'Lowest Fee',
-        tagColor: '#F24040'
+        tagColor: '#0CAC6C'
       })
     }
 
