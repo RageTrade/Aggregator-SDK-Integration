@@ -234,7 +234,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         market: bestFundingMarket.market,
         collateralToken: undefined,
         tagDesc: 'Best Funding',
-        tagColor: '#0CAC6C'
+        tagColor: '#FF00FF'
       })
     }
 
