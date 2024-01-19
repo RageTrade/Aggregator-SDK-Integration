@@ -67,6 +67,14 @@ export default class RouterV1 implements IRouterV1 {
     throw new Error('Method not implemented.')
   }
 
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+    return Promise.resolve([])
+  }
+
   getAmountInfoType(): AmountInfoInToken {
     throw new Error('Method not implemented.')
   }

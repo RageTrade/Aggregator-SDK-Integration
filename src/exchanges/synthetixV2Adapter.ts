@@ -79,7 +79,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return Promise.resolve()
   }
 
-  async setup(): Promise<ActionParam[]> {
+  setup(): Promise<ActionParam[]> {
     await this.sdk.setProvider(opProvider)
     return Promise.resolve([])
   }
