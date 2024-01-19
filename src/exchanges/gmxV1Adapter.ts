@@ -768,7 +768,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.MARKET_EXEC_FEE),
           chainId: ARBITRUM,
-          heading: getClosePositionHeading('GMXV1', market.marketSymbol),
+          heading: getClosePositionHeading('GMXV1', market.marketSymbol, 'MARKET'),
           desc: EMPTY_DESC
         })
       } else {
@@ -786,13 +786,21 @@ export default class GmxV1Adapter implements IAdapterV1 {
             value: this.LIMIT_EXEC_FEE
           }
         )
+
+        let isTp = false
+        if (position.direction! == 'LONG') {
+          isTp = cpd.triggerData!.triggerAboveThreshold
+        } else {
+          isTp = cpd.triggerData!.triggerAboveThreshold
+        }
+
         txs.push({
           tx: createOrderTx,
           type: 'GMX_V1',
           data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.LIMIT_EXEC_FEE),
           chainId: ARBITRUM,
-          heading: getClosePositionHeading('GMXV1', market.marketSymbol),
+          heading: getClosePositionHeading('GMXV1', market.marketSymbol, isTp ? 'TAKE_PROFIT' : 'STOP_LOSS'),
           desc: EMPTY_DESC
         })
       }

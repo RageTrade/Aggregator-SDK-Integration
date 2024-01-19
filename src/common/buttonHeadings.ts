@@ -1,4 +1,4 @@
-import { ProtocolId, TradeDirection } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { CloseOrderType, ProtocolId, TradeDirection } from '../interfaces/V1/IRouterAdapterBaseV1'
 
 export const EMPTY_DESC = ''
 export const GMXV1_ENABLE_ORDERBOOK_H = 'GMXv1: Enable Limit Orders'
@@ -18,12 +18,24 @@ export function getIncreasePositionHeading(protocolId: ProtocolId, direction: Tr
   return `${_getDirectionString(direction)} ${_getMarketSymbol(marketSymbol)} on ${_getProtocolString(protocolId)}`
 }
 
-export function getClosePositionHeading(protocolId: ProtocolId, marketSymbol: string) {
-  return `Close ${_getMarketSymbol(marketSymbol)} on ${_getProtocolString(protocolId)}`
+export function getClosePositionHeading(protocolId: ProtocolId, marketSymbol: string, type: CloseOrderType) {
+  if (type == 'MARKET') return `Close ${_getMarketSymbol(marketSymbol)} on ${_getProtocolString(protocolId)}`
+  else return `Open ${_getTPSLString(type)} on ${_getProtocolString(protocolId)}`
 }
 
 export function getApproveTokenHeading(tokenSymbol: string) {
   return `${TOKEN_APPROVAL_H} ${_getTokenSymbol(tokenSymbol)}`
+}
+
+function _getTPSLString(type: CloseOrderType) {
+  switch (type) {
+    case 'STOP_LOSS':
+      return 'SL'
+    case 'TAKE_PROFIT':
+      return 'TP'
+    default:
+      return ''
+  }
 }
 
 function _getMarketSymbol(marketSymbol: string) {

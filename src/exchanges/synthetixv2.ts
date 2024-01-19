@@ -239,7 +239,11 @@ export default class SynthetixV2Service implements IExchange {
       data: undefined,
       heading:
         order.type == 'MARKET_DECREASE'
-          ? getClosePositionHeading(this.protocolIdentifier as ProtocolId, this._getTokenSymbol(market.asset!))
+          ? getClosePositionHeading(
+              this.protocolIdentifier as ProtocolId,
+              this._getTokenSymbol(market.asset!),
+              'MARKET'
+            )
           : getIncreasePositionHeading(
               this.protocolIdentifier as ProtocolId,
               order.direction,

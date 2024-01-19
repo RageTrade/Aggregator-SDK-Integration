@@ -816,7 +816,15 @@ export default class GmxV2Service implements IAdapterV1 {
         data: undefined,
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!), // max eth can be upto keeper fee in close
         chainId: arbitrum.id,
-        heading: getClosePositionHeading('GMXV2', mkt.marketInfo.marketSymbol),
+        heading: getClosePositionHeading(
+          'GMXV2',
+          mkt.marketInfo.marketSymbol,
+          orderType == SolidityOrderType.MarketDecrease
+            ? 'MARKET'
+            : orderType == SolidityOrderType.StopLossDecrease
+            ? 'STOP_LOSS'
+            : 'TAKE_PROFIT'
+        ),
         desc: EMPTY_DESC
       })
     }

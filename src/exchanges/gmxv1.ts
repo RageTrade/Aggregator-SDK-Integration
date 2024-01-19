@@ -1047,6 +1047,7 @@ export default class GmxV1Service implements IExchange {
           value: this.MARKET_EXEC_FEE
         }
       )
+
       txs.push({
         tx: createOrderTx,
         type: 'GMX_V1',
@@ -1054,7 +1055,8 @@ export default class GmxV1Service implements IExchange {
         ethRequired: await this.getEthRequired(provider, undefined, this.MARKET_EXEC_FEE, wallet),
         heading: getClosePositionHeading(
           'GMXV1',
-          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol
+          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol,
+          'MARKET'
         ),
         desc: EMPTY_DESC
       })
@@ -1073,6 +1075,14 @@ export default class GmxV1Service implements IExchange {
           value: this.LIMIT_EXEC_FEE
         }
       )
+
+      let isTp = false
+      if (position.direction! == 'LONG') {
+        isTp = triggerAboveThreshold!
+      } else {
+        isTp = triggerAboveThreshold!
+      }
+
       txs.push({
         tx: createOrderTx,
         type: 'GMX_V1',
@@ -1080,7 +1090,8 @@ export default class GmxV1Service implements IExchange {
         ethRequired: await this.getEthRequired(provider, undefined, this.LIMIT_EXEC_FEE, wallet),
         heading: getClosePositionHeading(
           'GMXV1',
-          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol
+          getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol,
+          isTp ? 'TAKE_PROFIT' : 'STOP_LOSS'
         ),
         desc: EMPTY_DESC
       })
