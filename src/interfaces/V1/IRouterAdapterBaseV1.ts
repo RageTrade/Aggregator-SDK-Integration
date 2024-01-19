@@ -3,7 +3,7 @@ import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionDa
 import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
 import { FixedNumber } from '../../common/fixedNumber'
-import { ActionParams } from '../IActionExecutor'
+import { ActionParam } from '../IActionExecutor'
 
 export type ApiOpts = {
   bypassCache: boolean // bypass query client cache altogether
@@ -255,71 +255,6 @@ export type PaginatedRes<T> = {
   maxItemsCount: number
 }
 
-export type UnsignedTxWithMetadata =
-  | {
-    tx: UnsignedTransaction
-    type: 'ERC20_APPROVAL'
-    data: ERC20ApprovalAddtionalSessionData
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'GMX_V1'
-    data: undefined
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'LIFI'
-    data: undefined
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'SNX_V2'
-    data: undefined
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'NATIVE'
-    data: undefined
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'ADDRESS'
-    data: AddressValidationAdditionalSessionData
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-  | {
-    tx: UnsignedTransaction
-    type: 'GMX_V2'
-    data: undefined
-    ethRequired?: BigNumber
-    chainId: number
-    heading: string
-    desc: string
-  }
-
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 export type AccountInfo = {
@@ -347,11 +282,11 @@ export interface IRouterAdapterBaseV1 {
   init(wallet: string | undefined, opts?: ApiOpts): Promise<void>
 
   ///// Setup api //////
-  setup(): Promise<UnsignedTxWithMetadata[]>
+  setup(): Promise<ActionParam[]>
 
-  deposit(token: Token, amount: FixedNumber): Promise<ActionParams[]>
+  deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]>
 
-  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]>
+  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParam[]>
 
   ///// Network api //////
   supportedChains(opts?: ApiOpts): Chain[]
@@ -366,27 +301,27 @@ export interface IRouterAdapterBaseV1 {
   getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]>
 
   ///// Action api's //////
-  increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
+  increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
+  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
+  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
   closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]>
+  ): Promise<ActionParam[]>
 
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]>
+  ): Promise<ActionParam[]>
 
-  claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]>
+  claimFunding(wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
   ///// Fetching api's //////
   getIdleMargins(wallet: string, opts?: ApiOpts): Promise<Array<IdleMarginInfo>>

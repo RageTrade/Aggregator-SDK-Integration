@@ -138,7 +138,7 @@ export async function getWebdata2(wallet: string): Promise<{ agentAddress: strin
   return makeRequest(HL_INFO_URL, reqData)
 }
 
-export async function getExtraAgents(wallet: string): Promise<{ address: string, name: string }[]> {
+export async function getExtraAgents(wallet: string): Promise<{ address: string; name: string }[]> {
   const user = getAddress(wallet)
   const reqData = JSON.stringify({
     type: 'extraAgents',

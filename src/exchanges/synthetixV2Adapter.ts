@@ -3,7 +3,6 @@ import { FixedNumber } from '../common/fixedNumber'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
-  UnsignedTxWithMetadata,
   MarketInfo,
   DynamicMarketMetadata,
   CreateOrder,
@@ -47,11 +46,12 @@ import {
   SYNV2_CACHE_PREFIX,
   CACHE_MINUTE
 } from '../common/cache'
-import { BigNumber } from 'ethers'
+import { BigNumber, Wallet } from 'ethers'
 import Wei, { wei } from '@synthetixio/wei'
 import { getBNFromFN, getEnumEntryByValue, toAmountInfo, validDenomination } from '../common/helper'
 import { getTokenPriceD } from '../configs/pyth/prices'
 import { PotentialTradeStatus } from '@kwenta/sdk/dist/types/futures'
+import { ActionParam } from '../interfaces/IActionExecutor'
 
 const SYN_V2 = 'SYNTHETIX_V2'
 const sUSDAddr = '0x8c6f28f2F1A3C87F0f938b96d27520d9751ec8d9'
@@ -79,8 +79,22 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return Promise.resolve()
   }
 
+<<<<<<< HEAD
   async setup(): Promise<UnsignedTxWithMetadata[]> {
     await this.sdk.setProvider(opProvider)
+||||||| parent of 8c41ef5 (feat: new action param interface + make it compile)
+  setup(): Promise<UnsignedTxWithMetadata[]> {
+=======
+  setup(): Promise<ActionParam[]> {
+    return Promise.resolve([])
+  }
+
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+>>>>>>> 8c41ef5 (feat: new action param interface + make it compile)
     return Promise.resolve([])
   }
 
@@ -223,17 +237,13 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return metadata
   }
 
-  increasePosition(
-    orderData: CreateOrder[],
-    wallet: string,
-    opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
+  increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
   closePosition(
@@ -241,7 +251,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
   updatePositionMargin(
@@ -249,10 +259,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {

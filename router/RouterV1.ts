@@ -4,7 +4,6 @@ import {
   MarketInfo,
   DynamicMarketMetadata,
   CreateOrder,
-  UnsignedTxWithMetadata,
   UpdateOrder,
   CancelOrder,
   PositionInfo,
@@ -40,6 +39,9 @@ import { decodeMarketId } from '../src/common/markets'
 import { FixedNumber } from '../src/common/fixedNumber'
 import GmxV1Adapter from '../src/exchanges/gmxV1Adapter'
 import SynthetixV2Adapter from '../src/exchanges/synthetixV2Adapter'
+import { ActionParam } from '../src/interfaces/IActionExecutor'
+import { Token } from '../src/common/tokens'
+import { Wallet } from 'ethers'
 
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}
@@ -53,6 +55,14 @@ export default class RouterV1 implements IRouterV1 {
 
   constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+  }
+
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+    return Promise.resolve([])
   }
 
   getAmountInfoType(): AmountInfoInToken {
@@ -88,8 +98,8 @@ export default class RouterV1 implements IRouterV1 {
     return Promise.resolve()
   }
 
-  async setup(): Promise<UnsignedTxWithMetadata[]> {
-    const setupPromises: Promise<UnsignedTxWithMetadata[]>[] = []
+  async setup(): Promise<ActionParam[]> {
+    const setupPromises: Promise<ActionParam[]>[] = []
     for (const key in this.adapters) {
       setupPromises.push(this.adapters[key].setup())
     }
@@ -158,7 +168,7 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
@@ -167,7 +177,7 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
@@ -176,7 +186,7 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
@@ -190,8 +200,8 @@ export default class RouterV1 implements IRouterV1 {
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    const promises: Promise<UnsignedTxWithMetadata[]>[] = []
+  ): Promise<ActionParam[]> {
+    const promises: Promise<ActionParam[]>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(adapter.closePosition([position], [closePositionData[index]], wallet, opts))
@@ -204,8 +214,8 @@ export default class RouterV1 implements IRouterV1 {
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    const promises: Promise<UnsignedTxWithMetadata[]>[] = []
+  ): Promise<ActionParam[]> {
+    const promises: Promise<ActionParam[]>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(adapter.updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts))
@@ -213,8 +223,8 @@ export default class RouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    const claimPromises: Promise<UnsignedTxWithMetadata[]>[] = []
+  async claimFunding(wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    const claimPromises: Promise<ActionParam[]>[] = []
     for (const key in this.adapters) {
       claimPromises.push(this.adapters[key].claimFunding(wallet, opts))
     }

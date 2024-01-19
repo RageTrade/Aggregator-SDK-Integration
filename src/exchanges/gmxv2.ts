@@ -3,7 +3,6 @@ import {
   MarketInfo,
   DynamicMarketMetadata,
   CreateOrder,
-  UnsignedTxWithMetadata,
   UpdateOrder,
   CancelOrder,
   PositionInfo,
@@ -38,7 +37,7 @@ import {
   IERC20__factory,
   Reader
 } from '../../typechain/gmx-v2'
-import { BigNumber, ethers } from 'ethers'
+import { BigNumber, Wallet, ethers } from 'ethers'
 import { OrderType, ApiOpts, AccountInfo, MarketState } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
@@ -125,6 +124,7 @@ import {
   getApproveTokenHeading
 } from '../common/buttonHeadings'
 import { isMarketEnabled } from '../configs/gmxv2/markets/markets'
+import { ActionParam } from '../interfaces/IActionExecutor'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -191,12 +191,20 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve()
   }
 
-  async setup(): Promise<UnsignedTxWithMetadata[]> {
+  async setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
 
-  async checkAndSetReferralCodeTx(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+    return Promise.resolve([])
+  }
+
+  async checkAndSetReferralCodeTx(wallet: string): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
     // Fetch user referral code
@@ -221,8 +229,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const setReferralCodeTx = await referralStorage.populateTransaction.setTraderReferralCodeByUser(REFERRAL_CODE)
       txs.push({
         tx: setReferralCodeTx,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         chainId: arbitrum.id,
         heading: GMX_SET_REFERRAL_CODE_H,
         desc: EMPTY_DESC
@@ -439,12 +446,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
     return {
       tx: tx,
-      type: 'ERC20_APPROVAL',
-      data: {
-        token: token,
-        spender: this.ROUTER_ADDR,
-        chainId: 42161
-      },
+      // type: 'ERC20_APPROVAL',
       chainId: arbitrum.id,
       heading: getApproveTokenHeading(getGmxV2TokenByAddress(token).symbol),
       desc: EMPTY_DESC
@@ -457,8 +459,8 @@ export default class GmxV2Service implements IAdapterV1 {
 
   ///// Action api's //////
 
-  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    const txs: UnsignedTxWithMetadata[] = []
+  async increasePosition(orderData: CreateOrder[], wallet: string): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
     // check and set referral code
     const referralCodeTxPromise = this.checkAndSetReferralCodeTx(wallet, opts)
 
@@ -589,8 +591,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
         heading: getIncreasePositionHeading('GMXV2', od.direction, mkt.marketInfo.marketSymbol),
@@ -601,8 +602,8 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    const txs: UnsignedTxWithMetadata[] = []
+  async updateOrder(orderData: UpdateOrder[], wallet: string): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
     // check and set referral code
     txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
@@ -665,8 +666,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to update
         chainId: arbitrum.id,
         heading: UPDATE_ORDER_H,
@@ -677,8 +677,8 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    const txs: UnsignedTxWithMetadata[] = []
+  async cancelOrder(orderData: CancelOrder[], wallet: string): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
     // check and set referral code
     txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
@@ -695,8 +695,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: ethers.constants.Zero, // no addtional eth should be required to cancel order
         chainId: arbitrum.id,
         heading: CANCEL_ORDER_H,
@@ -710,10 +709,9 @@ export default class GmxV2Service implements IAdapterV1 {
   async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
-    wallet: string,
-    opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    const txs: UnsignedTxWithMetadata[] = []
+    wallet: string
+  ): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
     // check and set referral code
     txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
@@ -833,8 +831,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!), // max eth can be upto keeper fee in close
         chainId: arbitrum.id,
         heading: getClosePositionHeading(
@@ -843,8 +840,8 @@ export default class GmxV2Service implements IAdapterV1 {
           orderType == SolidityOrderType.MarketDecrease
             ? 'MARKET'
             : orderType == SolidityOrderType.StopLossDecrease
-            ? 'STOP_LOSS'
-            : 'TAKE_PROFIT'
+              ? 'STOP_LOSS'
+              : 'TAKE_PROFIT'
         ),
         desc: EMPTY_DESC
       })
@@ -856,10 +853,9 @@ export default class GmxV2Service implements IAdapterV1 {
   async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
-    wallet: string,
-    opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    const txs: UnsignedTxWithMetadata[] = []
+    wallet: string
+  ): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
     // check and set referral code
     txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
@@ -982,8 +978,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: await this._getEthRequired(this.provider, wallet, multicallEncoded.value!),
         chainId: arbitrum.id,
         heading: updatePositionMarginData[i].isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
@@ -994,8 +989,8 @@ export default class GmxV2Service implements IAdapterV1 {
     return txs
   }
 
-  async claimFunding(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async claimFunding(wallet: string): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
     // check and set referral code
     txs.push(...(await this.checkAndSetReferralCodeTx(wallet, opts)))
 
@@ -1030,8 +1025,7 @@ export default class GmxV2Service implements IAdapterV1 {
       // add metadata for txs
       txs.push({
         tx: multicallEncoded,
-        type: 'GMX_V2',
-        data: undefined,
+        // type: 'GMX_V2',
         ethRequired: ethers.constants.Zero,
         chainId: arbitrum.id,
         heading: GMXV2_CLAIM_FUNDING_H,
@@ -1210,13 +1204,12 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${
-                wallet
-                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-                      orderTypes
-                    )} }`
-                  : ''
-              }
+              ${wallet
+            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+              orderTypes
+            )} }`
+            : ''
+          }
           ) {
               id
 

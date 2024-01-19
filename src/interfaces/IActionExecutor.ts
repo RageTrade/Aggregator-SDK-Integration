@@ -1,17 +1,28 @@
-import { BigNumber, PopulatedTransaction, Wallet } from 'ethers'
+import { BigNumber, UnsignedTransaction, Wallet } from 'ethers'
 
+// removed 'type' and 'data' from metadata because they were sent as undefined and were leftover from biconomy types
+// also 'type' and 'data' are fields in transaction so it can be conflicting
 type ExecutionMetadata = {
   desc: string
   chainId: number
   heading: string
-  ethRequired: BigNumber
+  ethRequired?: BigNumber
 }
 type APICallParams = Parameters<typeof fetch>
 
-type PopulatedTransactionWithMetadata = PopulatedTransaction & ExecutionMetadata
+export type UnsignedTransactionWithMetadata = { tx: UnsignedTransaction } & ExecutionMetadata
 type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMetadata
 
-export type ActionParams = PopulatedTransactionWithMetadata | APICallParamsWithMetadata
-export function isPopulatedTransaction(params: ActionParams): params is PopulatedTransactionWithMetadata {
-  return (params as PopulatedTransactionWithMetadata).to !== undefined
-}
+// if return value is defined,
+// use fetch params to make request otherwise conitnue with next element
+type RequestSignerFn = (wallet: Wallet) => Promise<APICallParams | undefined>
+type RequestSignerFnWithMetadata = { fn: RequestSignerFn; isEoaSigner: boolean } & ExecutionMetadata
+
+// 'ActionParam' represents a 'step' (i.e where signer needs to sign or accept transaction )
+// Each step should have single metadata
+// write functions from adapters and routers will return ActionParam[] instead of UnsignedTransactionWithMetadata[]
+export type ActionParam = UnsignedTransactionWithMetadata | APICallParamsWithMetadata | RequestSignerFnWithMetadata
+// for ActionParam[]
+// - if unsigned txn, populate gas on correct chain and dispatch, 1 step / txn for user with single returned metadata
+// - if sig fn, call fn with wallet and it will prompt for EIP712/ETH sig (which is the only step if "isEoaSigner" is true) and if sig fn returns defined value then make fetch request with that
+// - if api call with params => NOT RETURNED CURRENTLY, FOR FUTURE USE (when we might have api keys)

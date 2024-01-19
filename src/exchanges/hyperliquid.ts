@@ -31,10 +31,7 @@ import {
   TriggerData,
   OrderType,
   AccountInfo,
-  AmountInfoInToken,
-  MarketState,
-  CollateralData,
-  TradeOperationType
+  AmountInfoInToken
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -71,11 +68,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
   private minPositionUsd = parseUnits('11', 30)
 
-  private provider = rpc[42161]
-  public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
-
-  private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
-
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     await cacheFetch({
       key: [HL_CACHE_PREFIX, 'meta'],
@@ -88,40 +80,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   setup(): Promise<UnsignedTxWithMetadata[]> {
     return Promise.resolve([])
-  }
-
-  async deposit(token: Token, amount: FixedNumber): Promise<ActionParams[]> {
-    if (token.symbol !== 'USDC') throw new Error('token not supported')
-
-    const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
-
-    const txs: ActionParams[] = [
-      {
-        ...tx,
-        desc: 'Depositing into hyperliquid DEX',
-        chainId: ARBITRUM,
-        heading: 'hyperliquid',
-        ethRequired: BigNumber.from(0)
-      }
-    ]
-
-    return txs
-  }
-
-  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParams[]> {
-    if (token.symbol !== 'USDC') throw new Error('token not supported')
-
-    const reqData = await withdrawFromBridge(wallet, amount.toString())
-
-    return [
-      {
-        apiArgs: reqData,
-        desc: 'Withdraw from Hyperliquid DEX',
-        chainId: ARBITRUM,
-        heading: 'hyperliquid',
-        ethRequired: BigNumber.from(0)
-      }
-    ]
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
@@ -875,16 +833,5 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       sizeDeltaInToken: false,
       collateralDeltaInToken: true
     }
-  }
-
-  async _populateMeta(opts?: ApiOpts) {
-    let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
-    await cacheFetch({
-      key: [HL_CACHE_PREFIX, 'meta'],
-      fn: () => getMeta(),
-      staleTime: sTimeMarkets,
-      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
-      opts: opts
-    })
   }
 }

@@ -8,9 +8,10 @@ import {
   UpdatePositionMarginData
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { getBNFromFN, logObject, toAmountInfo } from '../src/common/helper'
-import { parseUnits } from 'ethers/lib/utils'
+import { UnsignedTransaction, parseUnits } from 'ethers/lib/utils'
 import { getTokenBySymbol } from '../src/common/tokens'
 import { FixedNumber } from '../src/common/fixedNumber'
+import { UnsignedTransactionWithMetadata } from '../src/interfaces/IActionExecutor'
 
 const ex = new GmxV1Adapter()
 const rt = new RouterV1()
@@ -187,7 +188,7 @@ async function closePosition() {
 
   const txs = await ex.closePosition([position], [closePositionData], w)
   txs.forEach((tx) => {
-    logObject('Close position tx: ', tx.tx)
+    logObject('Close position tx: ', (tx as UnsignedTransactionWithMetadata).tx)
   })
 }
 
@@ -209,7 +210,7 @@ async function updatePositionMargin() {
 
   const txs = await ex.updatePositionMargin([position], [upmd], w)
   txs.forEach((tx) => {
-    logObject('Update margin tx: ', tx.tx)
+    logObject('Update margin tx: ', (tx as UnsignedTransactionWithMetadata).tx)
   })
 }
 
@@ -226,7 +227,7 @@ async function cancelOrder() {
 
   const txs = await ex.cancelOrder(cancelData, w)
   txs.forEach((tx) => {
-    logObject('Cancel order tx: ', tx.tx)
+    logObject('Cancel order tx: ', (tx as UnsignedTransactionWithMetadata).tx)
   })
 }
 

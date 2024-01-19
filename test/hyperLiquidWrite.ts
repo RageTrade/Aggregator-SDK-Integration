@@ -1,11 +1,10 @@
 import { Wallet } from 'ethers'
-import { formatUnits } from 'ethers/lib/utils'
+import { UnsignedTransaction, formatUnits } from 'ethers/lib/utils'
 import { tokens } from '../src/common/tokens'
 
 import { FixedNumber } from '../src/common/fixedNumber'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
-import { isPopulatedTransaction } from '../src/interfaces/IActionExecutor'
 import {
   approveAgent,
   cancelOrders,
@@ -19,6 +18,7 @@ import {
   updateIsolatedMargin,
   updateLeverage
 } from '../src/configs/hyperliquid/api/client'
+import { UnsignedTransactionWithMetadata } from '../src/interfaces/IActionExecutor'
 
 async function main() {
   const hl = new HyperliquidAdapterV1()
@@ -33,9 +33,7 @@ async function main() {
   // const bal = await hl.usdc.balanceOf(wallet.address)
   // console.log('usdc bal', formatUnits(bal, 6))
   //
-  // const txn = (await hl.deposit(tokens.USDC, FixedNumber.fromString(formatUnits(bal, 6))))[0]
-  //
-  // if (!isPopulatedTransaction(txn)) return
+  // const { tx: txn } = (await hl.deposit(tokens.USDC, FixedNumber.fromString(formatUnits(bal, 6))))[0] as UnsignedTransactionWithMetadata
   //
   // const txData = await wallet.populateTransaction({ to: txn.to, data: txn.data })
   // const tx = await wallet.signTransaction(txData)
