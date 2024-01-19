@@ -59,6 +59,14 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
   }
 
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+    return Promise.resolve([])
+  }
+
   getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
     throw new Error('Method not implemented.')
   }
