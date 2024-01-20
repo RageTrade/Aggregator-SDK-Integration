@@ -30,17 +30,17 @@ import { Chain } from 'viem'
 export default class AutoRouterV1 extends ConsolidatedRouterV1 {
   private _logMarkets(markets: MarketInfo[]) {
     if (markets.length == 0) {
-      console.log('## >> NO ELIGIBLE MARKETS << ##')
+      // console.log('## >> NO ELIGIBLE MARKETS << ##')
       return
     }
-    markets.forEach((market) => {
-      console.log('eligible Market', {
-        marketId: market.marketId,
-        indexToken: market.indexToken.symbol,
-        longCollateral: market.longCollateral.map((token) => token.symbol),
-        shortCollateral: market.shortCollateral.map((token) => token.symbol)
-      })
-    })
+    // markets.forEach((market) => {
+    //   console.log('eligible Market', {
+    //     marketId: market.marketId,
+    //     indexToken: market.indexToken.symbol,
+    //     longCollateral: market.longCollateral.map((token) => token.symbol),
+    //     shortCollateral: market.shortCollateral.map((token) => token.symbol)
+    //   })
+    // })
   }
   private async _getEligibleMarkets(
     marketSymbol: string,
@@ -172,7 +172,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       )
 
       if (eligibleCollateralTokens.length == 0) {
-        console.log(`## >> market ${market.marketId} has no eligible collateral tokens << ##`)
+        // console.log(`## >> market ${market.marketId} has no eligible collateral tokens << ##`)
         continue
       }
 
@@ -281,7 +281,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       routeData.direction
     )
     const routes = await this._getTradePreview(eligibleMarkets, routeData, opts)
-    console.log({ routes })
+    // console.log({ routes })
     const reduceCallback = getBestPriceReduceCallback(routeData.direction)
     let bestRoute = routes.reduce(reduceCallback)
     return bestRoute.preview
