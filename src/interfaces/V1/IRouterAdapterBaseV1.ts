@@ -115,6 +115,7 @@ export type TradeData = {
 
 export type OrderData = TradeData & {
   triggerData: TriggerData | undefined
+  mode?: 'ISOLATED' | 'CROSS'
 }
 
 export type CollateralData = {
