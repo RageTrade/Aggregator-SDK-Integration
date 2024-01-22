@@ -17,7 +17,7 @@ export type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMe
 
 // if return value is defined,
 // use fetch params to make request otherwise conitnue with next element
-export type RequestSignerFn = (wallet: Wallet, pk?: string) => Promise<APICallParams | undefined>
+export type RequestSignerFn = (wallet: Wallet) => Promise<APICallParams | undefined>
 export type RequestSignerFnWithMetadata = { fn: RequestSignerFn; isEoaSigner: boolean } & ExecutionMetadata
 
 // 'ActionParam' represents a 'step' (i.e where signer needs to sign or accept transaction )
