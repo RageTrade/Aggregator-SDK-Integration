@@ -37,6 +37,8 @@ import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_
 import {
   HL_COLLATERAL_TOKEN,
   HL_TOKENS_MAP,
+  approveAgent,
+  checkIfRageTradeAgent,
   getActiveAssetData,
   getAllMids,
   getClearinghouseState,
@@ -45,7 +47,9 @@ import {
   getMetaAndAssetCtxs,
   getOpenOrders,
   getOrderStatus,
-  getUserFills
+  placeOrders,
+  slippagePrice,
+  withdrawFromBridge
 } from '../configs/hyperliquid/api/client'
 import {
   AssetCtx,
@@ -54,6 +58,7 @@ import {
   Meta,
   MetaAndAssetCtx,
   OpenOrders,
+  OrderRequest,
   OrderStatusInfo
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
@@ -298,12 +303,54 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return dynamicMarketMetadata
   }
 
-  increasePosition(
-    orderData: CreateOrder[],
-    wallet: string,
-    opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    throw new Error('Method not implemented.')
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    // check if agent is available
+    // if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) {
+      payload.push(await approveAgent())
+    }
+
+    // get position for coin, if position exists then match the margin mode
+    // TODO
+
+    // if no position, prepare update leverage txn if required
+    // TODO
+
+    // convert args to inputs of place order fn
+    const orders: OrderRequest[] = []
+
+    const mids = await getAllMids()
+
+    const meta = await getMeta()
+
+    for (const each of orderData) {
+      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+
+      const isBuy = each.direction === 'LONG'
+      const slippage = 0.02 // 2% TODO
+
+      const order: OrderRequest = {
+        coin: marketInfo.indexToken.symbol,
+        is_buy: isBuy,
+        sz: parseFloat(each.sizeDelta.amount._value),
+        limit_px: Number(slippagePrice(isBuy, slippage, parseFloat(mids[marketInfo.indexToken.symbol])).toFixed(1)),
+        order_type: {
+          limit: {
+            tif: 'Gtc'
+          }
+        },
+        reduce_only: false,
+        cloid: null
+      }
+
+      orders.push(order)
+    }
+
+    payload.push(await placeOrders(orders, meta))
+
+    return payload
   }
   updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
     throw new Error('Method not implemented.')
