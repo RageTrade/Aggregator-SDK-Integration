@@ -25,6 +25,7 @@ import {
 import { Token } from '../../../common/tokens'
 import { Wallet, ethers } from 'ethers'
 import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing'
+import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
 
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
@@ -247,6 +248,14 @@ export function floatToInt(x: number, power: number): number {
   return res
 }
 
+export function slippagePrice(isBuy: boolean, slippage: number, px: number): number {
+  // Calculate Slippage
+  px *= isBuy ? 1 + slippage : 1 - slippage
+
+  // We round px to 5 significant figures and 6 decimals
+  return parseFloat(px.toFixed(6))
+}
+
 export function orderTypeToTuple(orderType: OrderType): [number, number] {
   if (orderType.limit !== undefined) {
     const tif = orderType.limit.tif
@@ -408,7 +417,10 @@ export async function withdrawFromBridge(wallet: Wallet, amount: string) {
   return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
 }
 
-export async function approveAgent(userWallet: Wallet, agentWallet: string) {
+export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
+  const agentWalletSigner = ethers.Wallet.createRandom()
+  const agentWallet = agentWalletSigner.address
+
   const timestamp = Math.floor(new Date().getTime())
   const connectionId = ethers.utils.solidityKeccak256(
     ['address'],
@@ -420,30 +432,39 @@ export async function approveAgent(userWallet: Wallet, agentWallet: string) {
     connectionId: connectionId
   }
 
-  const signature = (await signAgent(userWallet, agentData)).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (await signAgent(wallet, agentData)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const reqData = JSON.stringify({
-    action: {
-      chain: 'Arbitrum',
-      agent: agentData,
-      agentAddress: agentWallet,
-      extraAgentName: 'rage_trade',
-      type: 'connect'
+      const reqData = JSON.stringify({
+        action: {
+          chain: 'Arbitrum',
+          agent: agentData,
+          agentAddress: agentWallet,
+          extraAgentName: 'rage_trade',
+          type: 'connect'
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: true,
+    desc: 'Approve Agent',
+    chainId: 1337,
+    heading: 'Approve Agent',
+    pk: agentWalletSigner.privateKey
+  }
 }
 
-export async function placeOrders(agentWallet: Wallet, orders: OrderRequest[], meta: Meta) {
+export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
 
   const orderSpecs: OrderSpec[] = []
@@ -476,36 +497,44 @@ export async function placeOrders(agentWallet: Wallet, orders: OrderRequest[], m
     processedOrderSpecs.push(orderSpecPreprocessing(each))
   }
 
-  const signature = (
-    await signL1Action(agentWallet, signatureTypes, [processedOrderSpecs, orderGroupingToNumber('na')], timestamp)
-  ).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (
+        await signL1Action(wallet, signatureTypes, [processedOrderSpecs, orderGroupingToNumber('na')], timestamp)
+      ).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const wireOrders: OrderWire[] = []
+      const wireOrders: OrderWire[] = []
 
-  for (const each of orderSpecs) {
-    wireOrders.push(orderSpecToOrderWire(each))
-  }
+      for (const each of orderSpecs) {
+        wireOrders.push(orderSpecToOrderWire(each))
+      }
 
-  const reqData = JSON.stringify({
-    action: {
-      type: 'order',
-      grouping: 'na',
-      orders: wireOrders
+      const reqData = JSON.stringify({
+        action: {
+          type: 'order',
+          grouping: 'na',
+          orders: wireOrders
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: false,
+    desc: 'Place Orders',
+    chainId: 1337,
+    heading: 'Place Orders'
+  }
 }
 
-export async function cancelOrders(agentWallet: Wallet, orders: CancelRequest[], meta: Meta) {
+export async function cancelOrders(orders: CancelRequest[], meta: Meta) {
   const timestamp = Math.floor(new Date().getTime())
 
   const processedOrderSpecs: any[] = []
@@ -521,31 +550,39 @@ export async function cancelOrders(agentWallet: Wallet, orders: CancelRequest[],
     processedOrderSpecs.push(result)
   }
 
-  const signature = (await signL1Action(agentWallet, signatureTypes, [processedOrderSpecs], timestamp)).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (await signL1Action(wallet, signatureTypes, [processedOrderSpecs], timestamp)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const wireOrders: { asset: number; oid: number }[] = processedOrderSpecs.map((v) => {
-    return { asset: v[0], oid: v[1] }
-  })
+      const wireOrders: { asset: number; oid: number }[] = processedOrderSpecs.map((v) => {
+        return { asset: v[0], oid: v[1] }
+      })
 
-  const reqData = JSON.stringify({
-    action: {
-      type: 'cancel',
-      cancels: wireOrders
+      const reqData = JSON.stringify({
+        action: {
+          type: 'cancel',
+          cancels: wireOrders
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: false,
+    desc: 'Cancel Orders',
+    chainId: 1337,
+    heading: 'Cancel Orders'
+  }
 }
 
-export async function modifyOrders(agentWallet: Wallet, orders: ModifyRequest[], meta: Meta) {
+export async function modifyOrders(orders: ModifyRequest[], meta: Meta) {
   const timestamp = Math.floor(new Date().getTime())
 
   const signatureTypes = [ethers.utils.ParamType.from('(uint64,uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')]
@@ -566,37 +603,39 @@ export async function modifyOrders(agentWallet: Wallet, orders: ModifyRequest[],
     processedOrderSpecs.push(modifySpecPreprocessing(each))
   }
 
-  const signature = (await signL1Action(agentWallet, signatureTypes, [processedOrderSpecs], timestamp, 40)).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (await signL1Action(wallet, signatureTypes, [processedOrderSpecs], timestamp, 40)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const wireOrders: { oid: number; order: OrderWire }[] = orderSpecs.map((v) => {
-    return { oid: v.oid, order: orderSpecToOrderWire(v.order) }
-  })
+      const wireOrders: { oid: number; order: OrderWire }[] = orderSpecs.map((v) => {
+        return { oid: v.oid, order: orderSpecToOrderWire(v.order) }
+      })
 
-  const reqData = JSON.stringify({
-    action: {
-      type: 'batchModify',
-      modifies: wireOrders
+      const reqData = JSON.stringify({
+        action: {
+          type: 'batchModify',
+          modifies: wireOrders
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: false,
+    desc: 'Place Orders',
+    chainId: 1337,
+    heading: 'Place Orders'
+  }
 }
 
-export async function updateLeverage(
-  agentWallet: Wallet,
-  leverage: number,
-  coin: string,
-  is_cross: boolean,
-  meta: Meta
-) {
+export async function updateLeverage(leverage: number, coin: string, is_cross: boolean, meta: Meta) {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -606,29 +645,37 @@ export async function updateLeverage(
     ethers.utils.ParamType.from('uint32')
   ]
 
-  const signature = (await signL1Action(agentWallet, signatureTypes, [asset, is_cross, leverage], timestamp)).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (await signL1Action(wallet, signatureTypes, [asset, is_cross, leverage], timestamp)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const reqData = JSON.stringify({
-    action: {
-      type: 'updateLeverage',
-      asset,
-      isCross: is_cross,
-      leverage
+      const reqData = JSON.stringify({
+        action: {
+          type: 'updateLeverage',
+          asset,
+          isCross: is_cross,
+          leverage
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: false,
+    desc: 'Place Orders',
+    chainId: 1337,
+    heading: 'Place Orders'
+  }
 }
 
-export async function updateIsolatedMargin(agentWallet: Wallet, amount: number, coin: string, meta: Meta) {
+export async function updateIsolatedMargin(amount: number, coin: string, meta: Meta) {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -640,24 +687,32 @@ export async function updateIsolatedMargin(agentWallet: Wallet, amount: number, 
     ethers.utils.ParamType.from('int64')
   ]
 
-  const signature = (await signL1Action(agentWallet, signatureTypes, [asset, true, amountInt], timestamp)).slice(2)
+  return {
+    fn: async (wallet: Wallet) => {
+      const signature = (await signL1Action(wallet, signatureTypes, [asset, true, amountInt], timestamp)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const reqData = JSON.stringify({
-    action: {
-      type: 'updateIsolatedMargin',
-      asset,
-      isBuy: true,
-      ntli: amountInt
+      const reqData = JSON.stringify({
+        action: {
+          type: 'updateIsolatedMargin',
+          asset,
+          isBuy: true,
+          ntli: amountInt
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    isEoaSigner: false,
+    desc: 'Place Orders',
+    chainId: 1337,
+    heading: 'Place Orders'
+  }
 }
