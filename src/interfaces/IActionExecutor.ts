@@ -7,16 +7,18 @@ type ExecutionMetadata = {
   chainId: number
   heading: string
   ethRequired?: BigNumber
+  // TODO: see if it can be abstracted in better way
+  pk?: string
 }
 type APICallParams = Parameters<typeof fetch>
 
 export type UnsignedTransactionWithMetadata = { tx: UnsignedTransaction } & ExecutionMetadata
-type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMetadata
+export type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMetadata
 
 // if return value is defined,
 // use fetch params to make request otherwise conitnue with next element
-type RequestSignerFn = (wallet: Wallet) => Promise<APICallParams | undefined>
-type RequestSignerFnWithMetadata = { fn: RequestSignerFn; isEoaSigner: boolean } & ExecutionMetadata
+export type RequestSignerFn = (wallet: Wallet, pk?: string) => Promise<APICallParams | undefined>
+export type RequestSignerFnWithMetadata = { fn: RequestSignerFn; isEoaSigner: boolean } & ExecutionMetadata
 
 // 'ActionParam' represents a 'step' (i.e where signer needs to sign or accept transaction )
 // Each step should have single metadata
@@ -26,3 +28,11 @@ export type ActionParam = UnsignedTransactionWithMetadata | APICallParamsWithMet
 // - if unsigned txn, populate gas on correct chain and dispatch, 1 step / txn for user with single returned metadata
 // - if sig fn, call fn with wallet and it will prompt for EIP712/ETH sig (which is the only step if "isEoaSigner" is true) and if sig fn returns defined value then make fetch request with that
 // - if api call with params => NOT RETURNED CURRENTLY, FOR FUTURE USE (when we might have api keys)
+
+export function isRequestSignerFn(param: ActionParam): param is RequestSignerFnWithMetadata {
+  return (param as RequestSignerFnWithMetadata).fn !== undefined
+}
+
+export function isUnsignedTxWithMetadata(param: ActionParam): param is UnsignedTransactionWithMetadata {
+  return (param as UnsignedTransactionWithMetadata).tx !== undefined
+}
