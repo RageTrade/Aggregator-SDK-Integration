@@ -6,6 +6,7 @@ import { FixedNumber } from '../src/common/fixedNumber'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import {
+  HL_COLLATERAL_TOKEN,
   approveAgent,
   cancelOrders,
   checkIfRageTradeAgent,
@@ -18,7 +19,9 @@ import {
   updateIsolatedMargin,
   updateLeverage
 } from '../src/configs/hyperliquid/api/client'
-import { UnsignedTransactionWithMetadata } from '../src/interfaces/IActionExecutor'
+import { UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
+import { hyperliquid } from '../src/configs/hyperliquid/api/config'
+import { CreateOrder, OrderData } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 
 async function main() {
   const hl = new HyperliquidAdapterV1()
@@ -195,4 +198,61 @@ async function main() {
   // console.log(await checkIfRageTradeAgent(wallet.address))
 }
 
-main()
+async function testExecutorE2E() {
+  const hl = new HyperliquidAdapterV1()
+
+  const provider = new StaticJsonRpcProvider('https://arb1.arbitrum.io/rpc')
+  const wallet = new Wallet('INPUT_PK', provider)
+
+  const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
+  console.dir(market, { depth: 6 })
+
+  const orderData: CreateOrder[] = [
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.05'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
+      triggerData: undefined,
+      collateral: HL_COLLATERAL_TOKEN,
+      type: 'MARKET',
+      slippage: undefined
+    }
+  ]
+
+  let agentWallet: Wallet | undefined = undefined
+
+  const executionPayload = await hl.increasePosition(orderData, wallet.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  for (const payload of executionPayload) {
+    if (!isRequestSignerFn(payload)) continue
+
+    if (payload.pk) {
+      agentWallet = new Wallet(payload.pk)
+    }
+
+    const fetchPayload = await payload.fn(payload.isEoaSigner ? wallet : agentWallet!)
+
+    if (!fetchPayload) continue
+
+    fetch(...fetchPayload)
+      .then(async (res) => {
+        if (res.ok) {
+          const data = await res.json()
+          console.log(payload.heading, 'success')
+          console.dir(data, { depth: 6 })
+          return
+        }
+
+        console.log(payload.heading, 'failed (not ok code)')
+        console.dir(res.body, { depth: 6 })
+      })
+      .catch((e) => {
+        console.log(payload.heading, 'failed (catch block)')
+        console.dir(e.body, { depth: 6 })
+      })
+  }
+}
+
+testExecutorE2E()
