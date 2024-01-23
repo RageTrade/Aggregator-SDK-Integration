@@ -81,3 +81,7 @@ export async function cacheFetch(args: CacheFetchArgs) {
     staleTime: getStaleTime(args.staleTime, args.opts)
   })
 }
+
+export function getCachedValueByKey(key: CacheFetchArgs['key']) {
+  return queryClient.getQueryData(key)
+}
