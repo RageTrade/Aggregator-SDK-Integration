@@ -1875,10 +1875,6 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
-    return Promise.resolve([])
-  }
-
   ///////////////////////////////////
   //// Internal helper functions ////
   ///////////////////////////////////
