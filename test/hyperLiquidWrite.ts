@@ -223,7 +223,7 @@ async function testExecutorE2E() {
     {
       marketId: market.marketId,
       direction: 'LONG',
-      sizeDelta: { amount: FixedNumber.fromString('0.05'), isTokenAmount: true },
+      sizeDelta: { amount: FixedNumber.fromString('-0.05'), isTokenAmount: true },
       marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
       triggerData: undefined,
       collateral: HL_COLLATERAL_TOKEN,

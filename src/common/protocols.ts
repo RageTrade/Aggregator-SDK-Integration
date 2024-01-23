@@ -19,6 +19,10 @@ export const protocols = {
     symbol: 'GMXV2',
     supportedChains: [arbitrum]
   },
+  HYPERLIQUID: {
+    symbol: 'HYPERLIQUID',
+    supportedChains: [arbitrum]
+  },
   PERV2: {
     symbol: 'PERV2',
     supportedChains: [arbitrum]

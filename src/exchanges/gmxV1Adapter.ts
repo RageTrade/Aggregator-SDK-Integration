@@ -134,12 +134,12 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async deposit(token: Token, amount: FixedNumber) {
-    return Promise.resolve([])
+  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
-    return Promise.resolve([])
+  async withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
   async getReferralAndPluginApprovals(wallet: string, plugin: Plugin, opts?: ApiOpts): Promise<ActionParam[]> {
@@ -955,11 +955,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
   }
 
   claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    return Promise.resolve([])
+    throw new Error('Method not implemented.')
   }
 
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
-    return Promise.resolve([])
+    throw new Error('Method not implemented.')
   }
 
   async getAllPositions(

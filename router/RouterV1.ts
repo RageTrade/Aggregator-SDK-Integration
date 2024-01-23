@@ -42,6 +42,7 @@ import SynthetixV2Adapter from '../src/exchanges/synthetixV2Adapter'
 import { ActionParam } from '../src/interfaces/IActionExecutor'
 import { Token } from '../src/common/tokens'
 import { Wallet } from 'ethers'
+import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IRouterAdapterBaseV1> = {}
@@ -55,14 +56,15 @@ export default class RouterV1 implements IRouterV1 {
 
   constructor() {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
+    this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
   }
 
-  async deposit(token: Token, amount: FixedNumber) {
-    return Promise.resolve([])
+  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
-    return Promise.resolve([])
+  async withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
   getAmountInfoType(): AmountInfoInToken {
