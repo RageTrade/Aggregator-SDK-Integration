@@ -22,6 +22,9 @@ import {
 import { UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
 import { CreateOrder, OrderData } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createWalletClient, http } from 'viem'
+import { mainnet } from 'viem/chains'
 
 async function main() {
   const hl = new HyperliquidAdapterV1()
@@ -201,8 +204,17 @@ async function main() {
 async function testExecutorE2E() {
   const hl = new HyperliquidAdapterV1()
 
-  const provider = new StaticJsonRpcProvider('https://arb1.arbitrum.io/rpc')
-  const wallet = new Wallet('INPUT_PK', provider)
+  const wallet = createWalletClient({
+    account: privateKeyToAccount('0x_INPUT_PK'),
+    transport: http(),
+    chain: mainnet
+  })
+
+  const agentWallet = createWalletClient({
+    account: privateKeyToAccount('0x_INPUT_PK'),
+    transport: http(),
+    chain: mainnet
+  })
 
   const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
   console.dir(market, { depth: 6 })
@@ -220,35 +232,37 @@ async function testExecutorE2E() {
     }
   ]
 
-  let agentWallet: Wallet | undefined = undefined
-
-  const executionPayload = await hl.increasePosition(orderData, wallet.address)
+  const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
   for (const payload of executionPayload) {
     if (!isRequestSignerFn(payload)) continue
 
-    if (payload.pk) {
-      agentWallet = new Wallet(payload.pk)
-    }
-
-    const fetchPayload = await payload.fn(payload.isEoaSigner ? wallet : agentWallet!)
+    // is submitting
+    const fetchPayload = await payload.fn(
+      payload.isEoaSigner ? wallet : agentWallet!,
+      payload.isAgentRequired ? agentWallet.account.address : undefined
+    )
 
     if (!fetchPayload) continue
 
+    // is executing
     fetch(...fetchPayload)
       .then(async (res) => {
         if (res.ok) {
+          // is success
           const data = await res.json()
           console.log(payload.heading, 'success')
           console.dir(data, { depth: 6 })
           return
         }
 
+        // failure
         console.log(payload.heading, 'failed (not ok code)')
         console.dir(res.body, { depth: 6 })
       })
       .catch((e) => {
+        // failure
         console.log(payload.heading, 'failed (catch block)')
         console.dir(e.body, { depth: 6 })
       })

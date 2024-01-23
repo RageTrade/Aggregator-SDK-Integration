@@ -1,17 +1,18 @@
-import { Wallet, ethers } from 'ethers'
+import { ethers } from 'ethers'
+import { WalletClient } from 'viem'
 
 const HL_EIP712_DOMAIN = {
   name: 'Exchange',
   version: '1',
   chainId: 42161,
-  verifyingContract: ethers.constants.AddressZero
+  verifyingContract: ethers.constants.AddressZero as `0x${string}`
 }
 
 const HL_L1_EIP712_DOMAIN = {
   name: 'Exchange',
   version: '1',
   chainId: 1337,
-  verifyingContract: ethers.constants.AddressZero
+  verifyingContract: ethers.constants.AddressZero as `0x${string}`
 }
 
 const AGENT_EIP712_TYPE = {
@@ -38,7 +39,7 @@ const USD_TRANSFER_EIP712_TYPE = {
 }
 
 export function signL1Action(
-  wallet: Wallet,
+  wallet: WalletClient,
   signatureTypes: ethers.utils.ParamType[],
   signatureData: any[],
   nonce: number,
@@ -57,19 +58,43 @@ export function signL1Action(
 
   const phantomAgent = constructPhantomAgent(signatureTypes, signatureData, true)
 
-  return wallet._signTypedData(HL_L1_EIP712_DOMAIN, AGENT_EIP712_TYPE, phantomAgent)
+  return wallet.signTypedData({
+    account: wallet.account!,
+    domain: HL_L1_EIP712_DOMAIN,
+    types: AGENT_EIP712_TYPE,
+    primaryType: 'Agent',
+    message: phantomAgent
+  })
 }
 
-export function signUsdTransferAction(wallet: Wallet, message: any) {
-  return wallet._signTypedData(HL_EIP712_DOMAIN, USD_TRANSFER_EIP712_TYPE, message)
+export function signUsdTransferAction(wallet: WalletClient, message: any) {
+  return wallet.signTypedData({
+    account: wallet.account!,
+    domain: HL_EIP712_DOMAIN,
+    types: USD_TRANSFER_EIP712_TYPE,
+    primaryType: 'UsdTransferSignPayload',
+    message: message
+  })
 }
 
-export function signWithdrawFromBridgeAction(wallet: Wallet, message: any) {
-  return wallet._signTypedData(HL_EIP712_DOMAIN, WITHDRAW_EIP712_TYPE, message)
+export function signWithdrawFromBridgeAction(wallet: WalletClient, message: any) {
+  return wallet.signTypedData({
+    account: wallet.account!,
+    domain: HL_EIP712_DOMAIN,
+    types: WITHDRAW_EIP712_TYPE,
+    primaryType: 'WithdrawFromBridge2SignPayload',
+    message: message
+  })
 }
 
-export function signAgent(wallet: Wallet, agent: any) {
-  return wallet._signTypedData(HL_EIP712_DOMAIN, AGENT_EIP712_TYPE, agent)
+export function signAgent(wallet: WalletClient, agent: any) {
+  return wallet.signTypedData({
+    account: wallet.account!,
+    domain: HL_EIP712_DOMAIN,
+    types: AGENT_EIP712_TYPE,
+    primaryType: 'Agent',
+    message: agent
+  })
 }
 
 function constructPhantomAgent(

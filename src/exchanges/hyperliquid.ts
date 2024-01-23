@@ -26,7 +26,6 @@ import {
   Market,
   GenericStaticMarketMetadata,
   Protocol,
-  ProtocolId,
   TradeData,
   TriggerData,
   OrderType,
@@ -65,9 +64,13 @@ import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
 import { indexBasisSlippage } from '../configs/hyperliquid/helper'
-import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
-import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
-import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
+import { getPaginatedResponse, toAmountInfo, toAmountInfoFN } from '../common/helper'
+import { Token, tokens } from '../common/tokens'
+import { ActionParam } from '../interfaces/IActionExecutor'
+import { IERC20__factory } from '../../typechain/gmx-v2'
+import { ARBITRUM } from '../configs/gmx/chains'
+import { rpc } from '../common/provider'
+import { BigNumber, ethers } from 'ethers'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
@@ -83,8 +86,34 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     })
   }
 
-  setup(): Promise<UnsignedTxWithMetadata[]> {
+  setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
+  }
+
+  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
+    if (token.symbol !== 'USDC') throw new Error('token not supported')
+
+    const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
+
+    const txs: ActionParam[] = [
+      {
+        tx,
+        desc: 'Depositing into hyperliquid DEX',
+        chainId: ARBITRUM,
+        isUserAction: true,
+        isAgentRequired: false,
+        heading: 'hyperliquid',
+        ethRequired: BigNumber.from(0)
+      }
+    ]
+
+    return txs
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, _: string): Promise<ActionParam[]> {
+    if (token.symbol !== 'USDC') throw new Error('token not supported')
+
+    return [await withdrawFromBridge(amount.toString())]
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
@@ -859,7 +888,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   getAmountInfoType(): AmountInfoInToken {
     return {
-      sizeDeltaInToken: false,
+      sizeDeltaInToken: true,
       collateralDeltaInToken: true
     }
   }

@@ -287,7 +287,7 @@ export interface IRouterAdapterBaseV1 {
 
   deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]>
 
-  withdraw(token: Token, amount: FixedNumber, wallet: Wallet): Promise<ActionParam[]>
+  withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]>
 
   ///// Network api //////
   supportedChains(opts?: ApiOpts): Chain[]

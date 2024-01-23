@@ -1,4 +1,5 @@
-import { BigNumber, UnsignedTransaction, Wallet } from 'ethers'
+import { BigNumber, UnsignedTransaction } from 'ethers'
+import { type WalletClient } from 'viem'
 
 // removed 'type' and 'data' from metadata because they were sent as undefined and were leftover from biconomy types
 // also 'type' and 'data' are fields in transaction so it can be conflicting
@@ -6,9 +7,8 @@ type ExecutionMetadata = {
   desc: string
   chainId: number
   heading: string
+  isUserAction: boolean
   ethRequired?: BigNumber
-  // TODO: see if it can be abstracted in better way
-  pk?: string
 }
 type APICallParams = Parameters<typeof fetch>
 
@@ -17,8 +17,15 @@ export type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMe
 
 // if return value is defined,
 // use fetch params to make request otherwise conitnue with next element
-export type RequestSignerFn = (wallet: Wallet) => Promise<APICallParams | undefined>
-export type RequestSignerFnWithMetadata = { fn: RequestSignerFn; isEoaSigner: boolean } & ExecutionMetadata
+export type RequestSignerFn = (
+  wallet: WalletClient,
+  agentAddress: string | undefined
+) => Promise<APICallParams | undefined>
+export type RequestSignerFnWithMetadata = {
+  fn: RequestSignerFn
+  isEoaSigner: boolean
+  isAgentRequired: boolean
+} & ExecutionMetadata
 
 // 'ActionParam' represents a 'step' (i.e where signer needs to sign or accept transaction )
 // Each step should have single metadata

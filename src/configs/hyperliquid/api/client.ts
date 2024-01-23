@@ -23,9 +23,10 @@ import {
   UserFunding
 } from './types'
 import { Token } from '../../../common/tokens'
-import { Wallet, ethers } from 'ethers'
+import { ethers } from 'ethers'
 import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing'
 import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
+import { WalletClient } from 'viem'
 
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
@@ -387,53 +388,63 @@ export async function checkIfRageTradeAgent(wallet: string, expectedAgentAddress
   return false
 }
 
-export async function withdrawFromBridge(wallet: Wallet, amount: string) {
+export async function withdrawFromBridge(amount: string): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
 
-  const payload = {
-    destination: wallet.address,
-    usd: amount,
-    time: timestamp
-  }
+  return {
+    fn: async (wallet: WalletClient) => {
+      const payload = {
+        destination: (await wallet.getAddresses())[0],
+        usd: amount,
+        time: timestamp
+      }
 
-  const signature = (await signWithdrawFromBridgeAction(wallet, payload)).slice(2)
+      const signature = (await signWithdrawFromBridgeAction(wallet, payload)).slice(2)
 
-  const rawSignature = {
-    r: '0x' + signature.slice(0, 64),
-    s: '0x' + signature.slice(64, 128),
-    v: parseInt(signature.slice(128), 16)
-  }
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
 
-  const reqData = JSON.stringify({
-    action: {
-      chain: 'Arbitrum',
-      payload: payload,
-      type: 'withdraw2'
+      const reqData = JSON.stringify({
+        action: {
+          chain: 'Arbitrum',
+          payload: payload,
+          type: 'withdraw2'
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    nonce: timestamp,
-    signature: rawSignature
-  })
-
-  return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    chainId: 1337,
+    isEoaSigner: true,
+    isUserAction: true,
+    isAgentRequired: false,
+    desc: 'Withdraw from Hyperliquid',
+    heading: 'Withdraw from Hyperliquid'
+  }
 }
 
 export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
-  const agentWalletSigner = ethers.Wallet.createRandom()
-  const agentWallet = agentWalletSigner.address
-
-  const timestamp = Math.floor(new Date().getTime())
-  const connectionId = ethers.utils.solidityKeccak256(
-    ['address'],
-    [ethers.utils.defaultAbiCoder.encode(['address', 'string'], [agentWallet, 'rage_trade'])]
-  )
-
-  const agentData = {
-    source: 'https://hyperliquid.xyz',
-    connectionId: connectionId
-  }
-
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient, agentAddress: string | undefined) => {
+      if (!agentAddress) throw new Error('agent address required')
+
+      const timestamp = Math.floor(new Date().getTime())
+
+      const connectionId = ethers.utils.solidityKeccak256(
+        ['address'],
+        [ethers.utils.defaultAbiCoder.encode(['address', 'string'], [agentAddress, 'rage_trade'])]
+      )
+
+      const agentData = {
+        source: 'https://hyperliquid.xyz',
+        connectionId: connectionId
+      }
+
       const signature = (await signAgent(wallet, agentData)).slice(2)
 
       const rawSignature = {
@@ -446,7 +457,7 @@ export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
         action: {
           chain: 'Arbitrum',
           agent: agentData,
-          agentAddress: agentWallet,
+          agentAddress: agentAddress,
           extraAgentName: 'rage_trade',
           type: 'connect'
         },
@@ -456,11 +467,12 @@ export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: true,
-    desc: 'Approve Agent',
     chainId: 1337,
-    heading: 'Approve Agent',
-    pk: agentWalletSigner.privateKey
+    isEoaSigner: true,
+    isUserAction: true,
+    isAgentRequired: true,
+    desc: 'Approve Agent',
+    heading: 'Approve Agent'
   }
 }
 
@@ -498,7 +510,7 @@ export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<R
   }
 
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient) => {
       const signature = (
         await signL1Action(wallet, signatureTypes, [processedOrderSpecs, orderGroupingToNumber('na')], timestamp)
       ).slice(2)
@@ -527,14 +539,16 @@ export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<R
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: false,
-    desc: 'Place Orders',
     chainId: 1337,
+    isEoaSigner: false,
+    isUserAction: false,
+    isAgentRequired: false,
+    desc: 'Place Orders',
     heading: 'Place Orders'
   }
 }
 
-export async function cancelOrders(orders: CancelRequest[], meta: Meta) {
+export async function cancelOrders(orders: CancelRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
 
   const processedOrderSpecs: any[] = []
@@ -551,7 +565,7 @@ export async function cancelOrders(orders: CancelRequest[], meta: Meta) {
   }
 
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient) => {
       const signature = (await signL1Action(wallet, signatureTypes, [processedOrderSpecs], timestamp)).slice(2)
 
       const rawSignature = {
@@ -575,14 +589,16 @@ export async function cancelOrders(orders: CancelRequest[], meta: Meta) {
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: false,
-    desc: 'Cancel Orders',
     chainId: 1337,
+    isEoaSigner: false,
+    isUserAction: false,
+    isAgentRequired: false,
+    desc: 'Cancel Orders',
     heading: 'Cancel Orders'
   }
 }
 
-export async function modifyOrders(orders: ModifyRequest[], meta: Meta) {
+export async function modifyOrders(orders: ModifyRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
 
   const signatureTypes = [ethers.utils.ParamType.from('(uint64,uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')]
@@ -604,7 +620,7 @@ export async function modifyOrders(orders: ModifyRequest[], meta: Meta) {
   }
 
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient) => {
       const signature = (await signL1Action(wallet, signatureTypes, [processedOrderSpecs], timestamp, 40)).slice(2)
 
       const rawSignature = {
@@ -628,14 +644,21 @@ export async function modifyOrders(orders: ModifyRequest[], meta: Meta) {
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: false,
-    desc: 'Place Orders',
     chainId: 1337,
-    heading: 'Place Orders'
+    isEoaSigner: false,
+    isUserAction: false,
+    isAgentRequired: false,
+    desc: 'Modify Orders',
+    heading: 'Modify Orders'
   }
 }
 
-export async function updateLeverage(leverage: number, coin: string, is_cross: boolean, meta: Meta) {
+export async function updateLeverage(
+  leverage: number,
+  coin: string,
+  is_cross: boolean,
+  meta: Meta
+): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -646,7 +669,7 @@ export async function updateLeverage(leverage: number, coin: string, is_cross: b
   ]
 
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient) => {
       const signature = (await signL1Action(wallet, signatureTypes, [asset, is_cross, leverage], timestamp)).slice(2)
 
       const rawSignature = {
@@ -668,14 +691,20 @@ export async function updateLeverage(leverage: number, coin: string, is_cross: b
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: false,
-    desc: 'Place Orders',
     chainId: 1337,
-    heading: 'Place Orders'
+    isEoaSigner: false,
+    isUserAction: false,
+    isAgentRequired: false,
+    desc: 'Update Leverage',
+    heading: 'Update Leverage'
   }
 }
 
-export async function updateIsolatedMargin(amount: number, coin: string, meta: Meta) {
+export async function updateIsolatedMargin(
+  amount: number,
+  coin: string,
+  meta: Meta
+): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -688,7 +717,7 @@ export async function updateIsolatedMargin(amount: number, coin: string, meta: M
   ]
 
   return {
-    fn: async (wallet: Wallet) => {
+    fn: async (wallet: WalletClient) => {
       const signature = (await signL1Action(wallet, signatureTypes, [asset, true, amountInt], timestamp)).slice(2)
 
       const rawSignature = {
@@ -710,9 +739,11 @@ export async function updateIsolatedMargin(amount: number, coin: string, meta: M
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
-    isEoaSigner: false,
-    desc: 'Place Orders',
     chainId: 1337,
-    heading: 'Place Orders'
+    isEoaSigner: false,
+    isUserAction: false,
+    isAgentRequired: false,
+    desc: 'Update Isoloated Margin',
+    heading: 'Update Isoloated Margin'
   }
 }
