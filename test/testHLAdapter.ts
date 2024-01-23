@@ -1,5 +1,9 @@
-import { getCrossLiqPx } from '../src/configs/hyperliquid/liqPrice'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
+import { CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { parseUnits } from 'ethers/lib/utils'
+import { toAmountInfo } from '../src/common/helper'
+import { HL_COLLATERAL_TOKEN } from '../src/configs/hyperliquid/api/client'
+import { FixedNumber } from '../src/common/fixedNumber'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const liquidatedAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
@@ -84,8 +88,35 @@ async function getLiquidationHistory() {
   console.dir(liquidationHistory, { depth: 4 })
 }
 
+async function getOpenTradePreview() {
+  const orderData: CreateOrder = {
+    marketId: btcMarketId,
+    direction: 'LONG',
+    sizeDelta: toAmountInfo(parseUnits('0.00275', 18), 18, true),
+    marginDelta: toAmountInfo(parseUnits('13.75', 18), 18, true),
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('20000'),
+      triggerAboveThreshold: false,
+      triggerActivatePrice: undefined
+    },
+    collateral: HL_COLLATERAL_TOKEN,
+    type: 'LIMIT',
+    slippage: 1
+  }
+
+  const positions = (await hl.getAllPositions(w, undefined)).result
+
+  const openTradePreview = await hl.getOpenTradePreview(
+    w,
+    [orderData],
+    positions.filter((p) => p.marketId === orderData.marketId),
+    undefined
+  )
+  console.dir(openTradePreview, { depth: 4 })
+}
+
 hl.init(w).then(() => {
-  getLiquidationHistory()
+  getOpenTradePreview()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

@@ -14,3 +14,7 @@ export function indexBasisSlippage(val: Level[], slippageBp: string): number {
   }
   return index
 }
+
+export function hlMarketIdToCoin(marketId: string): string {
+  return marketId.split('-')[2]
+}

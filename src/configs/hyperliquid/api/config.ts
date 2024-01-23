@@ -27,3 +27,6 @@ export const hyperliquid = defineChain({
     default: { name: 'Explorer', url: 'https://app.hyperliquid.xyz/explorer' }
   }
 })
+
+export const HL_TAKER_FEE_BPS = '0.00024'
+export const HL_MAKER_FEE_BPS = '-0.00002'

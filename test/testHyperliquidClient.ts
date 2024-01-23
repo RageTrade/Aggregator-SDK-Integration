@@ -14,6 +14,7 @@ import {
   getUserFunding
 } from '../src/configs/hyperliquid/api/client'
 import { Token } from '../src/common/tokens'
+import { estLiqPrice } from '../src/configs/hyperliquid/liqPrice'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
@@ -99,7 +100,32 @@ async function activeAssetData() {
   console.log(activeAssetData)
 }
 
-activeAssetData()
+async function getLiqPrice() {
+  const request = {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: `{"type":"webData2","user":"${w}"}`
+  }
+  const url = 'https://api-ui.hyperliquid.xyz/info'
+  const web2Data = await fetch(url, request).then((resp) => resp.text())
+
+  // cross testing
+  const btc = 'BTC'
+
+  const mids = await getAllMids()
+  const mpBtc = parseFloat(mids[btc])
+  // console.log('mpBtc: ', mpBtc)
+  estLiqPrice(w, mpBtc, 4, false, 0.00068, mpBtc, false, btc, web2Data)
+
+  // isolated testing
+  const eth = 'ETH'
+  const mpEth = parseFloat(mids[eth])
+  // console.log('mpEth: ', mpEth)
+
+  estLiqPrice(w, mpEth, 3, true, 0.02, mpEth, false, eth, web2Data)
+}
+
+getLiqPrice()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

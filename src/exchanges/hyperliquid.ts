@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, abs, bipsDiff, divFN } from '../common/fixedNumber'
+import { FixedNumber, abs, addFN, bipsDiff, divFN, mulFN } from '../common/fixedNumber'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
@@ -53,7 +53,6 @@ import {
 import {
   AssetCtx,
   AssetPosition,
-  HlOrderType,
   L2Book,
   Meta,
   MetaAndAssetCtx,
@@ -61,12 +60,12 @@ import {
   OrderStatusInfo
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
-import { arbitrum } from 'viem/chains'
-import { hyperliquid } from '../configs/hyperliquid/api/config'
+import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
 import { indexBasisSlippage } from '../configs/hyperliquid/helper'
-import { getPaginatedResponse, toAmountInfo, toAmountInfoFN } from '../common/helper'
-import { LIMIT } from '../configs/gmx/tokens'
+import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
+import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
+import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
@@ -638,14 +637,137 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   ): Promise<PaginatedRes<ClaimInfo>> {
     throw new Error('Method not implemented.')
   }
-  getOpenTradePreview(
+
+  async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
     existingPos: (PositionInfo | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OpenTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const previewsInfo: OpenTradePreviewInfo[] = []
+
+    // get markets and marketStates
+    const marketsPromise = this.getMarketsInfo(
+      orderData.map((o) => o.marketId),
+      opts
+    )
+    const marketStatesPromise = this.getMarketState(
+      wallet,
+      orderData.map((o) => o.marketId),
+      opts
+    )
+    const allMidsPromise = getAllMids()
+
+    const web2DataReq = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: `{"type":"webData2","user":"${wallet}"}`
+    }
+    const url = 'https://api-ui.hyperliquid.xyz/info'
+    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
+
+    const [markets, marketStates, mids, web2Data] = await Promise.all([
+      marketsPromise,
+      marketStatesPromise,
+      allMidsPromise,
+      web2DataPromise
+    ])
+
+    for (let i = 0; i < orderData.length; i++) {
+      const od = orderData[i]
+      const epos = existingPos[i]
+      const m = markets[i]
+      const ms = marketStates[i]
+      const isCross = ms.marketMode == 'CROSS'
+      const orderSize = od.sizeDelta.amount
+      const ml = ms.leverage
+      const coin = m.indexToken.symbol
+      const mid = mids[coin]
+      const mp = FixedNumber.fromString(mid, 30)
+      const trigPrice = od.triggerData ? od.triggerData.triggerPrice : mp
+      const isMarket = od.type == 'MARKET'
+
+      // traverseOrderBook for market orders
+      let traResult: TraverseResult | undefined = undefined
+      if (isMarket) {
+        traResult = await traverseHLBook(od.marketId, od.direction, orderSize, mp)
+        // console.log(traResult)
+      }
+
+      if (!validDenomination(od.sizeDelta, true)) throw new Error('Size delta must be token denominated')
+      if (!validDenomination(od.marginDelta, true)) throw new Error('Margin delta must be token denominated')
+
+      // next size is pos.size + orderSize if direction is same else pos.size - orderSize
+      const nextSize = epos
+        ? epos.direction == od.direction
+          ? abs(epos.size.amount.add(orderSize))
+          : abs(epos.size.amount.sub(orderSize))
+        : orderSize
+
+      // next margin is always position / leverage
+      const nextMargin = divFN(mulFN(nextSize, trigPrice), ml)
+
+      const liqPrice = estLiqPrice(
+        wallet,
+        parseFloat(mid),
+        parseFloat(ml._value),
+        !isCross,
+        parseFloat(orderSize._value),
+        parseFloat(trigPrice._value),
+        od.direction == 'LONG',
+        coin,
+        web2Data
+      )
+
+      const nextEntryPrice = isMarket ? traResult!.avgExecPrice : trigPrice
+      let avgEntryPrice = nextEntryPrice
+      if (epos) {
+        if (epos.direction == od.direction) {
+          // average entry price
+          // posSize * posEntryPrice + orderSize * orderEntryPrice / (posSize + orderSize)
+          avgEntryPrice = divFN(
+            addFN(mulFN(epos.size.amount, epos.avgEntryPrice), mulFN(orderSize, nextEntryPrice)),
+            nextSize
+          )
+        } else {
+          if (epos.size.amount.gt(orderSize)) {
+            // partial close would result in previous entry price
+            avgEntryPrice = epos.avgEntryPrice
+          } else {
+            // direction would change and hence newer entry price would be the avgEntryprice
+            avgEntryPrice = nextEntryPrice
+          }
+        }
+      }
+
+      const fee = isMarket
+        ? traResult!.fees
+        : mulFN(mulFN(orderSize, trigPrice), FixedNumber.fromString(HL_MAKER_FEE_BPS))
+      const priceImpact = isMarket ? traResult!.priceImpact : FixedNumber.fromString('0')
+
+      const isError = traResult ? (traResult.priceImpact.eq(FixedNumber.fromString('100')) ? true : false) : false
+
+      const preview = {
+        marketId: od.marketId,
+        collateral: od.collateral,
+        leverage: ml,
+        size: toAmountInfoFN(nextSize, true),
+        margin: toAmountInfoFN(nextMargin, true),
+        avgEntryPrice: avgEntryPrice,
+        liqudationPrice: liqPrice == null ? FixedNumber.fromString('0') : FixedNumber.fromString(liqPrice.toString()),
+        fee: fee,
+        priceImpact: priceImpact,
+        isError: isError,
+        errMsg: isError ? 'Price impact is too high' : ''
+      }
+      // console.log(preview)
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
+
   getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
