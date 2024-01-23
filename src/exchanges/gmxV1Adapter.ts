@@ -83,7 +83,7 @@ import { Chain } from 'viem'
 import { arbitrum, optimism } from 'viem/chains'
 import { getUsd } from '../configs/gmx/tokens'
 import { Provider } from '../interface'
-import { CACHE_HOUR, CACHE_MINUTE, GMX_COMMON_CACHE_PREFIX } from '../common/cache'
+import { CACHE_HOUR, CACHE_MINUTE, GMX_COMMON_CACHE_PREFIX, getCachedValueByKey } from '../common/cache'
 import {
   EMPTY_DESC,
   GMXV1_ENABLE_ORDERBOOK_H,
@@ -240,12 +240,19 @@ export default class GmxV1Adapter implements IAdapterV1 {
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
     // Fetch user referral code
-    const sTimeTRC = getStaleTime(CACHE_MINUTE * 5, opts)
+    const trcKey = [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet]
+    const cachedCode = getCachedValueByKey(trcKey) as string | undefined
+    // if cached code exists and equal to our referral code, set stale time to 5 minutes otherwise always fetch
+    const sTimeTRC =
+      cachedCode && cachedCode.toLowerCase() == this.REFERRAL_CODE.toLowerCase()
+        ? getStaleTime(CACHE_MINUTE * 5, opts)
+        : getStaleTime(CACHE_SECOND * 3, opts)
+
     const code = await cacheFetch({
-      key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+      key: trcKey,
       fn: () => referralStorage.traderReferralCodes(wallet),
       staleTime: sTimeTRC,
-      cacheTime: CACHE_HOUR,
+      cacheTime: sTimeTRC * CACHE_TIME_MULT,
       opts
     })
 

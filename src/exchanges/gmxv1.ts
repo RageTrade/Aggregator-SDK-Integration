@@ -72,7 +72,8 @@ import {
   GMXV1_CACHE_PREFIX,
   GMX_COMMON_CACHE_PREFIX,
   cacheFetch,
-  getStaleTime
+  getStaleTime,
+  getCachedValueByKey
 } from '../common/cache'
 import { ZERO } from '../common/constants'
 import { rpc } from '../common/provider'
@@ -300,12 +301,19 @@ export default class GmxV1Service implements IExchange {
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, provider)
 
     // Fetch user referral code
-    const sTimeTRC = getStaleTime(CACHE_MINUTE * 5, opts)
+    const trcKey = [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet]
+    const cachedCode = getCachedValueByKey(trcKey) as string | undefined
+    // if cached code exists and equal to our referral code, set stale time to 5 minutes otherwise always fetch
+    const sTimeTRC =
+      cachedCode && cachedCode.toLowerCase() == this.REFERRAL_CODE.toLowerCase()
+        ? getStaleTime(CACHE_MINUTE * 5, opts)
+        : getStaleTime(CACHE_SECOND * 3, opts)
+
     const code = await cacheFetch({
-      key: [GMX_COMMON_CACHE_PREFIX, 'traderReferralCodes', wallet],
+      key: trcKey,
       fn: () => referralStorage.traderReferralCodes(wallet),
       staleTime: sTimeTRC,
-      cacheTime: CACHE_HOUR,
+      cacheTime: sTimeTRC * CACHE_TIME_MULT,
       opts
     })
 
