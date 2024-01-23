@@ -565,7 +565,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         marketId: marketId,
         direction: uf.side === 'B' ? 'LONG' : 'SHORT',
         sizeDelta: toAmountInfoFN(FixedNumber.fromString(uf.sz), true),
-        marginDelta: toAmountInfoFN(FixedNumber.fromString('0'), true) // TODO: no margin delta for fills
+        marginDelta: toAmountInfoFN(FixedNumber.fromString('0'), true) // TODO: no margin delta for fills because HL doesn't provide
       }
 
       const collateralData: CollateralData = {
@@ -620,7 +620,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         sizeClosed: toAmountInfoFN(FixedNumber.fromString(uf.sz), true),
         realizedPnl: FixedNumber.fromString(uf.closedPnl),
         liquidationFees: FixedNumber.fromString(uf.fee),
-        remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true),
+        remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true), // TODO: no remainingCollateral for fills because HL doesn't provide margin info
         liqudationLeverage: marketMaxLevMap[marketId],
         timestamp: Math.floor(uf.time / 1000),
         txHash: uf.hash
