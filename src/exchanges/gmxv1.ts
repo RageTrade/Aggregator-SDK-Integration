@@ -792,7 +792,7 @@ export default class GmxV1Service implements IExchange {
       positionQuery.isLong
     )
 
-    let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
+    let sTimeFR = getStaleTime(CACHE_SECOND * 30, opts)
     const fundingRateInfoPromise = cacheFetch({
       key: [
         GMXV1_CACHE_PREFIX,

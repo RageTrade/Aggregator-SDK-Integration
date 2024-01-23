@@ -1180,7 +1180,7 @@ export async function useInfoTokens(
 
   const vr = VaultReader__factory.connect(vaultReaderAddress!, library!)
 
-  const sTimeVTI = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTimeVTI = getStaleTime(CACHE_MINUTE, opts)
   const vaultTokenInfoPromise = cacheFetch({
     key: [
       GMXV1_CACHE_PREFIX,
@@ -1927,7 +1927,7 @@ export const getCloseTradePreviewInternal = async (
     positionFee = getMarginFee(fromAmount)
   }
 
-  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 30, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2145,7 +2145,7 @@ export const getCloseTradePreviewInternalV1 = async (
     positionFee = getMarginFee(fromAmount)
   }
 
-  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 30, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2634,7 +2634,7 @@ export const getTradePreviewInternal = async (
   const executionFee =
     order.type == 'MARKET_INCREASE' || order.type == 'MARKET_DECREASE' ? marketExecutionFee : limitExecutionFree
 
-  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 30, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),
@@ -2798,7 +2798,7 @@ export const getTradePreviewInternalV1 = async (
   const usdgToken = IERC20__factory.connect(USDG_ADDRESS, provider)
   const executionFee = orderData.type == 'MARKET' ? marketExecutionFee : limitExecutionFree
 
-  const sTimeUS = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTimeUS = getStaleTime(CACHE_SECOND * 30, opts)
   const usdgSupplyPromise = cacheFetch({
     key: [GMXV1_CACHE_PREFIX, 'usdgSupply'],
     fn: () => usdgToken.totalSupply(),

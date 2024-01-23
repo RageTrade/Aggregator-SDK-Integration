@@ -13,7 +13,7 @@ import { multiplyDecimal, divideDecimal } from '../utils/number'
 
 import PerpsV2Market from './abis/PerpsV2Market.json'
 import { PerpsV2Market__factory } from './types'
-import { ApiOpts, CACHE_SECOND, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
+import { ApiOpts, CACHE_MINUTE, CACHE_SECOND, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
 
 // Need to recreate postTradeDetails from the contract here locally
 // so we can modify margin for use with cross margin
@@ -101,7 +101,7 @@ class FuturesMarketInternal {
 
   getTradePreview = async (account: string, sizeDelta: BigNumber, marginDelta: BigNumber, tradePrice: BigNumber, opts?: ApiOpts) => {
     const multiCallContract = new MultiCallContract(this._perpsV2MarketContract.address, PerpsV2Market)
-    const sTimePFD = getStaleTime(CACHE_SECOND * 5, opts)
+    const sTimePFD = getStaleTime(CACHE_SECOND * 15, opts)
     const preFetchedData = await cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'tradePreviewPrefetchData', this._perpsV2MarketContract.address, account],
       fn: () => this._sdk.context.multicallProvider.all([
@@ -367,7 +367,7 @@ class FuturesMarketInternal {
     const liqPremium = await this._liquidationPremium(position.size, currentPrice)
     let result = position.lastPrice.add(divideDecimal(liqMargin.sub(position.margin.sub(liqPremium)), position.size))
 
-    const sTimeFPU = getStaleTime(CACHE_SECOND * 5, opts)
+    const sTimeFPU = getStaleTime(CACHE_MINUTE, opts)
     const fundingPerUnit = await cacheFetch({
       key: [SYNV2_CACHE_PREFIX, '_setBlockAndNetFundingPerUnit', this._perpsV2MarketContract.address, position.id],
       fn: () => this._setBlockAndNetFundingPerUnit(position.lastFundingIndex, currentPrice),

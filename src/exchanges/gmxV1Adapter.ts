@@ -983,7 +983,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       positionQuery.isLong
     )
 
-    let sTimeFR = getStaleTime(CACHE_SECOND * 10, opts)
+    let sTimeFR = getStaleTime(CACHE_SECOND * 30, opts)
     const fundingRateInfoPromise = cacheFetch({
       key: [
         GMXV1_CACHE_PREFIX,

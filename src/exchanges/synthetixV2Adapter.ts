@@ -181,7 +181,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     const markets = await this.getMarketsInfo(marketIds, opts)
 
     // get dynamic metadata from cache
-    const sTimeDM = getStaleTime(CACHE_SECOND * 5, opts)
+    const sTimeDM = getStaleTime(CACHE_SECOND * 10, opts)
     const dynamicMetadataPromises = markets.map((m) =>
       cacheFetch({
         key: [SYNV2_CACHE_PREFIX, 'getMarket', m.marketId],

@@ -75,7 +75,7 @@ export async function useMarketsInfo(chainId: number, wallet: string, opts?: Api
 
   const isDepencenciesLoading = !marketsAddresses || !tokensData
 
-  const sTime = getStaleTime(CACHE_SECOND * 5, opts)
+  const sTime = getStaleTime(CACHE_SECOND * 30, opts)
   const { data } = await cacheFetch({
     key: [GMXV2_CACHE_PREFIX, 'useMulticall', 'useMarketsInfo', chainId],
     fn: () =>
