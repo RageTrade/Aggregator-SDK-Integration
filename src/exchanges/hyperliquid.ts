@@ -29,7 +29,10 @@ import {
   TriggerData,
   OrderType,
   AccountInfo,
-  AmountInfoInToken
+  AmountInfoInToken,
+  MarketState,
+  TradeOperationType,
+  CollateralData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -85,6 +88,11 @@ import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTravers
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
   private minPositionUsd = parseUnits('11', 30)
+
+  private provider = rpc[42161]
+  public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
+
+  private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
 
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     await cacheFetch({
@@ -1046,5 +1054,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       sizeDeltaInToken: true,
       collateralDeltaInToken: true
     }
+  }
+
+  async _populateMeta(opts?: ApiOpts) {
+    let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMarkets,
+      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      opts: opts
+    })
   }
 }

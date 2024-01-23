@@ -71,7 +71,7 @@ export default class RouterV1 implements IRouterV1 {
     return Promise.resolve([])
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
     return Promise.resolve([])
   }
 
