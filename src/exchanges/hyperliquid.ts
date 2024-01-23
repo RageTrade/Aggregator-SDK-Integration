@@ -40,6 +40,7 @@ import {
   HL_TOKENS_MAP,
   approveAgent,
   checkIfRageTradeAgent,
+  cmpSide,
   getActiveAssetData,
   getAllMids,
   getClearinghouseState,
@@ -49,8 +50,12 @@ import {
   getOpenOrders,
   getOrderStatus,
   getUserFills,
+  modifyOrders,
   placeOrders,
+  roundedPrice,
+  roundedSize,
   slippagePrice,
+  updateLeverage,
   withdrawFromBridge
 } from '../configs/hyperliquid/api/client'
 import {
@@ -59,14 +64,16 @@ import {
   L2Book,
   Meta,
   MetaAndAssetCtx,
+  ModifyRequest,
   OpenOrders,
   OrderRequest,
-  OrderStatusInfo
+  OrderStatusInfo,
+  OrderTypeWire
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
-import { indexBasisSlippage } from '../configs/hyperliquid/helper'
+import { indexBasisSlippage, popuplateTrigger } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
 import { Token, tokens } from '../common/tokens'
 import { ActionParam } from '../interfaces/IActionExecutor'
@@ -159,8 +166,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           STOP_LOSS: true,
           TAKE_PROFIT: true,
           STOP_LOSS_LIMIT: true,
-          TAKE_PROFIT_LIMIT: true,
-          REDUCE_LIMIT: true
+          TAKE_PROFIT_LIMIT: true
         },
         supportedOrderActions: {
           CREATE: true,
@@ -345,58 +351,165 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     const payload: ActionParam[] = []
 
-    // check if agent is available
-    // if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) {
-      payload.push(await approveAgent())
-    }
+    // check if agent is available, if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
 
-    // get position for coin, if position exists then match the margin mode
-    // TODO
-
-    // if no position, prepare update leverage txn if required
-    // TODO
-
-    // convert args to inputs of place order fn
-    const orders: OrderRequest[] = []
-
-    const mids = await getAllMids()
-
-    const meta = await getMeta()
+    const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
     for (const each of orderData) {
+      // check if selected token is USDC
+      if (each.collateral.symbol !== HL_COLLATERAL_TOKEN.symbol) throw new Error('token not supported')
+
+      // ensure size delta is in token terms
+      if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // get market info
       const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
 
-      const isBuy = each.direction === 'LONG'
-      const slippage = 0.02 // 2% TODO
+      const coin = marketInfo.indexToken.symbol
+      // TODO: check if we should manddate passing mode
+      const mode = each.mode || 'ISOLATED'
 
-      const order: OrderRequest = {
-        coin: marketInfo.indexToken.symbol,
-        is_buy: isBuy,
-        sz: parseFloat(each.sizeDelta.amount._value),
-        limit_px: Number(slippagePrice(isBuy, slippage, parseFloat(mids[marketInfo.indexToken.symbol])).toFixed(1)),
-        order_type: {
-          limit: {
-            tif: 'Gtc'
-          }
-        },
-        reduce_only: false,
-        cloid: null
+      const isBuy = each.direction === 'LONG'
+      const slippage = each.slippage ? each.slippage / 100 : 0.01
+
+      // get position of given market (if any)
+      const position = (await this.getAllPositions(wallet, undefined)).result.find((p) => p.marketId === each.marketId)
+
+      const price = Number(mids[marketInfo.indexToken.symbol])
+
+      // calculate leverage using sizeDelta and marginDelta
+      let sizeDelta = Number(each.sizeDelta.amount._value)
+      sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
+
+      // TODO: check if we need to use limit price specified instead of mid price
+      const sizeDeltaNotional = sizeDelta * price
+
+      const marginDeltaNotional = Number(each.marginDelta.amount._value)
+
+      // round towards closest int
+      const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
+      const currentLeverage = Number(position?.leverage._value || 0)
+
+      if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
+        throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
+
+      if (reqdLeverage !== currentLeverage)
+        payload.push(await updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
+
+      // populate trigger data if required
+      let orderData: OrderRequest['order_type'] = { limit: { tif: 'Gtc' } }
+      let limitPrice: OrderRequest['limit_px'] = 0
+
+      if (each.type == 'MARKET') {
+        limitPrice = roundedPrice(slippagePrice(isBuy, slippage, price))
+      } else {
+        if (!each.triggerData) throw new Error('trigger data required for limit increase')
+        limitPrice = roundedPrice(Number(each.triggerData.triggerPrice._value))
       }
 
-      orders.push(order)
-    }
+      const request: OrderRequest = {
+        coin: coin,
+        cloid: null,
+        is_buy: isBuy,
+        sz: sizeDelta,
+        reduce_only: false,
+        limit_px: limitPrice,
+        order_type: orderData
+      }
 
-    payload.push(await placeOrders(orders, meta))
+      payload.push(await placeOrders([request], meta))
+    }
 
     return payload
   }
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    const modifiedOrders: ModifyRequest[] = []
+
+    // cannot update:
+    // - market
+    // - side
+    // - mode (whatever is in set on account time of exeuction)
+    // - leverage / margin (whatever is in set on account time of exeuction)
+    // can update:
+    // - size delta
+    // - trigger data
+
+    // check if agent is available, if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+
+    const meta = await getMeta()
+    const mids = await getAllMids()
+
+    for (const each of orderData) {
+      // ensure size delta is in token terms
+      if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // ensure trigger data is present
+      if (!each.triggerData) throw new Error('trigger data required but not present')
+
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+
+      // retrive original order
+      const order = (await getOpenOrders(wallet)).find((o) => o.oid === Number(each.orderId))
+      const coin = marketInfo.indexToken.symbol
+
+      if (!order) throw new Error('no open order for given identifier')
+
+      if (order.coin !== marketInfo.indexToken.symbol) throw new Error('cannot update market on exisiting order')
+
+      if (!cmpSide(order.side, each.direction)) throw new Error('cannot update direction on exisiting order')
+
+      const price = Number(mids[marketInfo.indexToken.symbol])
+      const isBuy = order.side === 'B'
+
+      // TODO: check if we should enforce margin delta as zero here
+
+      // calculate leverage using sizeDelta and marginDelta
+      let sizeDelta = Number(each.sizeDelta.amount._value)
+      sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
+
+      // populate trigger data if required
+      let orderData: ModifyRequest['order']['order_type'] = { limit: { tif: 'Gtc' } }
+      let limitPrice: ModifyRequest['order']['limit_px'] = 0
+
+      if (each.triggerData.triggerActivatePrice) {
+        // covers following handling:
+        // - stop limit and stop market (and therefore TP / SL market & limit)
+        ;({ orderData, limitPrice } = popuplateTrigger(isBuy, price, each.orderType, each.triggerData))
+      } else {
+        // covers following handling:
+        // - basic limit order which executes at specified price
+        orderData = { limit: { tif: 'Gtc' } }
+        limitPrice = roundedPrice(Number(each.triggerData.triggerPrice._value))
+      }
+
+      const request: OrderRequest = {
+        coin: coin,
+        cloid: null,
+        is_buy: isBuy,
+        sz: sizeDelta,
+        reduce_only: order.reduceOnly || false,
+        limit_px: limitPrice,
+        order_type: orderData
+      }
+
+      modifiedOrders.push({ order: request, oid: order.oid })
+    }
+
+    payload.push(await modifyOrders(modifiedOrders, meta))
+
+    return payload
   }
+
   cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
@@ -405,6 +518,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
@@ -413,6 +527,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
@@ -566,10 +681,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       }
 
       let orderType: OrderType
-      const reduceOnly = status.reduceOnly
+
       switch (status.orderType) {
         case 'Limit':
-          orderType = reduceOnly ? 'REDUCE_LIMIT' : 'LIMIT'
+          orderType = 'LIMIT'
           break
         case 'Stop Market':
           orderType = 'STOP_LOSS'
