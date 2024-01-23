@@ -205,13 +205,13 @@ async function testExecutorE2E() {
   const hl = new HyperliquidAdapterV1()
 
   const wallet = createWalletClient({
-    account: privateKeyToAccount('0x_INPUT_PK'),
+    account: privateKeyToAccount('0x'),
     transport: http(),
     chain: mainnet
   })
 
   const agentWallet = createWalletClient({
-    account: privateKeyToAccount('0x_INPUT_PK'),
+    account: privateKeyToAccount('0x'),
     transport: http(),
     chain: mainnet
   })
@@ -222,8 +222,8 @@ async function testExecutorE2E() {
   const orderData: CreateOrder[] = [
     {
       marketId: market.marketId,
-      direction: 'LONG',
-      sizeDelta: { amount: FixedNumber.fromString('-0.05'), isTokenAmount: true },
+      direction: 'SHORT',
+      sizeDelta: { amount: FixedNumber.fromString('0.05'), isTokenAmount: true },
       marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
       triggerData: undefined,
       collateral: HL_COLLATERAL_TOKEN,
@@ -240,7 +240,7 @@ async function testExecutorE2E() {
 
     // is submitting
     const fetchPayload = await payload.fn(
-      payload.isEoaSigner ? wallet : agentWallet!,
+      payload.isEoaSigner ? wallet : agentWallet,
       payload.isAgentRequired ? agentWallet.account.address : undefined
     )
 
