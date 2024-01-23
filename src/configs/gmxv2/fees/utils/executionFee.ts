@@ -206,6 +206,7 @@ const provider = new StaticJsonRpcProvider('https://arb1.arbitrum.io/rpc')
 
 export async function useGasPrice(chainId: number) {
   const executionFeeConfig = EXECUTION_FEE_CONFIG_V2[chainId]
+  const sTimeGL = getStaleTime(CACHE_MINUTE * 5)
   const data = await cacheFetch({
     key: ['gasPrice', chainId, executionFeeConfig.shouldUseMaxPriorityFeePerGas, 1000],
     fn: async () => {
@@ -224,8 +225,8 @@ export async function useGasPrice(chainId: number) {
       const premium = GAS_PRICE_ADJUSTMENT_MAP[42161]
       return gasPrice.add(premium)
     },
-    staleTime: CACHE_MINUTE / 2,
-    cacheTime: CACHE_MINUTE
+    staleTime: sTimeGL,
+    cacheTime: sTimeGL * CACHE_TIME_MULT
   })
 
   return { gasPrice: data }

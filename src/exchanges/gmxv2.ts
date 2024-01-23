@@ -404,14 +404,27 @@ export default class GmxV2Service implements IAdapterV1 {
     return metadata
   }
 
-  async _approveIfNeeded(token: string, amount: bigint, wallet: string): Promise<UnsignedTxWithMetadata | undefined> {
+  async _approveIfNeeded(
+    token: string,
+    amount: bigint,
+    wallet: string,
+    opts?: ApiOpts
+  ): Promise<UnsignedTxWithMetadata | undefined> {
     if (token == ethers.constants.AddressZero) return
     const tokenContract = IERC20__factory.connect(token, this.provider)
     const key = `${wallet}-${token}-${this.ROUTER_ADDR}`
 
     if (this.tokenSpentApprovedMap[key]) return
 
-    const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
+    const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
+    const allowance = await cacheFetch({
+      key: [GMXV2_CACHE_PREFIX, 'allowance', wallet, token, this.ROUTER_ADDR],
+      fn: () => tokenContract.allowance(wallet, this.ROUTER_ADDR),
+      staleTime: sTimeAllowance,
+      cacheTime: sTimeAllowance * CACHE_TIME_MULT,
+      opts
+    })
+
     // if allowance is 80% of Max then
     if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
       this.tokenSpentApprovedMap[key] = true
@@ -537,7 +550,12 @@ export default class GmxV2Service implements IAdapterV1 {
       }
 
       // check if collateral token has enough amount approved
-      const approvalTx = await this._approveIfNeeded(od.collateral.address[42161]!, od.marginDelta.amount.value, wallet)
+      const approvalTx = await this._approveIfNeeded(
+        od.collateral.address[42161]!,
+        od.marginDelta.amount.value,
+        wallet,
+        opts
+      )
       if (approvalTx) txs.push(approvalTx)
 
       const multicallData: string[] = []
@@ -927,7 +945,8 @@ export default class GmxV2Service implements IAdapterV1 {
         const approvalTx = await this._approveIfNeeded(
           updatePositionMarginData[i].collateral.address[42161]!,
           updatePositionMarginData[i].margin.amount.value,
-          wallet
+          wallet,
+          opts
         )
 
         if (approvalTx) txs.push(approvalTx)
@@ -2019,7 +2038,13 @@ export default class GmxV2Service implements IAdapterV1 {
     wallet: string,
     totalEthReq: BigNumber = BigNumber.from(0) // incl. of keeper fees
   ): Promise<BigNumber | undefined> {
-    const ethBalance = await provider.getBalance(wallet)
+    const sTimeEthBal = getStaleTime(CACHE_SECOND * 30)
+    const ethBalance = await cacheFetch({
+      key: [GMX_COMMON_CACHE_PREFIX, 'ethBalance', wallet],
+      fn: () => provider.getBalance(wallet),
+      staleTime: sTimeEthBal,
+      cacheTime: sTimeEthBal * CACHE_TIME_MULT
+    })
 
     if (ethBalance.lt(totalEthReq)) return totalEthReq.sub(ethBalance).add(1)
   }
@@ -2056,12 +2081,26 @@ export default class GmxV2Service implements IAdapterV1 {
         const tokenContract = IERC20__factory.connect(tokenAddress, this.provider)
         const key = `${wallet}-${tokenAddress}-${this.ROUTER_ADDR}`
 
-        const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
+        const allowance = await cacheFetch({
+          key: [GMXV2_CACHE_PREFIX, 'allowance', wallet, tokenAddress, this.ROUTER_ADDR],
+          fn: () => tokenContract.allowance(wallet, this.ROUTER_ADDR),
+          staleTime: 0,
+          cacheTime: 0
+        })
+
         // if allowance is 80% of Max then set cache
         if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
           this.tokenSpentApprovedMap[key] = true
         }
       }
+
+      // eth balance
+      await cacheFetch({
+        key: [GMX_COMMON_CACHE_PREFIX, 'ethBalance', wallet],
+        fn: () => this.provider.getBalance(wallet),
+        staleTime: 0,
+        cacheTime: 0
+      })
 
       // useTokenInfo - contain token balances
       await useTokensData(ARBITRUM, wallet, { bypassCache: true })

@@ -445,7 +445,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     // approval txs
     const tokenAddresses = Object.keys(approveMap)
     const approvalAmounts = Object.values(approveMap)
-    let approvalTxsPromise = this.getApproveRouterSpendTxs(tokenAddresses, approvalAmounts, wallet)
+    let approvalTxsPromise = this.getApproveRouterSpendTxs(tokenAddresses, approvalAmounts, wallet, opts)
 
     const [refAndPluginTxs, approvalTxs] = await Promise.all([refAndPluginTxsPromise, approvalTxsPromise])
     txs.push(...refAndPluginTxs)
@@ -1843,7 +1843,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
   private async getApproveRouterSpendTxs(
     tokenAddresses: string[],
     allowanceAmounts: BigNumber[],
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
 
@@ -1858,7 +1859,17 @@ export default class GmxV1Adapter implements IAdapterV1 {
         allowancePromises.push(Promise.resolve(ethers.constants.MaxUint256))
       } else {
         let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
-        allowancePromises.push(token.allowance(wallet, router))
+
+        const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
+        const allowancePromise = cacheFetch({
+          key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
+          fn: () => token.allowance(wallet, router),
+          staleTime: sTimeAllowance,
+          cacheTime: sTimeAllowance * CACHE_TIME_MULT,
+          opts
+        })
+
+        allowancePromises.push(allowancePromise)
       }
     }
     const allowances = await Promise.all(allowancePromises)
@@ -1915,7 +1926,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
     extraEthReq: BigNumber = BigNumber.from(0),
     executionFee: BigNumber
   ): Promise<BigNumber | undefined> {
-    const ethBalance = await this.provider.getBalance(wallet)
+    const sTimeEthBal = getStaleTime(CACHE_SECOND * 30)
+    const ethBalance = await cacheFetch({
+      key: [GMX_COMMON_CACHE_PREFIX, 'ethBalance', wallet],
+      fn: () => this.provider.getBalance(wallet),
+      staleTime: sTimeEthBal,
+      cacheTime: sTimeEthBal * CACHE_TIME_MULT
+    })
     const ethRequired = executionFee.add(extraEthReq || ZERO)
 
     if (ethBalance.lt(ethRequired)) return ethRequired.sub(ethBalance).add(1)
@@ -1985,6 +2002,14 @@ export default class GmxV1Adapter implements IAdapterV1 {
       // plugin approvals
       await this.checkAndGetPluginApprovalTxs(wallet, 'BOTH')
 
+      // eth balance
+      await cacheFetch({
+        key: [GMX_COMMON_CACHE_PREFIX, 'ethBalance', wallet],
+        fn: () => provider.getBalance(wallet),
+        staleTime: 0,
+        cacheTime: 0
+      })
+
       // token approvals
       for (const tokenAddress of tokenAddresses) {
         if (tokenAddress == ethers.constants.AddressZero) continue
@@ -1993,7 +2018,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
         const router = getContract(ARBITRUM, 'Router')!
         const key = `${wallet}-${tokenAddress}-${router}`
 
-        let allowance = await token.allowance(wallet, router)
+        let allowance = await cacheFetch({
+          key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
+          fn: () => token.allowance(wallet, router),
+          staleTime: 0,
+          cacheTime: 0
+        })
+
         // if allowance is 80% of Max then set cache
         if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
           this.tokenSpentApprovedMap[key] = true
