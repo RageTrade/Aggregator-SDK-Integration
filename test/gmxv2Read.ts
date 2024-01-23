@@ -123,7 +123,8 @@ async function increasePosition() {
     marginDelta: { amount: FixedNumber.fromValue(parseEther('0.02').toString(), 18), isTokenAmount: true },
     triggerData: {
       triggerPrice: (await ex.getMarketPrices([ethMarketId]))[0],
-      triggerAboveThreshold: true
+      triggerAboveThreshold: true,
+      triggerActivatePrice: undefined
     },
     collateral: tokens.ETH,
     slippage: undefined
