@@ -850,8 +850,8 @@ export default class GmxV2Service implements IAdapterV1 {
           orderType == SolidityOrderType.MarketDecrease
             ? 'MARKET'
             : orderType == SolidityOrderType.StopLossDecrease
-              ? 'STOP_LOSS'
-              : 'TAKE_PROFIT'
+            ? 'STOP_LOSS'
+            : 'TAKE_PROFIT'
         ),
         desc: EMPTY_DESC
       })
@@ -1217,12 +1217,13 @@ export default class GmxV2Service implements IAdapterV1 {
             ${pageOptions ? `limit: ${pageOptions.limit},` : ''}
               orderBy: executedTxn__timestamp,
               orderDirection: desc,
-              ${wallet
-            ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
-              orderTypes
-            )} }`
-            : ''
-          }
+              ${
+                wallet
+                  ? `where: { account: "${wallet.toLowerCase()}", status:Executed, sizeDeltaUsd_gt:0, orderType_in: ${JSON.stringify(
+                      orderTypes
+                    )} }`
+                  : ''
+              }
           ) {
               id
 

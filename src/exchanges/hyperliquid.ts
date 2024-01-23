@@ -94,6 +94,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('0', 30)
   private minPositionUsd = parseUnits('10', 30)
 
+  private provider = rpc[42161]
+  public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
+
+  private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
+
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     await cacheFetch({
       key: [HL_CACHE_PREFIX, 'meta'],
