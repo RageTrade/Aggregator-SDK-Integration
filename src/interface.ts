@@ -11,7 +11,7 @@ export type OrderAction = {
   orderAction: 'CREATE' | 'UPDATE' | 'CANCEL'
 }
 
-export type PROTOCOL_NAME = 'GMX_V1' | 'SYNTHETIX_V2'
+export type PROTOCOL_NAME = 'GMXV1' | 'SYNTHETIX_V2'
 
 export type TRIGGER_TYPE = 'STOP_LOSS' | 'TAKE_PROFIT' | 'NONE'
 

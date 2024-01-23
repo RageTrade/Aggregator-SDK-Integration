@@ -99,7 +99,7 @@ export default class GmxV1Service implements IExchange {
   // taking as DECREASE_ORDER_EXECUTION_GAS_FEE because it is highest and diff is miniscule
   private MARKET_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_MARKET_ACTION_V1')! as BigNumber
   private LIMIT_EXEC_FEE = getConstant(ARBITRUM, 'EXECUTION_FEE_LIMIT_ACTION_v1')! as BigNumber
-  private protocolIdentifier: PROTOCOL_NAME = 'GMX_V1'
+  private protocolIdentifier: PROTOCOL_NAME = 'GMXV1'
   private nativeTokenAddress = getContract(ARBITRUM, 'NATIVE_TOKEN')!
   private shortTokenAddress = getTokenBySymbol(ARBITRUM, 'USDC.e')!.address
   private whitelistedTokens = getWhitelistedTokens(ARBITRUM)
