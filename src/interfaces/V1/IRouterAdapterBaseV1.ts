@@ -17,13 +17,7 @@ export type AmountInfo = {
 
 export type CreateOrderType = 'LIMIT' | 'MARKET' // IncreasePosition
 
-export type CloseOrderType =
-  | 'STOP_LOSS'
-  | 'TAKE_PROFIT'
-  | 'MARKET'
-  | 'STOP_LOSS_LIMIT'
-  | 'TAKE_PROFIT_LIMIT'
-  | 'REDUCE_LIMIT' // ClosePosition
+export type CloseOrderType = 'STOP_LOSS' | 'TAKE_PROFIT' | 'MARKET' | 'STOP_LOSS_LIMIT' | 'TAKE_PROFIT_LIMIT'
 
 export type OrderType = CreateOrderType | CloseOrderType
 

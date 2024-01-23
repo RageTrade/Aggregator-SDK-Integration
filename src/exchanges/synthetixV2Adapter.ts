@@ -124,8 +124,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
             STOP_LOSS: false,
             TAKE_PROFIT: false,
             STOP_LOSS_LIMIT: false,
-            TAKE_PROFIT_LIMIT: false,
-            REDUCE_LIMIT: false
+            TAKE_PROFIT_LIMIT: false
           },
           supportedOrderActions: {
             CREATE: true,

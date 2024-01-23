@@ -308,8 +308,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
             STOP_LOSS: true,
             TAKE_PROFIT: true,
             STOP_LOSS_LIMIT: false,
-            TAKE_PROFIT_LIMIT: false,
-            REDUCE_LIMIT: false
+            TAKE_PROFIT_LIMIT: false
           },
           supportedOrderActions: {
             CREATE: true,
