@@ -19,6 +19,7 @@ import {
   OrderType,
   OrderTypeWire,
   OrderWire,
+  Side,
   UserFill,
   UserFunding
 } from './types'
@@ -27,6 +28,7 @@ import { ethers } from 'ethers'
 import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing'
 import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
 import { WalletClient } from 'viem'
+import { TradeDirection } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
@@ -250,11 +252,36 @@ export function floatToInt(x: number, power: number): number {
 }
 
 export function slippagePrice(isBuy: boolean, slippage: number, px: number): number {
-  // Calculate Slippage
   px *= isBuy ? 1 + slippage : 1 - slippage
+  return px
+}
 
-  // We round px to 5 significant figures and 6 decimals
-  return parseFloat(px.toFixed(6))
+export function roundedPrice(input: number): number {
+  if (isNaN(input) || !isFinite(input)) {
+    throw new Error('input is not a number')
+  }
+
+  const roundedValue = Number(input.toFixed(6))
+  const roundedString = roundedValue.toPrecision(5)
+
+  const result = parseFloat(roundedString)
+
+  return result
+}
+
+export function roundedSize(size: number, szDecimals: number): number {
+  if (isNaN(size) || !isFinite(size) || isNaN(szDecimals) || !Number.isInteger(szDecimals) || szDecimals < 0) {
+    throw new Error('invalid size input')
+  }
+
+  const multiplier = Math.pow(10, szDecimals)
+  const result = Math.round(size * multiplier) / multiplier
+
+  return result
+}
+
+export function cmpSide(side: Side, direction: TradeDirection): boolean {
+  return (side === 'B' && direction === 'LONG') || (side === 'A' && direction === 'SHORT')
 }
 
 export function orderTypeToTuple(orderType: OrderType): [number, number] {
