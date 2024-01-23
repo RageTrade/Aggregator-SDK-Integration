@@ -19,9 +19,9 @@ import {
   updateIsolatedMargin,
   updateLeverage
 } from '../src/configs/hyperliquid/api/client'
-import { UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
+import { ActionParam, UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
-import { CreateOrder, OrderData } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { CreateOrder, OrderData, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
@@ -201,40 +201,21 @@ async function main() {
   // console.log(await checkIfRageTradeAgent(wallet.address))
 }
 
-async function testExecutorE2E() {
-  const hl = new HyperliquidAdapterV1()
+const hl = new HyperliquidAdapterV1()
 
-  const wallet = createWalletClient({
-    account: privateKeyToAccount('0x'),
-    transport: http(),
-    chain: mainnet
-  })
+const wallet = createWalletClient({
+  account: privateKeyToAccount('0x_INPUT_PK'),
+  transport: http(),
+  chain: mainnet
+})
 
-  const agentWallet = createWalletClient({
-    account: privateKeyToAccount('0x'),
-    transport: http(),
-    chain: mainnet
-  })
+const agentWallet = createWalletClient({
+  account: privateKeyToAccount('0x_INPUT_PK'),
+  transport: http(),
+  chain: mainnet
+})
 
-  const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
-  console.dir(market, { depth: 6 })
-
-  const orderData: CreateOrder[] = [
-    {
-      marketId: market.marketId,
-      direction: 'SHORT',
-      sizeDelta: { amount: FixedNumber.fromString('0.05'), isTokenAmount: true },
-      marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
-      triggerData: undefined,
-      collateral: HL_COLLATERAL_TOKEN,
-      type: 'MARKET',
-      slippage: undefined
-    }
-  ]
-
-  const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
-  console.dir(executionPayload, { depth: 4 })
-
+async function execute(executionPayload: ActionParam[]) {
   for (const payload of executionPayload) {
     if (!isRequestSignerFn(payload)) continue
 
@@ -269,4 +250,90 @@ async function testExecutorE2E() {
   }
 }
 
-testExecutorE2E()
+async function testIncreaseOrder() {
+  const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
+
+  const orderData: CreateOrder[] = [
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.044444444444444'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('2000.00000001'),
+        triggerAboveThreshold: true,
+        triggerActivatePrice: undefined
+      },
+      collateral: HL_COLLATERAL_TOKEN,
+      type: 'LIMIT',
+      mode: 'ISOLATED',
+      slippage: undefined
+    },
+    {
+      marketId: market.marketId,
+      direction: 'SHORT',
+      sizeDelta: { amount: FixedNumber.fromString('0.044444444444444'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('3000.00000001'),
+        triggerAboveThreshold: true,
+        triggerActivatePrice: undefined
+      },
+      collateral: HL_COLLATERAL_TOKEN,
+      type: 'LIMIT',
+      mode: 'ISOLATED',
+      slippage: undefined
+    }
+  ]
+
+  const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(executionPayload)
+}
+
+async function testUpdateOrder() {
+  const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
+
+  const allOrders = (await hl.getAllOrders(wallet.account.address, undefined)).result
+  console.dir(allOrders, { depth: 4 })
+
+  const orderData: UpdateOrder[] = [
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.024444444444444'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('2400.00000001'),
+        triggerAboveThreshold: true,
+        triggerActivatePrice: FixedNumber.fromString('2100')
+      },
+      mode: 'ISOLATED',
+      orderId: '7925732318',
+      orderType: 'TAKE_PROFIT_LIMIT'
+    },
+    {
+      marketId: market.marketId,
+      direction: 'SHORT',
+      sizeDelta: { amount: FixedNumber.fromString('0.024444444444444'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('2600.00000001'),
+        triggerAboveThreshold: true,
+        triggerActivatePrice: FixedNumber.fromString('2100')
+      },
+      mode: 'ISOLATED',
+      orderId: '7925732319',
+      orderType: 'STOP_LOSS_LIMIT'
+    }
+  ]
+
+  const executionPayload = await hl.updateOrder(orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(executionPayload)
+}
+
+// testIncreaseOrder()
+// testUpdateOrder()
