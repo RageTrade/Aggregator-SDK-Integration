@@ -73,17 +73,17 @@ export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
 
 export type StaticMarketMetadata =
   | {
-    protocolId: 'GMXV1'
-    data: GenericStaticMarketMetadata
-  }
+      protocolId: 'GMXV1'
+      data: GenericStaticMarketMetadata
+    }
   | {
-    protocolId: 'SYNTHETIX_V2'
-    data: SynV2StaticMarketMetadata
-  }
+      protocolId: 'SYNTHETIX_V2'
+      data: SynV2StaticMarketMetadata
+    }
   | {
-    protocolId: 'PERV2'
-    data: GenericStaticMarketMetadata
-  }
+      protocolId: 'PERV2'
+      data: GenericStaticMarketMetadata
+    }
 
 export type DynamicMarketMetadata = {
   oiLong: FixedNumber
@@ -266,11 +266,6 @@ export type AccountInfo = {
   withdrawable: FixedNumber
   availableToTrade: FixedNumber
   crossAccountLeverage: FixedNumber
-}
-
-export type MarketState = {
-  leverage: FixedNumber
-  marketMode: MarketMode
 }
 
 export type MarketState = {

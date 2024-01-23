@@ -79,13 +79,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return Promise.resolve()
   }
 
-<<<<<<< HEAD
-  async setup(): Promise<UnsignedTxWithMetadata[]> {
+  async setup(): Promise<ActionParam[]> {
     await this.sdk.setProvider(opProvider)
-||||||| parent of 8c41ef5 (feat: new action param interface + make it compile)
-  setup(): Promise<UnsignedTxWithMetadata[]> {
-=======
-  setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
 
@@ -93,8 +88,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
->>>>>>> 8c41ef5 (feat: new action param interface + make it compile)
+  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
     return Promise.resolve([])
   }
 

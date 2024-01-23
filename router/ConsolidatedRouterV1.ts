@@ -20,9 +20,7 @@ import {
   CloseTradePreviewInfo,
   PreviewInfo,
   IRouterAdapterBaseV1,
-  ProtocolId,
   Market,
-  RouterAdapterMethod,
   PositionData,
   ClaimInfo,
   ApiOpts,
@@ -63,7 +61,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     return Promise.resolve([])
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: Wallet) {
+  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
     return Promise.resolve([])
   }
 

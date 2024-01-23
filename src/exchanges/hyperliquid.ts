@@ -1,9 +1,8 @@
 import { Chain } from 'viem'
-import { FixedNumber, abs, addFN, bipsDiff, divFN, mulFN } from '../common/fixedNumber'
+import { FixedNumber, abs, addFN, divFN, mulFN } from '../common/fixedNumber'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
-  UnsignedTxWithMetadata,
   MarketInfo,
   DynamicMarketMetadata,
   CreateOrder,
@@ -30,7 +29,10 @@ import {
   TriggerData,
   OrderType,
   AccountInfo,
-  AmountInfoInToken
+  AmountInfoInToken,
+  MarketState,
+  TradeOperationType,
+  CollateralData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -46,6 +48,7 @@ import {
   getMetaAndAssetCtxs,
   getOpenOrders,
   getOrderStatus,
+  getUserFills,
   placeOrders,
   slippagePrice,
   withdrawFromBridge
@@ -64,17 +67,24 @@ import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
 import { indexBasisSlippage } from '../configs/hyperliquid/helper'
-import { getPaginatedResponse, toAmountInfo, toAmountInfoFN } from '../common/helper'
+import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
 import { Token, tokens } from '../common/tokens'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IERC20__factory } from '../../typechain/gmx-v2'
 import { ARBITRUM } from '../configs/gmx/chains'
 import { rpc } from '../common/provider'
 import { BigNumber, ethers } from 'ethers'
+import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
+import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private minCollateralUsd = parseUnits('11', 30)
   private minPositionUsd = parseUnits('11', 30)
+
+  private provider = rpc[42161]
+  public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
+
+  private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
 
   async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
     await cacheFetch({
@@ -381,10 +391,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     return payload
   }
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
   closePosition(
@@ -392,7 +402,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
   updatePositionMargin(
@@ -400,10 +410,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
 
@@ -902,12 +912,5 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       cacheTime: sTimeMarkets * CACHE_TIME_MULT,
       opts: opts
     })
-  }
-
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      sizeDeltaInToken: false,
-      collateralDeltaInToken: true
-    }
   }
 }

@@ -67,7 +67,6 @@ import {
   PreviewInfo,
   Protocol,
   ProtocolId,
-  UnsignedTxWithMetadata,
   UpdateOrder,
   UpdatePositionMarginData
 } from '../../src/interfaces/V1/IRouterAdapterBaseV1'
@@ -99,6 +98,7 @@ import {
   getApproveTokenHeading
 } from '../common/buttonHeadings'
 import { AccountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { ActionParam } from '../interfaces/IActionExecutor'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
 
@@ -130,16 +130,20 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve()
   }
 
-  async setup(): Promise<UnsignedTxWithMetadata[]> {
+  async setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
 
-  async getReferralAndPluginApprovals(
-    wallet: string,
-    plugin: Plugin,
-    opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async deposit(token: Token, amount: FixedNumber) {
+    return Promise.resolve([])
+  }
+
+  async withdraw(token: Token, amount: FixedNumber, wallet: string) {
+    return Promise.resolve([])
+  }
+
+  async getReferralAndPluginApprovals(wallet: string, plugin: Plugin, opts?: ApiOpts): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     // check and set referral code
     const referralCodeTxsPromise = this.checkAndSetReferralCodeTx(wallet, opts)
@@ -155,38 +159,40 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async _getOBApprovalTx(): Promise<UnsignedTxWithMetadata> {
+  async _getOBApprovalTx(): Promise<ActionParam> {
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
     const orderBook = getContract(ARBITRUM, 'OrderBook')!
 
     const approveOrderBookTx = await router.populateTransaction.approvePlugin(orderBook)
     return {
       tx: approveOrderBookTx,
-      type: 'GMX_V1',
-      data: undefined,
+      isUserAction: true,
+      // type: 'GMX_V1',
+      // data: undefined,
       chainId: ARBITRUM,
       heading: GMXV1_ENABLE_ORDERBOOK_H,
       desc: EMPTY_DESC
     }
   }
 
-  async _getPRApprovalTx(): Promise<UnsignedTxWithMetadata> {
+  async _getPRApprovalTx(): Promise<ActionParam> {
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
     const positionRouter = getContract(ARBITRUM, 'PositionRouter')!
 
     const approvePositionRouterTx = await router.populateTransaction.approvePlugin(positionRouter)
     return {
       tx: approvePositionRouterTx,
-      type: 'GMX_V1',
-      data: undefined,
+      isUserAction: true,
+      // type: 'GMX_V1',
+      // data: undefined,
       chainId: ARBITRUM,
       heading: GMXV1_ENABLE_POSITION_ROUTER_H,
       desc: EMPTY_DESC
     }
   }
 
-  async checkAndGetPluginApprovalTxs(wallet: string, plugin: Plugin): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async checkAndGetPluginApprovalTxs(wallet: string, plugin: Plugin): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     // check whether plugins are approved or not
     const router = Router__factory.connect(getContract(ARBITRUM, 'Router')!, this.provider)
@@ -237,8 +243,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async checkAndSetReferralCodeTx(wallet: string, opts?: ApiOpts): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async checkAndSetReferralCodeTx(wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
     const referralStorage = ReferralStorage__factory.connect(getContract(ARBITRUM, 'ReferralStorage')!, this.provider)
 
     // Fetch user referral code
@@ -265,8 +271,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
       )
       txs.push({
         tx: setReferralCodeTx,
-        type: 'GMX_V1',
-        data: undefined,
+        isUserAction: true,
+        // type: 'GMX_V1',
+        // data: undefined,
         chainId: ARBITRUM,
         heading: GMX_SET_REFERRAL_CODE_H,
         desc: EMPTY_DESC
@@ -416,12 +423,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return metadata
   }
 
-  async increasePosition(
-    orderData: CreateOrder[],
-    wallet: string,
-    opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     // check which plugins are required
     let isObReq = false
@@ -565,8 +568,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
       txs.push({
         tx: createOrderTx!,
-        type: 'GMX_V1',
-        data: undefined,
+        isUserAction: true,
+        // type: 'GMX_V1',
+        // data: undefined,
         ethRequired: await this.getEthRequired(
           wallet,
           extraEthReq,
@@ -581,12 +585,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async updateOrder(
-    orderData: UpdateOrder[],
-    wallet: string,
-    opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     // check for referral and plugin approvals
     txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'ORDERBOOK', opts)))
@@ -625,8 +625,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
       txs.push({
         tx: updateOrderTx!,
-        type: 'GMX_V1',
-        data: undefined,
+        isUserAction: true,
+        // type: 'GMX_V1',
+        // data: undefined,
         chainId: ARBITRUM,
         heading: UPDATE_ORDER_H,
         desc: EMPTY_DESC
@@ -636,12 +637,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  async cancelOrder(
-    orderData: CancelOrder[],
-    wallet: string,
-    opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
     // check for referral and plugin approvals
     txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'ORDERBOOK', opts)))
 
@@ -660,8 +657,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
       txs.push({
         tx: cancelOrderTx!,
-        type: 'GMX_V1',
-        data: undefined,
+        isUserAction: true,
+        // type: 'GMX_V1',
+        // data: undefined,
         chainId: ARBITRUM,
         heading: CANCEL_ORDER_H,
         desc: EMPTY_DESC
@@ -676,8 +674,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  ): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     // check which plugins are required
     let isObReq = false
@@ -780,8 +778,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
         )
         txs.push({
           tx: createOrderTx,
-          type: 'GMX_V1',
-          data: undefined,
+          isUserAction: true,
+          // type: 'GMX_V1',
+          // data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.MARKET_EXEC_FEE),
           chainId: ARBITRUM,
           heading: getClosePositionHeading('GMXV1', market.marketSymbol, 'MARKET'),
@@ -812,8 +811,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
         txs.push({
           tx: createOrderTx,
-          type: 'GMX_V1',
-          data: undefined,
+          isUserAction: true,
+          // type: 'GMX_V1',
+          // data: undefined,
           ethRequired: await this.getEthRequired(wallet, undefined, this.LIMIT_EXEC_FEE),
           chainId: ARBITRUM,
           heading: getClosePositionHeading('GMXV1', market.marketSymbol, isTp ? 'TAKE_PROFIT' : 'STOP_LOSS'),
@@ -830,8 +830,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts | undefined
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  ): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
     // check for referral and plugin approvals
     txs.push(...(await this.getReferralAndPluginApprovals(wallet, 'POSITION_ROUTER', opts)))
 
@@ -941,8 +941,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
       txs.push({
         tx: marginTx,
-        type: 'GMX_V1',
-        data: undefined,
+        isUserAction: true,
+        // type: 'GMX_V1',
+        // data: undefined,
         ethRequired: await this.getEthRequired(wallet, extraEthReq, this.MARKET_EXEC_FEE),
         chainId: ARBITRUM,
         heading: isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
@@ -953,7 +954,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return txs
   }
 
-  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<UnsignedTxWithMetadata[]> {
+  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
 
@@ -1390,7 +1391,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         const usdcPriceUrl = `https://benchmarks.pyth.network/v1/shims/tradingview/history?symbol=Crypto.USDC/USD&resolution=D&from=${fromTS}&to=${toTS}`
         const ethPricesDataPromise = fetch(ethPriceUrl).then((d) => d.json())
         const usdcPricesDataPromise = fetch(usdcPriceUrl).then((d) => d.json())
-          ;[ethPricesData, usdcPricesData] = await Promise.all([ethPricesDataPromise, usdcPricesDataPromise])
+        ;[ethPricesData, usdcPricesData] = await Promise.all([ethPricesDataPromise, usdcPricesDataPromise])
 
         let ethPriceMap = new Array<number>()
         let usdcPriceMap = new Array<number>()
@@ -1907,8 +1908,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
         let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
         txs.push({
           tx,
-          type: 'ERC20_APPROVAL',
-          data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+          isUserAction: true,
+          // type: 'ERC20_APPROVAL',
+          // data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
           chainId: ARBITRUM,
           heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
           desc: EMPTY_DESC
@@ -1954,7 +1956,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
     tokenAddress: string,
     allowanceAmount: BigNumber,
     wallet: string
-  ): Promise<UnsignedTxWithMetadata | undefined> {
+  ): Promise<ActionParam | undefined> {
     let token = IERC20__factory.connect(tokenAddress, this.provider)
     const router = getContract(ARBITRUM, 'Router')!
     const key = `${wallet}-${tokenAddress}-${router}`
@@ -1971,8 +1973,9 @@ export default class GmxV1Adapter implements IAdapterV1 {
       let tx = await token.populateTransaction.approve(router, ethers.constants.MaxUint256)
       return {
         tx,
-        type: 'ERC20_APPROVAL',
-        data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
+        isUserAction: true,
+        // type: 'ERC20_APPROVAL',
+        // data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
         chainId: ARBITRUM,
         heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
         desc: EMPTY_DESC
