@@ -39,6 +39,7 @@ import {
   HL_COLLATERAL_TOKEN,
   HL_TOKENS_MAP,
   approveAgent,
+  cancelOrders,
   checkIfRageTradeAgent,
   cmpSide,
   getActiveAssetData,
@@ -61,14 +62,14 @@ import {
 import {
   AssetCtx,
   AssetPosition,
+  CancelRequest,
   L2Book,
   Meta,
   MetaAndAssetCtx,
   ModifyRequest,
   OpenOrders,
   OrderRequest,
-  OrderStatusInfo,
-  OrderTypeWire
+  OrderStatusInfo
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
@@ -354,6 +355,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
 
+    // TODO: cache this
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
     for (const each of orderData) {
@@ -506,8 +508,44 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return payload
   }
 
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    const cancelledOrders: CancelRequest[] = []
+
+    // check if agent is available, if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+
+    const meta = await getMeta()
+
+    for (const each of orderData) {
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+
+      // retrive original order
+      const order = (await getOpenOrders(wallet)).find((o) => o.oid === Number(each.orderId))
+      const coin = marketInfo.indexToken.symbol
+
+      if (!order) throw new Error('order not found for cancelling')
+      if (order.coin !== coin) throw new Error('invalid market for cancelling order')
+
+      // get order status
+      const status = await getOrderStatus(wallet, order.oid)
+
+      // other order status are canceled, triggered and filled
+      if (status.order.status !== 'open') throw new Error(`cannot modify ${status.status} order`)
+
+      const cancel: CancelRequest = {
+        coin: coin,
+        oid: order.oid
+      }
+
+      cancelledOrders.push(cancel)
+    }
+
+    payload.push(await cancelOrders(cancelledOrders, meta))
+
+    return payload
   }
 
   closePosition(
