@@ -338,15 +338,7 @@ export default class GmxV2Service implements IAdapterV1 {
     const marketsInfo = await this.getMarketsInfo(marketIds)
     const prices: FixedNumber[] = []
 
-    // 2 second cache for (almost) frequent queries
-    const sTimeP = getStaleTime(CACHE_SECOND * 2, opts)
-    const priceRes = await cacheFetch({
-      key: [GMXV2_CACHE_PREFIX, '_getOraclePrices'],
-      fn: () => this._getOraclePrices(),
-      staleTime: sTimeP,
-      cacheTime: sTimeP * CACHE_TIME_MULT,
-      opts
-    })
+    const priceRes = await this._getOraclePrices(opts)
 
     for (const mInfo of marketsInfo) {
       const tokenPrice = this._getMinMaxPrice(mInfo.indexToken.address[42161]!, priceRes)
@@ -1876,9 +1868,18 @@ export default class GmxV2Service implements IAdapterV1 {
     return address === ethers.constants.AddressZero ? GMX_V2_TOKENS['WETH'].address[42161]! : address
   }
 
-  private async _getOraclePrices(): Promise<Array<{ [key: string]: string }>> {
+  private async _getOraclePrices(opts?: ApiOpts): Promise<Array<{ [key: string]: string }>> {
     const pricesUrl = `https://arbitrum-api.gmxinfra.io/prices/tickers`
-    const pricesRes = await fetch(pricesUrl)
+
+    const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
+    const pricesRes = await cacheFetch({
+      key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
+      fn: () => fetch(pricesUrl),
+      staleTime: sTimeOP,
+      cacheTime: sTimeOP * CACHE_TIME_MULT,
+      opts
+    })
+
     const resJson = (await pricesRes.json()) as Array<{ [key: string]: string }>
 
     return resJson

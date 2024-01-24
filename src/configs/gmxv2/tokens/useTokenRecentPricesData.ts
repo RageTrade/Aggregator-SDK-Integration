@@ -3,14 +3,15 @@ import { BigNumber } from 'ethers'
 import { TokenPricesData } from './types'
 import { useOracleKeeperFetcher } from './useOracleKeeperFetcher'
 import { parseContractPrice } from './utils'
+import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 type TokenPricesDataResult = {
   pricesData?: TokenPricesData
   updatedAt?: number
 }
 
-export async function useTokenRecentPrices(chainId: number): Promise<TokenPricesDataResult> {
-  const oracleKeeperFetcher = useOracleKeeperFetcher(chainId)
+export async function useTokenRecentPrices(chainId: number, opts?: ApiOpts): Promise<TokenPricesDataResult> {
+  const oracleKeeperFetcher = useOracleKeeperFetcher(chainId, opts)
 
   // console.log({ oracleKeeperFetcher })
 

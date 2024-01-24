@@ -1,3 +1,5 @@
+import { CACHE_TIME_MULT, cacheFetch, getStaleTime, GMXV2_CACHE_PREFIX, CACHE_SECOND } from '../../../common/cache'
+import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 export type TickersResponse = {
   minPrice: string
   maxPrice: string
@@ -19,12 +21,20 @@ export type OracleKeeperFetcher = ReturnType<typeof useOracleKeeperFetcher>
 
 let fallbackThrottleTimerId: any
 
-export function useOracleKeeperFetcher(chainId: number) {
+export function useOracleKeeperFetcher(chainId: number, opts?: ApiOpts) {
   const oracleKeeperUrl = 'https://arbitrum-api.gmxinfra.io'
 
   async function fetchTickers(): Promise<TickersResponse> {
     try {
-      const res = await fetch(oracleKeeperUrl! + '/prices/tickers')
+      const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
+      const res = await cacheFetch({
+        key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
+        fn: () => fetch(oracleKeeperUrl! + '/prices/tickers'),
+        staleTime: sTimeOP,
+        cacheTime: sTimeOP * CACHE_TIME_MULT,
+        opts
+      })
+
       const res_1 = await res.json()
       if (!res_1.length) {
         throw new Error('Invalid tickers response')
