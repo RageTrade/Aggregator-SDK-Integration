@@ -1,9 +1,5 @@
 import { QueryClient } from '@tanstack/react-query'
-
-export type ApiOpts = {
-  bypassCache: boolean // bypass query client cache altogether
-  overrideStaleTime?: number // pass the stale time to override default stale time
-}
+import { ApiOpts } from '../../dist/common/cache'
 
 export const CACHE_SECOND = 1000
 export const CACHE_MINUTE = 60 * CACHE_SECOND
@@ -12,6 +8,7 @@ export const CACHE_DAY = 24 * CACHE_HOUR
 export const CACHE_WEEK = 7 * CACHE_DAY
 export const CACHE_TIME_MULT = 2
 
+export const GMX_COMMON_CACHE_PREFIX = 'gmx'
 export const GMXV2_CACHE_PREFIX = 'gmxv2'
 export const GMXV1_CACHE_PREFIX = 'gmxv1'
 export const SYNV2_CACHE_PREFIX = 'synv2'
@@ -67,7 +64,8 @@ export async function cacheFetch(args: CacheFetchArgs) {
       // if the data is stale, but not yet expired refetch it in the background and return the cached data
       if (qs.data != undefined) {
         // console.log('cacheFetch: refetching query')
-        queryClient.refetchQueries({ queryKey: args.key, exact: true })
+        // cancelRefetch - When set to false, no refetch will be made if there is already a request running.
+        queryClient.refetchQueries({ queryKey: args.key, exact: true }, { cancelRefetch: false })
       }
 
       // console.log('cacheFetch: returning ensureQueryData')
