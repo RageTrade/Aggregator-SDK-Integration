@@ -26,7 +26,7 @@ export function useOracleKeeperFetcher(chainId: number, opts?: ApiOpts) {
 
   async function fetchTickers(): Promise<TickersResponse> {
     try {
-      const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
+      const sTimeOP = getStaleTime(CACHE_SECOND * 2, opts)
       const res = await cacheFetch({
         key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
         fn: () => fetch(oracleKeeperUrl! + '/prices/tickers').then((res) => res.json()),

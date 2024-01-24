@@ -1871,7 +1871,7 @@ export default class GmxV2Service implements IAdapterV1 {
   private async _getOraclePrices(opts?: ApiOpts): Promise<Array<{ [key: string]: string }>> {
     const pricesUrl = `https://arbitrum-api.gmxinfra.io/prices/tickers`
 
-    const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
+    const sTimeOP = getStaleTime(CACHE_SECOND * 2, opts)
     const pricesRes = await cacheFetch({
       key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
       fn: () => fetch(pricesUrl).then((res) => res.json()),
