@@ -21,7 +21,7 @@ import {
 } from '../src/configs/hyperliquid/api/client'
 import { ActionParam, UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
-import { CreateOrder, OrderData, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { CancelOrder, CreateOrder, OrderData, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
@@ -335,5 +335,20 @@ async function testUpdateOrder() {
   await execute(executionPayload)
 }
 
+async function testCancelOrder() {
+  const allOrders = (await hl.getAllOrders(wallet.account.address, undefined)).result
+  console.dir(allOrders, { depth: 4 })
+
+  const orderData: CancelOrder[] = allOrders.map((o) => {
+    return { marketId: o.marketId, orderId: o.orderId, type: o.orderType }
+  })
+
+  const executionPayload = await hl.cancelOrder(orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(executionPayload)
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
+// testCancelOrder()
