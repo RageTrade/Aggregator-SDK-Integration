@@ -479,7 +479,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       let orderData: ModifyRequest['order']['order_type'] = { limit: { tif: 'Gtc' } }
       let limitPrice: ModifyRequest['order']['limit_px'] = 0
 
-      if (each.triggerData.triggerActivatePrice) {
+      if (each.triggerData.triggerLimitPrice) {
         // covers following handling:
         // - stop limit and stop market (and therefore TP / SL market & limit)
         ;({ orderData, limitPrice } = popuplateTrigger(isBuy, price, each.orderType, each.triggerData))
@@ -693,7 +693,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       }
 
       let triggerPrice = FixedNumber.fromString('0')
-      if (status.orderType == 'Limit' || status.orderType == 'Stop Limit' || status.orderType == 'Take Profit Limit') {
+      if (status.orderType == 'Limit') {
         // for limit order limit price is the actual trigger price
         triggerPrice = FixedNumber.fromString(status.limitPx)
       } else {
@@ -708,14 +708,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       } else {
         triggerAboveThreshold = status.triggerCondition.toLowerCase().includes('above'.toLowerCase())
       }
-      let triggerActivatePrice = undefined
+      let triggerLimitPrice = undefined
       if (status.orderType == 'Stop Limit' || status.orderType == 'Take Profit Limit') {
-        triggerActivatePrice = FixedNumber.fromString(status.triggerPx)
+        triggerLimitPrice = FixedNumber.fromString(status.limitPx)
       }
       const triggerData: TriggerData = {
         triggerPrice,
         triggerAboveThreshold,
-        triggerActivatePrice
+        triggerLimitPrice
       }
 
       let orderType: OrderType

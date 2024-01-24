@@ -124,7 +124,7 @@ async function increasePosition() {
     triggerData: {
       triggerPrice: (await ex.getMarketPrices([ethMarketId]))[0],
       triggerAboveThreshold: true,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     collateral: tokens.ETH,
     slippage: undefined

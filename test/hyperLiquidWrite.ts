@@ -262,7 +262,7 @@ async function testIncreaseOrder() {
       triggerData: {
         triggerPrice: FixedNumber.fromString('2000.00000001'),
         triggerAboveThreshold: true,
-        triggerActivatePrice: undefined
+        triggerLimitPrice: undefined
       },
       collateral: HL_COLLATERAL_TOKEN,
       type: 'LIMIT',
@@ -277,7 +277,7 @@ async function testIncreaseOrder() {
       triggerData: {
         triggerPrice: FixedNumber.fromString('3000.00000001'),
         triggerAboveThreshold: true,
-        triggerActivatePrice: undefined
+        triggerLimitPrice: undefined
       },
       collateral: HL_COLLATERAL_TOKEN,
       type: 'LIMIT',
@@ -307,7 +307,7 @@ async function testUpdateOrder() {
       triggerData: {
         triggerPrice: FixedNumber.fromString('2400.00000001'),
         triggerAboveThreshold: true,
-        triggerActivatePrice: FixedNumber.fromString('2100')
+        triggerLimitPrice: FixedNumber.fromString('2100')
       },
       mode: 'ISOLATED',
       orderId: '7925732318',
@@ -321,7 +321,7 @@ async function testUpdateOrder() {
       triggerData: {
         triggerPrice: FixedNumber.fromString('2600.00000001'),
         triggerAboveThreshold: true,
-        triggerActivatePrice: FixedNumber.fromString('2100')
+        triggerLimitPrice: FixedNumber.fromString('2100')
       },
       mode: 'ISOLATED',
       orderId: '7925732319',

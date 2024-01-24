@@ -39,12 +39,12 @@ export function popuplateTrigger(
 } {
   if (orderType == 'MARKET' || orderType == 'LIMIT') throw new Error('trigger used with wrong order type')
 
-  if (!triggerData.triggerActivatePrice) throw new Error('trigger price required')
+  if (!triggerData.triggerLimitPrice) throw new Error('trigger price required')
 
   const isStop = orderType == 'STOP_LOSS' || orderType == 'STOP_LOSS_LIMIT'
 
   const triggerPrice = roundedPrice(Number(triggerData.triggerPrice._value))
-  const triggerActivatePrice = roundedPrice(Number(triggerData.triggerActivatePrice._value))
+  const triggerActivatePrice = roundedPrice(Number(triggerData.triggerLimitPrice._value))
 
   // this check is required, otherwise it is not considered resting order and executes immidiately
   if (!validateTrigger(isBuy, midPrice, triggerActivatePrice, isStop))

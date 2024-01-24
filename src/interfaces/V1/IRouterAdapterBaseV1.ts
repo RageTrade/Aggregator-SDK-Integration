@@ -95,9 +95,11 @@ export type MarketInfo = Market & GenericStaticMarketMetadata & Protocol
 export type TradeDirection = 'LONG' | 'SHORT'
 
 export type TriggerData = {
+  // market price for market orders, limit price for limit orders, price at which order is placed in books for SL/TP/TPL/SPL
   triggerPrice: FixedNumber
   triggerAboveThreshold: boolean
-  triggerActivatePrice: FixedNumber | undefined
+  // limit price for TPL/SPL orders, undefined otherwise
+  triggerLimitPrice: FixedNumber | undefined
 }
 
 export type TradeData = {

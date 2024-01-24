@@ -88,7 +88,7 @@ async function getOpenTradePreview() {
     triggerData: {
       triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
       triggerAboveThreshold: false,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     collateral: getTokenBySymbol('ETH'),
     type: 'MARKET',
@@ -114,7 +114,7 @@ async function getCloseTradePreview() {
     triggerData: {
       triggerPrice: FixedNumber.fromValue(parseUnits('40000', 30).toString(), 30, 30),
       triggerAboveThreshold: true,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     outputCollateral: getTokenBySymbol('USDC')
   }
@@ -158,7 +158,7 @@ async function increasePosition() {
       // triggerPrice: (await ex.getMarketPrices([btcMarketId]))[0],
       triggerPrice: FixedNumber.fromValue(parseUnits('30000', 30).toString(), 30, 30),
       triggerAboveThreshold: false,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     collateral: getTokenBySymbol('ETH'),
     type: 'LIMIT',
@@ -181,7 +181,7 @@ async function closePosition() {
     triggerData: {
       triggerPrice: FixedNumber.fromValue(parseUnits('125936', 30).toString(), 30, 30),
       triggerAboveThreshold: true,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     outputCollateral: getTokenBySymbol('USDC')
   }

@@ -2012,7 +2012,7 @@ export default class GmxV2Service implements IAdapterV1 {
       triggerData: {
         triggerPrice: FixedNumber.fromValue(orderData.triggerPrice.toString(), 30, 30),
         triggerAboveThreshold: orderData.triggerThresholdType == TriggerThresholdType.Above ? true : false,
-        triggerActivatePrice: undefined
+        triggerLimitPrice: undefined
       }
     }
     const oId: OrderIdentifier = {

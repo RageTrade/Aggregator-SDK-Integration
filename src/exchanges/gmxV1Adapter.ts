@@ -1124,7 +1124,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         triggerData: {
           triggerPrice: FixedNumber.fromValue(order.triggerPrice.toString(), 30, 30),
           triggerAboveThreshold: order.triggerAboveThreshold as boolean,
-          triggerActivatePrice: undefined
+          triggerLimitPrice: undefined
         }
       }
       const oId: OrderIdentifier = {

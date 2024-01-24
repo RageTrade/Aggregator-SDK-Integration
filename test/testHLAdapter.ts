@@ -97,7 +97,7 @@ async function getOpenTradePreview() {
     triggerData: {
       triggerPrice: FixedNumber.fromString('20000'),
       triggerAboveThreshold: false,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     collateral: HL_COLLATERAL_TOKEN,
     type: 'LIMIT',

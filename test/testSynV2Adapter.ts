@@ -53,7 +53,7 @@ async function getOpenTradePreview() {
     triggerData: {
       triggerPrice: marketPrice,
       triggerAboveThreshold: false,
-      triggerActivatePrice: undefined
+      triggerLimitPrice: undefined
     },
     collateral: sUsd,
     type: 'MARKET',
