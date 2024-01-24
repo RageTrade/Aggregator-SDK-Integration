@@ -124,6 +124,7 @@ import {
   UPDATE_WITHDRAW_H,
   getApproveTokenHeading
 } from '../common/buttonHeadings'
+import { isMarketEnabled } from '../configs/gmxv2/markets/markets'
 
 export const DEFAULT_ACCEPTABLE_PRICE_SLIPPAGE = 1
 export const REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -260,6 +261,7 @@ export default class GmxV2Service implements IAdapterV1 {
 
         for (const mProp of marketProps) {
           if (mProp.indexToken === ethers.constants.AddressZero) continue
+          if (!isMarketEnabled(arbitrum.id, mProp.marketToken)) continue
 
           const longToken = getGmxV2TokenByAddress(mProp.longToken)
           const shortToken = getGmxV2TokenByAddress(mProp.shortToken)

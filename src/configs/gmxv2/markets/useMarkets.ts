@@ -7,6 +7,7 @@ import { getMarketFullName } from './utils'
 import { useMulticall } from '../lib/multicall/useMulticall'
 import { CACHE_DAY, CACHE_TIME_MULT, GMXV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../../common/cache'
 import { ApiOpts } from '../../../interfaces/V1/IRouterAdapterBaseV1'
+import { isMarketEnabled } from './markets'
 
 type MarketsResult = {
   marketsData?: MarketsData
@@ -40,6 +41,10 @@ export async function useMarkets(chainId: number, opts?: ApiOpts): Promise<Marke
         parseResponse: (res) => {
           return res.data.reader.markets.returnValues.reduce(
             (acc: { marketsData: MarketsData; marketsAddresses: string[] }, marketValues: any) => {
+              if (!isMarketEnabled(chainId, marketValues.marketToken)) {
+                return acc
+              }
+
               try {
                 const indexToken = getToken(chainId, convertTokenAddress(chainId, marketValues.indexToken, 'native'))
                 const longToken = getToken(chainId, marketValues.longToken)
