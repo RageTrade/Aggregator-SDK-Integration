@@ -1874,15 +1874,13 @@ export default class GmxV2Service implements IAdapterV1 {
     const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
     const pricesRes = await cacheFetch({
       key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
-      fn: () => fetch(pricesUrl),
+      fn: () => fetch(pricesUrl).then((res) => res.json()),
       staleTime: sTimeOP,
       cacheTime: sTimeOP * CACHE_TIME_MULT,
       opts
     })
 
-    const resJson = (await pricesRes.json()) as Array<{ [key: string]: string }>
-
-    return resJson
+    return pricesRes as Array<{ [key: string]: string }>
   }
 
   private _getMinMaxPrice(

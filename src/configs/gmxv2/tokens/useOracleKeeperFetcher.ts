@@ -29,17 +29,16 @@ export function useOracleKeeperFetcher(chainId: number, opts?: ApiOpts) {
       const sTimeOP = getStaleTime(CACHE_SECOND * 3, opts)
       const res = await cacheFetch({
         key: [GMXV2_CACHE_PREFIX, 'oraclePrices'],
-        fn: () => fetch(oracleKeeperUrl! + '/prices/tickers'),
+        fn: () => fetch(oracleKeeperUrl! + '/prices/tickers').then((res) => res.json()),
         staleTime: sTimeOP,
         cacheTime: sTimeOP * CACHE_TIME_MULT,
         opts
       })
 
-      const res_1 = await res.json()
-      if (!res_1.length) {
+      if (!res.length) {
         throw new Error('Invalid tickers response')
       }
-      return res_1
+      return res
     } catch (e) {
       // eslint-disable-next-line no-console
       console.error(e)
