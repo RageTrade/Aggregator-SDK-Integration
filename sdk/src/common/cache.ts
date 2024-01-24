@@ -1,5 +1,9 @@
 import { QueryClient } from '@tanstack/react-query'
-import { ApiOpts } from '../../dist/common/cache'
+
+export type ApiOpts = {
+  bypassCache: boolean // bypass query client cache altogether
+  overrideStaleTime?: number // pass the stale time to override default stale time
+}
 
 export const CACHE_SECOND = 1000
 export const CACHE_MINUTE = 60 * CACHE_SECOND
