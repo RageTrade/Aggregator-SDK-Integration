@@ -798,7 +798,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         if (position.direction! == 'LONG') {
           isTp = cpd.triggerData!.triggerAboveThreshold
         } else {
-          isTp = cpd.triggerData!.triggerAboveThreshold
+          isTp = !cpd.triggerData!.triggerAboveThreshold
         }
 
         txs.push({

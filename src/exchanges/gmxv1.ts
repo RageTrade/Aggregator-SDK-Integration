@@ -1098,7 +1098,7 @@ export default class GmxV1Service implements IExchange {
       if (position.direction! == 'LONG') {
         isTp = triggerAboveThreshold!
       } else {
-        isTp = triggerAboveThreshold!
+        isTp = !triggerAboveThreshold!
       }
 
       txs.push({
