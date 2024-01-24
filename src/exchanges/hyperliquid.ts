@@ -74,7 +74,7 @@ import {
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
-import { indexBasisSlippage, popuplateTrigger } from '../configs/hyperliquid/helper'
+import { indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
 import { Token, tokens } from '../common/tokens'
 import { ActionParam } from '../interfaces/IActionExecutor'
@@ -482,7 +482,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (each.triggerData.triggerLimitPrice) {
         // covers following handling:
         // - stop limit and stop market (and therefore TP / SL market & limit)
-        ;({ orderData, limitPrice } = popuplateTrigger(isBuy, price, each.orderType, each.triggerData))
+        ;({ orderData, limitPrice } = populateTrigger(isBuy, price, each.orderType, each.triggerData))
       } else {
         // covers following handling:
         // - basic limit order which executes at specified price

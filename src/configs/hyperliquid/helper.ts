@@ -28,7 +28,7 @@ export function validateTrigger(isBuy: boolean, midPrice: number, triggerPrice: 
   )
 }
 
-export function popuplateTrigger(
+export function populateTrigger(
   isBuy: boolean,
   midPrice: number,
   orderType: OrderType,
@@ -44,16 +44,16 @@ export function popuplateTrigger(
   const isStop = orderType == 'STOP_LOSS' || orderType == 'STOP_LOSS_LIMIT'
 
   const triggerPrice = roundedPrice(Number(triggerData.triggerPrice._value))
-  const triggerActivatePrice = roundedPrice(Number(triggerData.triggerLimitPrice._value))
+  const triggerLimitPrice = roundedPrice(Number(triggerData.triggerLimitPrice._value))
 
   // this check is required, otherwise it is not considered resting order and executes immidiately
-  if (!validateTrigger(isBuy, midPrice, triggerActivatePrice, isStop))
+  if (!validateTrigger(isBuy, midPrice, triggerPrice, isStop))
     throw new Error('trigger orderType, current price & trigger activation price are not compatible')
 
   if (isStop) {
     const orderData: ModifyRequest['order']['order_type'] = {
       trigger: {
-        triggerPx: triggerActivatePrice,
+        triggerPx: triggerPrice,
         isMarket: !orderType.includes('LIMIT'),
         tpsl: 'sl'
       }
@@ -63,12 +63,12 @@ export function popuplateTrigger(
   } else {
     const orderData: ModifyRequest['order']['order_type'] = {
       trigger: {
-        triggerPx: triggerActivatePrice,
+        triggerPx: triggerPrice,
         isMarket: !orderType.includes('LIMIT'),
         tpsl: 'tp'
       }
     }
 
-    return { orderData, limitPrice: triggerPrice }
+    return { orderData, limitPrice: triggerLimitPrice }
   }
 }
