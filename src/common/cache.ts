@@ -64,7 +64,8 @@ export async function cacheFetch(args: CacheFetchArgs) {
       // if the data is stale, but not yet expired refetch it in the background and return the cached data
       if (qs.data != undefined) {
         // console.log('cacheFetch: refetching query')
-        queryClient.refetchQueries({ queryKey: args.key, exact: true })
+        // cancelRefetch - When set to false, no refetch will be made if there is already a request running.
+        queryClient.refetchQueries({ queryKey: args.key, exact: true }, { cancelRefetch: false })
       }
 
       // console.log('cacheFetch: returning ensureQueryData')
