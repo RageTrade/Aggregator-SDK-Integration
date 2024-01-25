@@ -419,13 +419,7 @@ export default class GmxV2Service implements IAdapterV1 {
     if (this.tokenSpentApprovedMap[key]) return
 
     const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
-    const allowance = await cacheFetch({
-      key: [GMXV2_CACHE_PREFIX, 'allowance', wallet, token, this.ROUTER_ADDR],
-      fn: () => tokenContract.allowance(wallet, this.ROUTER_ADDR),
-      staleTime: sTimeAllowance,
-      cacheTime: sTimeAllowance * CACHE_TIME_MULT,
-      opts
-    })
+    const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
 
     // if allowance is 80% of Max then
     if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
@@ -2090,12 +2084,7 @@ export default class GmxV2Service implements IAdapterV1 {
         const tokenContract = IERC20__factory.connect(tokenAddress, this.provider)
         const key = `${wallet}-${tokenAddress}-${this.ROUTER_ADDR}`
 
-        const allowance = await cacheFetch({
-          key: [GMXV2_CACHE_PREFIX, 'allowance', wallet, tokenAddress, this.ROUTER_ADDR],
-          fn: () => tokenContract.allowance(wallet, this.ROUTER_ADDR),
-          staleTime: 0,
-          cacheTime: 0
-        })
+        const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
 
         // if allowance is 80% of Max then set cache
         if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {

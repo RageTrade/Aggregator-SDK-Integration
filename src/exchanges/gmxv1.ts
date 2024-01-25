@@ -348,13 +348,7 @@ export default class GmxV1Service implements IExchange {
     if (this.tokenSpentApprovedMap[key]) return
 
     const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
-    const allowance = await cacheFetch({
-      key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
-      fn: () => token.allowance(wallet, router),
-      staleTime: sTimeAllowance,
-      cacheTime: sTimeAllowance * CACHE_TIME_MULT,
-      opts
-    })
+    const allowance = await token.allowance(wallet, router)
 
     // if allowance is 80% of Max then set cache
     if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
@@ -1802,12 +1796,7 @@ export default class GmxV1Service implements IExchange {
         const router = getContract(ARBITRUM, 'Router')!
         const key = `${wallet}-${tokenAddress}-${router}`
 
-        const allowance = await cacheFetch({
-          key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
-          fn: () => token.allowance(wallet, router),
-          staleTime: 0,
-          cacheTime: 0
-        })
+        const allowance = await token.allowance(wallet, router)
 
         // if allowance is 80% of Max then set cache
         if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {

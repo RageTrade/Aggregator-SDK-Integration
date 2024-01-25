@@ -1867,14 +1867,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       } else {
         let token = IERC20__factory.connect(tokenAddress, rpc[ARBITRUM])
 
-        const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
-        const allowancePromise = cacheFetch({
-          key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
-          fn: () => token.allowance(wallet, router),
-          staleTime: sTimeAllowance,
-          cacheTime: sTimeAllowance * CACHE_TIME_MULT,
-          opts
-        })
+        const allowancePromise = token.allowance(wallet, router)
 
         allowancePromises.push(allowancePromise)
       }
@@ -2025,12 +2018,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
         const router = getContract(ARBITRUM, 'Router')!
         const key = `${wallet}-${tokenAddress}-${router}`
 
-        let allowance = await cacheFetch({
-          key: [GMXV1_CACHE_PREFIX, 'allowance', wallet, token, router],
-          fn: () => token.allowance(wallet, router),
-          staleTime: 0,
-          cacheTime: 0
-        })
+        let allowance = await token.allowance(wallet, router)
 
         // if allowance is 80% of Max then set cache
         if (allowance.gt(ethers.constants.MaxUint256.mul(8).div(10))) {
