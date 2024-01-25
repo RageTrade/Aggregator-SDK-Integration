@@ -21,7 +21,15 @@ import {
 } from '../src/configs/hyperliquid/api/client'
 import { ActionParam, UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
-import { CancelOrder, CreateOrder, OrderData, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import {
+  CancelOrder,
+  CreateOrder,
+  OrderData,
+  PositionData,
+  PositionInfo,
+  UpdateOrder,
+  UpdatePositionMarginData
+} from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
@@ -349,6 +357,28 @@ async function testCancelOrder() {
   await execute(executionPayload)
 }
 
+async function testUpdateMargin() {
+  const allPositions = (await hl.getAllPositions(wallet.account.address, undefined)).result
+  console.dir(allPositions, { depth: 4 })
+
+  const positionData: PositionInfo = allPositions.find((p) => p.indexToken.symbol === 'ETH')!
+
+  const updateData: UpdatePositionMarginData = {
+    isDeposit: false,
+    collateral: HL_COLLATERAL_TOKEN,
+    margin: {
+      isTokenAmount: true,
+      amount: FixedNumber.fromString('4')
+    }
+  }
+
+  const executionPayload = await hl.updatePositionMargin([positionData], [updateData], wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(executionPayload)
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
 // testCancelOrder()
+// testUpdateMargin()
