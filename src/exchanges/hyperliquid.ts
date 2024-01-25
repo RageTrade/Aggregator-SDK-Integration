@@ -555,7 +555,75 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    const payload: ActionParam[] = []
+
+    const requests: OrderRequest[] = []
+
+    // check if agent is available, if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+
+    const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
+
+    if (positionInfo.length !== closePositionData.length) throw new Error('length mismatch')
+
+    for (let i = 0; i < positionInfo.length; ++i) {
+      const closeData = closePositionData[i]
+      const positionInfoData = positionInfo[i]
+
+      if (closeData.outputCollateral && closeData.outputCollateral.symbol !== HL_COLLATERAL_TOKEN.symbol)
+        throw new Error('token not supported')
+
+      // ensure size delta is in token terms
+      if (!closeData.closeSize.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId]))[0]
+      const coin = marketInfo.indexToken.symbol
+
+      let sizeDelta = Number(closeData.closeSize.amount._value)
+      sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
+
+      const price = Number(mids[marketInfo.indexToken.symbol])
+      const isBuy = positionInfoData.direction === 'SHORT'
+
+      // TODO: close position doesn't take custom slippage in interface
+      const slippage = 0.01
+
+      if (closeData.type == 'MARKET') {
+        requests.push({
+          coin: coin,
+          cloid: null,
+          is_buy: isBuy,
+          sz: sizeDelta,
+          reduce_only: true,
+          limit_px: roundedPrice(slippagePrice(isBuy, slippage, price)),
+          order_type: {
+            limit: {
+              tif: 'Gtc'
+            }
+          }
+        })
+        continue
+      }
+
+      if (!closeData.triggerData) throw new Error('trigger data required')
+
+      const { orderData, limitPrice } = populateTrigger(isBuy, price, closeData.type, closeData.triggerData)
+
+      requests.push({
+        coin: coin,
+        cloid: null,
+        is_buy: isBuy,
+        sz: sizeDelta,
+        reduce_only: true,
+        limit_px: limitPrice,
+        order_type: orderData
+      })
+    }
+
+    payload.push(await placeOrders(requests, meta))
+
+    return payload
   }
 
   async updatePositionMargin(

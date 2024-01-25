@@ -1,9 +1,7 @@
-import { BigNumber, UnsignedTransaction, Wallet } from 'ethers'
-import { AddressValidationAdditionalSessionData, ERC20ApprovalAddtionalSessionData } from '../../tx-metadata-types'
-import { Token } from '../../common/tokens'
 import { Chain } from 'viem'
-import { FixedNumber } from '../../common/fixedNumber'
+import { Token } from '../../common/tokens'
 import { ActionParam } from '../IActionExecutor'
+import { FixedNumber } from '../../common/fixedNumber'
 
 export type ApiOpts = {
   bypassCache: boolean // bypass query client cache altogether
