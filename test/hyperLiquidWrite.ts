@@ -23,6 +23,7 @@ import { ActionParam, UnsignedTransactionWithMetadata, isRequestSignerFn } from 
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
 import {
   CancelOrder,
+  ClosePositionData,
   CreateOrder,
   OrderData,
   PositionData,
@@ -378,7 +379,38 @@ async function testUpdateMargin() {
   await execute(executionPayload)
 }
 
+async function testClosePosition() {
+  const allPositions = (await hl.getAllPositions(wallet.account.address, undefined)).result
+  console.dir(allPositions, { depth: 4 })
+
+  const positionData: PositionInfo = allPositions.find((p) => p.indexToken.symbol === 'ETH')!
+
+  const orderData: ClosePositionData[] = [
+    {
+      closeSize: { amount: FixedNumber.fromString('0.0222222222222222'), isTokenAmount: true },
+      triggerData: undefined,
+      type: 'MARKET',
+      // triggerData: {
+      //   triggerPrice: FixedNumber.fromString('2000.00000001'),
+      //   triggerAboveThreshold: true,
+      //   triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
+      // },
+      // type: 'STOP_LOSS',
+      // type: 'TAKE_PROFIT',
+      // type: 'STOP_LOSS_LIMIT',
+      // type: 'TAKE_PROFIT_LIMIT',
+      outputCollateral: undefined
+    }
+  ]
+
+  const executionPayload = await hl.closePosition([positionData], orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(executionPayload)
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
 // testCancelOrder()
 // testUpdateMargin()
+// testClosePosition()
