@@ -56,6 +56,7 @@ import {
   roundedPrice,
   roundedSize,
   slippagePrice,
+  updateIsolatedMargin,
   updateLeverage,
   withdrawFromBridge
 } from '../configs/hyperliquid/api/client'
@@ -548,7 +549,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return payload
   }
 
-  closePosition(
+  async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     wallet: string,
@@ -557,13 +558,49 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  updatePositionMargin(
+  async updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
     wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    // throw for cross
+    // for isolated, check if position exists and add collateral
+
+    const payload: ActionParam[] = []
+
+    // check if agent is available, if not, create agent
+    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+
+    const meta = await getMeta()
+
+    if (positionInfo.length !== updatePositionMarginData.length) throw new Error('length mismatch')
+
+    for (let i = 0; i < positionInfo.length; ++i) {
+      const positionInfoData = positionInfo[i]
+      const updateMarginData = updatePositionMarginData[i]
+
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId]))[0]
+
+      // compare mode
+      if (!positionInfoData.mode || positionInfoData.mode === 'CROSS') throw new Error('invalid mode to update margin')
+
+      if (!updateMarginData.margin.isTokenAmount) throw new Error('should be tokenAmount for margin')
+
+      if (updateMarginData.collateral.symbol !== HL_COLLATERAL_TOKEN.symbol)
+        throw new Error('should be tokenAmount for margin')
+
+      const coin = marketInfo.indexToken.symbol
+
+      const amountInt = updateMarginData.isDeposit
+        ? Number(updateMarginData.margin.amount._value)
+        : -1 * Number(updateMarginData.margin.amount._value)
+
+      payload.push(await updateIsolatedMargin(amountInt, coin, meta))
+    }
+
+    return payload
   }
 
   claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
