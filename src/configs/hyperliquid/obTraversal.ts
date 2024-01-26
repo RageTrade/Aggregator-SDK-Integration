@@ -44,15 +44,15 @@ export async function traverseHLBook(
       const levelPrice = FixedNumber.fromString(level.px)
 
       if (remainingSize.gt(levelSize)) {
-        remainingSize = remainingSize.sub(levelSize)
+        remainingSize = subFN(remainingSize, levelSize)
 
         // increment fees and avgPriceAc
-        avgPriceAcc = addFN(avgPriceAcc, levelPrice.mul(levelSize))
+        avgPriceAcc = addFN(avgPriceAcc, mulFN(levelPrice, levelSize))
         feesAcc = addFN(feesAcc, mulFN(mulFN(levelSize, levelPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS)))
       } else {
         // remainingSize <= levelSize
         // increment fees and avgPriceAc
-        avgPriceAcc = addFN(avgPriceAcc, levelPrice.mul(remainingSize))
+        avgPriceAcc = addFN(avgPriceAcc, mulFN(levelPrice, remainingSize))
         feesAcc = addFN(feesAcc, mulFN(mulFN(remainingSize, levelPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS)))
         // console.log('satisfied at nSigFigs = ', i + 2)
 
