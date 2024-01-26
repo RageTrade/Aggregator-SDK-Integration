@@ -40,14 +40,14 @@ export const HL_TOKENS_MAP: Record<
   }
 > = {}
 export const HL_COLLATERAL_TOKEN = {
-  symbol: 'USD',
-  name: 'USD',
-  decimals: 18,
+  symbol: 'USDC',
+  name: 'USD Coin',
+  decimals: 6,
   address: {
-    42161: undefined,
-    10: undefined
+    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'
   }
-}
+} as Token
 
 export function updateTokensMap(meta: Meta) {
   meta.universe.forEach((u, index) => {
