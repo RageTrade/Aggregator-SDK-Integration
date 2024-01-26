@@ -21,7 +21,7 @@ export type OrderType = CreateOrderType | CloseOrderType
 
 export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'PERV2' | 'GMXV2' | 'HL'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL'
 
 export type TradeOperationType = 'Open Long' | 'Close Long' | 'Open Short' | 'Close Short' | 'Long' | 'Short'
 
