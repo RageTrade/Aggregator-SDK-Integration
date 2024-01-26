@@ -1864,8 +1864,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
     allowanceAmounts: BigNumber[],
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata[]> {
-    let txs: UnsignedTxWithMetadata[] = []
+  ): Promise<ActionParam[]> {
+    let txs: ActionParam[] = []
 
     const router = getContract(ARBITRUM, 'Router')!
 

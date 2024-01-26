@@ -425,7 +425,7 @@ export default class GmxV2Service implements IAdapterV1 {
     amount: bigint,
     wallet: string,
     opts?: ApiOpts
-  ): Promise<UnsignedTxWithMetadata | undefined> {
+  ): Promise<ActionParam | undefined> {
     if (token == ethers.constants.AddressZero) return
     const tokenContract = IERC20__factory.connect(token, this.provider)
     const key = `${wallet}-${token}-${this.ROUTER_ADDR}`
