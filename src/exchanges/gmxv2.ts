@@ -164,6 +164,7 @@ const mapping: Record<string, Record<string, number>> = {
 export default class GmxV2Service implements IAdapterV1 {
   getAmountInfoType(): AmountInfoInToken {
     return {
+      protocolId: 'GMXV2',
       sizeDeltaInToken: false,
       collateralDeltaInToken: true
     }

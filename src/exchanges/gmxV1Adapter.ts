@@ -109,6 +109,7 @@ type Plugin = 'ORDERBOOK' | 'POSITION_ROUTER' | 'BOTH'
 export default class GmxV1Adapter implements IAdapterV1 {
   getAmountInfoType(): AmountInfoInToken {
     return {
+      protocolId: GMX_V1_PROTOCOL_ID,
       sizeDeltaInToken: false,
       collateralDeltaInToken: true
     }

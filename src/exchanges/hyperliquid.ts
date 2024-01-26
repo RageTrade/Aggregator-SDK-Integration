@@ -1157,6 +1157,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   getAmountInfoType(): AmountInfoInToken {
     return {
+      protocolId: 'HL',
       sizeDeltaInToken: true,
       collateralDeltaInToken: true
     }

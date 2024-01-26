@@ -34,6 +34,7 @@ export type Protocol = {
 }
 
 export type AmountInfoInToken = {
+  protocolId: ProtocolId
   sizeDeltaInToken: boolean
   collateralDeltaInToken: boolean
 }
@@ -376,8 +377,6 @@ export interface IRouterAdapterBaseV1 {
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber>
 
   getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]>
-
-  getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
