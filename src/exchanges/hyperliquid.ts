@@ -366,6 +366,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // ensure size delta is in token terms
       if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
 
+      // deposit into HL
+      if (each.marginDelta.amount.gt(FixedNumber.fromValue(0))) {
+        payload.push(...(await this.deposit(tokens.USDC, each.marginDelta.amount.toFormat(6))))
+      }
+
       // get market info
       const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
 
