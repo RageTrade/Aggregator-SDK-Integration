@@ -77,7 +77,7 @@ import {
   OrderStatusInfo
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
-import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
+import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
 import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
@@ -1020,11 +1020,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const url = 'https://api-ui.hyperliquid.xyz/info'
     const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
 
-    const [markets, marketStates, mids, web2Data] = await Promise.all([
+    const metaPromise = getMeta()
+
+    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
       marketsPromise,
       marketStatesPromise,
       allMidsPromise,
-      web2DataPromise
+      web2DataPromise,
+      metaPromise
     ])
 
     for (let i = 0; i < orderData.length; i++) {
@@ -1032,14 +1035,23 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const epos = existingPos[i]
       const m = markets[i]
       const ms = marketStates[i]
-      const isCross = ms.marketMode == 'CROSS'
-      const orderSize = od.sizeDelta.amount
-      const ml = ms.leverage
       const coin = m.indexToken.symbol
+      const isCross = ms.marketMode == 'CROSS'
+      const isMarket = od.type == 'MARKET'
+      const orderSizeN = roundedSize(
+        Number(od.sizeDelta.amount._value),
+        meta.universe.find((u) => u.name === coin)!.szDecimals
+      )
+      const orderSize = FixedNumber.fromString(orderSizeN.toString())
+      const ml = ms.leverage
       const mid = mids[coin]
       const mp = FixedNumber.fromString(mid, 30)
-      const trigPrice = od.triggerData ? od.triggerData.triggerPrice : mp
-      const isMarket = od.type == 'MARKET'
+      const trigPrice = !isMarket
+        ? FixedNumber.fromString(roundedPrice(Number(od.triggerData!.triggerPrice._value)).toString())
+        : mp
+
+      if (!validDenomination(od.sizeDelta, true)) throw new Error('Size delta must be token denominated')
+      if (!validDenomination(od.marginDelta, true)) throw new Error('Margin delta must be token denominated')
 
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
@@ -1054,9 +1066,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
             }
         // console.log(traResult)
       }
-
-      if (!validDenomination(od.sizeDelta, true)) throw new Error('Size delta must be token denominated')
-      if (!validDenomination(od.marginDelta, true)) throw new Error('Margin delta must be token denominated')
 
       // next size is pos.size + orderSize if direction is same else pos.size - orderSize
       const nextSize = epos
@@ -1129,14 +1138,121 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return previewsInfo
   }
 
-  getCloseTradePreview(
+  async getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     opts?: ApiOpts | undefined
   ): Promise<CloseTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const previewsInfo: CloseTradePreviewInfo[] = []
+
+    const mIds = positionInfo.map((p) => p.marketId)
+    const marketsPromise = this.getMarketsInfo(mIds, opts)
+    const marketStatesPromise = this.getMarketState(wallet, mIds, opts)
+    const allMidsPromise = getAllMids()
+    const metaPromise = getMeta()
+    const web2DataReq = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: `{"type":"webData2","user":"${wallet}"}`
+    }
+    const url = 'https://api-ui.hyperliquid.xyz/info'
+    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
+
+    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
+      marketsPromise,
+      marketStatesPromise,
+      allMidsPromise,
+      web2DataPromise,
+      metaPromise
+    ])
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      const pos = positionInfo[i]
+      const cpd = closePositionData[i]
+      const m = markets[i]
+      const ms = marketStates[i]
+      const isCross = ms.marketMode == 'CROSS'
+      const coin = m.indexToken.symbol
+      const closeSizeN = roundedSize(
+        Number(cpd.closeSize.amount._value),
+        meta.universe.find((u) => u.name === coin)!.szDecimals
+      )
+      const closeSize = FixedNumber.fromString(closeSizeN.toString())
+      const posSize = pos.size.amount
+      const ml = ms.leverage
+      const mid = mids[coin]
+      const mp = FixedNumber.fromString(mid, 30)
+      const isMarket = cpd.type == 'MARKET'
+      const isSpTlLimit = cpd.type == 'STOP_LOSS_LIMIT' || cpd.type == 'TAKE_PROFIT_LIMIT'
+      const trigPriceOrig = isMarket
+        ? mp
+        : isSpTlLimit
+        ? cpd.triggerData!.triggerLimitPrice!
+        : cpd.triggerData!.triggerPrice
+      const trigPrice = FixedNumber.fromString(roundedPrice(Number(trigPriceOrig._value)).toString())
+
+      if (!validDenomination(cpd.closeSize, true)) throw new Error('Size delta must be token denominated')
+
+      // traverseOrderBook for market orders in opposite direction to position
+      let traResult: TraverseResult | undefined = undefined
+      if (isMarket) {
+        traResult = await traverseHLBook(pos.marketId, pos.direction == 'LONG' ? 'SHORT' : 'LONG', closeSize, mp)
+        // console.log(traResult)
+      }
+
+      // fee for tp/sl order is calculated basis the trigger price (ignoring the slippage accurred)
+      const fee = isMarket
+        ? traResult!.fees
+        : isSpTlLimit
+        ? mulFN(mulFN(closeSize, trigPrice), FixedNumber.fromString(HL_MAKER_FEE_BPS))
+        : mulFN(mulFN(closeSize, trigPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS))
+
+      const remainingSize = subFN(posSize, closeSize)
+      const remainingMargin = divFN(mulFN(remainingSize, trigPrice), ml)
+      const freedMargin = subFN(pos.margin.amount, remainingMargin)
+      const pnl = mulFN(closeSize, subFN(trigPrice, pos.avgEntryPrice))
+      const receiveMargin = isCross ? FixedNumber.fromString('0') : addFN(freedMargin, pnl)
+
+      const liqPrice = remainingSize.isZero()
+        ? null
+        : isMarket && !isCross
+        ? pos.liquidationPrice
+        : estLiqPrice(
+            wallet,
+            parseFloat(mid),
+            parseFloat(ml._value),
+            !isCross,
+            parseFloat(closeSize._value),
+            parseFloat(trigPrice._value),
+            !(pos.direction == 'LONG'), // opposite of position direction
+            coin,
+            web2Data
+          )
+
+      const preview: CloseTradePreviewInfo = {
+        marketId: pos.marketId,
+        collateral: pos.collateral,
+        leverage: remainingSize.isZero() ? FixedNumber.fromString('0') : ml,
+        size: toAmountInfoFN(remainingSize, true),
+        margin: toAmountInfoFN(remainingMargin, true),
+        avgEntryPrice: pos.avgEntryPrice,
+        liqudationPrice: liqPrice == null ? FixedNumber.fromString('0') : FixedNumber.fromString(liqPrice.toString()),
+        fee: fee,
+        receiveMargin: receiveMargin.gt(FixedNumber.fromString('0'))
+          ? toAmountInfoFN(receiveMargin, true)
+          : toAmountInfoFN(FixedNumber.fromString('0'), true),
+        isError: false,
+        errMsg: ''
+      }
+      // console.log(preview)
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
+
   getUpdateMarginPreview(
     wallet: string,
     isDeposit: boolean[],

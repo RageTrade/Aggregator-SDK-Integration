@@ -1,9 +1,9 @@
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
-import { CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { parseUnits } from 'ethers/lib/utils'
-import { toAmountInfo } from '../src/common/helper'
-import { HL_COLLATERAL_TOKEN } from '../src/configs/hyperliquid/api/client'
-import { FixedNumber } from '../src/common/fixedNumber'
+import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
+import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/client'
+import { FixedNumber, divFN } from '../src/common/fixedNumber'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const liquidatedAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
@@ -120,8 +120,126 @@ async function getOrderBooks() {
   console.dir(orderBooks, { depth: 6 })
 }
 
+async function getCloseTradePreview() {
+  const positions = (await hl.getAllPositions(w, undefined)).result
+  const btcPosition = positions.filter((p) => p.marketId === btcMarketId)[0]
+  const ethPosition = positions.filter((p) => p.marketId === ethMarketId)[0]
+
+  const crossMarketCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'MARKET',
+    triggerData: undefined,
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [btcPosition], [crossMarketCOD], undefined), { depth: 4 })
+
+  const crossTPCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('10000'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [btcPosition], [crossTPCOD], undefined), { depth: 4 })
+
+  const crossSLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('45000'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [btcPosition], [crossSLCOD], undefined), { depth: 4 })
+
+  const crossTPLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('8000'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: FixedNumber.fromString('10000')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [btcPosition], [crossTPLCOD], undefined), { depth: 4 })
+
+  const crossSLLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('40000'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: FixedNumber.fromString('45000')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [btcPosition], [crossSLLCOD], undefined), { depth: 4 })
+
+  const isolatedMarketCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(ethPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'MARKET',
+    triggerData: undefined,
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedMarketCOD], undefined), { depth: 4 })
+
+  const isolatedTPCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(ethPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('3000'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedTPCOD], undefined), { depth: 4 })
+
+  const isolatedSLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(ethPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('1500'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedSLCOD], undefined), { depth: 4 })
+
+  const isolatedTPLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(ethPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('2800'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: FixedNumber.fromString('3000')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedTPLCOD], undefined), { depth: 4 })
+
+  const isolatedSLLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(ethPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('1600'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: FixedNumber.fromString('1500')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedSLLCOD], undefined), { depth: 4 })
+}
+
 hl.init(w).then(() => {
-  getOrderBooks()
+  getCloseTradePreview()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

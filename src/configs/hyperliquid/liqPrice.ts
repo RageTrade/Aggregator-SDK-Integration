@@ -283,6 +283,6 @@ export function estLiqPrice(
         maxLeverage
       )
 
-  console.log('liquidation px:', liqPx)
+  // console.log('liquidation px:', liqPx)
   return liqPx
 }
