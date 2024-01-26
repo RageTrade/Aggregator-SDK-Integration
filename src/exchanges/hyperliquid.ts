@@ -734,6 +734,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         collateral: collateral,
         indexToken: indexToken,
         protocolId: 'HL',
+        roe: divFN(unrealizedPnl, marginUsed),
         metadata: ap,
         mode: marketModes[index]
       }
