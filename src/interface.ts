@@ -145,6 +145,7 @@ export type ExtendedPosition = Position & {
   isError?: boolean
   error?: string
   asset?: string
+  roe?: BigNumber
 }
 
 export type Trade = ExtendedPosition & {

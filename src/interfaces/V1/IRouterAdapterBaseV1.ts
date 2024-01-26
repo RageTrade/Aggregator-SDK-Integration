@@ -157,6 +157,7 @@ export type PositionData = {
 export type PositionInfo = PositionData & {
   protocolId: ProtocolId
 } & {
+  roe: FixedNumber
   metadata: any
 }
 

@@ -62,7 +62,7 @@ import { PositionOrderInfo, isMarketOrderType, isOrderForPosition } from '../con
 import { OrderType as InternalOrderType, OrdersInfoData } from '../configs/gmxv2/orders/types'
 import { PositionInfo as InternalPositionInfo } from '../configs/gmxv2/positions/types'
 import { encodeMarketId } from '../common/markets'
-import { FixedNumber } from '../common/fixedNumber'
+import { FixedNumber, divFN } from '../common/fixedNumber'
 import {
   getAvailableUsdLiquidityForPosition,
   getOpenInterestUsd,
@@ -1056,8 +1056,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
     const positionsInfo: PositionInfo[] = []
     const positionsData = Object.values(positionsInfoData!)
+
     for (const posData of positionsData) {
       const accessibleMargin = posData.remainingCollateralUsd.sub(this.minCollateralUsd)
+      const upnl = FixedNumber.fromValue(posData.pnlAfterFees.toString(), 30, 30)
       positionsInfo.push({
         marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', posData.marketInfo.marketTokenAddress),
         posId: posData.key,
@@ -1070,7 +1072,7 @@ export default class GmxV2Service implements IAdapterV1 {
           30,
           30
         ),
-        unrealizedPnl: FixedNumber.fromValue(posData.pnlAfterFees.toString(), 30, 30),
+        unrealizedPnl: upnl,
         liquidationPrice: posData.liquidationPrice
           ? FixedNumber.fromValue(posData.liquidationPrice.toString(), 30, 30)
           : FixedNumber.fromValue('0'),
@@ -1079,6 +1081,7 @@ export default class GmxV2Service implements IAdapterV1 {
         collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
         indexToken: getGmxV2TokenByAddress(posData.indexToken.address),
         protocolId: 'GMXV2',
+        roe: divFN(upnl, FixedNumber.fromValue(posData.collateralAmount.toString(), posData.collateralToken.decimals)),
         metadata: posData
       })
     }

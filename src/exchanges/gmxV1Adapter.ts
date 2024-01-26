@@ -1042,6 +1042,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
       const collateralToken = getTokenByAddressCommon(this.getCollateralTokenAddressFromPositionKey(pos.key))
       const indexToken = getTokenByAddressCommon(this.getIndexTokenAddressFromPositionKey(pos.key))
+      const upnl = pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1)
 
       const pi: PositionInfo = {
         marketId: encodeMarketId(
@@ -1055,17 +1056,14 @@ export default class GmxV1Adapter implements IAdapterV1 {
         accessibleMargin: toAmountInfo(accessibleMargin.gt('0') ? accessibleMargin : ZERO, 30, false),
         avgEntryPrice: FixedNumber.fromValue(pos.averagePrice.toString(), 30, 30),
         cumulativeFunding: FixedNumber.fromValue(pos.fundingFee.toString(), 30, 30),
-        unrealizedPnl: FixedNumber.fromValue(
-          (pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1)).toString(),
-          30,
-          30
-        ),
+        unrealizedPnl: FixedNumber.fromValue(upnl.toString(), 30, 30),
         liquidationPrice: liqPrice ? FixedNumber.fromValue(liqPrice.toString(), 30, 30) : FixedNumber.fromValue('0'),
         leverage: FixedNumber.fromValue(pos.leverage!.toString(), 4, 4),
         direction: pos.isLong ? 'LONG' : 'SHORT',
         collateral: collateralToken,
         indexToken: indexToken,
         protocolId: GMX_V1_PROTOCOL_ID,
+        roe: FixedNumber.fromString(upnl.div(pos.collateral).toString()),
         metadata: pos
       }
 

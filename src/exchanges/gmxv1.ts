@@ -826,6 +826,7 @@ export default class GmxV1Service implements IExchange {
       const maxAmount: BigNumber = pos.collateralAfterFee.sub(MIN_ORDER_USD).gt(0)
         ? pos.collateralAfterFee.sub(MIN_ORDER_USD)
         : bigNumberify(0)
+      const upnl = pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1)
 
       // console.log({ maxAmount });
 
@@ -872,7 +873,8 @@ export default class GmxV1Service implements IExchange {
         cumulativeFundingRate: pos.cumulativeFundingRate,
         protocolMetadata: {
           protocolName: this.protocolIdentifier
-        }
+        },
+        roe: upnl.div(pos.collateral)
       }
 
       extPositions.push(extP)
