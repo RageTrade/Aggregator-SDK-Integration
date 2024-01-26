@@ -20,7 +20,7 @@ export const protocols = {
     supportedChains: [arbitrum]
   },
   HYPERLIQUID: {
-    symbol: 'HYPERLIQUID',
+    symbol: 'HL',
     supportedChains: [arbitrum]
   },
   PERV2: {
