@@ -71,8 +71,12 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getAmountInfoType(): AmountInfoInToken {
-    throw new Error('Method not implemented.')
+  getAmountInfoType(): AmountInfoInToken[] {
+    const res: AmountInfoInToken[] = []
+    for (const key in this.adapters) {
+      res.push(this.adapters[key].getAmountInfoType()[0])
+    }
+    return res
   }
 
   async getClaimHistory(

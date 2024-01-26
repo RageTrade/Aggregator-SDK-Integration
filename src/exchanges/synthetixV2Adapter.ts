@@ -434,11 +434,14 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return []
   }
 
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      sizeDeltaInToken: true,
-      collateralDeltaInToken: true
-    }
+  getAmountInfoType(): AmountInfoInToken[] {
+    return [
+      {
+        protocolId: 'SYNTHETIX_V2',
+        sizeDeltaInToken: true,
+        collateralDeltaInToken: true
+      }
+    ]
   }
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {

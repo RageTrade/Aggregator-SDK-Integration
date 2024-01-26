@@ -93,7 +93,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     collateralTokenWithPrice: TokenWithPrice,
     marketPrice: FixedNumber
   ): CreateOrder {
-    const amountInfoInToken = adapter.getAmountInfoType()
+    const amountInfoInToken = adapter.getAmountInfoType()[0]
 
     const sizeDeltaToken = divFN(routeData.sizeDeltaUSD, marketPrice, market.indexToken.decimals)
 
