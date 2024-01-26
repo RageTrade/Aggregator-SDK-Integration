@@ -381,5 +381,5 @@ export interface IRouterAdapterBaseV1 {
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
   //Helper
-  getAmountInfoType(): AmountInfoInToken
+  getAmountInfoType(): AmountInfoInToken[]
 }

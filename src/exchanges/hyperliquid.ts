@@ -1160,12 +1160,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return [accountInfo]
   }
 
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      protocolId: 'HL',
-      sizeDeltaInToken: true,
-      collateralDeltaInToken: true
-    }
+  getAmountInfoType(): AmountInfoInToken[] {
+    return [
+      {
+        protocolId: 'HL',
+        sizeDeltaInToken: true,
+        collateralDeltaInToken: true
+      }
+    ]
   }
 
   async _populateMeta(opts?: ApiOpts) {

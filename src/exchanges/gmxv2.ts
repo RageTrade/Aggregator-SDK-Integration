@@ -162,12 +162,14 @@ const mapping: Record<string, Record<string, number>> = {
 }
 
 export default class GmxV2Service implements IAdapterV1 {
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      protocolId: 'GMXV2',
-      sizeDeltaInToken: false,
-      collateralDeltaInToken: true
-    }
+  getAmountInfoType(): AmountInfoInToken[] {
+    return [
+      {
+        protocolId: 'GMXV2',
+        sizeDeltaInToken: false,
+        collateralDeltaInToken: true
+      }
+    ]
   }
   private READER_ADDR = '0xf60becbba223EEA9495Da3f606753867eC10d139'
   private DATASTORE_ADDR = '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8'

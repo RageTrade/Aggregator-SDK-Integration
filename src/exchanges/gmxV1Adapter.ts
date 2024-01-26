@@ -107,12 +107,14 @@ const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 type Plugin = 'ORDERBOOK' | 'POSITION_ROUTER' | 'BOTH'
 
 export default class GmxV1Adapter implements IAdapterV1 {
-  getAmountInfoType(): AmountInfoInToken {
-    return {
-      protocolId: GMX_V1_PROTOCOL_ID,
-      sizeDeltaInToken: false,
-      collateralDeltaInToken: true
-    }
+  getAmountInfoType(): AmountInfoInToken[] {
+    return [
+      {
+        protocolId: GMX_V1_PROTOCOL_ID,
+        sizeDeltaInToken: false,
+        collateralDeltaInToken: true
+      }
+    ]
   }
   private provider = rpc[42161]
 
