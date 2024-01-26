@@ -1035,7 +1035,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
       if (isMarket) {
-        traResult = await traverseHLBook(od.marketId, od.direction, orderSize, mp)
+        traResult = !orderSize.isZero()
+          ? await traverseHLBook(od.marketId, od.direction, orderSize, mp)
+          : {
+              avgExecPrice: mp,
+              fees: FixedNumber.fromString('0'),
+              priceImpact: FixedNumber.fromString('0'),
+              remainingSize: FixedNumber.fromString('0')
+            }
         // console.log(traResult)
       }
 
