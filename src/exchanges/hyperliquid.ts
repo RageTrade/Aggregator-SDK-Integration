@@ -87,8 +87,8 @@ import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
-  private minCollateralUsd = parseUnits('11', 30)
-  private minPositionUsd = parseUnits('11', 30)
+  private minCollateralUsd = parseUnits('0', 30)
+  private minPositionUsd = parseUnits('10', 30)
 
   private provider = rpc[42161]
   public usdc = IERC20__factory.connect(tokens.USDC.address[ARBITRUM], this.provider)
