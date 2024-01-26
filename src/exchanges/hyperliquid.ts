@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, abs, addFN, divFN, mulFN } from '../common/fixedNumber'
+import { FixedNumber, abs, addFN, divFN, mulFN, subFN } from '../common/fixedNumber'
 import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
@@ -310,7 +310,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (assetCtx && l2Book) {
         const totalOi = FixedNumber.fromString(assetCtx.openInterest)
         const op = FixedNumber.fromString(assetCtx.oraclePx)
-        const oracleOi = op.mul(totalOi).div(FixedNumber.fromString('2'))
+        const oracleOi = divFN(mulFN(op, totalOi), FixedNumber.fromString('2'))
 
         let bids = l2Book.levels[0]
         let asks = l2Book.levels[1]
@@ -322,15 +322,13 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         asks = asks.slice(0, indexBasisSlippage(asks, LIQUIDITY_SLIPPAGE) + 1)
 
         // long liquidity is the total available asks (sell orders) in the book
-        const longLiquidity = asks.reduce(
-          (acc, ask) => acc.add(FixedNumber.fromString(ask.px).mul(FixedNumber.fromString(ask.sz))),
-          FixedNumber.fromString('0')
-        )
+        const longLiquidity = asks.reduce((acc, ask) => {
+          return addFN(acc, mulFN(FixedNumber.fromString(ask.px), FixedNumber.fromString(ask.sz)))
+        }, FixedNumber.fromString('0'))
         // short liquidity is the total available bids (buy orders) in the book
-        const shortLiquidity = bids.reduce(
-          (acc, bid) => acc.add(FixedNumber.fromString(bid.px).mul(FixedNumber.fromString(bid.sz))),
-          FixedNumber.fromString('0')
-        )
+        const shortLiquidity = bids.reduce((acc, bid) => {
+          return addFN(acc, mulFN(FixedNumber.fromString(bid.px), FixedNumber.fromString(bid.sz)))
+        }, FixedNumber.fromString('0'))
 
         dynamicMarketMetadata.push({
           oiLong: oracleOi,
@@ -338,7 +336,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           availableLiquidityLong: longLiquidity,
           availableLiquidityShort: shortLiquidity,
           longFundingRate: FixedNumber.fromString(assetCtx.funding),
-          shortFundingRate: FixedNumber.fromString(assetCtx.funding).mul(FixedNumber.fromString('-1')),
+          shortFundingRate: mulFN(FixedNumber.fromString(assetCtx.funding), FixedNumber.fromString('-1')),
           longBorrowRate: FixedNumber.fromString('0'),
           shortBorrowRate: FixedNumber.fromString('0')
         })
@@ -713,12 +711,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marginUsed = FixedNumber.fromString(position.marginUsed)
       const positionValue = FixedNumber.fromString(position.positionValue)
       const unrealizedPnl = FixedNumber.fromString(position.unrealizedPnl)
-      let accessibleMargin = marginUsed.sub(positionValue.div(leverage))
+      let accessibleMargin = subFN(marginUsed, divFN(positionValue, leverage))
       accessibleMargin = accessibleMargin.isNegative() ? FixedNumber.fromString('0') : accessibleMargin
       if (accessibleMargin._value.includes('.')) {
-        accessibleMargin = accessibleMargin.mul(FixedNumber.fromString('100'))
+        accessibleMargin = mulFN(accessibleMargin, FixedNumber.fromString('100'))
         accessibleMargin = FixedNumber.fromString(accessibleMargin._value.split('.')[0])
-        accessibleMargin = accessibleMargin.div(FixedNumber.fromString('100'))
+        accessibleMargin = divFN(accessibleMargin, FixedNumber.fromString('100'))
       }
       let size = FixedNumber.fromString(position.szi)
 
@@ -1047,8 +1045,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // next size is pos.size + orderSize if direction is same else pos.size - orderSize
       const nextSize = epos
         ? epos.direction == od.direction
-          ? abs(epos.size.amount.add(orderSize))
-          : abs(epos.size.amount.sub(orderSize))
+          ? abs(addFN(epos.size.amount, orderSize))
+          : abs(subFN(epos.size.amount, orderSize))
         : orderSize
 
       // next margin is always position / leverage
