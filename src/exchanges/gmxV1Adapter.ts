@@ -97,7 +97,7 @@ import {
   UPDATE_WITHDRAW_H,
   getApproveTokenHeading
 } from '../common/buttonHeadings'
-import { AccountInfo } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { AccountInfo, OrderBook } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { ActionParam } from '../interfaces/IActionExecutor'
 
 const GMX_V1_PROTOCOL_ID = 'GMXV1'
@@ -325,7 +325,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
           maxLeverage: FixedNumber.fromValue('500000', 4, 4),
           minLeverage: FixedNumber.fromValue('11000', 4, 4),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-          minPositionSize: FixedNumber.fromValue(MIN_ORDER_USD.toString(), 30, 30)
+          minPositionSize: FixedNumber.fromValue(MIN_ORDER_USD.toString(), 30, 30),
+          maxPrecision: 1
         }
 
         const protocol: Protocol = {
@@ -2047,5 +2048,13 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     return Promise.resolve([])
+  }
+
+  getOrderBooks(
+    marketIds: string[],
+    sigFigs: (number | undefined)[],
+    opts?: ApiOpts | undefined
+  ): Promise<OrderBook[]> {
+    throw new Error('Method not implemented.')
   }
 }

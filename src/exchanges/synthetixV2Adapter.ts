@@ -27,7 +27,8 @@ import {
   Protocol,
   AmountInfoInToken,
   AccountInfo,
-  MarketState
+  MarketState,
+  OrderBook
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -143,7 +144,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
           maxLeverage: FixedNumber.fromValue(m.contractMaxLeverage!.toBN().toString(), D18, D18),
           minLeverage: FixedNumber.fromValue(parseUnits('1', D18).toString(), D18, D18),
           minInitialMargin: FixedNumber.fromValue(parseUnits('50', D18).toString(), D18, D18),
-          minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18)
+          minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18),
+          maxPrecision: 1
         }
 
         const protocol: Protocol = {
@@ -446,6 +448,14 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     return Promise.resolve([])
+  }
+
+  getOrderBooks(
+    marketIds: string[],
+    sigFigs: (number | undefined)[],
+    opts?: ApiOpts | undefined
+  ): Promise<OrderBook[]> {
+    throw new Error('Method not implemented.')
   }
 
   ////////// Internal helper methods //////////

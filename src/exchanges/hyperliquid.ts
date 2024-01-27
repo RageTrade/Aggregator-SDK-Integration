@@ -32,7 +32,8 @@ import {
   AmountInfoInToken,
   MarketState,
   TradeOperationType,
-  CollateralData
+  CollateralData,
+  OrderBook
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -182,7 +183,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         maxLeverage: FixedNumber.fromString(u.maxLeverage.toString()),
         minLeverage: FixedNumber.fromString('1'),
         minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-        minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30)
+        minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
+        maxPrecision: 4
       }
 
       const protocol: Protocol = {
@@ -1173,6 +1175,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         collateralDeltaInToken: true
       }
     ]
+  }
+
+  getOrderBooks(
+    marketIds: string[],
+    sigFigs: (number | undefined)[],
+    opts?: ApiOpts | undefined
+  ): Promise<OrderBook[]> {
+    throw new Error('Method not implemented.')
   }
 
   async _populateMeta(opts?: ApiOpts) {

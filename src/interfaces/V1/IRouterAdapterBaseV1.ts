@@ -57,6 +57,7 @@ export type GenericStaticMarketMetadata = {
   minLeverage: FixedNumber
   minInitialMargin: FixedNumber
   minPositionSize: FixedNumber
+  maxPrecision: number // used for OrderBook exchanges, for non orderbook exchanges, this is defaulted to 1
 }
 
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {
@@ -268,6 +269,27 @@ export type MarketState = {
   marketMode: MarketMode
 }
 
+export type OBLevel = {
+  price: FixedNumber
+  sizeToken: FixedNumber
+  sizeUsd: FixedNumber
+  TotalSizeToken: FixedNumber
+  TotalSizeUsd: FixedNumber
+}
+
+export type OBData = {
+  actualPrecision: FixedNumber
+  bids: OBLevel[] // sorted from highest to lowest price (logically descending from mid point of OrderBook)
+  asks: OBLevel[] // sorted from lowest to highest price (logically ascending from mid point of OrderBook)
+  spread: FixedNumber
+  spreadPercent: FixedNumber
+}
+
+export type OrderBook = {
+  marketId: Market['marketId']
+  precisionOBData: Record<number, OBData>
+}
+
 export interface IRouterAdapterBaseV1 {
   ///// Init Api //////
   init(wallet: string | undefined, opts?: ApiOpts): Promise<void>
@@ -379,6 +401,14 @@ export interface IRouterAdapterBaseV1 {
   getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]>
 
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
+
+  // precision can be undefined, in which case orderbooks for all precisions will be returned
+  // precision starts with 1 and goes upto maxPrecision (returned in supportedMarkets()) with 1 being the most precise
+  getOrderBooks(
+    marketIds: Market['marketId'][],
+    precision: (number | undefined)[],
+    opts?: ApiOpts
+  ): Promise<OrderBook[]>
 
   //Helper
   getAmountInfoType(): AmountInfoInToken[]
