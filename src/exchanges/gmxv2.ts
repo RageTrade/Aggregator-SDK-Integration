@@ -38,7 +38,7 @@ import {
   Reader
 } from '../../typechain/gmx-v2'
 import { BigNumber, Wallet, ethers } from 'ethers'
-import { OrderType, ApiOpts, AccountInfo, MarketState } from '../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderType, ApiOpts, AccountInfo, MarketState, OrderBook } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { OrderDirection, Provider } from '../interface'
 import { Token, tokens } from '../common/tokens'
 import { applySlippage, getPaginatedResponse, toAmountInfo, getBNFromFN, validDenomination } from '../common/helper'
@@ -313,7 +313,8 @@ export default class GmxV2Service implements IAdapterV1 {
             maxLeverage: FixedNumber.fromValue('500000', 4, 4),
             minLeverage: FixedNumber.fromValue('11000', 4, 4),
             minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-            minPositionSize: FixedNumber.fromValue('0', 30, 30)
+            minPositionSize: FixedNumber.fromValue('0', 30, 30),
+            maxPrecision: 1
           }
 
           const protocol: Protocol = {
@@ -1879,6 +1880,14 @@ export default class GmxV2Service implements IAdapterV1 {
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     return Promise.resolve([])
+  }
+
+  getOrderBooks(
+    marketIds: string[],
+    sigFigs: (number | undefined)[],
+    opts?: ApiOpts | undefined
+  ): Promise<OrderBook[]> {
+    throw new Error('Method not implemented.')
   }
 
   ///////////////////////////////////

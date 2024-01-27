@@ -26,7 +26,8 @@ import {
   ApiOpts,
   AmountInfoInToken,
   AccountInfo,
-  MarketState
+  MarketState,
+  OrderBook
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -431,5 +432,20 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     }
     const out = await Promise.all(fundingPromises)
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
+  }
+
+  async getOrderBooks(
+    marketIds: string[],
+    sigFigs: (number | undefined)[],
+    opts?: ApiOpts | undefined
+  ): Promise<OrderBook[]> {
+    const obPromises: Promise<OrderBook[]>[] = []
+    for (let i = 0; i < marketIds.length; i++) {
+      const adapter = this._checkAndGetAdapter(marketIds[i])
+      obPromises.push(adapter.getOrderBooks([marketIds[i]], [sigFigs[i]], opts))
+    }
+
+    const out = await Promise.all(obPromises)
+    return out.flat()
   }
 }
