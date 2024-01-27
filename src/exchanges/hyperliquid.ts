@@ -99,14 +99,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
 
-  async init(swAddr: string, opts?: ApiOpts | undefined): Promise<void> {
-    await cacheFetch({
-      key: [HL_CACHE_PREFIX, 'meta'],
-      fn: () => getMeta(),
-      staleTime: 0,
-      cacheTime: 0,
-      opts: opts
-    })
+  async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
+    this._preWarmCache(wallet)
   }
 
   setup(): Promise<ActionParam[]> {
@@ -146,60 +140,62 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     let marketInfo: MarketInfo[] = []
 
-    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
-    const meta = (await cacheFetch({
-      key: [HL_CACHE_PREFIX, 'meta'],
-      fn: () => getMeta(),
-      staleTime: sTimeMeta,
-      cacheTime: sTimeMeta * CACHE_TIME_MULT,
-      opts: opts
-    })) as Meta
+    if (chains == undefined || chains.includes(hyperliquid)) {
+      let sTimeMeta = getStaleTime(CACHE_DAY, opts)
+      const meta = (await cacheFetch({
+        key: [HL_CACHE_PREFIX, 'meta'],
+        fn: () => getMeta(),
+        staleTime: sTimeMeta,
+        cacheTime: sTimeMeta * CACHE_TIME_MULT,
+        opts: opts
+      })) as Meta
 
-    meta.universe.forEach((u) => {
-      const market: Market = {
-        marketId: encodeMarketId(hyperliquid.id.toString(), 'HL', u.name),
-        chain: hyperliquid,
-        indexToken: HL_TOKENS_MAP[u.name],
-        longCollateral: [HL_COLLATERAL_TOKEN],
-        shortCollateral: [HL_COLLATERAL_TOKEN],
-        supportedModes: {
-          ISOLATED: true,
-          CROSS: !u.onlyIsolated
-        },
-        supportedOrderTypes: {
-          LIMIT: true,
-          MARKET: true,
-          STOP_LOSS: true,
-          TAKE_PROFIT: true,
-          STOP_LOSS_LIMIT: true,
-          TAKE_PROFIT_LIMIT: true
-        },
-        supportedOrderActions: {
-          CREATE: true,
-          UPDATE: true,
-          CANCEL: true
-        },
-        marketSymbol: u.name
-      }
+      meta.universe.forEach((u) => {
+        const market: Market = {
+          marketId: encodeMarketId(hyperliquid.id.toString(), 'HL', u.name),
+          chain: hyperliquid,
+          indexToken: HL_TOKENS_MAP[u.name],
+          longCollateral: [HL_COLLATERAL_TOKEN],
+          shortCollateral: [HL_COLLATERAL_TOKEN],
+          supportedModes: {
+            ISOLATED: true,
+            CROSS: !u.onlyIsolated
+          },
+          supportedOrderTypes: {
+            LIMIT: true,
+            MARKET: true,
+            STOP_LOSS: true,
+            TAKE_PROFIT: true,
+            STOP_LOSS_LIMIT: true,
+            TAKE_PROFIT_LIMIT: true
+          },
+          supportedOrderActions: {
+            CREATE: true,
+            UPDATE: true,
+            CANCEL: true
+          },
+          marketSymbol: u.name
+        }
 
-      const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: FixedNumber.fromString(u.maxLeverage.toString()),
-        minLeverage: FixedNumber.fromString('1'),
-        minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
-        minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
-        maxPrecision: 4
-      }
+        const staticMetadata: GenericStaticMarketMetadata = {
+          maxLeverage: FixedNumber.fromString(u.maxLeverage.toString()),
+          minLeverage: FixedNumber.fromString('1'),
+          minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
+          minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
+          maxPrecision: 4
+        }
 
-      const protocol: Protocol = {
-        protocolId: 'HL'
-      }
+        const protocol: Protocol = {
+          protocolId: 'HL'
+        }
 
-      marketInfo.push({
-        ...market,
-        ...staticMetadata,
-        ...protocol
+        marketInfo.push({
+          ...market,
+          ...staticMetadata,
+          ...protocol
+        })
       })
-    })
+    }
 
     return marketInfo
   }
@@ -255,15 +251,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
     const prices: FixedNumber[] = []
 
-    const markets = await this.getMarketsInfo(marketIds, opts)
-    const mids = await getAllMids()
+    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
+    const mids = await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'allMids'],
+      fn: () => getAllMids(),
+      staleTime: sTimeAM,
+      cacheTime: sTimeAM * CACHE_TIME_MULT,
+      opts: opts
+    })
 
-    markets.forEach((m) => {
-      const mid = mids[m.indexToken.symbol]
+    marketIds.forEach((mId) => {
+      const mid = mids[hlMarketIdToCoin(mId)]
       if (mid) {
         prices.push(FixedNumber.fromString(mid, 30))
       } else {
-        throw new Error(`No mid for ${m.marketSymbol}`)
+        throw new Error(`No mid for ${mId}`)
       }
     })
 
@@ -277,7 +279,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const coins = markets.map((m) => m.indexToken.symbol)
 
     // metaAndAssetCtxs promise
-    const sTimeDM = getStaleTime(CACHE_SECOND * 20, opts)
+    const sTimeDM = getStaleTime(CACHE_SECOND * 5, opts)
     const metaAndAssetCtxsPromise = cacheFetch({
       key: [HL_CACHE_PREFIX, 'metaAndAssetCtxs'],
       fn: () => getMetaAndAssetCtxs(),
@@ -290,7 +292,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const l2BookPromises: Promise<L2Book>[] = []
     // nSigFigs = 3 gives concentrated book to estimate liquidity better
     const nSigFigs = 3
-    const sTimeL2Book = getStaleTime(CACHE_SECOND * 20, opts)
+    const sTimeL2Book = getStaleTime(CACHE_SECOND * 5, opts)
     coins.forEach(async (c) => {
       l2BookPromises.push(
         cacheFetch({
@@ -696,7 +698,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  // clearinghouse states
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
     throw new Error('Method not implemented.')
   }
@@ -1428,5 +1429,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     }
 
     return obLevels
+  }
+
+  async _preWarmCache(wallet: string | undefined) {
+    // meta
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: 0,
+      cacheTime: 0
+    })
   }
 }
