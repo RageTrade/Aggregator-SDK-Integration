@@ -359,6 +359,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
 
+    const clearinghouseState = await getClearinghouseState(wallet)
+    let withdrawable = FixedNumber.fromString(clearinghouseState.withdrawable)
+
     // TODO: cache this
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
@@ -370,8 +373,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
 
       // deposit into HL
-      if (each.marginDelta.amount.gt(FixedNumber.fromValue(0))) {
+      if (each.marginDelta.amount.gt(withdrawable)) {
         payload.push(...(await this.deposit(tokens.USDC, each.marginDelta.amount.toFormat(6))))
+        withdrawable = each.marginDelta.amount.sub(withdrawable)
       }
 
       // get market info
