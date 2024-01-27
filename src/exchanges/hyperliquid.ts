@@ -384,7 +384,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // deposit into HL
       if (each.marginDelta.amount.gt(withdrawable)) {
         payload.push(...(await this.deposit(tokens.USDC, each.marginDelta.amount.toFormat(6))))
-        withdrawable = each.marginDelta.amount.sub(withdrawable)
+        withdrawable = subFN(each.marginDelta.amount, withdrawable)
       }
 
       // get market info
