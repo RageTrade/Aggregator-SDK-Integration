@@ -568,7 +568,7 @@ export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<R
     },
     chainId: 1337,
     isEoaSigner: false,
-    isUserAction: false,
+    isUserAction: true,
     isAgentRequired: false,
     desc: 'Place Orders',
     heading: 'Place Orders'
@@ -618,7 +618,7 @@ export async function cancelOrders(orders: CancelRequest[], meta: Meta): Promise
     },
     chainId: 1337,
     isEoaSigner: false,
-    isUserAction: false,
+    isUserAction: true,
     isAgentRequired: false,
     desc: 'Cancel Orders',
     heading: 'Cancel Orders'
@@ -673,7 +673,7 @@ export async function modifyOrders(orders: ModifyRequest[], meta: Meta): Promise
     },
     chainId: 1337,
     isEoaSigner: false,
-    isUserAction: false,
+    isUserAction: true,
     isAgentRequired: false,
     desc: 'Modify Orders',
     heading: 'Modify Orders'
@@ -768,7 +768,7 @@ export async function updateIsolatedMargin(
     },
     chainId: 1337,
     isEoaSigner: false,
-    isUserAction: false,
+    isUserAction: true,
     isAgentRequired: false,
     desc: 'Update Isoloated Margin',
     heading: 'Update Isoloated Margin'
