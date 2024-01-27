@@ -1,5 +1,6 @@
+import { CACHE_SECOND, CACHE_TIME_MULT, HL_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../common/cache'
 import { FixedNumber, addFN, divFN, mulFN, subFN } from '../../common/fixedNumber'
-import { TradeDirection } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import { ApiOpts, TradeDirection } from '../../interfaces/V1/IRouterAdapterBaseV1'
 import { getL2Book } from './api/client'
 import { HL_TAKER_FEE_BPS } from './api/config'
 import { L2Book } from './api/types'
@@ -16,14 +17,24 @@ export async function traverseHLBook(
   marketId: string,
   direction: TradeDirection,
   size: FixedNumber,
-  marketPrice: FixedNumber
+  marketPrice: FixedNumber,
+  opts?: ApiOpts
 ): Promise<TraverseResult> {
   const coin = hlMarketIdToCoin(marketId)
 
   // get the l2Book for each sig fig
   const l2BookPromises: Promise<L2Book>[] = []
   for (let nSigFigs = 2; nSigFigs <= 5; nSigFigs++) {
-    l2BookPromises.push(getL2Book(coin, nSigFigs))
+    const sTimeL2B = getStaleTime(CACHE_SECOND * 5, opts)
+    const l2BookPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'l2Book', coin, nSigFigs],
+      fn: () => getL2Book(coin, nSigFigs),
+      staleTime: sTimeL2B,
+      cacheTime: sTimeL2B * CACHE_TIME_MULT,
+      opts
+    })
+
+    l2BookPromises.push(l2BookPromise)
   }
   const l2Books = await Promise.all(l2BookPromises)
 

@@ -146,12 +146,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     let marketInfo: MarketInfo[] = []
 
-    let sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
     const meta = (await cacheFetch({
       key: [HL_CACHE_PREFIX, 'meta'],
       fn: () => getMeta(),
-      staleTime: sTimeMarkets,
-      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      staleTime: sTimeMeta,
+      cacheTime: sTimeMeta * CACHE_TIME_MULT,
       opts: opts
     })) as Meta
 
@@ -228,7 +228,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     // get active asset data for all markets
     const activeAssetsData = await Promise.all(
-      markets.map((m) => getActiveAssetData(wallet, HL_TOKENS_MAP[m.marketSymbol].assetIndex))
+      markets.map((m) => {
+        const sTimeAAD = getStaleTime(CACHE_SECOND * 2, opts)
+        return cacheFetch({
+          key: [HL_CACHE_PREFIX, 'activeAssetsData', wallet, m.marketSymbol],
+          fn: () => getActiveAssetData(wallet, HL_TOKENS_MAP[m.marketSymbol].assetIndex),
+          staleTime: sTimeAAD,
+          cacheTime: sTimeAAD * CACHE_TIME_MULT,
+          opts: opts
+        })
+      })
     )
 
     // populate marketStates
@@ -1010,7 +1019,24 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       orderData.map((o) => o.marketId),
       opts
     )
-    const allMidsPromise = getAllMids()
+
+    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
+    const allMidsPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'allMids'],
+      fn: () => getAllMids(),
+      staleTime: sTimeAM,
+      cacheTime: sTimeAM * CACHE_TIME_MULT,
+      opts: opts
+    })
+
+    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
+    const metaPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMeta,
+      cacheTime: sTimeMeta * CACHE_TIME_MULT,
+      opts: opts
+    }) as Promise<Meta>
 
     const web2DataReq = {
       method: 'POST',
@@ -1018,9 +1044,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       body: `{"type":"webData2","user":"${wallet}"}`
     }
     const url = 'https://api-ui.hyperliquid.xyz/info'
-    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
-
-    const metaPromise = getMeta()
+    let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
+    const web2DataPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'web2Data', wallet],
+      fn: () => fetch(url, web2DataReq).then((resp) => resp.text()),
+      staleTime: sTimeW2D,
+      cacheTime: sTimeW2D * CACHE_TIME_MULT,
+      opts: opts
+    })
 
     const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
       marketsPromise,
@@ -1057,7 +1088,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       let traResult: TraverseResult | undefined = undefined
       if (isMarket) {
         traResult = !orderSize.isZero()
-          ? await traverseHLBook(od.marketId, od.direction, orderSize, mp)
+          ? await traverseHLBook(od.marketId, od.direction, orderSize, mp, opts)
           : {
               avgExecPrice: mp,
               fees: FixedNumber.fromString('0'),
@@ -1149,15 +1180,39 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const mIds = positionInfo.map((p) => p.marketId)
     const marketsPromise = this.getMarketsInfo(mIds, opts)
     const marketStatesPromise = this.getMarketState(wallet, mIds, opts)
-    const allMidsPromise = getAllMids()
-    const metaPromise = getMeta()
+
+    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
+    const allMidsPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'allMids'],
+      fn: () => getAllMids(),
+      staleTime: sTimeAM,
+      cacheTime: sTimeAM * CACHE_TIME_MULT,
+      opts: opts
+    })
+
+    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
+    const metaPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMeta,
+      cacheTime: sTimeMeta * CACHE_TIME_MULT,
+      opts: opts
+    }) as Promise<Meta>
+
     const web2DataReq = {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: `{"type":"webData2","user":"${wallet}"}`
     }
     const url = 'https://api-ui.hyperliquid.xyz/info'
-    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
+    let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
+    const web2DataPromise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'web2Data', wallet],
+      fn: () => fetch(url, web2DataReq).then((resp) => resp.text()),
+      staleTime: sTimeW2D,
+      cacheTime: sTimeW2D * CACHE_TIME_MULT,
+      opts: opts
+    })
 
     const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
       marketsPromise,
@@ -1197,7 +1252,14 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // traverseOrderBook for market orders in opposite direction to position
       let traResult: TraverseResult | undefined = undefined
       if (isMarket) {
-        traResult = await traverseHLBook(pos.marketId, pos.direction == 'LONG' ? 'SHORT' : 'LONG', closeSize, mp)
+        traResult = !closeSize.isZero()
+          ? await traverseHLBook(pos.marketId, pos.direction == 'LONG' ? 'SHORT' : 'LONG', closeSize, mp, opts)
+          : {
+              avgExecPrice: mp,
+              fees: FixedNumber.fromString('0'),
+              priceImpact: FixedNumber.fromString('0'),
+              remainingSize: FixedNumber.fromString('0')
+            }
         // console.log(traResult)
       }
 
