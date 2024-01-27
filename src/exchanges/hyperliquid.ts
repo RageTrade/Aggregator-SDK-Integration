@@ -33,7 +33,9 @@ import {
   MarketState,
   TradeOperationType,
   CollateralData,
-  OrderBook
+  OrderBook,
+  OBData,
+  OBLevel
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -66,6 +68,7 @@ import {
   AssetPosition,
   CancelRequest,
   L2Book,
+  Level,
   Meta,
   MetaAndAssetCtx,
   ModifyRequest,
@@ -76,7 +79,7 @@ import {
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
-import { indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
+import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
 import { Token, tokens } from '../common/tokens'
 import { ActionParam } from '../interfaces/IActionExecutor'
@@ -1177,12 +1180,39 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     ]
   }
 
-  getOrderBooks(
+  async getOrderBooks(
     marketIds: string[],
     sigFigs: (number | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OrderBook[]> {
-    throw new Error('Method not implemented.')
+    const orderBooks: OrderBook[] = []
+
+    const l2Book = await getL2Book(hlMarketIdToCoin(marketIds[0]), 5)
+
+    const bids = this._mapLevelsToObLevels(l2Book.levels[0])
+    const asks = this._mapLevelsToObLevels(l2Book.levels[1])
+
+    const spread = subFN(asks[0].price, bids[0].price)
+    const spreadPercent = mulFN(divFN(spread, asks[0].price), FixedNumber.fromString('100'))
+
+    const preObData: Record<string, OBData> = {}
+
+    const obData: OBData = {
+      actualPrecision: FixedNumber.fromString('0.1'),
+      bids: bids,
+      asks: asks,
+      spread: spread,
+      spreadPercent: spreadPercent
+    }
+
+    preObData[1] = obData
+
+    orderBooks.push({
+      marketId: marketIds[0],
+      precisionOBData: preObData
+    })
+
+    return orderBooks
   }
 
   async _populateMeta(opts?: ApiOpts) {
@@ -1194,5 +1224,27 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       cacheTime: sTimeMarkets * CACHE_TIME_MULT,
       opts: opts
     })
+  }
+
+  _mapLevelsToObLevels(levels: Level[]): OBLevel[] {
+    const obLevels: OBLevel[] = []
+    let totalSz = FixedNumber.fromString('0')
+    let totalSzUsd = FixedNumber.fromString('0')
+    for (const level of levels) {
+      const price = FixedNumber.fromString(level.px)
+      const sizeToken = FixedNumber.fromString(level.sz)
+      const sizeUsd = mulFN(price, sizeToken)
+      totalSz = addFN(totalSz, sizeToken)
+      totalSzUsd = addFN(totalSzUsd, sizeUsd)
+      obLevels.push({
+        price: FixedNumber.fromString(level.px),
+        sizeToken: FixedNumber.fromString(level.sz),
+        sizeUsd: sizeUsd,
+        totalSizeToken: totalSz,
+        totalSizeUsd: totalSzUsd
+      })
+    }
+
+    return obLevels
   }
 }

@@ -115,8 +115,13 @@ async function getOpenTradePreview() {
   console.dir(openTradePreview, { depth: 4 })
 }
 
+async function getOrderBooks() {
+  const orderBooks = await hl.getOrderBooks([ethMarketId], [undefined])
+  console.dir(orderBooks, { depth: 6 })
+}
+
 hl.init(w).then(() => {
-  getOpenTradePreview()
+  getOrderBooks()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

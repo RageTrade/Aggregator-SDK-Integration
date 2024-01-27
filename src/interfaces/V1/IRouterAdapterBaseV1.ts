@@ -273,8 +273,8 @@ export type OBLevel = {
   price: FixedNumber
   sizeToken: FixedNumber
   sizeUsd: FixedNumber
-  TotalSizeToken: FixedNumber
-  TotalSizeUsd: FixedNumber
+  totalSizeToken: FixedNumber
+  totalSizeUsd: FixedNumber
 }
 
 export type OBData = {
