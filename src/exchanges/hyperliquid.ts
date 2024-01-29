@@ -492,7 +492,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const price = Number(mids[marketInfo.indexToken.symbol])
       const isBuy = order.side === 'B'
 
-      // TODO: check if we should enforce margin delta as zero here
+      if (!each.marginDelta.amount.eq(FixedNumber.fromString('0'))) {
+        throw new Error('invalid margin delta')
+      }
 
       // calculate leverage using sizeDelta and marginDelta
       let sizeDelta = Number(each.sizeDelta.amount._value)
