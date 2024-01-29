@@ -27,7 +27,8 @@ import {
   AmountInfoInToken,
   AccountInfo,
   MarketState,
-  OrderBook
+  OrderBook,
+  ProtocolId
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -60,12 +61,28 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
   }
 
-  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async deposit(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]> {
+    if (!market) throw new Error('marketId required for deposit')
+
+    const adapter = this._checkAndGetAdapter(market)
+    return adapter.deposit(amount, wallet, protocol, market)
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async withdraw(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]> {
+    if (!market) throw new Error('marketId required for deposit')
+
+    const adapter = this._checkAndGetAdapter(market)
+    return adapter.withdraw(amount, wallet, protocol, market)
   }
 
   getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {

@@ -297,9 +297,19 @@ export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
   setup(): Promise<ActionParam[]>
 
-  deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]>
+  deposit(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]>
 
-  withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]>
+  withdraw(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]>
 
   ///// Network api //////
   supportedChains(opts?: ApiOpts): Chain[]

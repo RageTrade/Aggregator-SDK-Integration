@@ -36,7 +36,8 @@ import {
   OrderBook,
   OBData,
   OBLevel,
-  MarketMode
+  MarketMode,
+  ProtocolId
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -108,8 +109,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
-    if (token.symbol !== 'USDC') throw new Error('token not supported')
+  async deposit(amount: FixedNumber, wallet: string, protocol: ProtocolId): Promise<ActionParam[]> {
+    if (protocol !== 'HL') throw new Error('invalid protocol id')
 
     const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
 
@@ -128,8 +129,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return txs
   }
 
-  async withdraw(token: Token, amount: FixedNumber, _: string): Promise<ActionParam[]> {
-    if (token.symbol !== 'USDC') throw new Error('token not supported')
+  async withdraw(amount: FixedNumber, wallet: string, protocol: ProtocolId): Promise<ActionParam[]> {
+    if (protocol !== 'HL') throw new Error('invalid protocol id')
 
     return [await withdrawFromBridge(amount.toString())]
   }
@@ -386,7 +387,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // deposit into HL
       if (each.marginDelta.amount.gt(withdrawable)) {
-        payload.push(...(await this.deposit(tokens.USDC, each.marginDelta.amount.toFormat(6))))
+        payload.push(...(await this.deposit(each.marginDelta.amount.toFormat(6), wallet, 'HL')))
         withdrawable = subFN(each.marginDelta.amount, withdrawable)
       }
 

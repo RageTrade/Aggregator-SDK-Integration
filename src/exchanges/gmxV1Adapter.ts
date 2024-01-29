@@ -137,11 +137,21 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async deposit(token: Token, amount: FixedNumber): Promise<ActionParam[]> {
+  async deposit(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
 
-  async withdraw(token: Token, amount: FixedNumber, wallet: string): Promise<ActionParam[]> {
+  async withdraw(
+    amount: FixedNumber,
+    wallet: string,
+    protocol: ProtocolId,
+    market?: Market['marketId']
+  ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
 
