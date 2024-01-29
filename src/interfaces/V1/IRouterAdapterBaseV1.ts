@@ -29,6 +29,8 @@ export type ClaimType = 'Funding'
 
 export type MarketMode = 'ISOLATED' | 'CROSS'
 
+export type TimeInForce = 'Gtc' | 'Ioc' | 'Aol'
+
 export type Protocol = {
   protocolId: ProtocolId
 }
@@ -126,11 +128,13 @@ export type OrderIdentifier = {
 export type CreateOrder = OrderData &
   CollateralData & {
     type: CreateOrderType
+    tif?: TimeInForce
     slippage: number | undefined
   }
 
 export type UpdateOrder = OrderData &
   OrderIdentifier & {
+    tif?: TimeInForce
     orderType: OrderType
   }
 
@@ -205,6 +209,7 @@ export type ClaimInfo = {
 export type ClosePositionData = {
   closeSize: AmountInfo
   type: CloseOrderType
+  tif?: TimeInForce
   triggerData: TriggerData | undefined
   outputCollateral: Token | undefined
 }
