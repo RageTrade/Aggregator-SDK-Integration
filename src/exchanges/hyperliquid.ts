@@ -610,7 +610,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const price = Number(mids[marketInfo.indexToken.symbol])
       const isBuy = positionInfoData.direction === 'SHORT'
 
-      // TODO: close position doesn't take custom slippage in interface
+      // close position doesn't take custom slippage in interface
       const slippage = 0.01
 
       if (closeData.type == 'MARKET') {
