@@ -29,7 +29,7 @@ export type ClaimType = 'Funding'
 
 export type MarketMode = 'ISOLATED' | 'CROSS'
 
-export type TimeInForce = 'Gtc' | 'Ioc' | 'Aol'
+export type TimeInForce = 'Gtc' | 'Ioc' | 'Alo'
 
 export type Protocol = {
   protocolId: ProtocolId
