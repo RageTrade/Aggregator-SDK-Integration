@@ -453,7 +453,7 @@ export default class RouterV1 implements IRouterV1 {
     }
     const out = await Promise.all(promises)
 
-    return out.flat()
+    return out.filter((v) => v != undefined).flat()
   }
 
   async getOrderBooks(
