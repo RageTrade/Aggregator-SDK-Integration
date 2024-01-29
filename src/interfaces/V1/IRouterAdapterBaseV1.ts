@@ -33,11 +33,15 @@ export type Protocol = {
   protocolId: ProtocolId
 }
 
-export type AmountInfoInToken = {
-  protocolId: ProtocolId
-  sizeDeltaInToken: boolean
-  collateralDeltaInToken: boolean
-}
+export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1'
+  ? undefined
+  : T extends 'GMXV2'
+  ? undefined
+  : T extends 'SYNTHETIX_V2'
+  ? { market: Market['marketId'] }
+  : T extends 'HL'
+  ? { market: Market['marketId']; direction: TradeDirection; mode: MarketMode; newLeverage: number }
+  : never // For exhaustive switch checking
 
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
@@ -73,10 +77,6 @@ export type StaticMarketMetadata =
   | {
       protocolId: 'SYNTHETIX_V2'
       data: SynV2StaticMarketMetadata
-    }
-  | {
-      protocolId: 'PERV2'
-      data: GenericStaticMarketMetadata
     }
 
 export type DynamicMarketMetadata = {
@@ -419,7 +419,4 @@ export interface IRouterAdapterBaseV1 {
     precision: (number | undefined)[],
     opts?: ApiOpts
   ): Promise<OrderBook[]>
-
-  //Helper
-  getAmountInfoType(): AmountInfoInToken[]
 }

@@ -1,6 +1,6 @@
 import { Chain } from 'viem'
 import { FixedNumber, abs, addFN, divFN, mulFN, subFN } from '../common/fixedNumber'
-import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
+import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
   MarketInfo,
@@ -29,7 +29,6 @@ import {
   TriggerData,
   OrderType,
   AccountInfo,
-  AmountInfoInToken,
   MarketState,
   TradeOperationType,
   CollateralData,
@@ -37,7 +36,8 @@ import {
   OBData,
   OBLevel,
   MarketMode,
-  ProtocolId
+  ProtocolId,
+  AvailableToTradeParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -93,6 +93,8 @@ import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
+  protocolId: ProtocolId = 'HL'
+
   private minCollateralUsd = parseUnits('0', 30)
   private minPositionUsd = parseUnits('10', 30)
 
@@ -200,6 +202,23 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     }
 
     return marketInfo
+  }
+
+  getProtocolInfo(): ProtocolInfo {
+    const info: ProtocolInfo = {
+      hasAccount: true,
+      sizeDeltaInToken: true,
+      collateralDeltaInToken: true
+    }
+
+    return info
+  }
+
+  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+    return {
+      isTokenAmount: true,
+      amount: FixedNumber.fromString('0')
+    }
   }
 
   async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
@@ -1355,16 +1374,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     }
 
     return [accountInfo]
-  }
-
-  getAmountInfoType(): AmountInfoInToken[] {
-    return [
-      {
-        protocolId: 'HL',
-        sizeDeltaInToken: true,
-        collateralDeltaInToken: true
-      }
-    ]
   }
 
   async getOrderBooks(

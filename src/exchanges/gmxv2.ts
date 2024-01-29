@@ -1,4 +1,4 @@
-import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
+import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
   MarketInfo,
   DynamicMarketMetadata,
@@ -27,7 +27,7 @@ import {
   TradeDirection,
   TradeOperationType,
   ClaimInfo,
-  AmountInfoInToken
+  AvailableToTradeParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -162,15 +162,8 @@ const mapping: Record<string, Record<string, number>> = {
 }
 
 export default class GmxV2Service implements IAdapterV1 {
-  getAmountInfoType(): AmountInfoInToken[] {
-    return [
-      {
-        protocolId: 'GMXV2',
-        sizeDeltaInToken: false,
-        collateralDeltaInToken: true
-      }
-    ]
-  }
+  protocolId: ProtocolId = 'GMXV2'
+
   private READER_ADDR = '0xf60becbba223EEA9495Da3f606753867eC10d139'
   private DATASTORE_ADDR = '0xFD70de6b91282D8017aA4E741e9Ae325CAb992d8'
   private EXCHANGE_ROUTER = '0x7C68C7866A64FA2160F78EEaE12217FFbf871fa8'
@@ -362,6 +355,23 @@ export default class GmxV2Service implements IAdapterV1 {
     }
 
     return []
+  }
+
+  getProtocolInfo(): ProtocolInfo {
+    const info: ProtocolInfo = {
+      hasAccount: false,
+      sizeDeltaInToken: false,
+      collateralDeltaInToken: true
+    }
+
+    return info
+  }
+
+  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+    return {
+      isTokenAmount: true,
+      amount: FixedNumber.fromString('0')
+    }
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts): Promise<FixedNumber[]> {

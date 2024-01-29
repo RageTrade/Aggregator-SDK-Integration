@@ -2,7 +2,6 @@ import { ethers, parseUnits } from 'ethers-v6'
 import { Token } from '../src/common/tokens'
 import {
   AmountInfo,
-  AmountInfoInToken,
   ApiOpts,
   CreateOrder,
   DynamicMarketMetadata,
@@ -95,7 +94,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     marketPrice: FixedNumber,
     mode?: MarketMode
   ): CreateOrder {
-    const amountInfoInToken = adapter.getAmountInfoType()[0]
+    const amountInfoInToken = adapter.getProtocolInfo()
 
     const sizeDeltaToken = divFN(routeData.sizeDeltaUSD, marketPrice, market.indexToken.decimals)
 

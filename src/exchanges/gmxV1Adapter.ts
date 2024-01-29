@@ -37,11 +37,11 @@ import {
   getWhitelistedTokens,
   useInfoTokens
 } from '../../src/configs/gmx/tokens'
-import { IAdapterV1 } from '../../src/interfaces/V1/IAdapterV1'
+import { IAdapterV1, ProtocolInfo } from '../../src/interfaces/V1/IAdapterV1'
 import {
   AmountInfo,
-  AmountInfoInToken,
   ApiOpts,
+  AvailableToTradeParams,
   CancelOrder,
   ClaimInfo,
   ClosePositionData,
@@ -107,15 +107,8 @@ const LIQUIDATION_FEE_USD = BigNumber.from('5000000000000000000000000000000')
 type Plugin = 'ORDERBOOK' | 'POSITION_ROUTER' | 'BOTH'
 
 export default class GmxV1Adapter implements IAdapterV1 {
-  getAmountInfoType(): AmountInfoInToken[] {
-    return [
-      {
-        protocolId: GMX_V1_PROTOCOL_ID,
-        sizeDeltaInToken: false,
-        collateralDeltaInToken: true
-      }
-    ]
-  }
+  protocolId: ProtocolId = 'GMXV1'
+
   private provider = rpc[42161]
 
   private REFERRAL_CODE = '0x7261676574726164650000000000000000000000000000000000000000000000'
@@ -153,6 +146,23 @@ export default class GmxV1Adapter implements IAdapterV1 {
     market?: Market['marketId']
   ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
+  }
+
+  getProtocolInfo(): ProtocolInfo {
+    const info: ProtocolInfo = {
+      hasAccount: false,
+      sizeDeltaInToken: false,
+      collateralDeltaInToken: true
+    }
+
+    return info
+  }
+
+  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+    return {
+      isTokenAmount: true,
+      amount: FixedNumber.fromString('0')
+    }
   }
 
   async getReferralAndPluginApprovals(wallet: string, plugin: Plugin, opts?: ApiOpts): Promise<ActionParam[]> {

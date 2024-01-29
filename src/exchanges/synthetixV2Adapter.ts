@@ -1,6 +1,6 @@
 import { Chain } from 'viem'
 import { FixedNumber } from '../common/fixedNumber'
-import { IAdapterV1 } from '../interfaces/V1/IAdapterV1'
+import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
   ApiOpts,
   MarketInfo,
@@ -25,11 +25,11 @@ import {
   Market,
   GenericStaticMarketMetadata,
   Protocol,
-  AmountInfoInToken,
   AccountInfo,
   MarketState,
   OrderBook,
-  ProtocolId
+  ProtocolId,
+  AvailableToTradeParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -70,6 +70,8 @@ const D18 = 18
 const opProvider = rpc[10]
 
 export default class SynthetixV2Adapter implements IAdapterV1 {
+  protocolId: ProtocolId = 'SYNTHETIX_V2'
+
   private sdk: KwentaSDK = new KwentaSDK({
     networkId: 10,
     provider: rpc[10]
@@ -174,6 +176,23 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     }
 
     return marketsInfo
+  }
+
+  getProtocolInfo(): ProtocolInfo {
+    const info: ProtocolInfo = {
+      hasAccount: true,
+      sizeDeltaInToken: true,
+      collateralDeltaInToken: true
+    }
+
+    return info
+  }
+
+  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+    return {
+      isTokenAmount: true,
+      amount: FixedNumber.fromString('0')
+    }
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
@@ -445,16 +464,6 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
 
   async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
     return []
-  }
-
-  getAmountInfoType(): AmountInfoInToken[] {
-    return [
-      {
-        protocolId: 'SYNTHETIX_V2',
-        sizeDeltaInToken: true,
-        collateralDeltaInToken: true
-      }
-    ]
   }
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {

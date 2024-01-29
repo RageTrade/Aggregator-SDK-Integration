@@ -26,10 +26,10 @@ import {
   PositionData,
   ClaimInfo,
   ApiOpts,
-  AmountInfoInToken,
   AccountInfo,
   MarketState,
-  OrderBook
+  OrderBook,
+  AvailableToTradeParams
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -44,9 +44,10 @@ import { ActionParam } from '../src/interfaces/IActionExecutor'
 import { Token } from '../src/common/tokens'
 import { Wallet } from 'ethers'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
+import { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
 
 export default class RouterV1 implements IRouterV1 {
-  adapters: Record<string, IRouterAdapterBaseV1> = {}
+  adapters: Record<string, IAdapterV1> = {}
 
   _checkAndGetAdapter(marketId: Market['marketId']) {
     const { protocolId } = decodeMarketId(marketId)
@@ -84,12 +85,24 @@ export default class RouterV1 implements IRouterV1 {
     return adapter.withdraw(amount, wallet, protocol, market)
   }
 
-  getAmountInfoType(): AmountInfoInToken[] {
-    const res: AmountInfoInToken[] = []
+  getProtocolInfo(): (Protocol & ProtocolInfo)[] {
+    const res: (Protocol & ProtocolInfo)[] = []
+
     for (const key in this.adapters) {
-      res.push(this.adapters[key].getAmountInfoType()[0])
+      res.push({
+        ...this.adapters[key].getProtocolInfo(),
+        protocolId: this.adapters[key].protocolId
+      })
     }
+
     return res
+  }
+
+  getAvailableToTrade<T extends ProtocolId>(protocol: T, wallet: string, params: AvailableToTradeParams<T>): AmountInfo {
+    const adapter = this.adapters[protocol]
+    const out = adapter.getAvailableToTrade(wallet, params)
+
+    return out
   }
 
   async getClaimHistory(
