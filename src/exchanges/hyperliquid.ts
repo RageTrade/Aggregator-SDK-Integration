@@ -429,8 +429,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           oiShort: oracleOi,
           availableLiquidityLong: longLiquidity,
           availableLiquidityShort: shortLiquidity,
-          longFundingRate: FixedNumber.fromString(assetCtx.funding),
-          shortFundingRate: mulFN(FixedNumber.fromString(assetCtx.funding), FixedNumber.fromString('-1')),
+          longFundingRate: mulFN(FixedNumber.fromString(assetCtx.funding), FixedNumber.fromString('-1')),
+          shortFundingRate: FixedNumber.fromString(assetCtx.funding),
           longBorrowRate: FixedNumber.fromString('0'),
           shortBorrowRate: FixedNumber.fromString('0')
         })
@@ -1207,7 +1207,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         parseFloat(trigPrice._value),
         od.direction == 'LONG',
         coin,
-        web2Data
+        web2Data,
+        0
       )
 
       const nextEntryPrice = isMarket ? traResult!.avgExecPrice : trigPrice
@@ -1379,7 +1380,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
             parseFloat(trigPrice._value),
             !(pos.direction == 'LONG'), // opposite of position direction
             coin,
-            web2Data
+            web2Data,
+            0
           )
 
       const preview: CloseTradePreviewInfo = {
@@ -1405,15 +1407,88 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return previewsInfo
   }
 
-  getUpdateMarginPreview(
+  async getUpdateMarginPreview(
     wallet: string,
     isDeposit: boolean[],
     marginDelta: AmountInfo[],
     existingPos: PositionInfo[],
     opts?: ApiOpts | undefined
   ): Promise<PreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const previewsInfo: PreviewInfo[] = []
+
+    const mIds = existingPos.map((p) => p.marketId)
+    const marketsPromise = this.getMarketsInfo(mIds, opts)
+    const marketStatesPromise = this.getMarketState(wallet, mIds, opts)
+    const allMidsPromise = getAllMids()
+    const metaPromise = getMeta()
+    const web2DataReq = {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: `{"type":"webData2","user":"${wallet}"}`
+    }
+    const url = 'https://api-ui.hyperliquid.xyz/info'
+    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
+
+    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
+      marketsPromise,
+      marketStatesPromise,
+      allMidsPromise,
+      web2DataPromise,
+      metaPromise
+    ])
+
+    for (let i = 0; i < existingPos.length; i++) {
+      const pos = existingPos[i]
+      const m = markets[i]
+      const ms = marketStates[i]
+      const coin = m.indexToken.symbol
+      const posSize = pos.size.amount
+      const posMargin = pos.margin.amount
+      const ml = ms.leverage
+      const mid = mids[coin]
+      const isAddMargin = isDeposit[i]
+      const mp = FixedNumber.fromString(mid, 30)
+      const margin = isAddMargin ? marginDelta[i].amount : marginDelta[i].amount.mul(FixedNumber.fromString('-1'))
+      const marginN = Number(margin._value)
+
+      if (!validDenomination(marginDelta[i], true)) throw new Error('Margin delta must be token denominated')
+      if (pos.mode == 'CROSS') throw new Error('Cannot update margin for cross position')
+
+      const nextMargin = addFN(posMargin, margin)
+
+      const liqPrice = estLiqPrice(
+        wallet,
+        parseFloat(mid),
+        parseFloat(ml._value),
+        true,
+        0,
+        parseFloat(mp._value),
+        pos.direction == 'LONG', // opposite of position direction
+        coin,
+        web2Data,
+        marginN
+      )
+
+      const preview: PreviewInfo = {
+        marketId: pos.marketId,
+        collateral: pos.collateral,
+        leverage: ml,
+        size: pos.size,
+        margin: toAmountInfoFN(nextMargin, true),
+        avgEntryPrice: pos.avgEntryPrice,
+        liqudationPrice: liqPrice == null ? FixedNumber.fromString('0') : FixedNumber.fromString(liqPrice.toString()),
+        fee: FixedNumber.fromString('0'),
+        isError: false,
+        errMsg: ''
+      }
+      // console.log(preview)
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
+
   getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     throw new Error('Method not implemented.')
   }

@@ -225,7 +225,8 @@ export function estLiqPrice(
   userLimitPx: number,
   isLong: boolean,
   activeCoin: string,
-  web2Data: string
+  web2Data: string,
+  addIsolatedMarginAmt: number
 ): number | null {
   const webData: WebData = parseJsonUnquotingFloatString(web2Data)
   const {
@@ -261,13 +262,15 @@ export function estLiqPrice(
   }
   const totalNtlPos = userLimitPx * absUpdatedPosition
   const { floatSide: positionSide } = parseSide(updatedPosition > 0)
+  const rawUsd = position?.leverage?.rawUsd ?? 0
+  const updatedRawUsd = rawUsd + addIsolatedMarginAmt
 
   const liqPx = isIsolated
     ? getIsolatedLiquidationPrice(
         markPx,
         floatSide,
         leverage,
-        position?.leverage?.rawUsd ?? 0,
+        updatedRawUsd,
         szi,
         userSz,
         totalNtlPos,

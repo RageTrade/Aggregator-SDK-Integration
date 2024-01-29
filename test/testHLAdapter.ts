@@ -277,8 +277,21 @@ async function getAvailableToTrade() {
   console.dir(att, { depth: 6 })
 }
 
+async function getUpdateMarginPreview() {
+  const positions = (await hl.getAllPositions(w, undefined)).result
+  const ethPosition = positions.filter((p) => p.marketId === ethMarketId)[0]
+
+  const updateMarginPreview = await hl.getUpdateMarginPreview(
+    w,
+    [false],
+    [toAmountInfoFN(FixedNumber.fromString('1.5'), true)],
+    [ethPosition]
+  )
+  console.dir(updateMarginPreview, { depth: 4 })
+}
+
 hl.init(w).then(() => {
-  getAvailableToTrade()
+  getUpdateMarginPreview()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
