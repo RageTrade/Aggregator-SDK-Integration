@@ -19,10 +19,8 @@ import {
   OpenTradePreviewInfo,
   CloseTradePreviewInfo,
   PreviewInfo,
-  IRouterAdapterBaseV1,
   ProtocolId,
   Market,
-  RouterAdapterMethod,
   PositionData,
   ClaimInfo,
   ApiOpts,
@@ -38,11 +36,7 @@ import GMXV2Service from '../src/exchanges/gmxv2'
 import { getPaginatedResponse } from '../src/common/helper'
 import { decodeMarketId } from '../src/common/markets'
 import { FixedNumber } from '../src/common/fixedNumber'
-import GmxV1Adapter from '../src/exchanges/gmxV1Adapter'
-import SynthetixV2Adapter from '../src/exchanges/synthetixV2Adapter'
 import { ActionParam } from '../src/interfaces/IActionExecutor'
-import { Token } from '../src/common/tokens'
-import { Wallet } from 'ethers'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
 
