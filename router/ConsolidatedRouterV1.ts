@@ -27,7 +27,8 @@ import {
   MarketState,
   OrderBook,
   ProtocolId,
-  AvailableToTradeParams
+  AvailableToTradeParams,
+  DepositWithdrawParams
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -59,28 +60,30 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
   }
 
-  async deposit(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]> {
-    if (!market) throw new Error('marketId required for deposit')
+  async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
+    const promises: Promise<ActionParam[]>[] = []
 
-    const adapter = this._checkAndGetAdapter(market)
-    return adapter.deposit(amount, wallet, protocol, market)
+    params.forEach((param) => {
+      if (!param.market) throw new Error('marketId required for deposit')
+      const adapter = this._checkAndGetAdapter(param.market)
+      promises.push(adapter.deposit([param]))
+    })
+
+    const out = await Promise.all(promises)
+    return out.flat()
   }
 
-  async withdraw(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]> {
-    if (!market) throw new Error('marketId required for deposit')
+  async withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
+    const promises: Promise<ActionParam[]>[] = []
 
-    const adapter = this._checkAndGetAdapter(market)
-    return adapter.withdraw(amount, wallet, protocol, market)
+    params.forEach((param) => {
+      if (!param.market) throw new Error('marketId required for deposit')
+      const adapter = this._checkAndGetAdapter(param.market)
+      promises.push(adapter.withdraw([param]))
+    })
+
+    const out = await Promise.all(promises)
+    return out.flat()
   }
 
   getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {

@@ -45,6 +45,13 @@ export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1'
   ? { market: Market['marketId']; direction: TradeDirection; mode: MarketMode; newLeverage: number }
   : never // For exhaustive switch checking
 
+export type DepositWithdrawParams = {
+  amount: FixedNumber
+  wallet: string
+  protocol: ProtocolId
+  market?: Market['marketId']
+}
+
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
   chain: Chain
@@ -303,19 +310,9 @@ export interface IRouterAdapterBaseV1 {
   ///// Setup api //////
   setup(): Promise<ActionParam[]>
 
-  deposit(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]>
+  deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]>
 
-  withdraw(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]>
+  withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]>
 
   ///// Network api //////
   supportedChains(opts?: ApiOpts): Chain[]

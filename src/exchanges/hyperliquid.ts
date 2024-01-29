@@ -37,7 +37,8 @@ import {
   OBLevel,
   MarketMode,
   ProtocolId,
-  AvailableToTradeParams
+  AvailableToTradeParams,
+  DepositWithdrawParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -111,13 +112,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async deposit(amount: FixedNumber, wallet: string, protocol: ProtocolId): Promise<ActionParam[]> {
-    if (protocol !== 'HL') throw new Error('invalid protocol id')
+  async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
 
-    const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, amount.toFormat(6).value)
+    for (const each of params) {
+      if (each.protocol !== 'HL') throw new Error('invalid protocol id')
 
-    const txs: ActionParam[] = [
-      {
+      const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, each.amount.toFormat(6).value)
+
+      txs.push({
         tx,
         desc: 'Depositing into hyperliquid DEX',
         chainId: ARBITRUM,
@@ -125,16 +128,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         isAgentRequired: false,
         heading: 'hyperliquid',
         ethRequired: BigNumber.from(0)
-      }
-    ]
+      })
+    }
 
     return txs
   }
 
-  async withdraw(amount: FixedNumber, wallet: string, protocol: ProtocolId): Promise<ActionParam[]> {
-    if (protocol !== 'HL') throw new Error('invalid protocol id')
+  async withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
+    const txs: ActionParam[] = []
 
-    return [await withdrawFromBridge(amount.toString())]
+    for (const each of params) {
+      if (each.protocol !== 'HL') throw new Error('invalid protocol id')
+      txs.push(await withdrawFromBridge(each.amount.toString()))
+    }
+
+    return txs
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
@@ -410,7 +418,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // deposit into HL
       if (each.marginDelta.amount.gt(withdrawable)) {
-        payload.push(...(await this.deposit(each.marginDelta.amount.toFormat(6), wallet, 'HL')))
+        payload.push(
+          ...(await this.deposit([
+            {
+              amount: each.marginDelta.amount.toFormat(6),
+              wallet,
+              protocol: 'HL'
+            }
+          ]))
+        )
+
         withdrawable = subFN(each.marginDelta.amount, withdrawable)
       }
 

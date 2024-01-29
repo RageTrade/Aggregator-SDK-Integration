@@ -29,7 +29,8 @@ import {
   MarketState,
   OrderBook,
   ProtocolId,
-  AvailableToTradeParams
+  AvailableToTradeParams,
+  DepositWithdrawParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -88,21 +89,11 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     return Promise.resolve([])
   }
 
-  async deposit(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]> {
+  async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
 
-  async withdraw(
-    amount: FixedNumber,
-    wallet: string,
-    protocol: ProtocolId,
-    market?: Market['marketId']
-  ): Promise<ActionParam[]> {
+  async withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
 
