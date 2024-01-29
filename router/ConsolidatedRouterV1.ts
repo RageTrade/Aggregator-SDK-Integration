@@ -103,7 +103,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     return res
   }
 
-  getAvailableToTrade<T extends ProtocolId>(protocol: T, wallet: string, params: AvailableToTradeParams<T>): AmountInfo {
+  async getAvailableToTrade<T extends ProtocolId>(protocol: T, wallet: string, params: AvailableToTradeParams<T>) {
     const adapter = this.adapters[protocol]
     const out = adapter.getAvailableToTrade(wallet, params)
 

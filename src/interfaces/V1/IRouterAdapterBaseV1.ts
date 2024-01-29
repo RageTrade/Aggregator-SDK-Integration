@@ -35,15 +35,13 @@ export type Protocol = {
   protocolId: ProtocolId
 }
 
-export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1'
-  ? undefined
-  : T extends 'GMXV2'
+export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2'
   ? undefined
   : T extends 'SYNTHETIX_V2'
   ? { market: Market['marketId'] }
   : T extends 'HL'
   ? { market: Market['marketId']; direction: TradeDirection; mode: MarketMode; newLeverage: number }
-  : never // For exhaustive switch checking
+  : never
 
 export type DepositWithdrawParams = {
   amount: FixedNumber

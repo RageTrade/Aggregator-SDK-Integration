@@ -361,7 +361,7 @@ export default class GmxV2Service implements IAdapterV1 {
     return info
   }
 
-  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+  async getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
     return {
       isTokenAmount: true,
       amount: FixedNumber.fromString('0')

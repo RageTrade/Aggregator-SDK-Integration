@@ -7,5 +7,9 @@ export interface IRouterV1 extends IRouterAdapterBaseV1 {
 
   getProtocolInfo(): (ProtocolInfo & Protocol)[]
 
-  getAvailableToTrade<T extends ProtocolId>(protocol: T, wallet: string, params: AvailableToTradeParams<T>): AmountInfo
+  getAvailableToTrade<T extends ProtocolId>(
+    protocol: T,
+    wallet: string,
+    params: AvailableToTradeParams<T>
+  ): Promise<AmountInfo>
 }

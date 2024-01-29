@@ -84,7 +84,6 @@ import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hype
 import { parseUnits } from 'ethers/lib/utils'
 import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
-import { Token, tokens } from '../common/tokens'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IERC20__factory } from '../../typechain/gmx-v2'
 import { ARBITRUM } from '../configs/gmx/chains'
@@ -92,6 +91,7 @@ import { rpc } from '../common/provider'
 import { BigNumber, ethers } from 'ethers'
 import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
+import { tokens } from '../common/tokens'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -226,10 +226,55 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return info
   }
 
-  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>) {
+  async getAvailableToTrade(
+    wallet: string,
+    params: AvailableToTradeParams<this['protocolId'] & 'HL'>
+  ): Promise<AmountInfo> {
+    // get market
+    const market = (await this.getMarketsInfo([params.market]))[0]
+
+    if (!market) throw new Error('market not found')
+
+    // get current positions for market
+    const clearinghouseState = await getClearinghouseState(wallet)
+    const withdrawable = Number(clearinghouseState.withdrawable)
+
+    const assetPositions = clearinghouseState.assetPositions
+    const position = assetPositions.find((p) => p.position.coin === market.marketSymbol)
+
+    if (!position)
+      return {
+        isTokenAmount: true,
+        amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
+      }
+
+    let resultingMode = params.mode
+    let resultingLeverage = params.newLeverage
+
+    // this holds true irrespective of current mode and resulting mode
+    if (
+      resultingLeverage < position.position.leverage.value ||
+      resultingMode !== position.position.leverage.type.toUpperCase()
+    ) {
+      throw new Error('leverage or mode mismatch')
+    }
+
+    // same side
+    if (Math.sign(Number(position.position.szi)) === (params.direction == 'LONG' ? 1 : -1))
+      return {
+        isTokenAmount: true,
+        amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
+      }
+
+    // opposite side
+    const availableToTrade =
+      withdrawable +
+      Number(position.position.marginUsed) +
+      Math.abs(Number(position.position.positionValue) / resultingLeverage)
+
     return {
       isTokenAmount: true,
-      amount: FixedNumber.fromString('0')
+      amount: FixedNumber.fromString(availableToTrade.toFixed(6)).toFormat(6)
     }
   }
 
