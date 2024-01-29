@@ -5,16 +5,16 @@ import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
 import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/client'
 import { FixedNumber, divFN } from '../src/common/fixedNumber'
 
-const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
+const normalAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
 const liquidatedAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
 
 const hl = new HyperliquidAdapterV1()
 
-const ethMarketId = '9999998-HL-ETH'
-const btcMarketId = '9999998-HL-BTC'
-const ntrnMarketId = '9999998-HL-NTRN'
-const kPepeMarketId = '9999998-HL-kPEPE'
+const ethMarketId = '42161-HL-ETH'
+const btcMarketId = '42161-HL-BTC'
+const ntrnMarketId = '42161-HL-NTRN'
+const kPepeMarketId = '42161-HL-kPEPE'
 
 async function supportedMarkets() {
   const markets = await hl.supportedMarkets(hl.supportedChains())
@@ -239,8 +239,46 @@ async function getCloseTradePreview() {
   console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedSLLCOD], undefined), { depth: 4 })
 }
 
+async function getAvailableToTrade() {
+  let att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'ISOLATED',
+    direction: 'LONG',
+    newLeverage: 5
+  })
+
+  console.dir(att, { depth: 6 })
+
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'CROSS',
+    direction: 'LONG',
+    newLeverage: 5
+  })
+
+  console.dir(att, { depth: 6 })
+
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'ISOLATED',
+    direction: 'SHORT',
+    newLeverage: 5
+  })
+
+  console.dir(att, { depth: 6 })
+
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'CROSS',
+    direction: 'SHORT',
+    newLeverage: 5
+  })
+
+  console.dir(att, { depth: 6 })
+}
+
 hl.init(w).then(() => {
-  getCloseTradePreview()
+  getAvailableToTrade()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
