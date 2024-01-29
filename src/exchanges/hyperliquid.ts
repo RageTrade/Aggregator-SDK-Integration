@@ -403,12 +403,20 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       const price = Number(mids[marketInfo.indexToken.symbol])
 
+      let limitPrice: OrderRequest['limit_px'] = 0
+
+      if (each.type == 'MARKET') {
+        limitPrice = roundedPrice(slippagePrice(isBuy, slippage, price))
+      } else {
+        if (!each.triggerData) throw new Error('trigger data required for limit increase')
+        limitPrice = roundedPrice(Number(each.triggerData.triggerPrice._value))
+      }
+
       // calculate leverage using sizeDelta and marginDelta
       let sizeDelta = Number(each.sizeDelta.amount._value)
       sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
 
-      // TODO: check if we need to use limit price specified instead of mid price
-      const sizeDeltaNotional = sizeDelta * price
+      const sizeDeltaNotional = each.type == 'MARKET' ? sizeDelta * price : sizeDelta * limitPrice
 
       const marginDeltaNotional = Number(each.marginDelta.amount._value)
 
@@ -424,14 +432,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // populate trigger data if required
       let orderData: OrderRequest['order_type'] = { limit: { tif: 'Gtc' } }
-      let limitPrice: OrderRequest['limit_px'] = 0
-
-      if (each.type == 'MARKET') {
-        limitPrice = roundedPrice(slippagePrice(isBuy, slippage, price))
-      } else {
-        if (!each.triggerData) throw new Error('trigger data required for limit increase')
-        limitPrice = roundedPrice(Number(each.triggerData.triggerPrice._value))
-      }
 
       const request: OrderRequest = {
         coin: coin,
