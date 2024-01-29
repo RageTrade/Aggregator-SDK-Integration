@@ -158,7 +158,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
           minLeverage: FixedNumber.fromValue(parseUnits('1', D18).toString(), D18, D18),
           minInitialMargin: FixedNumber.fromValue(parseUnits('50', D18).toString(), D18, D18),
           minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18),
-          maxPrecision: 1
+          maxPrecision: 1,
+          precisionMap: {
+            1: FixedNumber.fromString('1')
+          }
         }
 
         const protocol: Protocol = {

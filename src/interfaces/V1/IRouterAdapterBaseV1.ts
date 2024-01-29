@@ -64,6 +64,7 @@ export type GenericStaticMarketMetadata = {
   minInitialMargin: FixedNumber
   minPositionSize: FixedNumber
   maxPrecision: number // used for OrderBook exchanges, for non orderbook exchanges, this is defaulted to 1
+  precisionMap: Record<GenericStaticMarketMetadata['maxPrecision'], FixedNumber> // precision to actualPrecision mapping eg. {1: 0.001, 2: 0.01, 3: 0.1}
 }
 
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {

@@ -186,7 +186,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
           minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
-          maxPrecision: 4
+          maxPrecision: 4,
+          // TODO - add precision map
+          precisionMap: {
+            1: FixedNumber.fromString('1')
+          }
         }
 
         const protocol: Protocol = {
