@@ -35,7 +35,8 @@ import {
   CollateralData,
   OrderBook,
   OBData,
-  OBLevel
+  OBLevel,
+  MarketMode
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -393,9 +394,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
 
       const coin = marketInfo.indexToken.symbol
-      // TODO: check if we should manddate passing mode
-      const mode = each.mode || 'ISOLATED'
-
+      const mode = each.mode
       const isBuy = each.direction === 'LONG'
       const slippage = each.slippage ? each.slippage / 100 : 0.01
 
@@ -807,6 +806,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const order = o.order
       const status = o.status.order.order
       const posSize = o.pos?.position.szi
+      const mode: MarketMode = o.pos?.position.leverage.type == 'cross' ? 'CROSS' : 'ISOLATED'
 
       const coin = order.coin
       const collateral = HL_COLLATERAL_TOKEN
@@ -870,6 +870,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       const orderInfo: OrderInfo = {
         ...tradeData,
+        mode,
         triggerData: triggerData,
         marketId: encodeMarketId(hyperliquid.id.toString(), 'HL', coin),
         orderId: oid,

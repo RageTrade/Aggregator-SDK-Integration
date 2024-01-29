@@ -82,6 +82,7 @@ async function getLiquidationHistory() {
 async function getOpenTradePreview() {
   const createOrderData: CreateOrder = {
     marketId: btcMarketId,
+    mode: 'ISOLATED',
     direction: 'LONG',
     sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
     marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),
@@ -151,6 +152,7 @@ async function increasePosition() {
 
   const createOrderData: CreateOrder = {
     marketId: btcMarketId,
+    mode: 'ISOLATED',
     direction: 'LONG',
     sizeDelta: toAmountInfo(parseUnits('52', 30), 30, false),
     marginDelta: toAmountInfo(parseUnits('0.014', 18), 18, true),

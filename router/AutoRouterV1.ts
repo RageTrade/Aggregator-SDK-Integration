@@ -7,6 +7,7 @@ import {
   CreateOrder,
   DynamicMarketMetadata,
   MarketInfo,
+  MarketMode,
   OpenTradePreviewInfo,
   PositionInfo,
   ProtocolId,
@@ -91,7 +92,8 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     market: MarketInfo,
     routeData: RouteData,
     collateralTokenWithPrice: TokenWithPrice,
-    marketPrice: FixedNumber
+    marketPrice: FixedNumber,
+    mode?: MarketMode
   ): CreateOrder {
     const amountInfoInToken = adapter.getAmountInfoType()[0]
 
@@ -118,6 +120,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       marginDelta: marginDeltaAmountInfo,
       triggerData: { triggerPrice: marketPrice, triggerAboveThreshold: true, triggerLimitPrice: undefined },
       slippage: undefined,
+      mode: mode || 'ISOLATED',
       type: 'MARKET'
     }
     return order

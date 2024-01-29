@@ -79,6 +79,7 @@ async function testOpenTradePreview() {
   const orders: CreateOrder[] = []
   orders.push({
     type: 'MARKET',
+    mode: 'ISOLATED',
     marketId: ethMarketId,
     direction: 'LONG',
     sizeDelta: { amount: FixedNumber.fromValue(parseUnits('29.93', 30).toString(), 30, 30), isTokenAmount: false },
@@ -117,6 +118,7 @@ async function increasePosition() {
 
   orders.push({
     type: 'MARKET',
+    mode: 'ISOLATED',
     marketId: ethMarketId,
     direction: 'LONG',
     sizeDelta: { amount: FixedNumber.fromValue(parseUnits('40', 30).toString(), 30), isTokenAmount: false },

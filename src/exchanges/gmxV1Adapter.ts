@@ -1121,6 +1121,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       }
 
       const oData: OrderData = {
+        mode: 'ISOLATED',
         marketId: encodeMarketId(arbitrum.id.toString(), GMX_V1_PROTOCOL_ID, order.indexToken),
         direction: order.isLong ? 'LONG' : 'SHORT',
         sizeDelta: toAmountInfo(order.sizeDelta, 30, false),

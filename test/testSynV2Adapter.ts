@@ -47,6 +47,7 @@ async function getOpenTradePreview() {
 
   const createOrderData: CreateOrder = {
     marketId: ethMarketId,
+    mode: 'ISOLATED',
     direction: 'LONG',
     sizeDelta: toAmountInfo(parseUnits('0.05', 18), 18, true),
     marginDelta: toAmountInfo(parseUnits('50.86', 18), 18, true),

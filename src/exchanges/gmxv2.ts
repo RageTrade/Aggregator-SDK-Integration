@@ -2016,7 +2016,9 @@ export default class GmxV2Service implements IAdapterV1 {
 
   private _mapPositionOrderInfoToOrderInfo(orderData: PositionOrderInfo): OrderInfo {
     const initialCollateralToken = getGmxV2TokenByAddress(orderData.initialCollateralTokenAddress)
+
     const oData: OrderData = {
+      mode: 'ISOLATED',
       marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', orderData.marketInfo.marketTokenAddress),
       direction: orderData.isLong ? 'LONG' : 'SHORT',
       sizeDelta: toAmountInfo(orderData.sizeDeltaUsd, 30, false),
