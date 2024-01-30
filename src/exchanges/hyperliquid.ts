@@ -53,6 +53,7 @@ import {
   getActiveAssetData,
   getAllMids,
   getClearinghouseState,
+  getExtraAgents,
   getL2Book,
   getMeta,
   getMetaAndAssetCtxs,
@@ -335,8 +336,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return marketStates
   }
 
-  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
-    throw new Error('Method not implemented.')
+  async getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    if (agent.protocolId !== 'HL') throw new Error('invalid protocol id')
+
+    const allAgents = await getExtraAgents(wallet)
+
+    return checkIfRageTradeAgent(allAgents, agent.agentAddress)
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
@@ -458,8 +467,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     const payload: ActionParam[] = []
 
+    const extraAgents = await getExtraAgents(wallet)
+
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      payload.push(await approveAgent())
 
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
     let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
@@ -579,8 +591,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // - size delta
     // - trigger data
 
+    const extraAgents = await getExtraAgents(wallet)
+
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      payload.push(await approveAgent())
 
     const meta = await getMeta()
     const mids = await getAllMids()
@@ -654,8 +669,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const cancelledOrders: CancelRequest[] = []
 
+    const extraAgents = await getExtraAgents(wallet)
+
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      payload.push(await approveAgent())
 
     const meta = await getMeta()
 
@@ -703,8 +721,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const requests: OrderRequest[] = []
 
+    const extraAgents = await getExtraAgents(wallet)
+
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      payload.push(await approveAgent())
 
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
@@ -781,8 +802,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const payload: ActionParam[] = []
 
+    const extraAgents = await getExtraAgents(wallet)
+
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      payload.push(await approveAgent())
 
     const meta = await getMeta()
 

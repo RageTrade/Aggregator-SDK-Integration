@@ -28,7 +28,6 @@ import { ethers } from 'ethers'
 import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing'
 import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
 import { WalletClient } from 'viem'
-import { TradeDirection } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 import {
   CANCEL_ORDER_H,
   EMPTY_DESC,
@@ -41,6 +40,7 @@ import {
   getClosePositionHeading,
   getIncreasePositionHeading
 } from '../../../common/buttonHeadings'
+import { AgentState, TradeDirection } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
@@ -414,17 +414,32 @@ export function coinToAsset(coin: string, meta: Meta): number {
   return meta.universe.findIndex((e) => e.name === coin)
 }
 
-export async function checkIfRageTradeAgent(wallet: string, expectedAgentAddress?: string) {
-  const agents = await getExtraAgents(wallet)
-
+export async function checkIfRageTradeAgent(
+  agents: Awaited<ReturnType<typeof getExtraAgents>>,
+  expectedAgentAddress: string
+): Promise<AgentState[]> {
   for (const agent of agents) {
     if (agent.name === 'rage_trade') {
-      if (expectedAgentAddress) return getAddress(expectedAgentAddress) === agent.address
-      return true
+      return [
+        {
+          protocolId: 'HL',
+          agentAddress: agent.address,
+          isAuthenticated:
+            expectedAgentAddress === ethers.constants.AddressZero
+              ? true
+              : getAddress(agent.address) === getAddress(expectedAgentAddress)
+        }
+      ]
     }
   }
 
-  return false
+  return [
+    {
+      protocolId: 'HL',
+      agentAddress: ethers.constants.AddressZero,
+      isAuthenticated: false
+    }
+  ]
 }
 
 export async function withdrawFromBridge(amount: string): Promise<RequestSignerFnWithMetadata> {
