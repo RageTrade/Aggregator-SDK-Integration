@@ -274,3 +274,19 @@ export interface ModifyWire {
   oid: number
   order: OrderWire
 }
+
+export interface WebData2 {
+  agentAddress: string
+  assetCtxs: AssetCtx[]
+  clearinghouseState: ClearinghouseState
+  cumLedger: string
+  isVault: boolean
+  leadingVaults: any[]
+  meta: Meta
+  openOrders: OpenOrders[]
+  pendingWithdrawals: any[]
+  serverTime: number
+  totalVaultEquity: string
+  twapStates: any[]
+  user: string
+}

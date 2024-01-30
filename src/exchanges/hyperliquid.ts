@@ -40,7 +40,8 @@ import {
   AvailableToTradeParams,
   DepositWithdrawParams,
   AgentParams,
-  AgentState
+  AgentState,
+  TradeDirection
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -61,6 +62,7 @@ import {
   getOpenOrders,
   getOrderStatus,
   getUserFills,
+  getWebdata2,
   modifyOrders,
   placeOrders,
   roundedPrice,
@@ -81,7 +83,9 @@ import {
   ModifyRequest,
   OpenOrders,
   OrderRequest,
-  OrderStatusInfo
+  OrderStatusInfo,
+  WebData2,
+  MarkedModeType
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
@@ -97,6 +101,14 @@ import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
 import { tokens } from '../common/tokens'
 import { EMPTY_DESC, HYPERLIQUID_DEPOSIT_H } from '../common/buttonHeadings'
+import {
+  HL_CANNOT_CHANGE_MODE,
+  SIZE_DENOMINATION_TOKEN,
+  MARGIN_DENOMINATION_TOKEN,
+  HL_LEV_OUT_OF_BOUNDS,
+  HL_CANNOT_DEC_LEV,
+  HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
+} from '../configs/hyperliquid/hlErrors'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -870,13 +882,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const clearinghouseState = await getClearinghouseState(wallet)
     const assetPositions = clearinghouseState.assetPositions
-    const marketModes = (
-      await this.getMarketState(
-        wallet,
-        assetPositions.map((ap) => encodeMarketId(hyperliquid.id.toString(), 'HL', ap.position.coin)),
-        opts
-      )
-    ).map((ms) => ms.marketMode)
 
     assetPositions.forEach((ap, index) => {
       const position = ap.position
@@ -917,7 +922,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         protocolId: 'HL',
         roe: divFN(unrealizedPnl, marginUsed),
         metadata: ap,
-        mode: marketModes[index]
+        mode: position.leverage.type === 'isolated' ? 'ISOLATED' : 'CROSS'
       }
 
       positions.push(posInfo)
@@ -1176,12 +1181,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       orderData.map((o) => o.marketId),
       opts
     )
-    const marketStatesPromise = this.getMarketState(
-      wallet,
-      orderData.map((o) => o.marketId),
-      opts
-    )
-
     const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
     const allMidsPromise = cacheFetch({
       key: [HL_CACHE_PREFIX, 'allMids'],
@@ -1191,60 +1190,52 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     })
 
-    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
-    const metaPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'meta'],
-      fn: () => getMeta(),
-      staleTime: sTimeMeta,
-      cacheTime: sTimeMeta * CACHE_TIME_MULT,
-      opts: opts
-    }) as Promise<Meta>
-
-    const web2DataReq = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: `{"type":"webData2","user":"${wallet}"}`
-    }
-    const url = 'https://api-ui.hyperliquid.xyz/info'
     let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
-    const web2DataPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'web2Data', wallet],
-      fn: () => fetch(url, web2DataReq).then((resp) => resp.text()),
+    const webData2Promise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'webData2', wallet],
+      fn: () => getWebdata2(wallet),
       staleTime: sTimeW2D,
       cacheTime: sTimeW2D * CACHE_TIME_MULT,
       opts: opts
-    })
+    }) as Promise<WebData2>
 
-    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
-      marketsPromise,
-      marketStatesPromise,
-      allMidsPromise,
-      web2DataPromise,
-      metaPromise
-    ])
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
 
+    const meta = webData2.meta
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
-      const epos = existingPos[i]
       const m = markets[i]
-      const ms = marketStates[i]
       const coin = m.indexToken.symbol
-      const isCross = ms.marketMode == 'CROSS'
+      const epos = webData2.clearinghouseState.assetPositions.find((ap) => ap.position.coin == coin)
+      const mode = od.mode
+      if (epos && this._convertModeTypeToMarketMode(epos.position.leverage.type) !== mode)
+        throw new Error(HL_CANNOT_CHANGE_MODE)
+
+      const isCross = mode == 'CROSS'
       const isMarket = od.type == 'MARKET'
       const orderSizeN = roundedSize(
         Number(od.sizeDelta.amount._value),
         meta.universe.find((u) => u.name === coin)!.szDecimals
       )
       const orderSize = FixedNumber.fromString(orderSizeN.toString())
-      const ml = ms.leverage
       const mid = mids[coin]
       const mp = FixedNumber.fromString(mid, 30)
-      const trigPrice = !isMarket
-        ? FixedNumber.fromString(roundedPrice(Number(od.triggerData!.triggerPrice._value)).toString())
-        : mp
+      const trigPriceN = isMarket ? mid : roundedPrice(Number(od.triggerData!.triggerPrice._value))
+      const trigPrice = isMarket ? mp : FixedNumber.fromString(trigPriceN.toString())
 
-      if (!validDenomination(od.sizeDelta, true)) throw new Error('Size delta must be token denominated')
-      if (!validDenomination(od.marginDelta, true)) throw new Error('Margin delta must be token denominated')
+      if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
+      if (!validDenomination(od.marginDelta, true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
+
+      // calculate leverage using sizeDelta and marginDelta
+      const sizeDeltaNotional = orderSizeN * trigPriceN
+      const marginDeltaNotional = Number(od.marginDelta.amount._value)
+
+      // round towards closest int
+      const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)
+      const levFN = FixedNumber.fromString(lev.toString())
+      const curLev = epos?.position.leverage.value || 0
+      if (lev > Number(m.maxLeverage._value) || lev < Number(m.minLeverage)) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+      if (lev < curLev) throw new Error(HL_CANNOT_DEC_LEV)
 
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
@@ -1260,43 +1251,57 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         // console.log(traResult)
       }
 
+      const eposSize = epos ? abs(FixedNumber.fromString(epos.position.szi)) : FixedNumber.fromString('0')
+      const eposAvgEntryPrice = epos ? FixedNumber.fromString(epos.position.entryPx) : FixedNumber.fromString('0')
+      const ePosMargin = epos ? FixedNumber.fromString(epos.position.marginUsed) : FixedNumber.fromString('0')
+
       // next size is pos.size + orderSize if direction is same else pos.size - orderSize
       const nextSize = epos
-        ? epos.direction == od.direction
-          ? abs(addFN(epos.size.amount, orderSize))
-          : abs(subFN(epos.size.amount, orderSize))
+        ? this._getDirection(epos) == od.direction
+          ? abs(addFN(eposSize, orderSize))
+          : abs(subFN(eposSize, orderSize))
         : orderSize
 
       // next margin is always position / leverage
-      const nextMargin = divFN(mulFN(nextSize, trigPrice), ml)
+      let nextMargin = divFN(mulFN(nextSize, trigPrice), levFN)
+      if (!isCross && epos) {
+        // what should have been the real margin given nothing extra was added
+        const ePosMarginByLev = divFN(mulFN(eposSize, trigPrice), levFN)
+
+        // extraMargin added by user
+        const extraMargin = subFN(ePosMargin, ePosMarginByLev)
+
+        // add extra margin to nextMargin
+        nextMargin = addFN(
+          nextMargin,
+          extraMargin.gt(FixedNumber.fromString('0')) ? extraMargin : FixedNumber.fromString('0')
+        )
+      }
 
       const liqPrice = estLiqPrice(
         wallet,
         parseFloat(mid),
-        parseFloat(ml._value),
+        lev,
         !isCross,
         parseFloat(orderSize._value),
         parseFloat(trigPrice._value),
         od.direction == 'LONG',
         coin,
-        web2Data,
+        JSON.stringify(webData2),
         0
       )
 
       const nextEntryPrice = isMarket ? traResult!.avgExecPrice : trigPrice
       let avgEntryPrice = nextEntryPrice
       if (epos) {
-        if (epos.direction == od.direction) {
+        if (this._getDirection(epos) == od.direction) {
           // average entry price
           // posSize * posEntryPrice + orderSize * orderEntryPrice / (posSize + orderSize)
-          avgEntryPrice = divFN(
-            addFN(mulFN(epos.size.amount, epos.avgEntryPrice), mulFN(orderSize, nextEntryPrice)),
-            nextSize
-          )
+          avgEntryPrice = divFN(addFN(mulFN(eposSize, eposAvgEntryPrice), mulFN(orderSize, nextEntryPrice)), nextSize)
         } else {
-          if (epos.size.amount.gt(orderSize)) {
+          if (eposSize.gt(orderSize)) {
             // partial close would result in previous entry price
-            avgEntryPrice = epos.avgEntryPrice
+            avgEntryPrice = eposAvgEntryPrice
           } else {
             // direction would change and hence newer entry price would be the avgEntryprice
             avgEntryPrice = nextEntryPrice
@@ -1314,7 +1319,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const preview = {
         marketId: od.marketId,
         collateral: od.collateral,
-        leverage: ml,
+        leverage: levFN,
         size: toAmountInfoFN(nextSize, true),
         margin: toAmountInfoFN(nextMargin, true),
         avgEntryPrice: avgEntryPrice,
@@ -1342,7 +1347,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const mIds = positionInfo.map((p) => p.marketId)
     const marketsPromise = this.getMarketsInfo(mIds, opts)
-    const marketStatesPromise = this.getMarketState(wallet, mIds, opts)
 
     const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
     const allMidsPromise = cacheFetch({
@@ -1353,44 +1357,24 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     })
 
-    let sTimeMeta = getStaleTime(CACHE_DAY, opts)
-    const metaPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'meta'],
-      fn: () => getMeta(),
-      staleTime: sTimeMeta,
-      cacheTime: sTimeMeta * CACHE_TIME_MULT,
-      opts: opts
-    }) as Promise<Meta>
-
-    const web2DataReq = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: `{"type":"webData2","user":"${wallet}"}`
-    }
-    const url = 'https://api-ui.hyperliquid.xyz/info'
     let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
-    const web2DataPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'web2Data', wallet],
-      fn: () => fetch(url, web2DataReq).then((resp) => resp.text()),
+    const webData2Promise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'webData2', wallet],
+      fn: () => getWebdata2(wallet),
       staleTime: sTimeW2D,
       cacheTime: sTimeW2D * CACHE_TIME_MULT,
       opts: opts
-    })
+    }) as Promise<WebData2>
 
-    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
-      marketsPromise,
-      marketStatesPromise,
-      allMidsPromise,
-      web2DataPromise,
-      metaPromise
-    ])
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
+
+    const meta = webData2.meta
 
     for (let i = 0; i < positionInfo.length; i++) {
       const pos = positionInfo[i]
       const cpd = closePositionData[i]
       const m = markets[i]
-      const ms = marketStates[i]
-      const isCross = ms.marketMode == 'CROSS'
+      const isCross = pos.mode == 'CROSS'
       const coin = m.indexToken.symbol
       const closeSizeN = roundedSize(
         Number(cpd.closeSize.amount._value),
@@ -1398,7 +1382,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       )
       const closeSize = FixedNumber.fromString(closeSizeN.toString())
       const posSize = pos.size.amount
-      const ml = ms.leverage
+      const ml = pos.leverage
       const mid = mids[coin]
       const mp = FixedNumber.fromString(mid, 30)
       const isMarket = cpd.type == 'MARKET'
@@ -1410,7 +1394,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         : cpd.triggerData!.triggerPrice
       const trigPrice = FixedNumber.fromString(roundedPrice(Number(trigPriceOrig._value)).toString())
 
-      if (!validDenomination(cpd.closeSize, true)) throw new Error('Size delta must be token denominated')
+      if (!validDenomination(cpd.closeSize, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
 
       // traverseOrderBook for market orders in opposite direction to position
       let traResult: TraverseResult | undefined = undefined
@@ -1452,7 +1436,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
             parseFloat(trigPrice._value),
             !(pos.direction == 'LONG'), // opposite of position direction
             coin,
-            web2Data,
+            JSON.stringify(webData2),
             0
           )
 
@@ -1490,41 +1474,33 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const mIds = existingPos.map((p) => p.marketId)
     const marketsPromise = this.getMarketsInfo(mIds, opts)
-    const marketStatesPromise = this.getMarketState(wallet, mIds, opts)
     const allMidsPromise = getAllMids()
-    const metaPromise = getMeta()
-    const web2DataReq = {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: `{"type":"webData2","user":"${wallet}"}`
-    }
-    const url = 'https://api-ui.hyperliquid.xyz/info'
-    const web2DataPromise = fetch(url, web2DataReq).then((resp) => resp.text())
 
-    const [markets, marketStates, mids, web2Data, meta] = await Promise.all([
-      marketsPromise,
-      marketStatesPromise,
-      allMidsPromise,
-      web2DataPromise,
-      metaPromise
-    ])
+    let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
+    const webData2Promise = cacheFetch({
+      key: [HL_CACHE_PREFIX, 'webData2', wallet],
+      fn: () => getWebdata2(wallet),
+      staleTime: sTimeW2D,
+      cacheTime: sTimeW2D * CACHE_TIME_MULT,
+      opts: opts
+    })
+
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
 
     for (let i = 0; i < existingPos.length; i++) {
       const pos = existingPos[i]
       const m = markets[i]
-      const ms = marketStates[i]
       const coin = m.indexToken.symbol
-      const posSize = pos.size.amount
       const posMargin = pos.margin.amount
-      const ml = ms.leverage
+      const ml = pos.leverage
       const mid = mids[coin]
       const isAddMargin = isDeposit[i]
       const mp = FixedNumber.fromString(mid, 30)
       const margin = isAddMargin ? marginDelta[i].amount : marginDelta[i].amount.mul(FixedNumber.fromString('-1'))
       const marginN = Number(margin._value)
 
-      if (!validDenomination(marginDelta[i], true)) throw new Error('Margin delta must be token denominated')
-      if (pos.mode == 'CROSS') throw new Error('Cannot update margin for cross position')
+      if (!validDenomination(marginDelta[i], true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
+      if (pos.mode == 'CROSS') throw new Error(HL_CANNOT_UPDATE_MARGIN_FOR_CROSS)
 
       const nextMargin = addFN(posMargin, margin)
 
@@ -1535,9 +1511,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         true,
         0,
         parseFloat(mp._value),
-        pos.direction == 'LONG', // opposite of position direction
+        pos.direction == 'LONG',
         coin,
-        web2Data,
+        JSON.stringify(webData2),
         marginN
       )
 
@@ -1669,5 +1645,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       staleTime: 0,
       cacheTime: 0
     })
+  }
+
+  _convertModeTypeToMarketMode(marketModeType: MarkedModeType): MarketMode {
+    switch (marketModeType) {
+      case 'cross':
+        return 'CROSS'
+      case 'isolated':
+        return 'ISOLATED'
+      default:
+        throw new Error(`Unknown market mode type ${marketModeType}`)
+    }
+  }
+
+  _getDirection(pos: AssetPosition): TradeDirection {
+    if (pos.position.szi.startsWith('-')) return 'SHORT'
+    return 'LONG'
   }
 }

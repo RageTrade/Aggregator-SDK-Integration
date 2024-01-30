@@ -21,7 +21,8 @@ import {
   OrderWire,
   Side,
   UserFill,
-  UserFunding
+  UserFunding,
+  WebData2
 } from './types'
 import { Token } from '../../../common/tokens'
 import { ethers } from 'ethers'
@@ -145,7 +146,7 @@ export async function getUserFills(wallet: string): Promise<UserFill[]> {
   return makeRequest(HL_INFO_URL, reqData)
 }
 
-export async function getWebdata2(wallet: string): Promise<{ agentAddress: string }> {
+export async function getWebdata2(wallet: string): Promise<WebData2> {
   const user = getAddress(wallet)
   const reqData = JSON.stringify({
     type: 'webData2',

@@ -1,5 +1,5 @@
 import { CACHE_SECOND, CACHE_TIME_MULT, HL_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../common/cache'
-import { FixedNumber, addFN, divFN, mulFN, subFN } from '../../common/fixedNumber'
+import { FixedNumber, abs, addFN, divFN, mulFN, subFN } from '../../common/fixedNumber'
 import { ApiOpts, TradeDirection } from '../../interfaces/V1/IRouterAdapterBaseV1'
 import { getL2Book } from './api/client'
 import { HL_TAKER_FEE_BPS } from './api/config'
@@ -68,7 +68,7 @@ export async function traverseHLBook(
         // console.log('satisfied at nSigFigs = ', i + 2)
 
         const execPrice = divFN(avgPriceAcc, size)
-        const priceImpact = mulFN(divFN(subFN(marketPrice, execPrice), marketPrice), FixedNumber.fromValue(100))
+        const priceImpact = abs(mulFN(divFN(subFN(marketPrice, execPrice), marketPrice), FixedNumber.fromValue(100)))
 
         return {
           avgExecPrice: execPrice,

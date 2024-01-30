@@ -17,7 +17,6 @@ type IsolatedLeverage = {
   value: number
   rawUsd: number
 }
-type LeverageType = HlLeverage['type']
 
 interface Position {
   coin: string
@@ -225,10 +224,10 @@ export function estLiqPrice(
   userLimitPx: number,
   isLong: boolean,
   activeCoin: string,
-  web2Data: string,
+  webData2: string,
   addIsolatedMarginAmt: number
 ): number | null {
-  const webData: WebData = parseJsonUnquotingFloatString(web2Data)
+  const webData: WebData = parseJsonUnquotingFloatString(webData2)
   const {
     clearinghouseState: { assetPositions },
     meta,

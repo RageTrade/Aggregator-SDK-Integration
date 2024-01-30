@@ -3,11 +3,11 @@ import { ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdap
 import { parseUnits } from 'ethers/lib/utils'
 import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
 import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/client'
-import { FixedNumber, divFN } from '../src/common/fixedNumber'
 import { ethers } from 'ethers'
+import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
-const normalAddress = '0xCc8aF787CB89438A767e357131294642ba7542A4'
-const liquidatedAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
+const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
+const liquidatedAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
 const w = normalAddress
 
 const hl = new HyperliquidAdapterV1()
@@ -90,19 +90,27 @@ async function getLiquidationHistory() {
 }
 
 async function getOpenTradePreview() {
+  const btcPrice = (await hl.getMarketPrices([btcMarketId], undefined))[0]
+  const marginAmount = FixedNumber.fromValue(parseUnits('4', 18).toString(), 18)
+  const lev = FixedNumber.fromString('5')
+  const sizeUsd = mulFN(marginAmount, lev)
+  console.log('sizeUsd:', sizeUsd)
+  const size = divFN(sizeUsd, btcPrice)
+  console.log('sizeToken:', size)
+
   const orderData: CreateOrder = {
     marketId: btcMarketId,
-    mode: 'ISOLATED',
-    direction: 'LONG',
-    sizeDelta: toAmountInfo(parseUnits('0.00275', 18), 18, true),
-    marginDelta: toAmountInfo(parseUnits('13.75', 18), 18, true),
-    triggerData: {
+    mode: 'CROSS',
+    direction: 'SHORT',
+    sizeDelta: toAmountInfoFN(size, true),
+    marginDelta: toAmountInfoFN(marginAmount, true),
+    triggerData: undefined /* {
       triggerPrice: FixedNumber.fromString('20000'),
       triggerAboveThreshold: false,
       triggerLimitPrice: undefined
-    },
+    }, */,
     collateral: HL_COLLATERAL_TOKEN,
-    type: 'LIMIT',
+    type: 'MARKET',
     slippage: 1
   }
 
@@ -114,7 +122,45 @@ async function getOpenTradePreview() {
     positions.filter((p) => p.marketId === orderData.marketId),
     undefined
   )
-  console.dir(openTradePreview, { depth: 4 })
+  // console.dir(openTradePreview, { depth: 4 })
+}
+
+async function getOpenTradePreviewIso() {
+  const ethPrice = (await hl.getMarketPrices([ethMarketId], undefined))[0]
+  // console.log('ethPrice:', ethPrice)
+  const marginAmount = FixedNumber.fromValue(parseUnits('2', 18).toString(), 18)
+  const lev = FixedNumber.fromString('8')
+
+  const sizeUsd = mulFN(marginAmount, lev)
+  // console.log('sizeUsd:', sizeUsd)
+  const size = divFN(sizeUsd, ethPrice)
+  console.log('sizeToken:', size)
+
+  const orderData: CreateOrder = {
+    marketId: ethMarketId,
+    mode: 'ISOLATED',
+    direction: 'LONG',
+    sizeDelta: toAmountInfoFN(size, true),
+    marginDelta: toAmountInfoFN(marginAmount, true),
+    triggerData: undefined /* {
+      triggerPrice: FixedNumber.fromString('20000'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: undefined
+    }, */,
+    collateral: HL_COLLATERAL_TOKEN,
+    type: 'MARKET',
+    slippage: 1
+  }
+
+  const positions = (await hl.getAllPositions(w, undefined)).result
+
+  const openTradePreview = await hl.getOpenTradePreview(
+    w,
+    [orderData],
+    positions.filter((p) => p.marketId === orderData.marketId),
+    undefined
+  )
+  // console.dir(openTradePreview, { depth: 4 })
 }
 
 async function getOrderBooks() {
@@ -303,7 +349,7 @@ async function testAgentState() {
 }
 
 hl.init(w).then(() => {
-  testAgentState()
+  getOpenTradePreviewIso()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
