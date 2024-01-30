@@ -197,7 +197,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           maxPrecision: 4,
           // TODO - add precision map
           precisionMap: {
-            1: FixedNumber.fromString('1')
+            1: FixedNumber.fromString('0.01'),
+            2: FixedNumber.fromString('0.1'),
+            3: FixedNumber.fromString('1'),
+            4: FixedNumber.fromString('10')
           }
         }
 
