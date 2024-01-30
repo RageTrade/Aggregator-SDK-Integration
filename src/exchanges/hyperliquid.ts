@@ -452,8 +452,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgent(wallet))) payload.push(await approveAgent())
 
-    const clearinghouseState = await getClearinghouseState(wallet)
-    let withdrawable = FixedNumber.fromString(clearinghouseState.withdrawable)
+    let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
+    let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
 
     // TODO: cache this
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
@@ -464,21 +464,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // ensure size delta is in token terms
       if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
-
-      // deposit into HL
-      if (each.marginDelta.amount.gt(withdrawable)) {
-        payload.push(
-          ...(await this.deposit([
-            {
-              amount: each.marginDelta.amount.toFormat(6),
-              wallet,
-              protocol: 'HL'
-            }
-          ]))
-        )
-
-        withdrawable = subFN(each.marginDelta.amount, withdrawable)
-      }
 
       // get market info
       const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
@@ -514,6 +499,23 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
       const currentLeverage = Number(position?.leverage._value || 0)
 
+      const hlParams: AvailableToTradeParams<'HL'> = {
+        market: marketInfo.marketId,
+        direction: each.direction,
+        mode: each.mode,
+        newLeverage: reqdLeverage
+      }
+
+      const availableToTrade = await this.getAvailableToTrade(
+        wallet,
+        hlParams as AvailableToTradeParams<'HL' & this['protocolId']>
+      )
+
+      const marginBasisLeverage = FixedNumber.fromString((sizeDeltaNotional / reqdLeverage).toFixed(6)).toFormat(6)
+
+      totalMarginRequired = addFN(totalMarginRequired, marginBasisLeverage)
+      totalAvailableToTrade = addFN(totalAvailableToTrade, availableToTrade.amount)
+
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
         throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
 
@@ -534,6 +536,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       }
 
       payload.push(await placeOrders([request], meta, true))
+    }
+
+    // add deposit at first index
+    if (totalMarginRequired.gt(totalAvailableToTrade)) {
+      payload.splice(
+        0,
+        0,
+        ...(await this.deposit([
+          {
+            amount: subFN(totalMarginRequired, totalAvailableToTrade),
+            wallet,
+            protocol: 'HL'
+          }
+        ]))
+      )
     }
 
     return payload
