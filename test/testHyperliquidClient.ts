@@ -125,7 +125,7 @@ async function getLiqPrice() {
   estLiqPrice(w, mpEth, 3, true, 0.02, mpEth, false, eth, web2Data, 0)
 }
 
-getLiqPrice()
+activeAssetData()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)

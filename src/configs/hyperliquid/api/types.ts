@@ -176,6 +176,7 @@ export type OrderData = {
 }
 
 export type ActiveAssetData = {
+  availableToTrade: string[]
   coin: string
   leverage: Leverage
   marginUsedByOpenOrders: string[]
