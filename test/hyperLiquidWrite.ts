@@ -1,4 +1,4 @@
-import { Wallet } from 'ethers'
+import { Wallet, ethers } from 'ethers'
 import { UnsignedTransaction, formatUnits } from 'ethers/lib/utils'
 import { tokens } from '../src/common/tokens'
 
@@ -265,31 +265,23 @@ async function testIncreaseOrder() {
   const orderData: CreateOrder[] = [
     {
       marketId: market.marketId,
-      direction: 'LONG',
-      sizeDelta: { amount: FixedNumber.fromString('0.044444444444444'), isTokenAmount: true },
-      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
-      triggerData: {
-        triggerPrice: FixedNumber.fromString('2000.00000001'),
-        triggerAboveThreshold: true,
-        triggerLimitPrice: undefined
-      },
+      direction: 'SHORT',
+      sizeDelta: { amount: FixedNumber.fromString('0.0618'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('23.84'), isTokenAmount: true },
+      triggerData: undefined,
       collateral: HL_COLLATERAL_TOKEN,
-      type: 'LIMIT',
+      type: 'MARKET',
       mode: 'ISOLATED',
       slippage: undefined
     },
     {
       marketId: market.marketId,
-      direction: 'SHORT',
-      sizeDelta: { amount: FixedNumber.fromString('0.044444444444444'), isTokenAmount: true },
-      marginDelta: { amount: FixedNumber.fromString('10'), isTokenAmount: true },
-      triggerData: {
-        triggerPrice: FixedNumber.fromString('3000.00000001'),
-        triggerAboveThreshold: true,
-        triggerLimitPrice: undefined
-      },
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.0618'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('23.84'), isTokenAmount: true },
+      triggerData: undefined,
       collateral: HL_COLLATERAL_TOKEN,
-      type: 'LIMIT',
+      type: 'MARKET',
       mode: 'ISOLATED',
       slippage: undefined
     }
@@ -298,7 +290,7 @@ async function testIncreaseOrder() {
   const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  // await execute(executionPayload)
 }
 
 async function testUpdateOrder() {
@@ -409,8 +401,23 @@ async function testClosePosition() {
   await execute(executionPayload)
 }
 
+async function testAuthenticateAgent() {
+  console.log(
+    await hl.authenticateAgent(
+      [
+        {
+          agentAddress: ethers.constants.AddressZero,
+          protocolId: 'HL'
+        }
+      ],
+      wallet.account.address
+    )
+  )
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
 // testCancelOrder()
 // testUpdateMargin()
 // testClosePosition()
+// testAuthenticateAgent()

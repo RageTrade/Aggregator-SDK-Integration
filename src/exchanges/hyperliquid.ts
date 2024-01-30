@@ -714,7 +714,17 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     if (agent.protocolId !== 'HL') throw new Error('invalid protocol id')
 
-    return [await approveAgent()]
+    const payload: ActionParam[] = []
+
+    const extraAgents = await getExtraAgents(wallet)
+
+    // check if agent is available, if not, create agent
+    if ((await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
+      throw new Error('already authenticated1')
+
+    payload.push(await approveAgent())
+
+    return payload
   }
 
   async closePosition(

@@ -4,8 +4,9 @@ import { parseUnits } from 'ethers/lib/utils'
 import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
 import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/client'
 import { FixedNumber, divFN } from '../src/common/fixedNumber'
+import { ethers } from 'ethers'
 
-const normalAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
+const normalAddress = '0xCc8aF787CB89438A767e357131294642ba7542A4'
 const liquidatedAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
 
@@ -290,8 +291,19 @@ async function getUpdateMarginPreview() {
   console.dir(updateMarginPreview, { depth: 4 })
 }
 
+async function testAgentState() {
+  console.log(
+    await hl.getAgentState(w, [
+      {
+        agentAddress: ethers.constants.AddressZero,
+        protocolId: 'HL'
+      }
+    ])
+  )
+}
+
 hl.init(w).then(() => {
-  getUpdateMarginPreview()
+  testAgentState()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
