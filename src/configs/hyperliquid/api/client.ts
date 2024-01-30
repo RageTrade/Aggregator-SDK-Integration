@@ -29,6 +29,18 @@ import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing
 import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
 import { WalletClient } from 'viem'
 import { TradeDirection } from '../../../interfaces/V1/IRouterAdapterBaseV1'
+import {
+  CANCEL_ORDER_H,
+  EMPTY_DESC,
+  HYPERLIQUID_ENABLE_TRADING_H,
+  HYPERLIQUID_MULTIPLE_POSITION_H,
+  HYPERLIQUID_UPDATE_LEVERAGE_H,
+  HYPERLIQUID_UPDATE_MARGIN_H,
+  HYPERLIQUID_UPDATE_ORDER_H,
+  HYPERLIQUID_WITHDRAW_H,
+  getClosePositionHeading,
+  getIncreasePositionHeading
+} from '../../../common/buttonHeadings'
 
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
@@ -450,8 +462,8 @@ export async function withdrawFromBridge(amount: string): Promise<RequestSignerF
     isEoaSigner: true,
     isUserAction: true,
     isAgentRequired: false,
-    desc: 'Withdraw from Hyperliquid',
-    heading: 'Withdraw from Hyperliquid'
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_WITHDRAW_H
   }
 }
 
@@ -498,12 +510,16 @@ export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
     isEoaSigner: true,
     isUserAction: true,
     isAgentRequired: true,
-    desc: 'Approve Agent',
-    heading: 'Approve Agent'
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_ENABLE_TRADING_H
   }
 }
 
-export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
+export async function placeOrders(
+  orders: OrderRequest[],
+  meta: Meta,
+  isIncrease: boolean
+): Promise<RequestSignerFnWithMetadata> {
   const timestamp = Math.floor(new Date().getTime())
 
   const orderSpecs: OrderSpec[] = []
@@ -534,6 +550,19 @@ export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<R
 
   for (const each of orderSpecs) {
     processedOrderSpecs.push(orderSpecPreprocessing(each))
+  }
+
+  const isSingleOrderRequest = orders.length === 1
+  let heading
+  if (isSingleOrderRequest) {
+    const orderReq = orders[0]
+    if (isIncrease) {
+      heading = getIncreasePositionHeading('HL', orderReq.is_buy ? 'LONG' : 'SHORT', orderReq.coin)
+    } else {
+      heading = getClosePositionHeading('HL', orderReq.coin, 'MARKET')
+    }
+  } else {
+    heading = HYPERLIQUID_MULTIPLE_POSITION_H
   }
 
   return {
@@ -570,8 +599,8 @@ export async function placeOrders(orders: OrderRequest[], meta: Meta): Promise<R
     isEoaSigner: false,
     isUserAction: true,
     isAgentRequired: false,
-    desc: 'Place Orders',
-    heading: 'Place Orders'
+    desc: EMPTY_DESC,
+    heading: heading
   }
 }
 
@@ -620,8 +649,8 @@ export async function cancelOrders(orders: CancelRequest[], meta: Meta): Promise
     isEoaSigner: false,
     isUserAction: true,
     isAgentRequired: false,
-    desc: 'Cancel Orders',
-    heading: 'Cancel Orders'
+    desc: EMPTY_DESC,
+    heading: CANCEL_ORDER_H
   }
 }
 
@@ -675,8 +704,8 @@ export async function modifyOrders(orders: ModifyRequest[], meta: Meta): Promise
     isEoaSigner: false,
     isUserAction: true,
     isAgentRequired: false,
-    desc: 'Modify Orders',
-    heading: 'Modify Orders'
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_UPDATE_ORDER_H
   }
 }
 
@@ -722,8 +751,8 @@ export async function updateLeverage(
     isEoaSigner: false,
     isUserAction: false,
     isAgentRequired: false,
-    desc: 'Update Leverage',
-    heading: 'Update Leverage'
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_UPDATE_LEVERAGE_H
   }
 }
 
@@ -770,7 +799,7 @@ export async function updateIsolatedMargin(
     isEoaSigner: false,
     isUserAction: true,
     isAgentRequired: false,
-    desc: 'Update Isoloated Margin',
-    heading: 'Update Isoloated Margin'
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_UPDATE_MARGIN_H
   }
 }

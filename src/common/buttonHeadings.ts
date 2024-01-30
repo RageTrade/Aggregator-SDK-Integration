@@ -70,7 +70,18 @@ function _getProtocolString(protocolId: ProtocolId) {
       return 'GMXv2'
     case 'SYNTHETIX_V2':
       return 'SNXv2'
+    case 'HL':
+      return 'Hyperliquid'
     default:
       return ''
   }
 }
+
+// HYPERLIQUID
+export const HYPERLIQUID_ENABLE_TRADING_H = 'HyperLiquid: Enable Trading'
+export const HYPERLIQUID_DEPOSIT_H = 'HyperLiquid: Deposit'
+export const HYPERLIQUID_WITHDRAW_H = 'HyperLiquid: Withdraw'
+export const HYPERLIQUID_UPDATE_ORDER_H = 'Update Order'
+export const HYPERLIQUID_UPDATE_LEVERAGE_H = 'Update Leverage'
+export const HYPERLIQUID_UPDATE_MARGIN_H = 'Update Margin'
+export const HYPERLIQUID_MULTIPLE_POSITION_H = 'Multiple Position Update'

@@ -92,6 +92,7 @@ import { BigNumber, ethers } from 'ethers'
 import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
 import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
 import { tokens } from '../common/tokens'
+import { EMPTY_DESC, HYPERLIQUID_DEPOSIT_H } from '../common/buttonHeadings'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -122,11 +123,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       txs.push({
         tx,
-        desc: 'Depositing into hyperliquid DEX',
+        desc: EMPTY_DESC,
         chainId: ARBITRUM,
         isUserAction: true,
         isAgentRequired: false,
-        heading: 'hyperliquid',
+        heading: HYPERLIQUID_DEPOSIT_H,
         ethRequired: BigNumber.from(0)
       })
     }
@@ -532,7 +533,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         order_type: orderData
       }
 
-      payload.push(await placeOrders([request], meta))
+      payload.push(await placeOrders([request], meta, true))
     }
 
     return payload
@@ -734,7 +735,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       })
     }
 
-    payload.push(await placeOrders(requests, meta))
+    payload.push(await placeOrders(requests, meta, false))
 
     return payload
   }
