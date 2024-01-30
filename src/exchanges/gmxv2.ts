@@ -353,8 +353,11 @@ export default class GmxV2Service implements IAdapterV1 {
 
   getProtocolInfo(): ProtocolInfo {
     const info: ProtocolInfo = {
+      hasAgent: false,
       hasAccount: false,
+      hasOrderbook: false,
       sizeDeltaInToken: false,
+      explicitFundingClaim: true,
       collateralDeltaInToken: true
     }
 

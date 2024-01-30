@@ -141,8 +141,11 @@ export default class GmxV1Adapter implements IAdapterV1 {
 
   getProtocolInfo(): ProtocolInfo {
     const info: ProtocolInfo = {
+      hasAgent: false,
       hasAccount: false,
+      hasOrderbook: false,
       sizeDeltaInToken: false,
+      explicitFundingClaim: false,
       collateralDeltaInToken: true
     }
 

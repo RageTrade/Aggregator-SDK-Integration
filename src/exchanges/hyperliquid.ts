@@ -222,8 +222,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   getProtocolInfo(): ProtocolInfo {
     const info: ProtocolInfo = {
+      hasAgent: true,
       hasAccount: true,
+      hasOrderbook: true,
       sizeDeltaInToken: true,
+      explicitFundingClaim: false,
       collateralDeltaInToken: true
     }
 

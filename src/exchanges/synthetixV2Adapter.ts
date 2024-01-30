@@ -174,8 +174,11 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
 
   getProtocolInfo(): ProtocolInfo {
     const info: ProtocolInfo = {
+      hasAgent: false,
       hasAccount: true,
+      hasOrderbook: false,
       sizeDeltaInToken: true,
+      explicitFundingClaim: false,
       collateralDeltaInToken: true
     }
 
