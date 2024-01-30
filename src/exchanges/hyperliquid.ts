@@ -708,7 +708,13 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    if (agent.protocolId !== 'HL') throw new Error('invalid protocol id')
+
+    return [await approveAgent()]
   }
 
   async closePosition(
