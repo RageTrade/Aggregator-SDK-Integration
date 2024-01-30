@@ -115,14 +115,14 @@ async function getLiqPrice() {
   const mids = await getAllMids()
   const mpBtc = parseFloat(mids[btc])
   // console.log('mpBtc: ', mpBtc)
-  estLiqPrice(w, mpBtc, 4, false, 0.00068, mpBtc, false, btc, web2Data)
+  estLiqPrice(w, mpBtc, 4, false, 0.00068, mpBtc, false, btc, web2Data, 0)
 
   // isolated testing
   const eth = 'ETH'
   const mpEth = parseFloat(mids[eth])
   // console.log('mpEth: ', mpEth)
 
-  estLiqPrice(w, mpEth, 3, true, 0.02, mpEth, false, eth, web2Data)
+  estLiqPrice(w, mpEth, 3, true, 0.02, mpEth, false, eth, web2Data, 0)
 }
 
 getLiqPrice()
