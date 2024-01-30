@@ -497,7 +497,7 @@ export default class GmxV1Service implements IExchange {
         market.indexOrIdentifier,
         0,
         order.sizeDelta,
-        market.indexOrIdentifier,
+        order.direction == 'LONG' ? market.indexOrIdentifier : this.shortTokenAddress,
         order.direction == 'LONG' ? true : false,
         order.trigger?.triggerPrice!,
         !(order.direction == 'LONG'),

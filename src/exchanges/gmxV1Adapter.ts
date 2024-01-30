@@ -488,7 +488,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           marketIndexTokenAddress,
           0,
           sizeDeltaBN,
-          marketIndexTokenAddress,
+          order.direction == 'LONG' ? marketIndexTokenAddress : this.shortTokenAddress,
           order.direction == 'LONG' ? true : false,
           triggerPriceBN,
           !(order.direction == 'LONG'),
