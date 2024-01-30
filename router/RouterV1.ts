@@ -72,8 +72,7 @@ export default class RouterV1 implements IRouterV1 {
     const promises: Promise<ActionParam[]>[] = []
 
     params.forEach((param) => {
-      if (!param.market) throw new Error('marketId required for deposit')
-      const adapter = this._checkAndGetAdapter(param.market)
+      const adapter = this.adapters[param.protocol]
       promises.push(adapter.withdraw([param]))
     })
 
