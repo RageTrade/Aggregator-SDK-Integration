@@ -28,7 +28,9 @@ import {
   OrderBook,
   ProtocolId,
   AvailableToTradeParams,
-  DepositWithdrawParams
+  DepositWithdrawParams,
+  AgentParams,
+  AgentState
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -200,6 +202,21 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
+  async getAgentState(
+    wallet: string,
+    agentParams: AgentParams[],
+    opts?: ApiOpts
+  ): Promise<AgentState[]> {
+    const promises = []
+
+    for (const each of agentParams) {
+      const adapter = this.adapters[each.protocolId]
+      promises.push(adapter.getAgentState(wallet, [each], opts))
+    }
+
+    const out = await Promise.all(promises)
+    return out.flat()
+  }
   async getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]> {
     const promises = []
     for (const marketId of marketIds) {
@@ -264,6 +281,19 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
+
+  async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    const promises: Promise<ActionParam[]>[] = []
+
+    agentParams.forEach((agent, index) => {
+      const adapter = this.adapters[agentParams[index].protocolId]
+      promises.push(adapter.authenticateAgent([agent], wallet, opts))
+    })
+
+    const out = await Promise.all(promises)
+    return out.flat()
+  }
+
   async claimFunding(wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const claimPromises: Promise<ActionParam[]>[] = []
     for (const key in this.adapters) {
