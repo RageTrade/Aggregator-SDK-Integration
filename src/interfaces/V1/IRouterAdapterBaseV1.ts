@@ -50,6 +50,18 @@ export type DepositWithdrawParams = {
   market?: Market['marketId']
 }
 
+export type AgentParams = {
+  // if address is same as currrently set address, it throws
+  // if address is zero address, it revokes
+  // if address is anything different from current set address, it revokes and sets to new one
+  agentAddress: string
+} & Protocol
+
+export type AgentState = {
+  agentAddress: string
+  isAuthenticated: boolean
+} & Protocol
+
 export type Market = {
   marketId: string // Global unique identifier for the market (ChainId:protocolId:protocolMarketId)
   chain: Chain
@@ -325,11 +337,14 @@ export interface IRouterAdapterBaseV1 {
   getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]>
 
   ///// Action api's //////
+
   increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
   updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
   cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
+
+  authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]>
 
   closePosition(
     positionInfo: PositionInfo[],
@@ -412,6 +427,8 @@ export interface IRouterAdapterBaseV1 {
   getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]>
 
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
+
+  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]>
 
   // precision can be undefined, in which case orderbooks for all precisions will be returned
   // precision starts with 1 and goes upto maxPrecision (returned in supportedMarkets()) with 1 being the least precise

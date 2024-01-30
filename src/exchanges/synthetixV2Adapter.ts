@@ -30,7 +30,9 @@ import {
   OrderBook,
   ProtocolId,
   AvailableToTradeParams,
-  DepositWithdrawParams
+  DepositWithdrawParams,
+  AgentParams,
+  AgentState
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -276,6 +278,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
   ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+  async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
+  }
+
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
@@ -465,6 +471,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     return Promise.resolve([])
+  }
+
+  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
+    throw new Error('Method not implemented.')
   }
 
   getOrderBooks(

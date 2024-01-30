@@ -28,7 +28,9 @@ import {
   TradeOperationType,
   ClaimInfo,
   AvailableToTradeParams,
-  DepositWithdrawParams
+  DepositWithdrawParams,
+  AgentParams,
+  AgentState
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -729,6 +731,10 @@ export default class GmxV2Service implements IAdapterV1 {
     }
 
     return txs
+  }
+
+  async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
   async closePosition(
@@ -1897,6 +1903,10 @@ export default class GmxV2Service implements IAdapterV1 {
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     return Promise.resolve([])
+  }
+
+  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
+    throw new Error('Method not implemented.')
   }
 
   getOrderBooks(

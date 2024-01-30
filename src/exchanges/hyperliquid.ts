@@ -38,7 +38,9 @@ import {
   MarketMode,
   ProtocolId,
   AvailableToTradeParams,
-  DepositWithdrawParams
+  DepositWithdrawParams,
+  AgentParams,
+  AgentState
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
 import {
@@ -331,6 +333,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     }
 
     return marketStates
+  }
+
+  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
+    throw new Error('Method not implemented.')
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
@@ -681,6 +687,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     payload.push(await cancelOrders(cancelledOrders, meta))
 
     return payload
+  }
+
+  async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
   }
 
   async closePosition(
