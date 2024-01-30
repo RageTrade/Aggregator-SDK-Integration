@@ -909,7 +909,7 @@ export default class SynthetixV2Service implements IExchange {
         protocolName: this.protocolIdentifier
       },
       asset: this._getTokenSymbol(futurePosition.asset.toString()),
-      roe: futurePosition.position!.pnl.toBN().div(futurePosition.position!.initialMargin.toBN())
+      roe: futurePosition.position!.pnl.div(futurePosition.position!.initialMargin).toBN()
     }
   }
 

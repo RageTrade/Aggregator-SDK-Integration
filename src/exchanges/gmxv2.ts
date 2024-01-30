@@ -1109,7 +1109,7 @@ export default class GmxV2Service implements IAdapterV1 {
         collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
         indexToken: getGmxV2TokenByAddress(posData.indexToken.address),
         protocolId: 'GMXV2',
-        roe: divFN(upnl, FixedNumber.fromValue(posData.collateralAmount.toString(), posData.collateralToken.decimals)),
+        roe: divFN(upnl, FixedNumber.fromValue(posData.collateralUsd.toString(), 30)),
         metadata: posData,
         mode: 'ISOLATED'
       })
