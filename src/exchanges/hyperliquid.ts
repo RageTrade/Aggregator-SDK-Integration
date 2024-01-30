@@ -197,10 +197,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           maxPrecision: 4,
           // TODO - add precision map
           precisionMap: {
-            1: FixedNumber.fromString('0.01'),
-            2: FixedNumber.fromString('0.1'),
-            3: FixedNumber.fromString('1'),
-            4: FixedNumber.fromString('10')
+            1: FixedNumber.fromString('10'),
+            2: FixedNumber.fromString('1'),
+            3: FixedNumber.fromString('0.1'),
+            4: FixedNumber.fromString('0.01')
           }
         }
 
@@ -1522,12 +1522,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   async getOrderBooks(
     marketIds: string[],
-    sigFigs: (number | undefined)[],
+    precision: (number | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OrderBook[]> {
     const orderBooks: OrderBook[] = []
 
-    const l2Book = await getL2Book(hlMarketIdToCoin(marketIds[0]), 5)
+    let inPrecision = precision[0]
+    inPrecision = inPrecision ? (inPrecision <= 4 && inPrecision >= 1 ? inPrecision : 1) : 1
+    inPrecision += 1
+
+    const l2Book = await getL2Book(hlMarketIdToCoin(marketIds[0]), inPrecision)
 
     const bids = this._mapLevelsToObLevels(l2Book.levels[0])
     const asks = this._mapLevelsToObLevels(l2Book.levels[1])

@@ -414,7 +414,7 @@ export interface IRouterAdapterBaseV1 {
   getMarketState(wallet: string, marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketState[]>
 
   // precision can be undefined, in which case orderbooks for all precisions will be returned
-  // precision starts with 1 and goes upto maxPrecision (returned in supportedMarkets()) with 1 being the most precise
+  // precision starts with 1 and goes upto maxPrecision (returned in supportedMarkets()) with 1 being the least precise
   getOrderBooks(
     marketIds: Market['marketId'][],
     precision: (number | undefined)[],
