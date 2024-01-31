@@ -260,15 +260,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       }
 
     let resultingMode = params.mode
-    let resultingLeverage = params.newLeverage
-
-    // this holds true irrespective of current mode and resulting mode
-    if (
-      resultingLeverage < position.position.leverage.value ||
-      resultingMode !== position.position.leverage.type.toUpperCase()
-    ) {
-      throw new Error('leverage or mode mismatch')
-    }
 
     // same side
     if (Math.sign(Number(position.position.szi)) === (params.direction == 'LONG' ? 1 : -1))
@@ -276,6 +267,18 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         isTokenAmount: true,
         amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
       }
+
+    let resultingLeverage = Math.round(
+      Number(params.sizeDelta.amount._value) / Number(params.marginDelta.amount._value)
+    )
+
+    // this holds true irrespective of current mode and resulting mode
+    if (
+      resultingLeverage < position.position.leverage.value ||
+      resultingMode !== position.position.leverage.type.toUpperCase()
+    ) {
+      throw new Error('leverage less than open position or mode mismatch')
+    }
 
     // opposite side
     const availableToTrade =
@@ -521,10 +524,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const currentLeverage = Number(position?.leverage._value || 0)
 
       const hlParams: AvailableToTradeParams<'HL'> = {
-        market: marketInfo.marketId,
-        direction: each.direction,
         mode: each.mode,
-        newLeverage: reqdLeverage
+        sizeDelta: each.sizeDelta,
+        direction: each.direction,
+        market: marketInfo.marketId,
+        marginDelta: each.marginDelta
       }
 
       const availableToTrade = await this.getAvailableToTrade(
@@ -532,9 +536,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         hlParams as AvailableToTradeParams<'HL' & this['protocolId']>
       )
 
-      const marginBasisLeverage = FixedNumber.fromString((sizeDeltaNotional / reqdLeverage).toFixed(6)).toFormat(6)
-
-      totalMarginRequired = addFN(totalMarginRequired, marginBasisLeverage)
+      totalMarginRequired = addFN(totalMarginRequired, FixedNumber.fromString(reqdLeverage.toFixed(6)))
       totalAvailableToTrade = addFN(totalAvailableToTrade, availableToTrade.amount)
 
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))

@@ -40,7 +40,13 @@ export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1' | '
   : T extends 'SYNTHETIX_V2'
   ? { market: Market['marketId'] }
   : T extends 'HL'
-  ? { market: Market['marketId']; direction: TradeDirection; mode: MarketMode; newLeverage: number }
+  ? {
+      market: Market['marketId']
+      direction: TradeDirection
+      mode: MarketMode
+      sizeDelta: AmountInfo
+      marginDelta: AmountInfo
+    }
   : never
 
 export type DepositWithdrawParams = {
