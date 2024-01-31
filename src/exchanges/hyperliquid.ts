@@ -1251,7 +1251,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const lev = this._getReqLeverage(epos, od, trigPriceN, meta)
       const levFN = FixedNumber.fromString(lev.toString())
       const curLev = epos?.position.leverage.value || 0
-      if (lev > Number(m.maxLeverage._value) || lev < Number(m.minLeverage)) throw new Error(HL_LEV_OUT_OF_BOUNDS)
       if (lev < curLev) throw new Error(HL_CANNOT_DEC_LEV)
 
       // traverseOrderBook for market orders
@@ -1691,8 +1690,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const sizeDeltaNotional = nextSizeN * trigPrice
     const marginDeltaNotional = Number(od.marginDelta.amount._value) + ePosMarginN
 
-    // round towards closest int
-    const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)
+    // round towards closest int and if marginDeltaNotional is 0, use 0.5
+    const lev = marginDeltaNotional > 0 ? Math.round(sizeDeltaNotional / marginDeltaNotional) : 0.5
 
     return lev
   }
