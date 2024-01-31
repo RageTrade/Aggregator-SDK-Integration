@@ -802,7 +802,13 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       if (!closeData.triggerData.triggerLimitPrice) {
         closeData.triggerData.triggerLimitPrice = FixedNumber.fromString(
-          roundedPrice(slippagePrice(isBuy, slippage, Number(closeData.triggerData.triggerPrice._value))).toString()
+          roundedPrice(
+            slippagePrice(
+              closeData.type === 'TAKE_PROFIT' || closeData.type === 'TAKE_PROFIT_LIMIT' ? isBuy : !isBuy,
+              slippage,
+              Number(closeData.triggerData.triggerPrice._value)
+            )
+          ).toString()
         )
       }
 
