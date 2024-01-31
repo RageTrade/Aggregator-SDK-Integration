@@ -286,43 +286,43 @@ async function getCloseTradePreview() {
   console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedSLLCOD], undefined), { depth: 4 })
 }
 
-async function getAvailableToTrade() {
-  let att = await hl.getAvailableToTrade(w, {
-    market: ethMarketId,
-    mode: 'ISOLATED',
-    direction: 'LONG',
-    newLeverage: 5
-  })
+// async function getAvailableToTrade() {
+//   let att = await hl.getAvailableToTrade(w, {
+//     market: ethMarketId,
+//     mode: 'ISOLATED',
+//     direction: 'LONG',
+//     newLeverage: 5
+//   })
 
-  console.dir(att, { depth: 6 })
+//   console.dir(att, { depth: 6 })
 
-  att = await hl.getAvailableToTrade(w, {
-    market: ethMarketId,
-    mode: 'CROSS',
-    direction: 'LONG',
-    newLeverage: 5
-  })
+//   att = await hl.getAvailableToTrade(w, {
+//     market: ethMarketId,
+//     mode: 'CROSS',
+//     direction: 'LONG',
+//     newLeverage: 5
+//   })
 
-  console.dir(att, { depth: 6 })
+//   console.dir(att, { depth: 6 })
 
-  att = await hl.getAvailableToTrade(w, {
-    market: ethMarketId,
-    mode: 'ISOLATED',
-    direction: 'SHORT',
-    newLeverage: 5
-  })
+//   att = await hl.getAvailableToTrade(w, {
+//     market: ethMarketId,
+//     mode: 'ISOLATED',
+//     direction: 'SHORT',
+//     newLeverage: 5
+//   })
 
-  console.dir(att, { depth: 6 })
+//   console.dir(att, { depth: 6 })
 
-  att = await hl.getAvailableToTrade(w, {
-    market: ethMarketId,
-    mode: 'CROSS',
-    direction: 'SHORT',
-    newLeverage: 5
-  })
+//   att = await hl.getAvailableToTrade(w, {
+//     market: ethMarketId,
+//     mode: 'CROSS',
+//     direction: 'SHORT',
+//     newLeverage: 5
+//   })
 
-  console.dir(att, { depth: 6 })
-}
+//   console.dir(att, { depth: 6 })
+// }
 
 async function getUpdateMarginPreview() {
   const positions = (await hl.getAllPositions(w, undefined)).result
