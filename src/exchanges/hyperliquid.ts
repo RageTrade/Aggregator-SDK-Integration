@@ -49,6 +49,7 @@ import {
   approveAgent,
   cancelOrders,
   checkIfRageTradeAgent,
+  checkIfRageTradeAgentInternal,
   cmpSide,
   getActiveAssetData,
   getAllMids,
@@ -470,8 +471,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const extraAgents = await getExtraAgents(wallet)
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
-      payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
     let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
@@ -594,8 +594,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const extraAgents = await getExtraAgents(wallet)
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
-      payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
     const meta = await getMeta()
     const mids = await getAllMids()
@@ -672,8 +671,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const extraAgents = await getExtraAgents(wallet)
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
-      payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
     const meta = await getMeta()
 
@@ -740,8 +738,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const extraAgents = await getExtraAgents(wallet)
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
-      payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
@@ -821,8 +818,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const extraAgents = await getExtraAgents(wallet)
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
-      payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
     const meta = await getMeta()
 

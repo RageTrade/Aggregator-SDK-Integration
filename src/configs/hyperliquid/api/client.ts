@@ -414,6 +414,17 @@ export function coinToAsset(coin: string, meta: Meta): number {
   return meta.universe.findIndex((e) => e.name === coin)
 }
 
+export async function checkIfRageTradeAgentInternal(
+  agents: Awaited<ReturnType<typeof getExtraAgents>>
+): Promise<boolean> {
+  for (const agent of agents) {
+    if (agent.name === 'rage_trade') {
+      return true
+    }
+  }
+
+  return false
+}
 export async function checkIfRageTradeAgent(
   agents: Awaited<ReturnType<typeof getExtraAgents>>,
   expectedAgentAddress: string
@@ -424,10 +435,7 @@ export async function checkIfRageTradeAgent(
         {
           protocolId: 'HL',
           agentAddress: agent.address,
-          isAuthenticated:
-            expectedAgentAddress === ethers.constants.AddressZero
-              ? true
-              : getAddress(agent.address) === getAddress(expectedAgentAddress)
+          isAuthenticated: getAddress(agent.address) === getAddress(expectedAgentAddress)
         }
       ]
     }
