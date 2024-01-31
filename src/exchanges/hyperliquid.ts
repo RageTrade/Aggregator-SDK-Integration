@@ -1264,19 +1264,19 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // next margin is always position / leverage
       let nextMargin = divFN(mulFN(nextSize, trigPrice), levFN)
-      if (!isCross && epos) {
-        // what should have been the real margin given nothing extra was added
-        const ePosMarginByLev = divFN(mulFN(eposSize, trigPrice), levFN)
+      // if (!isCross && epos) {
+      //   // what should have been the real margin given nothing extra was added
+      //   const ePosMarginByLev = divFN(mulFN(eposSize, trigPrice), levFN)
 
-        // extraMargin added by user
-        const extraMargin = subFN(ePosMargin, ePosMarginByLev)
+      //   // extraMargin added by user
+      //   const extraMargin = subFN(ePosMargin, ePosMarginByLev)
 
-        // add extra margin to nextMargin
-        nextMargin = addFN(
-          nextMargin,
-          extraMargin.gt(FixedNumber.fromString('0')) ? extraMargin : FixedNumber.fromString('0')
-        )
-      }
+      //   // add extra margin to nextMargin
+      //   nextMargin = addFN(
+      //     nextMargin,
+      //     extraMargin.gt(FixedNumber.fromString('0')) ? extraMargin : FixedNumber.fromString('0')
+      //   )
+      // }
 
       const liqPrice = estLiqPrice(
         wallet,
