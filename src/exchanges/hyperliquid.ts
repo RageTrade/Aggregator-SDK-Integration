@@ -800,6 +800,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       if (!closeData.triggerData) throw new Error('trigger data required')
 
+      if (!closeData.triggerData.triggerLimitPrice) {
+        closeData.triggerData.triggerLimitPrice = FixedNumber.fromString(
+          roundedPrice(slippagePrice(isBuy, slippage, Number(closeData.triggerData.triggerPrice._value))).toString()
+        )
+      }
+
       const { orderData, limitPrice } = populateTrigger(isBuy, price, closeData.type, closeData.triggerData)
 
       requests.push({
