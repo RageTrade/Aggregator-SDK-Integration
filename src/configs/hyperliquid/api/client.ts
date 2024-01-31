@@ -457,7 +457,7 @@ export async function withdrawFromBridge(amount: string): Promise<RequestSignerF
   return {
     fn: async (wallet: WalletClient) => {
       const payload = {
-        destination: (await wallet.getAddresses())[0],
+        destination: (await wallet.getAddresses())[0].toLowerCase(),
         usd: amount,
         time: timestamp
       }
