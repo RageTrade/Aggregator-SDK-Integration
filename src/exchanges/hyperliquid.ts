@@ -1477,7 +1477,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         : mulFN(mulFN(closeSize, trigPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS))
 
       const remainingSize = subFN(posSize, closeSize)
-      const remainingMargin = divFN(mulFN(remainingSize, trigPrice), ml)
+      const marginReqByPos = divFN(mulFN(remainingSize, trigPrice), ml)
+      const proportionalAccessibleMargin = mulFN(divFN(closeSize, posSize), pos.accessibleMargin.amount)
+      const proportionalUpnl = mulFN(divFN(closeSize, posSize), pos.unrealizedPnl)
+      const remainingMargin = addFN(addFN(marginReqByPos, proportionalAccessibleMargin), proportionalUpnl)
       const freedMargin = subFN(pos.margin.amount, remainingMargin)
       const pnl = mulFN(closeSize, subFN(trigPrice, pos.avgEntryPrice))
       const receiveMargin = isCross ? FixedNumber.fromString('0') : addFN(freedMargin, pnl)
@@ -1504,7 +1507,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         collateral: pos.collateral,
         leverage: remainingSize.isZero() ? FixedNumber.fromString('0') : ml,
         size: toAmountInfoFN(remainingSize, true),
-        margin: toAmountInfoFN(remainingMargin, true),
+        margin: isCross ? toAmountInfoFN(marginReqByPos, true) : toAmountInfoFN(remainingMargin, true),
         avgEntryPrice: pos.avgEntryPrice,
         liqudationPrice: liqPrice == null ? FixedNumber.fromString('0') : FixedNumber.fromString(liqPrice.toString()),
         fee: fee,

@@ -6,7 +6,7 @@ import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/
 import { ethers } from 'ethers'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
-const normalAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
+const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const liquidatedAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
 const w = normalAddress
 
@@ -355,7 +355,7 @@ async function testAgentState() {
 }
 
 hl.init(w).then(() => {
-  getAvailableToTrade()
+  getAllPositions()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
