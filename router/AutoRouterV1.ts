@@ -197,7 +197,10 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
         promises.push(marketWithPreviewPromise)
       }
     }
-    const out = await Promise.all(promises)
+
+    let outPromise = (await Promise.allSettled(promises)).filter(v => v.status == 'fulfilled')
+    let out = outPromise.map(o => (o as any).value)
+
     return out.map((tuple) => {
       return {
         market: tuple[0],
