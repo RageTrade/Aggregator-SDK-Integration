@@ -1,7 +1,7 @@
 import { roundedPrice } from './api/client'
-import { Level, ModifyRequest } from './api/types'
+import { Level, ModifyRequest, Tif } from './api/types'
 import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
-import { OrderType, TriggerData } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import { OrderType, TimeInForce, TriggerData } from '../../interfaces/V1/IRouterAdapterBaseV1'
 
 export function indexBasisSlippage(val: Level[], slippageBp: string): number {
   const val0p = FixedNumber.fromString(val[0].px)
@@ -19,6 +19,10 @@ export function indexBasisSlippage(val: Level[], slippageBp: string): number {
 
 export function hlMarketIdToCoin(marketId: string): string {
   return marketId.split('-')[2]
+}
+
+export function toTif(tif: TimeInForce): Tif {
+  return (tif[0].toUpperCase() + tif.slice(1).toLowerCase()) as Tif
 }
 
 export function validateTrigger(isBuy: boolean, midPrice: number, triggerPrice: number, isStop: boolean): boolean {

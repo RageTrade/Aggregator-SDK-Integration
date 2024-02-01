@@ -90,7 +90,7 @@ import {
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
-import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger } from '../configs/hyperliquid/helper'
+import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger, toTif } from '../configs/hyperliquid/helper'
 import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IERC20__factory } from '../../typechain/gmx-v2'
@@ -534,7 +534,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
     let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
-    // const marketStates = this.getMarketState(wallet, orderData.map((o) => o.marketId), opts)
 
     // TODO: cache this
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
@@ -546,16 +545,17 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // ensure size delta is in token terms
       if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
 
+      // ensure marginDelta is non-zero
+      if (each.marginDelta.amount.eq(FixedNumber.fromValue(0))) throw new Error('invalid margin delta')
+
       // get market info
-      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+      const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
+      const marketState = (await this.getMarketState(wallet, [each.marketId], opts))[0]
 
       const coin = marketInfo.indexToken.symbol
       const mode = each.mode
       const isBuy = each.direction === 'LONG'
       const slippage = each.slippage ? each.slippage / 100 : 0.01
-
-      // get position of given market (if any)
-      const position = (await this.getAllPositions(wallet, undefined)).result.find((p) => p.marketId === each.marketId)
 
       const price = Number(mids[marketInfo.indexToken.symbol])
 
@@ -577,8 +577,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marginDeltaNotional = Number(each.marginDelta.amount._value)
 
       // round towards closest int
-      const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional) // TODO: handle 0 lev, lev = ml
-      const currentLeverage = Number(position?.leverage._value || 0) // TODO: curLev = ml
+      const currentLeverage = Number(marketState.leverage._value)
+      const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
 
       const hlParams: AvailableToTradeParams<'HL'> = {
         mode: each.mode,
@@ -593,7 +593,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         hlParams as AvailableToTradeParams<'HL' & this['protocolId']>
       )
 
-      totalMarginRequired = addFN(totalMarginRequired, FixedNumber.fromString(reqdLeverage.toFixed(6))) // TODO: fix
+      totalMarginRequired = addFN(
+        totalMarginRequired,
+        FixedNumber.fromString(marginDeltaNotional.toFixed(6)).toFormat(6)
+      )
       totalAvailableToTrade = addFN(totalAvailableToTrade, availableToTrade.amount)
 
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
@@ -602,11 +605,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage !== currentLeverage)
         payload.push(await updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
 
-      // TODO: reqLev < position?.leverage => throw error
-
       // populate trigger data if required
-      // TODO: tif should be taken as input
-      let orderData: OrderRequest['order_type'] = { limit: { tif: 'Gtc' } }
+      let orderData: OrderRequest['order_type'] = { limit: { tif: toTif(each.tif || 'GTC') } }
 
       const request: OrderRequest = {
         coin: coin,

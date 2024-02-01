@@ -186,7 +186,7 @@ export type ActiveAssetData = {
 
 type Cloid = string | null
 
-type Tif = 'Alo' | 'Ioc' | 'Gtc'
+export type Tif = 'Alo' | 'Ioc' | 'Gtc'
 type Tpsl = 'tp' | 'sl'
 
 export interface LimitOrderType {
