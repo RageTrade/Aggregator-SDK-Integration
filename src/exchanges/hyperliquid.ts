@@ -262,46 +262,90 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const clearinghouseState = await getClearinghouseState(wallet)
     const withdrawable = Number(clearinghouseState.withdrawable)
 
-    const assetPositions = clearinghouseState.assetPositions
-    const position = assetPositions.find((p) => p.position.coin === market.marketSymbol)
-
-    if (!position)
-      return {
-        isTokenAmount: true,
-        amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
-      }
-
-    let resultingMode = params.mode
-
-    // same side
-    if (Math.sign(Number(position.position.szi)) === (params.direction == 'LONG' ? 1 : -1))
-      return {
-        isTokenAmount: true,
-        amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
-      }
-
-    let resultingLeverage = Math.round(
-      Number(params.sizeDelta.amount._value) / Number(params.marginDelta.amount._value)
-    )
-
-    // this holds true irrespective of current mode and resulting mode
-    if (
-      resultingLeverage < position.position.leverage.value ||
-      resultingMode !== position.position.leverage.type.toUpperCase()
-    ) {
-      throw new Error('leverage less than open position or mode mismatch')
-    }
-
-    // opposite side
-    const availableToTrade =
-      withdrawable +
-      Number(position.position.marginUsed) +
-      Math.abs(Number(position.position.positionValue) / resultingLeverage)
-
     return {
       isTokenAmount: true,
-      amount: FixedNumber.fromString(availableToTrade.toFixed(6)).toFormat(6)
+      amount: FixedNumber.fromString(withdrawable.toFixed(6)).toFormat(6)
     }
+
+    // const assetPositions = clearinghouseState.assetPositions
+    // const position = assetPositions.find((p) => p.position.coin === market.marketSymbol)
+    //
+    // const orders = (await getOpenOrders(wallet)).filter((o) => o.coin === market.marketSymbol)
+    // const statusPromise = orders.map((o) => getOrderStatus(wallet, o.oid))
+    // const status = (await Promise.all(statusPromise)).map((o) => o.order.order)
+    //
+    // const mids = await cacheFetch({
+    //   key: [HL_CACHE_PREFIX, 'allMids'],
+    //   fn: () => getAllMids(),
+    //   staleTime: 30,
+    //   cacheTime: 30 * CACHE_TIME_MULT
+    // })
+    //
+    // // discard trigger (i.e position TP/SL/TPL/SLL) orders
+    // // consider any "limit {side} open" as opened and reduce ATT by that
+    // // consider any "limit {side} close" as non-effective
+    // // consider any "limit {opposite_side} open" as non-effective
+    // // consider any "limit {opposite_side} close" as closed and reduce ATT by that
+    // // marginUsed reduces on update leverage for cross
+    // // withdrawable increases on update leverage for cross
+    // // there can be only max "limit {opposite_side} close" upto size of current position
+    //
+    // const filtered = status.filter(
+    //   (o) =>
+    //     (o.isTrigger === false && o.side === (params.direction === 'LONG' ? 'A' : 'B') && o.reduceOnly === false) ||
+    //     (o.isTrigger === false && o.side === (params.direction === 'LONG' ? 'B' : 'A') && o.reduceOnly === true)
+    // )
+    //
+    // let ordersAdjustment = 0
+    //
+    // for (const each of filtered) {
+    //   ordersAdjustment += Number(each.limitPx) * Number(each.sz)
+    // }
+    //
+    // let resultingLeverage = Math.round(
+    //   (Number(params.sizeDelta.amount._value) * Number(mids[hlMarketIdToCoin(params.market)])) /
+    //   Number(params.marginDelta.amount._value) // TODO: when marginDelta is 0
+    // )
+    //
+    // let resultingMode = params.mode
+    //
+    // ordersAdjustment /= resultingLeverage
+    //
+    // console.log({ filtered, ordersAdjustment, resultingLeverage })
+    //
+    // // no position, but adjusted by open orders and withdrawable
+    // if (!position)
+    //   return {
+    //     isTokenAmount: true,
+    //     amount: FixedNumber.fromString((withdrawable - ordersAdjustment).toFixed(6)).toFormat(6)
+    //   }
+    //
+    // // this holds true irrespective of current mode and resulting mode
+    // if (
+    //   resultingLeverage < position.position.leverage.value ||
+    //   resultingMode !== position.position.leverage.type.toUpperCase()
+    // ) {
+    //   throw new Error('leverage less than open position or mode mismatch')
+    // }
+    //
+    // // same side
+    // if (Math.sign(Number(position.position.szi)) === (params.direction == 'LONG' ? 1 : -1))
+    //   return {
+    //     isTokenAmount: true,
+    //     amount: FixedNumber.fromString((withdrawable + ordersAdjustment).toFixed(6)).toFormat(6)
+    //   }
+    //
+    // // opposite side
+    // const availableToTrade =
+    //   withdrawable +
+    //   Number(position.position.marginUsed) +
+    //   Math.abs(Number(position.position.positionValue) / resultingLeverage) -
+    //   ordersAdjustment
+    //
+    // return {
+    //   isTokenAmount: true,
+    //   amount: FixedNumber.fromString(availableToTrade.toFixed(6)).toFormat(6)
+    // }
   }
 
   async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {

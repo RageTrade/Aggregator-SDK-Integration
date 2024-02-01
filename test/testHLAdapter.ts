@@ -6,7 +6,7 @@ import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/
 import { ethers } from 'ethers'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
-const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
+const normalAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
 const liquidatedAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
 const w = normalAddress
 
@@ -286,43 +286,49 @@ async function getCloseTradePreview() {
   console.dir(await hl.getCloseTradePreview(w, [ethPosition], [isolatedSLLCOD], undefined), { depth: 4 })
 }
 
-// async function getAvailableToTrade() {
-//   let att = await hl.getAvailableToTrade(w, {
-//     market: ethMarketId,
-//     mode: 'ISOLATED',
-//     direction: 'LONG',
-//     newLeverage: 5
-//   })
+async function getAvailableToTrade() {
+  let att
 
-//   console.dir(att, { depth: 6 })
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'ISOLATED',
+    direction: 'LONG',
+    sizeDelta: { amount: FixedNumber.fromString('0.0210'), isTokenAmount: true },
+    marginDelta: { amount: FixedNumber.fromString('2.08'), isTokenAmount: true }
+  })
 
-//   att = await hl.getAvailableToTrade(w, {
-//     market: ethMarketId,
-//     mode: 'CROSS',
-//     direction: 'LONG',
-//     newLeverage: 5
-//   })
+  console.dir(att, { depth: 6 })
 
-//   console.dir(att, { depth: 6 })
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'CROSS',
+    direction: 'LONG',
+    sizeDelta: { amount: FixedNumber.fromString('0.0210'), isTokenAmount: true },
+    marginDelta: { amount: FixedNumber.fromString('2.08'), isTokenAmount: true }
+  })
 
-//   att = await hl.getAvailableToTrade(w, {
-//     market: ethMarketId,
-//     mode: 'ISOLATED',
-//     direction: 'SHORT',
-//     newLeverage: 5
-//   })
+  console.dir(att, { depth: 6 })
 
-//   console.dir(att, { depth: 6 })
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'ISOLATED',
+    direction: 'SHORT',
+    sizeDelta: { amount: FixedNumber.fromString('0.005'), isTokenAmount: true },
+    marginDelta: { amount: FixedNumber.fromString('1.5'), isTokenAmount: true }
+  })
 
-//   att = await hl.getAvailableToTrade(w, {
-//     market: ethMarketId,
-//     mode: 'CROSS',
-//     direction: 'SHORT',
-//     newLeverage: 5
-//   })
+  console.dir(att, { depth: 6 })
 
-//   console.dir(att, { depth: 6 })
-// }
+  att = await hl.getAvailableToTrade(w, {
+    market: ethMarketId,
+    mode: 'CROSS',
+    direction: 'SHORT',
+    sizeDelta: { amount: FixedNumber.fromString('0.0210'), isTokenAmount: true },
+    marginDelta: { amount: FixedNumber.fromString('2.08'), isTokenAmount: true }
+  })
+
+  console.dir(att, { depth: 6 })
+}
 
 async function getUpdateMarginPreview() {
   const positions = (await hl.getAllPositions(w, undefined)).result
@@ -349,7 +355,7 @@ async function testAgentState() {
 }
 
 hl.init(w).then(() => {
-  getOpenTradePreviewIso()
+  getAvailableToTrade()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
