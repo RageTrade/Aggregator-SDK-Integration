@@ -1555,7 +1555,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const mid = mids[coin]
       const isAddMargin = isDeposit[i]
       const mp = FixedNumber.fromString(mid, 30)
-      const margin = isAddMargin ? marginDelta[i].amount : marginDelta[i].amount.mul(FixedNumber.fromString('-1'))
+      const margin = isAddMargin ? marginDelta[i].amount : mulFN(marginDelta[i].amount, FixedNumber.fromString('-1'))
       const marginN = Number(margin._value)
 
       if (!validDenomination(marginDelta[i], true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
