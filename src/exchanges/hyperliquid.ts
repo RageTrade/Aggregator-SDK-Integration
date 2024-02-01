@@ -490,6 +490,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
     let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
+    // const marketStates = this.getMarketState(wallet, orderData.map((o) => o.marketId), opts)
 
     // TODO: cache this
     const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
@@ -532,8 +533,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marginDeltaNotional = Number(each.marginDelta.amount._value)
 
       // round towards closest int
-      const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
-      const currentLeverage = Number(position?.leverage._value || 0)
+      const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional) // TODO: handle 0 lev, lev = ml
+      const currentLeverage = Number(position?.leverage._value || 0) // TODO: curLev = ml
 
       const hlParams: AvailableToTradeParams<'HL'> = {
         mode: each.mode,
@@ -548,7 +549,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         hlParams as AvailableToTradeParams<'HL' & this['protocolId']>
       )
 
-      totalMarginRequired = addFN(totalMarginRequired, FixedNumber.fromString(reqdLeverage.toFixed(6)))
+      totalMarginRequired = addFN(totalMarginRequired, FixedNumber.fromString(reqdLeverage.toFixed(6))) // TODO: fix
       totalAvailableToTrade = addFN(totalAvailableToTrade, availableToTrade.amount)
 
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
@@ -557,7 +558,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage !== currentLeverage)
         payload.push(await updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
 
+      // TODO: reqLev < position?.leverage => throw error
+
       // populate trigger data if required
+      // TODO: tif should be taken as input
       let orderData: OrderRequest['order_type'] = { limit: { tif: 'Gtc' } }
 
       const request: OrderRequest = {
@@ -1275,19 +1279,19 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // next margin is always position / leverage
       let nextMargin = divFN(mulFN(nextSize, trigPrice), levFN)
-      // if (!isCross && epos) {
-      //   // what should have been the real margin given nothing extra was added
-      //   const ePosMarginByLev = divFN(mulFN(eposSize, trigPrice), levFN)
+      if (!isCross && epos) {
+        // what should have been the real margin given nothing extra was added
+        const ePosMarginByLev = divFN(mulFN(eposSize, trigPrice), levFN)
 
-      //   // extraMargin added by user
-      //   const extraMargin = subFN(ePosMargin, ePosMarginByLev)
+        // extraMargin added by user
+        const extraMargin = subFN(ePosMargin, ePosMarginByLev)
 
-      //   // add extra margin to nextMargin
-      //   nextMargin = addFN(
-      //     nextMargin,
-      //     extraMargin.gt(FixedNumber.fromString('0')) ? extraMargin : FixedNumber.fromString('0')
-      //   )
-      // }
+        // add extra margin to nextMargin
+        nextMargin = addFN(
+          nextMargin,
+          extraMargin.gt(FixedNumber.fromString('0')) ? extraMargin : FixedNumber.fromString('0')
+        )
+      }
 
       const liqPrice = estLiqPrice(
         wallet,
@@ -1675,8 +1679,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   _getReqLeverage(epos: AssetPosition | undefined, od: CreateOrder, trigPrice: number, meta: Meta): number {
-    const eposSizeN = epos ? Number(epos.position.szi) : 0
-    const ePosMarginN = epos ? Number(epos.position.marginUsed) : 0
+    // const eposSizeN = epos ? Number(epos.position.szi) : 0
+    // const ePosMarginN = epos ? Number(epos.position.marginUsed) : 0
 
     const orderSizeN = roundedSize(
       Number(od.sizeDelta.amount._value),
@@ -1684,20 +1688,22 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     )
 
     // next size is pos.size + orderSize if direction is same else pos.size - orderSize
-    let nextSizeN = epos
-      ? this._getDirection(epos) == od.direction
-        ? eposSizeN + orderSizeN
-        : eposSizeN - orderSizeN
-      : orderSizeN
-    // get absolute value
-    nextSizeN = nextSizeN < 0 ? nextSizeN * -1 : nextSizeN
+    // let nextSizeN = epos
+    //   ? this._getDirection(epos) == od.direction
+    //     ? eposSizeN + orderSizeN
+    //     : eposSizeN - orderSizeN
+    //   : orderSizeN
+    // // get absolute value
+    // nextSizeN = nextSizeN < 0 ? nextSizeN * -1 : nextSizeN
 
-    // calculate leverage using nextSizeN and marginDelta
-    const sizeDeltaNotional = nextSizeN * trigPrice
-    const marginDeltaNotional = Number(od.marginDelta.amount._value) + ePosMarginN
+    // calculate leverage using orderSizeN and marginDelta
+    const sizeDeltaNotional = orderSizeN * trigPrice
+    const marginDeltaNotional = Number(od.marginDelta.amount._value)
 
-    // round towards closest int and if marginDeltaNotional is 0, use 0.5
-    const lev = marginDeltaNotional > 0 ? Math.round(sizeDeltaNotional / marginDeltaNotional) : 0.5
+    if (marginDeltaNotional == 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+
+    // round towards closest int
+    const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)
 
     return lev
   }
