@@ -20,7 +20,12 @@ import {
   updateIsolatedMargin,
   updateLeverage
 } from '../src/configs/hyperliquid/api/client'
-import { ActionParam, UnsignedTransactionWithMetadata, isRequestSignerFn } from '../src/interfaces/IActionExecutor'
+import {
+  ActionParam,
+  UnsignedTransactionWithMetadata,
+  isRequestSignerFn,
+  isUnsignedTxWithMetadata
+} from '../src/interfaces/IActionExecutor'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
 import {
   CancelOrder,
@@ -34,7 +39,7 @@ import {
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
-import { mainnet } from 'viem/chains'
+import { arbitrum, mainnet } from 'viem/chains'
 
 async function main() {
   const hl = new HyperliquidAdapterV1()
@@ -211,12 +216,14 @@ async function main() {
   // console.log(await checkIfRageTradeAgent(wallet.address))
 }
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
 const hl = new HyperliquidAdapterV1()
 
 const wallet = createWalletClient({
   account: privateKeyToAccount('0x_INPUT_PK'),
   transport: http(),
-  chain: mainnet
+  chain: arbitrum
 })
 
 console.log('using wallet', wallet.account.address)
@@ -224,13 +231,28 @@ console.log('using wallet', wallet.account.address)
 const agentWallet = createWalletClient({
   account: privateKeyToAccount('0x_INPUT_PK'),
   transport: http(),
-  chain: mainnet
+  chain: arbitrum
 })
 
 console.log('using agent wallet', agentWallet.account.address)
 
 async function execute(executionPayload: ActionParam[]) {
   for (const payload of executionPayload) {
+    if (isUnsignedTxWithMetadata(payload)) {
+      const tx = await wallet.sendTransaction({
+        chain: arbitrum,
+        to: payload.tx.to as `0x${string}`,
+        data: payload.tx.data as `0x${string}`,
+        gasPrice: 100000000n
+      })
+
+      console.log(payload.heading, 'success')
+      console.dir(tx, { depth: 6 })
+
+      await sleep(2000)
+      continue
+    }
+
     if (!isRequestSignerFn(payload)) continue
 
     // is submitting
@@ -242,25 +264,24 @@ async function execute(executionPayload: ActionParam[]) {
     if (!fetchPayload) continue
 
     // is executing
-    fetch(...fetchPayload)
-      .then(async (res) => {
-        if (res.ok) {
-          // is success
-          const data = await res.json()
-          console.log(payload.heading, 'success')
-          console.dir(data, { depth: 6 })
-          return
-        }
+    const res = await fetch(...fetchPayload).catch((e) => {
+      // failure
+      console.log(payload.heading, 'failed (catch block)')
+      console.dir(e.body, { depth: 6 })
+    })
 
-        // failure
-        console.log(payload.heading, 'failed (not ok code)')
-        console.dir(res, { depth: 6 })
-      })
-      .catch((e) => {
-        // failure
-        console.log(payload.heading, 'failed (catch block)')
-        console.dir(e.body, { depth: 6 })
-      })
+    if (!res) throw new Error('res not found')
+
+    if (res.ok) {
+      // is success
+      const data = await res.json()
+      console.log(payload.heading, 'success')
+      console.dir(data, { depth: 6 })
+    } else {
+      // failure
+      console.log(payload.heading, 'failed (not ok code)')
+      console.dir(res, { depth: 6 })
+    }
   }
 }
 
@@ -271,19 +292,8 @@ async function testIncreaseOrder() {
     {
       marketId: market.marketId,
       direction: 'SHORT',
-      sizeDelta: { amount: FixedNumber.fromString('0.0618'), isTokenAmount: true },
-      marginDelta: { amount: FixedNumber.fromString('23.84'), isTokenAmount: true },
-      triggerData: undefined,
-      collateral: HL_COLLATERAL_TOKEN,
-      type: 'MARKET',
-      mode: 'ISOLATED',
-      slippage: undefined
-    },
-    {
-      marketId: market.marketId,
-      direction: 'LONG',
-      sizeDelta: { amount: FixedNumber.fromString('0.0618'), isTokenAmount: true },
-      marginDelta: { amount: FixedNumber.fromString('23.84'), isTokenAmount: true },
+      sizeDelta: { amount: FixedNumber.fromString('0.01'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('6.117002'), isTokenAmount: true },
       triggerData: undefined,
       collateral: HL_COLLATERAL_TOKEN,
       type: 'MARKET',
@@ -295,7 +305,7 @@ async function testIncreaseOrder() {
   const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  // await execute(executionPayload)
+  await execute(executionPayload)
 }
 
 async function testUpdateOrder() {
