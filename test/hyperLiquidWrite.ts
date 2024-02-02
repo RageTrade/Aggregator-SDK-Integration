@@ -13,6 +13,7 @@ import {
   getExtraAgents,
   getMeta,
   getOpenOrders,
+  getPoints,
   getWebdata2,
   modifyOrders,
   placeOrders,
@@ -226,14 +227,13 @@ const wallet = createWalletClient({
   chain: arbitrum
 })
 
-console.log('using wallet', wallet.account.address)
-
 const agentWallet = createWalletClient({
   account: privateKeyToAccount('0x_INPUT_PK'),
   transport: http(),
   chain: arbitrum
 })
 
+console.log('using wallet', wallet.account.address)
 console.log('using agent wallet', agentWallet.account.address)
 
 async function execute(executionPayload: ActionParam[]) {
@@ -435,6 +435,11 @@ async function testSetReferralCode() {
   await execute([params])
 }
 
+async function testPoints() {
+  const data = await getPoints(wallet.account.address, agentWallet)
+  console.dir(data, { depth: 6 })
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
 // testCancelOrder()
@@ -442,3 +447,4 @@ async function testSetReferralCode() {
 // testClosePosition()
 // testAuthenticateAgent()
 // testSetReferralCode()
+// testPoints()
