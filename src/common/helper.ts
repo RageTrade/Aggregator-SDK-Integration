@@ -135,3 +135,89 @@ export function validDenomination(amount: AmountInfo, isReqDenominationTokens: b
 export function isStrEq(a: string, b: string): boolean {
   return a.toLowerCase() === b.toLowerCase()
 }
+
+export function reverseString(s: string): string {
+  if (s === '') return ''
+
+  return reverseString(s.substring(1)) + s[0]
+}
+
+export function countSignificantDigits(inputNumber: number): number {
+  if (inputNumber == 0) return 1
+  inputNumber = Math.abs(inputNumber)
+
+  // Convert the number to a string to manipulate individual digits
+  const numberString: string = inputNumber.toString()
+
+  // Check if the number has a decimal point
+  const hasDecimalPoint: boolean = numberString.includes('.')
+
+  // Split the number into integer and decimal parts
+  const [integerPart, decimalPart] = hasDecimalPoint ? numberString.split('.') : [numberString, '']
+
+  const integerPartNumber: number = Number(integerPart)
+  const decimalPartNumber: number = decimalPart == '' ? 0 : Number(decimalPart)
+
+  // Count the significant digits in the integer part
+  let significantDigitsCount: number = 0
+  if (integerPartNumber > 0) {
+    if (decimalPartNumber > 0) {
+      // if there is decimal number, all the digits in the integer part are significant
+      significantDigitsCount += integerPartNumber.toString().length
+    } else {
+      // if there is no decimal number, only the leading non-zero digits in the integer part are significant
+      significantDigitsCount += Number(reverseString(integerPart)).toString().length
+    }
+  }
+
+  // Count the significant digits in the decimal part
+  if (decimalPartNumber > 0) {
+    if (integerPartNumber > 0) {
+      // if there is integer number, all the digits in the decimal part are significant
+      significantDigitsCount += decimalPart.length
+    } else {
+      // if there is no integer number, only the trailing non-zero digits in the decimal part are significant
+      significantDigitsCount += decimalPartNumber.toString().length
+    }
+  }
+
+  return significantDigitsCount
+}
+
+export function precisionFromNumber(inputNumber: number): number {
+  inputNumber = Math.abs(inputNumber)
+  // console.log(`inputNumber: ${inputNumber}`)
+
+  if (inputNumber == 0) return 1
+
+  // Convert the number to a string to manipulate individual digits
+  const numberString: string = inputNumber.toString()
+
+  // Check if the number has a decimal point
+  const hasDecimalPoint: boolean = numberString.includes('.')
+
+  // Split the number into integer and decimal parts
+  const [integerPart, decimalPart] = hasDecimalPoint ? numberString.split('.') : [numberString, '']
+  const integerPartNumber: number = Number(integerPart)
+  const decimalPartNumber: number = decimalPart == '' ? 0 : Number(decimalPart)
+
+  if (decimalPartNumber > 0) {
+    let actualPrecision = '0.'
+    for (let i = 0; i < decimalPart.length - 1; i++) {
+      actualPrecision += '0'
+    }
+    actualPrecision += '1'
+    return Number(actualPrecision)
+  }
+
+  let actualPrecision = ''
+  for (let i = integerPart.length - 1; i >= 0; i--) {
+    if (integerPart[i] == '0') {
+      actualPrecision = '0' + actualPrecision
+    } else {
+      actualPrecision = '1' + actualPrecision
+      break
+    }
+  }
+  return Number(actualPrecision)
+}

@@ -5,6 +5,7 @@ import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
 import { HL_COLLATERAL_TOKEN, getAllMids, getReferralData } from '../src/configs/hyperliquid/api/client'
 import { ethers } from 'ethers'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
+import { openHLWssConnection, subscribeOrderBook } from '../src/configs/hyperliquid/api/wsclient'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const liquidatedAddress = '0xbbbD3DcB64f18Dd4dF81c2bA81Ed79c142B31913'
@@ -353,13 +354,25 @@ async function testAgentState() {
     ])
   )
 }
+const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
+
+async function getOrderBooksViaWssConnection() {
+  openHLWssConnection()
+  await delay(1000)
+
+  subscribeOrderBook('BTC', undefined)
+  await delay(2000)
+
+  const orderBooks = await hl.getOrderBooks([btcMarketId, ethMarketId], [undefined, 2])
+  console.dir(orderBooks, { depth: 6 })
+}
 
 async function testRefData() {
   console.log(await getReferralData(w))
 }
 
 hl.init(w).then(() => {
-  testRefData()
+  getOrderBooksViaWssConnection()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

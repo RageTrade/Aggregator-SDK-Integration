@@ -92,8 +92,22 @@ import {
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
 import { parseUnits } from 'ethers/lib/utils'
-import { hlMarketIdToCoin, indexBasisSlippage, populateTrigger, toTif } from '../configs/hyperliquid/helper'
-import { getPaginatedResponse, toAmountInfo, toAmountInfoFN, validDenomination } from '../common/helper'
+import {
+  hlMarketIdToCoin,
+  indexBasisSlippage,
+  populateTrigger,
+  toTif,
+  hlMapLevelsToOBLevels,
+  calcHlMaxSigFigData
+} from '../configs/hyperliquid/helper'
+import {
+  getPaginatedResponse,
+  toAmountInfo,
+  toAmountInfoFN,
+  validDenomination,
+  countSignificantDigits,
+  precisionFromNumber
+} from '../common/helper'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IERC20__factory } from '../../typechain/gmx-v2'
 import { ARBITRUM } from '../configs/gmx/chains'
@@ -111,6 +125,7 @@ import {
   HL_CANNOT_DEC_LEV,
   HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
+import { hlGetCachedOrderBook } from '../configs/hyperliquid/api/wsclient'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -1669,36 +1684,59 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   ): Promise<OrderBook[]> {
     const orderBooks: OrderBook[] = []
 
-    let inPrecision = precision[0]
-    inPrecision = inPrecision ? (inPrecision <= 4 && inPrecision >= 1 ? inPrecision : 1) : 1
-    inPrecision += 1
+    for (let i = 0; i < marketIds.length; ++i) {
+      const mId = marketIds[i]
+      const coin = hlMarketIdToCoin(mId)
+      const pre = precision[i]
 
-    const l2Book = await getL2Book(hlMarketIdToCoin(marketIds[0]), inPrecision)
+      if (pre) {
+        const precisionOBData: Record<number, OBData> = {}
+        const obData = hlGetCachedOrderBook(coin, pre)
+        precisionOBData[pre] = obData ? obData : await this._getApiObData(mId, pre, opts)
 
-    const bids = this._mapLevelsToObLevels(l2Book.levels[0])
-    const asks = this._mapLevelsToObLevels(l2Book.levels[1])
+        orderBooks.push({
+          marketId: mId,
+          precisionOBData: precisionOBData
+        })
+      } else {
+        const precisionOBData: Record<number, OBData> = {}
+
+        // get obData for all precisions
+        for (let j = 1; j <= 4; ++j) {
+          const obData = hlGetCachedOrderBook(coin, j)
+          precisionOBData[j] = obData ? obData : await this._getApiObData(mId, j, opts)
+        }
+
+        orderBooks.push({
+          marketId: mId,
+          precisionOBData: precisionOBData
+        })
+      }
+    }
+
+    return orderBooks
+  }
+
+  async _getApiObData(marketId: string, precision: number, opts?: ApiOpts | undefined): Promise<OBData> {
+    const l2Book = await getL2Book(hlMarketIdToCoin(marketId), precision)
+
+    const { actualPrecision } = calcHlMaxSigFigData(l2Book)
+
+    const bids = hlMapLevelsToOBLevels(l2Book.levels[0])
+    const asks = hlMapLevelsToOBLevels(l2Book.levels[1])
 
     const spread = subFN(asks[0].price, bids[0].price)
     const spreadPercent = mulFN(divFN(spread, asks[0].price), FixedNumber.fromString('100'))
 
-    const preObData: Record<string, OBData> = {}
-
     const obData: OBData = {
-      actualPrecision: FixedNumber.fromString('0.1'),
+      actualPrecision: FixedNumber.fromString(actualPrecision.toString()),
       bids: bids,
       asks: asks,
       spread: spread,
       spreadPercent: spreadPercent
     }
 
-    preObData[1] = obData
-
-    orderBooks.push({
-      marketId: marketIds[0],
-      precisionOBData: preObData
-    })
-
-    return orderBooks
+    return obData
   }
 
   async _populateMeta(opts?: ApiOpts) {
@@ -1710,28 +1748,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       cacheTime: sTimeMarkets * CACHE_TIME_MULT,
       opts: opts
     })
-  }
-
-  _mapLevelsToObLevels(levels: Level[]): OBLevel[] {
-    const obLevels: OBLevel[] = []
-    let totalSz = FixedNumber.fromString('0')
-    let totalSzUsd = FixedNumber.fromString('0')
-    for (const level of levels) {
-      const price = FixedNumber.fromString(level.px)
-      const sizeToken = FixedNumber.fromString(level.sz)
-      const sizeUsd = mulFN(price, sizeToken)
-      totalSz = addFN(totalSz, sizeToken)
-      totalSzUsd = addFN(totalSzUsd, sizeUsd)
-      obLevels.push({
-        price: FixedNumber.fromString(level.px),
-        sizeToken: FixedNumber.fromString(level.sz),
-        sizeUsd: sizeUsd,
-        totalSizeToken: totalSz,
-        totalSizeUsd: totalSzUsd
-      })
-    }
-
-    return obLevels
   }
 
   async _preWarmCache(wallet: string | undefined) {

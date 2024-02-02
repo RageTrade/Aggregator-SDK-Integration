@@ -1,6 +1,7 @@
 export const HL_BASE_URL = 'https://api.hyperliquid.xyz'
 export const HL_INFO_URL = `${HL_BASE_URL}/info`
 export const HL_EXCHANGE_URL = `${HL_BASE_URL}/exchange`
+export const HL_WSS_URL = 'wss://api.hyperliquid.xyz/ws'
 
 import { defineChain } from 'viem'
 import { arbitrum } from 'viem/chains'

@@ -1,7 +1,8 @@
 import { roundedPrice } from './api/client'
-import { Level, ModifyRequest, Tif } from './api/types'
-import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
-import { OrderType, TimeInForce, TriggerData } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import { L2Book, Level, ModifyRequest, Tif } from './api/types'
+import { FixedNumber, abs, bipsDiff, addFN, mulFN } from '../../common/fixedNumber'
+import { OrderType, TriggerData, OBLevel, TimeInForce } from '../../interfaces/V1/IRouterAdapterBaseV1'
+import { countSignificantDigits, precisionFromNumber } from '../../common/helper'
 
 export function indexBasisSlippage(val: Level[], slippageBp: string): number {
   const val0p = FixedNumber.fromString(val[0].px)
@@ -74,5 +75,62 @@ export function populateTrigger(
     }
 
     return { orderData, limitPrice: triggerLimitPrice }
+  }
+}
+
+export function hlMapLevelsToOBLevels(levels: Level[]): OBLevel[] {
+  const obLevels: OBLevel[] = []
+  let totalSz = FixedNumber.fromString('0')
+  let totalSzUsd = FixedNumber.fromString('0')
+  for (const level of levels) {
+    const price = FixedNumber.fromString(level.px)
+    const sizeToken = FixedNumber.fromString(level.sz)
+    const sizeUsd = mulFN(price, sizeToken)
+    totalSz = addFN(totalSz, sizeToken)
+    totalSzUsd = addFN(totalSzUsd, sizeUsd)
+    obLevels.push({
+      price: FixedNumber.fromString(level.px),
+      sizeToken: FixedNumber.fromString(level.sz),
+      sizeUsd: sizeUsd,
+      totalSizeToken: totalSz,
+      totalSizeUsd: totalSzUsd
+    })
+  }
+
+  return obLevels
+}
+
+export type HlMaxSigFigsData = {
+  maxSigFigs: number
+  maxSigFigPrice: number
+  actualPrecision: FixedNumber
+}
+
+export function calcHlMaxSigFigData(l2Book: L2Book): HlMaxSigFigsData {
+  let maxSigFigs = 0
+  let maxSigFigPrice = 0
+  l2Book.levels[0].forEach((l) => {
+    const price = Number(l.px)
+    const sigFigs = countSignificantDigits(price)
+    if (sigFigs > maxSigFigs) {
+      maxSigFigs = sigFigs
+      maxSigFigPrice = price
+    }
+  })
+  l2Book.levels[1].forEach((l) => {
+    const price = Number(l.px)
+    const sigFigs = countSignificantDigits(price)
+    if (sigFigs > maxSigFigs) {
+      maxSigFigs = sigFigs
+      maxSigFigPrice = price
+    }
+  })
+
+  const actualPrecision = precisionFromNumber(maxSigFigPrice)
+
+  return {
+    maxSigFigs,
+    maxSigFigPrice,
+    actualPrecision: FixedNumber.fromString(actualPrecision.toString())
   }
 }
