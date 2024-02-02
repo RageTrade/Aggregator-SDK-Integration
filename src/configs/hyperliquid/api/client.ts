@@ -46,6 +46,8 @@ import { AgentState, TradeDirection } from '../../../interfaces/V1/IRouterAdapte
 const BASE_TYPE_WITH_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')
 const BASE_TYPE_WITHOUT_CLOID = ethers.utils.ParamType.from('(uint32,bool,uint64,uint64,bool,uint8,uint64)[]')
 
+const REFERRAL_CODE = 'RAGETRADE'
+
 export const HL_TOKENS_MAP: Record<
   string,
   Token & {
@@ -816,6 +818,43 @@ export async function updateIsolatedMargin(
         nonce: timestamp,
         signature: rawSignature
       })
+
+      return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
+    },
+    chainId: 1337,
+    isEoaSigner: false,
+    isUserAction: true,
+    isAgentRequired: false,
+    desc: EMPTY_DESC,
+    heading: HYPERLIQUID_UPDATE_MARGIN_H
+  }
+}
+
+export async function setReferralCode(): Promise<RequestSignerFnWithMetadata> {
+  const timestamp = Math.floor(new Date().getTime())
+
+  const signatureTypes = [ethers.utils.ParamType.from('string')]
+
+  return {
+    fn: async (wallet: WalletClient) => {
+      const signature = (await signL1Action(wallet, signatureTypes, [REFERRAL_CODE], timestamp)).slice(2)
+
+      const rawSignature = {
+        r: '0x' + signature.slice(0, 64),
+        s: '0x' + signature.slice(64, 128),
+        v: parseInt(signature.slice(128), 16)
+      }
+
+      const reqData = JSON.stringify({
+        action: {
+          type: 'setReferrer',
+          code: REFERRAL_CODE
+        },
+        nonce: timestamp,
+        signature: rawSignature
+      })
+
+      console.log({ reqData })
 
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },

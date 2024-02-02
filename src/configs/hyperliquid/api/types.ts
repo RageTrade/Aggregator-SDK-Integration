@@ -290,3 +290,37 @@ export interface WebData2 {
   twapStates: any[]
   user: string
 }
+
+export interface ReferredBy {
+  code: string
+  referrer: string
+}
+
+interface UserData {
+  cumFeesRewardedToReferrer: string
+  cumRewardedFeesSinceReferred: string
+  cumVlm: string
+  timeJoined: number
+  user: string
+}
+
+export interface ReferrerStateData {
+  required?: string // if status === "needToTrade" can be interpreted as number
+  referralStates?: UserData[]
+}
+
+export interface ReferrerState {
+  data: ReferrerStateData
+  stage: 'needToTrade' | 'ready'
+}
+
+export interface RewardHistoryItem {}
+
+export interface ReferralResponse {
+  claimedRewards: string // can be interpreted as number
+  cumVlm: string // can be interpreted as number
+  referredBy: ReferredBy
+  referrerState: ReferrerState
+  rewardHistory: RewardHistoryItem[]
+  unclaimedRewards: string // can be interpreted as number
+}
