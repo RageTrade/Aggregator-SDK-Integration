@@ -865,8 +865,6 @@ export async function setReferralCode(): Promise<RequestSignerFnWithMetadata> {
         signature: rawSignature
       })
 
-      console.log({ reqData })
-
       return makeRequestExecutable(HL_EXCHANGE_URL, reqData)
     },
     chainId: 1337,
