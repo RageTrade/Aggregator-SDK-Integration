@@ -247,7 +247,7 @@ export async function getReferralData(wallet: string): Promise<ReferralResponse>
   const user = getAddress(wallet)
   const reqData = JSON.stringify({
     type: 'referral',
-    user: user,
+    user: user
   })
   return makeRequest(HL_INFO_URL, reqData)
 }

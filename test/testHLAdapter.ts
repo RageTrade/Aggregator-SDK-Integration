@@ -2,7 +2,7 @@ import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { parseUnits } from 'ethers/lib/utils'
 import { toAmountInfo, toAmountInfoFN } from '../src/common/helper'
-import { HL_COLLATERAL_TOKEN, getAllMids } from '../src/configs/hyperliquid/api/client'
+import { HL_COLLATERAL_TOKEN, getAllMids, getReferralData } from '../src/configs/hyperliquid/api/client'
 import { ethers } from 'ethers'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
 
@@ -354,8 +354,12 @@ async function testAgentState() {
   )
 }
 
+async function testRefData() {
+  console.log(await getReferralData(w))
+}
+
 hl.init(w).then(() => {
-  getAllPositions()
+  testRefData()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
