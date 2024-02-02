@@ -1513,8 +1513,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       const remainingSize = subFN(posSize, closeSize)
       const marginReqByPos = divFN(mulFN(remainingSize, trigPrice), ml)
-      const proportionalAccessibleMargin = mulFN(divFN(closeSize, posSize), pos.accessibleMargin.amount)
-      const proportionalUpnl = mulFN(divFN(closeSize, posSize), pos.unrealizedPnl)
+      const proportionalAccessibleMargin = mulFN(divFN(remainingSize, posSize), pos.accessibleMargin.amount)
+      const proportionalUpnl = mulFN(divFN(remainingSize, posSize), pos.unrealizedPnl)
       const remainingMargin = addFN(addFN(marginReqByPos, proportionalAccessibleMargin), proportionalUpnl)
       const freedMargin = subFN(pos.margin.amount, remainingMargin)
       const pnl = mulFN(closeSize, subFN(trigPrice, pos.avgEntryPrice))
