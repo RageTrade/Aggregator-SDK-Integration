@@ -15,12 +15,7 @@ import {
 } from '../src/configs/hyperliquid/api/client'
 import { Token } from '../src/common/tokens'
 import { estLiqPrice } from '../src/configs/hyperliquid/liqPrice'
-import {
-  hlGetCachedOrderBook,
-  openHLWssConnection,
-  subscribeOrderBook,
-  unsubscribeOrderBook
-} from '../src/configs/hyperliquid/api/wsclient'
+import { hlGetCachedOrderBook, hlSubscribeOrderBook, hlUnsubscribeOrderBook } from '../src/configs/hyperliquid/api/wsclient'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
@@ -134,16 +129,13 @@ async function getLiqPrice() {
 const delay = (ms: number) => new Promise((res) => setTimeout(res, ms))
 
 async function getWSSOrderbook() {
-  openHLWssConnection()
-  await delay(1000)
-
   const coin = 'BTC'
   const precision = undefined
 
-  subscribeOrderBook(coin, precision)
+  hlSubscribeOrderBook(coin, precision)
   await delay(4000)
 
-  unsubscribeOrderBook(coin, precision)
+  hlUnsubscribeOrderBook(coin, precision)
   await delay(2000)
 
   for (let i = 1; i <= 4; i++) {

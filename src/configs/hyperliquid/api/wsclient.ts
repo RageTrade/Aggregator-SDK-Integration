@@ -1,104 +1,114 @@
 import WebSocket from 'ws'
 import { HL_WSS_URL } from './config'
 import { L2Book } from './types'
-import { FixedNumber, divFN, mulFN, subFN } from '../../../common/fixedNumber'
 import { OBData } from '../../../interfaces/V1/IRouterAdapterBaseV1'
-import { hlMapLevelsToOBLevels, calcHlMaxSigFigData } from '../helper'
+import { hlMapL2BookToObData, hlMarketIdToCoin } from '../helper'
 
-let ws = new WebSocket(HL_WSS_URL)
+const PING_INTERVAL = 50_000 // 50 seconds
+const MAX_PRECISION = 4
 
-// flag to check if connection is open
-let isConnectionOpen = false
-
-type L2BookWithActualPrecision = {
-  book: L2Book
-  precision: FixedNumber
+type WebsocketData = {
+  ws: WebSocket
+  isOpen: boolean
+  precision: number
+  intervalId: NodeJS.Timeout
 }
 
-// coin => precision => L2BookWithActualPrecision
-const cachedBooks: Record<string, Record<number, L2BookWithActualPrecision>> = {}
-
-ws.on('message', (data: string) => {
-  const res = JSON.parse(data)
-
-  if (res['channel'] && res['channel'] == 'l2Book') {
-    const l2Book: L2Book = res['data']
-    processBookRes(l2Book)
-  }
-})
-
-ws.on('error', (err) => {
-  isConnectionOpen = false
-  console.log('HL wss error: ', err)
-})
-
-ws.on('close', () => {
-  isConnectionOpen = false
-})
+// 'coin-precision' => websocket connection
+const connectionMap: Record<string, WebsocketData> = {}
+// coin => precision => L2Book
+const cachedBooks: Record<string, Record<number, L2Book>> = {}
 
 export function hlGetCachedOrderBook(coin: string, precision: number): OBData | undefined {
   const preBook = cachedBooks[coin]
   if (!preBook) return undefined
-  const l2BookWithPrecision = preBook[precision]
-  if (!l2BookWithPrecision) return undefined
+  const l2Book = preBook[precision]
+  if (!l2Book) return undefined
 
-  const bids = hlMapLevelsToOBLevels(l2BookWithPrecision.book.levels[0])
-  const asks = hlMapLevelsToOBLevels(l2BookWithPrecision.book.levels[1])
-
-  const spread = subFN(asks[0].price, bids[0].price)
-  const spreadPercent = mulFN(divFN(spread, asks[0].price), FixedNumber.fromString('100'))
-
-  const obData: OBData = {
-    actualPrecision: l2BookWithPrecision.precision,
-    bids: bids,
-    asks: asks,
-    spread: spread,
-    spreadPercent: spreadPercent
-  }
-
-  return obData
+  return hlMapL2BookToObData(l2Book, precision)
 }
 
-export function openHLWssConnection() {
-  if (isConnectionOpen) return
+export function hlSubscribeOrderBook(marketId: string, precision: number | undefined) {
+  const coin = hlMarketIdToCoin(marketId)
+  // create websockets for all precisions separately
+  if (precision) {
+    makeWebSocket(coin, precision)
+  } else {
+    for (let i = 1; i <= MAX_PRECISION; i++) {
+      makeWebSocket(coin, i)
+    }
+  }
+}
+
+export function hlUnsubscribeOrderBook(marketId: string, precision: number | undefined) {
+  const coin = hlMarketIdToCoin(marketId)
+  // close websockets for all precisions separately
+  if (precision) {
+    const wsKey = coin + '-' + precision
+    if (connectionMap[wsKey]) {
+      connectionMap[wsKey]?.ws?.close()
+      clearInterval(connectionMap[wsKey].intervalId)
+      connectionMap[wsKey].isOpen = false
+      console.log(`HL wss connection closed for ${coin} with precision: ${precision}`)
+    }
+  } else {
+    for (let i = 1; i <= MAX_PRECISION; i++) {
+      const wsKey = coin + '-' + i
+      if (connectionMap[wsKey]) {
+        connectionMap[wsKey]?.ws?.close()
+        clearInterval(connectionMap[wsKey].intervalId)
+        connectionMap[wsKey].isOpen = false
+        console.log(`HL wss connection closed for ${coin} with precision: ${i}`)
+      }
+    }
+  }
+}
+
+function makeWebSocket(coin: string, precision: number) {
+  const wsKey = coin + '-' + precision
+  const prevWsData = connectionMap[wsKey]
+
+  // if an active connection is already there return
+  if (prevWsData && prevWsData.isOpen) return
+
+  // close the previous connection just in case
+  if (prevWsData && prevWsData.ws) prevWsData.ws.close()
+  // clear the previous interval just in case
+  if (prevWsData && prevWsData.intervalId) clearInterval(prevWsData.intervalId)
+
+  // create a new connection
+  const ws = new WebSocket(HL_WSS_URL)
+  // set ping interval every 50 seconds
+  const intervalId = setInterval(() => {
+    ws.send(getPingMsg())
+  }, PING_INTERVAL)
+  connectionMap[wsKey] = { ws: ws, isOpen: false, precision: precision, intervalId: intervalId }
 
   ws.on('open', () => {
-    isConnectionOpen = true
-    console.log('HL wss connected')
-  })
-}
-
-export function subscribeOrderBook(coin: string, precision: number | undefined) {
-  // reopen connection if for some reason it is closed
-  if (!isConnectionOpen) ws = new WebSocket(HL_WSS_URL)
-
-  if (precision) {
+    console.log(`HL wss connection opened for ${coin} with precision: ${precision}`)
+    connectionMap[wsKey].isOpen = true
     const msg = getSubscribeMsg(coin, precision)
-    // console.log('subMsg:', msg)
     ws.send(msg)
-  } else {
-    // subscribe to all precisions
-    for (let i = 1; i <= 4; i++) {
-      const msg = getSubscribeMsg(coin, i)
-      // console.log('subMsg:', msg)
-      ws.send(msg)
-    }
-  }
-}
+  })
 
-export function unsubscribeOrderBook(coin: string, precision: number | undefined) {
-  if (precision) {
-    const msg = getUnsubscribeMsg(coin, precision)
-    // console.log('unsubMsg:', msg)
-    ws.send(msg)
-  } else {
-    // unsubscribe to all precisions
-    for (let i = 1; i <= 4; i++) {
-      const msg = getUnsubscribeMsg(coin, i)
-      // console.log('unsubMsg:', msg)
-      ws.send(msg)
+  ws.on('message', (data: string) => {
+    const res = JSON.parse(data)
+
+    if (res['channel'] && res['channel'] == 'l2Book') {
+      const l2Book: L2Book = res['data']
+      processBookRes(l2Book, precision)
     }
-  }
+  })
+
+  ws.on('error', (err) => {
+    // console.error(`In Error() for ${coin} with precision: ${precision}`)
+    connectionMap[wsKey].isOpen = false
+  })
+
+  ws.on('close', () => {
+    // console.error(`In close() for ${coin} with precision: ${precision}`)
+    connectionMap[wsKey].isOpen = false
+  })
 }
 
 function getSubscribeMsg(coin: string, precision: number): string {
@@ -108,37 +118,14 @@ function getSubscribeMsg(coin: string, precision: number): string {
   })
 }
 
-function getUnsubscribeMsg(coin: string, precision: number): string {
-  return JSON.stringify({
-    method: 'unsubscribe',
-    subscription: { type: 'l2Book', coin: coin, nSigFigs: precision + 1 }
-  })
+function getPingMsg(): string {
+  return JSON.stringify({ method: 'ping' })
 }
 
-function processBookRes(l2Book: L2Book) {
+function processBookRes(l2Book: L2Book, precision: number) {
   const coin = l2Book.coin
   // console.dir({ book: l2Book }, { depth: 4 })
 
   if (cachedBooks[coin] == undefined) cachedBooks[coin] = {}
-
-  const { maxSigFigs, maxSigFigPrice, actualPrecision } = calcHlMaxSigFigData(l2Book)
-  if (maxSigFigs < 2 || maxSigFigs > 5) throw new Error(`maxSigFigs: ${maxSigFigs} Out of bounds`)
-
-  const l2BookWithActualPrecision: L2BookWithActualPrecision = {
-    book: l2Book,
-    precision: FixedNumber.fromString(actualPrecision.toString())
-  }
-
-  cachedBooks[coin][maxSigFigs - 1] = l2BookWithActualPrecision
-
-  if (maxSigFigPrice.toString().includes('.')) {
-    const decimalPart = maxSigFigPrice.toString().split('.')[1]
-    if (decimalPart.length == 6 && Number(decimalPart) > 0) {
-      // maximum decimal part length is 6 thus it cannot have more precision than this
-      for (let i = maxSigFigs; i <= 4; i++) {
-        // console.log('prepopulating precision: ', i)
-        cachedBooks[coin][i] = l2BookWithActualPrecision
-      }
-    }
-  }
+  cachedBooks[coin][precision] = l2Book
 }

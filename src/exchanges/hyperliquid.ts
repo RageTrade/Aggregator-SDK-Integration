@@ -98,7 +98,8 @@ import {
   populateTrigger,
   toTif,
   hlMapLevelsToOBLevels,
-  calcHlMaxSigFigData
+  calcHlMaxSigFigData,
+  hlMapL2BookToObData
 } from '../configs/hyperliquid/helper'
 import {
   getPaginatedResponse,
@@ -228,14 +229,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
           minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
-          maxPrecision: 4,
-          // TODO - add precision map
-          precisionMap: {
-            1: FixedNumber.fromString('10'),
-            2: FixedNumber.fromString('1'),
-            3: FixedNumber.fromString('0.1'),
-            4: FixedNumber.fromString('0.01')
-          }
+          maxPrecision: 4
         }
 
         const protocol: Protocol = {
@@ -1689,54 +1683,57 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const coin = hlMarketIdToCoin(mId)
       const pre = precision[i]
 
-      if (pre) {
-        const precisionOBData: Record<number, OBData> = {}
-        const obData = hlGetCachedOrderBook(coin, pre)
-        precisionOBData[pre] = obData ? obData : await this._getApiObData(mId, pre, opts)
+      // EARLIER CODE - TO BE REUSED ONCE precisionList in supportedMarkets
+      //   if (pre) {
+      //     const precisionOBData: Record<number, OBData> = {}
+      //     const obData = hlGetCachedOrderBook(coin, pre)
+      //     precisionOBData[pre] = obData ? obData : await this._getApiObData(mId, pre, opts)
 
-        orderBooks.push({
-          marketId: mId,
-          precisionOBData: precisionOBData
-        })
-      } else {
-        const precisionOBData: Record<number, OBData> = {}
+      //     orderBooks.push({
+      //       marketId: mId,
+      //       precisionOBData: precisionOBData
+      //     })
+      //   } else {
+      //     const precisionOBData: Record<number, OBData> = {}
 
-        // get obData for all precisions
-        for (let j = 1; j <= 4; ++j) {
-          const obData = hlGetCachedOrderBook(coin, j)
-          precisionOBData[j] = obData ? obData : await this._getApiObData(mId, j, opts)
-        }
+      //     // get obData for all precisions
+      //     for (let j = 1; j <= 4; ++j) {
+      //       const obData = hlGetCachedOrderBook(coin, j)
+      //       precisionOBData[j] = obData ? obData : await this._getApiObData(mId, j, opts)
+      //     }
 
-        orderBooks.push({
-          marketId: mId,
-          precisionOBData: precisionOBData
-        })
+      //     orderBooks.push({
+      //       marketId: mId,
+      //       precisionOBData: precisionOBData
+      //     })
+      //   }
+      // }
+
+      const precisionOBData: Record<number, OBData> = {}
+      const actualPrecisions: FixedNumber[] = []
+
+      // get obData for all precisions
+      for (let j = 1; j <= 4; ++j) {
+        let obData = hlGetCachedOrderBook(coin, j)
+        obData = obData ? obData : await this._getApiObData(mId, j, opts)
+        precisionOBData[j] = obData
+        actualPrecisions.push(obData.actualPrecision)
       }
+
+      orderBooks.push({
+        marketId: mId,
+        precisionOBData: pre ? { [pre]: precisionOBData[pre] } : precisionOBData,
+        actualPrecisions: actualPrecisions
+      })
     }
 
     return orderBooks
   }
 
   async _getApiObData(marketId: string, precision: number, opts?: ApiOpts | undefined): Promise<OBData> {
-    const l2Book = await getL2Book(hlMarketIdToCoin(marketId), precision)
+    const l2Book = await getL2Book(hlMarketIdToCoin(marketId), precision + 1)
 
-    const { actualPrecision } = calcHlMaxSigFigData(l2Book)
-
-    const bids = hlMapLevelsToOBLevels(l2Book.levels[0])
-    const asks = hlMapLevelsToOBLevels(l2Book.levels[1])
-
-    const spread = subFN(asks[0].price, bids[0].price)
-    const spreadPercent = mulFN(divFN(spread, asks[0].price), FixedNumber.fromString('100'))
-
-    const obData: OBData = {
-      actualPrecision: FixedNumber.fromString(actualPrecision.toString()),
-      bids: bids,
-      asks: asks,
-      spread: spread,
-      spreadPercent: spreadPercent
-    }
-
-    return obData
+    return hlMapL2BookToObData(l2Book, precision)
   }
 
   async _populateMeta(opts?: ApiOpts) {
