@@ -61,12 +61,14 @@ import {
   getMetaAndAssetCtxs,
   getOpenOrders,
   getOrderStatus,
+  getReferralData,
   getUserFills,
   getWebdata2,
   modifyOrders,
   placeOrders,
   roundedPrice,
   roundedSize,
+  setReferralCode,
   slippagePrice,
   updateIsolatedMargin,
   updateLeverage,
@@ -527,16 +529,24 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     const payload: ActionParam[] = []
 
-    const extraAgents = await getExtraAgents(wallet)
+    // TODO: cache this
+    const [meta, mids, refData, extraAgents] = await Promise.all([
+      getMeta(),
+      getAllMids(),
+      getReferralData(wallet),
+      getExtraAgents(wallet)
+    ])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
+    // add set ref code if required
+    if (!refData.referredBy) {
+      payload.push(await setReferralCode())
+    }
+
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
     let totalAvailableToTrade = FixedNumber.fromString('0').toFormat(6)
-
-    // TODO: cache this
-    const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
 
     for (const each of orderData) {
       // check if selected token is USDC
@@ -653,13 +663,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // - size delta
     // - trigger data
 
-    const extraAgents = await getExtraAgents(wallet)
+    // TODO: cache this
+    const [meta, mids, refData, extraAgents] = await Promise.all([
+      getMeta(),
+      getAllMids(),
+      getReferralData(wallet),
+      getExtraAgents(wallet)
+    ])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
-    const meta = await getMeta()
-    const mids = await getAllMids()
+    // add set ref code if required
+    if (!refData.referredBy) {
+      payload.push(await setReferralCode())
+    }
 
     for (const each of orderData) {
       // ensure size delta is in token terms
@@ -730,12 +748,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const cancelledOrders: CancelRequest[] = []
 
-    const extraAgents = await getExtraAgents(wallet)
+    // TODO: cache this
+    const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
-    const meta = await getMeta()
+    // add set ref code if required
+    if (!refData.referredBy) {
+      payload.push(await setReferralCode())
+    }
 
     for (const each of orderData) {
       // get market info
@@ -797,12 +819,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const requests: OrderRequest[] = []
 
-    const extraAgents = await getExtraAgents(wallet)
+    // TODO: cache this
+    const [meta, mids, refData, extraAgents] = await Promise.all([
+      getMeta(),
+      getAllMids(),
+      getReferralData(wallet),
+      getExtraAgents(wallet)
+    ])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
-    const [meta, mids] = await Promise.all([getMeta(), getAllMids()])
+    // add set ref code if required
+    if (!refData.referredBy) {
+      payload.push(await setReferralCode())
+    }
 
     if (positionInfo.length !== closePositionData.length) throw new Error('length mismatch')
 
@@ -889,12 +920,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const payload: ActionParam[] = []
 
-    const extraAgents = await getExtraAgents(wallet)
+    // TODO: cache this
+    const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
 
-    const meta = await getMeta()
+    // add set ref code if required
+    if (!refData.referredBy) {
+      payload.push(await setReferralCode())
+    }
 
     if (positionInfo.length !== updatePositionMarginData.length) throw new Error('length mismatch')
 

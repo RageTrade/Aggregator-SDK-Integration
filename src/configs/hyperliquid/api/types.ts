@@ -292,8 +292,8 @@ export interface WebData2 {
 }
 
 export interface ReferredBy {
-  code: string
-  referrer: string
+  code: string | null
+  referrer: string | null
 }
 
 interface UserData {
