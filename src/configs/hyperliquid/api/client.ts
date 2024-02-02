@@ -34,6 +34,7 @@ import {
   EMPTY_DESC,
   HYPERLIQUID_ENABLE_TRADING_H,
   HYPERLIQUID_MULTIPLE_POSITION_H,
+  HYPERLIQUID_SET_REF_H,
   HYPERLIQUID_UPDATE_LEVERAGE_H,
   HYPERLIQUID_UPDATE_MARGIN_H,
   HYPERLIQUID_UPDATE_ORDER_H,
@@ -860,9 +861,9 @@ export async function setReferralCode(): Promise<RequestSignerFnWithMetadata> {
     },
     chainId: 1337,
     isEoaSigner: false,
-    isUserAction: true,
+    isUserAction: false,
     isAgentRequired: false,
     desc: EMPTY_DESC,
-    heading: HYPERLIQUID_UPDATE_MARGIN_H
+    heading: HYPERLIQUID_SET_REF_H
   }
 }
