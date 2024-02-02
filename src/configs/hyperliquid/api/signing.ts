@@ -38,6 +38,18 @@ const USD_TRANSFER_EIP712_TYPE = {
   ]
 }
 
+export function signReadOnlyAuth(wallet: WalletClient, signatureTypes: ethers.utils.ParamType[], signatureData: any[]) {
+  const phantomAgent = constructPhantomAgent(signatureTypes, signatureData, true)
+
+  return wallet.signTypedData({
+    account: wallet.account!,
+    domain: HL_EIP712_DOMAIN,
+    types: AGENT_EIP712_TYPE,
+    primaryType: 'Agent',
+    message: phantomAgent
+  })
+}
+
 export function signL1Action(
   wallet: WalletClient,
   signatureTypes: ethers.utils.ParamType[],

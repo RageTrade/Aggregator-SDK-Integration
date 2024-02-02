@@ -19,6 +19,7 @@ import {
   OrderType,
   OrderTypeWire,
   OrderWire,
+  PointsResponse,
   ReferralResponse,
   Side,
   UserFill,
@@ -27,7 +28,7 @@ import {
 } from './types'
 import { Token } from '../../../common/tokens'
 import { ethers } from 'ethers'
-import { signAgent, signL1Action, signWithdrawFromBridgeAction } from './signing'
+import { signAgent, signL1Action, signReadOnlyAuth, signWithdrawFromBridgeAction } from './signing'
 import { RequestSignerFnWithMetadata } from '../../../interfaces/IActionExecutor'
 import { WalletClient } from 'viem'
 import {
@@ -248,6 +249,21 @@ export async function getReferralData(wallet: string): Promise<ReferralResponse>
   const reqData = JSON.stringify({
     type: 'referral',
     user: user
+  })
+  return makeRequest(HL_INFO_URL, reqData)
+}
+
+export async function getPointsData(
+  wallet: string,
+  signature: { r: string; s: string; v: number },
+  timestamp: number
+): Promise<PointsResponse> {
+  const user = getAddress(wallet)
+  const reqData = JSON.stringify({
+    signature,
+    timestamp: timestamp,
+    user: user,
+    type: 'userPoints'
   })
   return makeRequest(HL_INFO_URL, reqData)
 }
@@ -874,4 +890,22 @@ export async function setReferralCode(): Promise<RequestSignerFnWithMetadata> {
     desc: EMPTY_DESC,
     heading: HYPERLIQUID_SET_REF_H
   }
+}
+
+export async function getPoints(wallet: string, agentWallet: WalletClient) {
+  const timestamp = Math.floor(new Date().getTime() / 1000)
+
+  const signatureTypes = [ethers.utils.ParamType.from('string'), ethers.utils.ParamType.from('uint64')]
+
+  const signatureData = ['userPoints', timestamp]
+
+  const signature = (await signReadOnlyAuth(agentWallet, signatureTypes, signatureData)).slice(2)
+
+  const rawSignature = {
+    r: '0x' + signature.slice(0, 64),
+    s: '0x' + signature.slice(64, 128),
+    v: parseInt(signature.slice(128), 16)
+  }
+
+  return getPointsData(wallet, rawSignature, timestamp)
 }

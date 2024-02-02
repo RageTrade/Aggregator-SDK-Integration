@@ -296,7 +296,7 @@ export interface ReferredBy {
   referrer: string | null
 }
 
-interface UserData {
+export interface UserData {
   cumFeesRewardedToReferrer: string
   cumRewardedFeesSinceReferred: string
   cumVlm: string
@@ -323,4 +323,22 @@ export interface ReferralResponse {
   referrerState: ReferrerState
   rewardHistory: RewardHistoryItem[]
   unclaimedRewards: string // can be interpreted as number
+}
+
+export interface DistributionHistoryItem {
+  endDate: string
+  points: number
+  referredVlm: number
+  startDate: string
+}
+
+export interface PointsSummary {
+  distributionHistory: DistributionHistoryItem[]
+  percentile: number
+  rank: number
+}
+
+export interface PointsResponse {
+  mostRecentDistributionStartDate: string
+  userSummary: PointsSummary
 }
