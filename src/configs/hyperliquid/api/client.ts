@@ -19,6 +19,7 @@ import {
   OrderType,
   OrderTypeWire,
   OrderWire,
+  ReferralResponse,
   Side,
   UserFill,
   UserFunding,
@@ -238,6 +239,15 @@ export async function getActiveAssetData(wallet: string, assetIndex: number): Pr
     type: 'activeAssetData',
     user: user,
     asset: assetIndex
+  })
+  return makeRequest(HL_INFO_URL, reqData)
+}
+
+export async function getReferralData(wallet: string): Promise<ReferralResponse> {
+  const user = getAddress(wallet)
+  const reqData = JSON.stringify({
+    type: 'referral',
+    user: user,
   })
   return makeRequest(HL_INFO_URL, reqData)
 }
