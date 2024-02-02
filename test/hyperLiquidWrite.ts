@@ -16,6 +16,7 @@ import {
   getWebdata2,
   modifyOrders,
   placeOrders,
+  setReferralCode,
   updateIsolatedMargin,
   updateLeverage
 } from '../src/configs/hyperliquid/api/client'
@@ -31,7 +32,7 @@ import {
   UpdateOrder,
   UpdatePositionMarginData
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { mainnet } from 'viem/chains'
 
@@ -218,11 +219,15 @@ const wallet = createWalletClient({
   chain: mainnet
 })
 
+console.log('using wallet', wallet.account.address)
+
 const agentWallet = createWalletClient({
   account: privateKeyToAccount('0x_INPUT_PK'),
   transport: http(),
   chain: mainnet
 })
+
+console.log('using agent wallet', agentWallet.account.address)
 
 async function execute(executionPayload: ActionParam[]) {
   for (const payload of executionPayload) {
@@ -249,7 +254,7 @@ async function execute(executionPayload: ActionParam[]) {
 
         // failure
         console.log(payload.heading, 'failed (not ok code)')
-        console.dir(res.body, { depth: 6 })
+        console.dir(res, { depth: 6 })
       })
       .catch((e) => {
         // failure
@@ -415,9 +420,15 @@ async function testAuthenticateAgent() {
   )
 }
 
+async function testSetReferralCode() {
+  const params = await setReferralCode()
+  await execute([params])
+}
+
 // testIncreaseOrder()
 // testUpdateOrder()
 // testCancelOrder()
 // testUpdateMargin()
 // testClosePosition()
 // testAuthenticateAgent()
+// testSetReferralCode()
