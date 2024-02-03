@@ -174,7 +174,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     for (const each of params) {
       if (each.protocol !== 'HL') throw new Error('invalid protocol id')
-      txs.push(await withdrawFromBridge(each.amount.toString()))
+      txs.push(withdrawFromBridge(each.amount.toString()))
     }
 
     return txs
@@ -262,7 +262,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   async getAvailableToTrade(
     wallet: string,
-    params: AvailableToTradeParams<this['protocolId'] & 'HL'>
+    params: AvailableToTradeParams<this['protocolId'] & 'HL'>,
+    opts?: ApiOpts | undefined
   ): Promise<AmountInfo> {
     // get market
     const market = (await this.getMarketsInfo([params.market]))[0]
@@ -547,11 +548,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     ])
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
 
     // add set ref code if required
     if (!refData.referredBy) {
-      payload.push(await setReferralCode())
+      payload.push(setReferralCode())
     }
 
     let totalMarginRequired = FixedNumber.fromString('0').toFormat(6)
@@ -621,8 +622,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
         throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
 
-      if (reqdLeverage !== currentLeverage)
-        payload.push(await updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
+      if (reqdLeverage !== currentLeverage) payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
 
       // populate trigger data if required
       let orderData: OrderRequest['order_type'] = { limit: { tif: toTif(each.tif || 'GTC') } }
@@ -637,7 +637,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         order_type: orderData
       }
 
-      payload.push(await placeOrders([request], meta, true))
+      payload.push(placeOrders([request], meta, true))
     }
 
     // add deposit at first index
@@ -681,11 +681,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     ])
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
 
     // add set ref code if required
     if (!refData.referredBy) {
-      payload.push(await setReferralCode())
+      payload.push(setReferralCode())
     }
 
     for (const each of orderData) {
@@ -747,7 +747,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       modifiedOrders.push({ order: request, oid: order.oid })
     }
 
-    payload.push(await modifyOrders(modifiedOrders, meta))
+    payload.push(modifyOrders(modifiedOrders, meta))
 
     return payload
   }
@@ -761,11 +761,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
 
     // add set ref code if required
     if (!refData.referredBy) {
-      payload.push(await setReferralCode())
+      payload.push(setReferralCode())
     }
 
     for (const each of orderData) {
@@ -793,7 +793,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       cancelledOrders.push(cancel)
     }
 
-    payload.push(await cancelOrders(cancelledOrders, meta))
+    payload.push(cancelOrders(cancelledOrders, meta))
 
     return payload
   }
@@ -813,7 +813,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     if ((await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
       throw new Error('already authenticated1')
 
-    payload.push(await approveAgent())
+    payload.push(approveAgent())
 
     return payload
   }
@@ -837,11 +837,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     ])
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
 
     // add set ref code if required
     if (!refData.referredBy) {
-      payload.push(await setReferralCode())
+      payload.push(setReferralCode())
     }
 
     if (positionInfo.length !== closePositionData.length) throw new Error('length mismatch')
@@ -913,7 +913,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       })
     }
 
-    payload.push(await placeOrders(requests, meta, false))
+    payload.push(placeOrders(requests, meta, false))
 
     return payload
   }
@@ -933,11 +933,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
 
     // check if agent is available, if not, create agent
-    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(await approveAgent())
+    if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
 
     // add set ref code if required
     if (!refData.referredBy) {
-      payload.push(await setReferralCode())
+      payload.push(setReferralCode())
     }
 
     if (positionInfo.length !== updatePositionMarginData.length) throw new Error('length mismatch')
@@ -963,7 +963,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         ? Number(updateMarginData.margin.amount._value)
         : -1 * Number(updateMarginData.margin.amount._value)
 
-      payload.push(await updateIsolatedMargin(amountInt, coin, meta))
+      payload.push(updateIsolatedMargin(amountInt, coin, meta))
     }
 
     return payload

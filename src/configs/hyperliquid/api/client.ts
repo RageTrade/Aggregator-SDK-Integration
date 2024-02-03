@@ -480,7 +480,7 @@ export async function checkIfRageTradeAgent(
   ]
 }
 
-export async function withdrawFromBridge(amount: string): Promise<RequestSignerFnWithMetadata> {
+export function withdrawFromBridge(amount: string): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
 
   return {
@@ -520,7 +520,7 @@ export async function withdrawFromBridge(amount: string): Promise<RequestSignerF
   }
 }
 
-export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
+export function approveAgent(): RequestSignerFnWithMetadata {
   return {
     fn: async (wallet: WalletClient, agentAddress: string | undefined) => {
       if (!agentAddress) throw new Error('agent address required')
@@ -568,11 +568,7 @@ export async function approveAgent(): Promise<RequestSignerFnWithMetadata> {
   }
 }
 
-export async function placeOrders(
-  orders: OrderRequest[],
-  meta: Meta,
-  isIncrease: boolean
-): Promise<RequestSignerFnWithMetadata> {
+export function placeOrders(orders: OrderRequest[], meta: Meta, isIncrease: boolean): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
 
   const orderSpecs: OrderSpec[] = []
@@ -657,7 +653,7 @@ export async function placeOrders(
   }
 }
 
-export async function cancelOrders(orders: CancelRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
+export function cancelOrders(orders: CancelRequest[], meta: Meta): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
 
   const processedOrderSpecs: any[] = []
@@ -707,7 +703,7 @@ export async function cancelOrders(orders: CancelRequest[], meta: Meta): Promise
   }
 }
 
-export async function modifyOrders(orders: ModifyRequest[], meta: Meta): Promise<RequestSignerFnWithMetadata> {
+export function modifyOrders(orders: ModifyRequest[], meta: Meta): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
 
   const signatureTypes = [ethers.utils.ParamType.from('(uint64,uint32,bool,uint64,uint64,bool,uint8,uint64,bytes16)[]')]
@@ -762,12 +758,12 @@ export async function modifyOrders(orders: ModifyRequest[], meta: Meta): Promise
   }
 }
 
-export async function updateLeverage(
+export function updateLeverage(
   leverage: number,
   coin: string,
   is_cross: boolean,
   meta: Meta
-): Promise<RequestSignerFnWithMetadata> {
+): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -809,11 +805,7 @@ export async function updateLeverage(
   }
 }
 
-export async function updateIsolatedMargin(
-  amount: number,
-  coin: string,
-  meta: Meta
-): Promise<RequestSignerFnWithMetadata> {
+export function updateIsolatedMargin(amount: number, coin: string, meta: Meta): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
   const asset = coinToAsset(coin, meta)
 
@@ -857,7 +849,7 @@ export async function updateIsolatedMargin(
   }
 }
 
-export async function setReferralCode(): Promise<RequestSignerFnWithMetadata> {
+export function setReferralCode(): RequestSignerFnWithMetadata {
   const timestamp = Math.floor(new Date().getTime())
 
   const signatureTypes = [ethers.utils.ParamType.from('string')]
