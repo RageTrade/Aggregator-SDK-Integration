@@ -34,15 +34,15 @@ export function getStaleTime(time: number, opts?: ApiOpts): number {
   return time
 }
 
-export type CacheFetchArgs = {
+export type CacheFetchArgs<T> = {
   key: unknown[]
-  fn: () => Promise<any>
+  fn: (args?: unknown) => Promise<T>
   staleTime: number
   cacheTime: number
   opts?: ApiOpts
 }
 
-export async function cacheFetch(args: CacheFetchArgs) {
+export async function cacheFetch<T>(args: CacheFetchArgs<T>): Promise<T> {
   const qs = queryClient.getQueryState(args.key)
 
   if (qs) {
@@ -84,6 +84,6 @@ export async function cacheFetch(args: CacheFetchArgs) {
   })
 }
 
-export function getCachedValueByKey(key: CacheFetchArgs['key']) {
-  return queryClient.getQueryData(key)
+export function getCachedValueByKey<T>(key: CacheFetchArgs<T>['key']) {
+  return queryClient.getQueryData(key) as T
 }
