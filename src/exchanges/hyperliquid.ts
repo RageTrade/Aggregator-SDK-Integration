@@ -41,7 +41,8 @@ import {
   DepositWithdrawParams,
   AgentParams,
   AgentState,
-  TradeDirection
+  TradeDirection,
+  TimeInForce
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import {
   CACHE_DAY,
@@ -100,7 +101,8 @@ import {
   ExtraAgent,
   AllMids,
   ActiveAssetData,
-  ClearinghouseState
+  ClearinghouseState,
+  Tif
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
@@ -1219,7 +1221,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         orderId: oid,
         orderType,
         collateral: HL_COLLATERAL_TOKEN,
-        protocolId: 'HL'
+        protocolId: 'HL',
+        tif: this._mapTif(status.tif)
       }
 
       ordersInfo.push(orderInfo)
@@ -1875,5 +1878,18 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)
 
     return lev
+  }
+
+  _mapTif(tif: Tif | null): TimeInForce | undefined {
+    switch (tif) {
+      case 'Gtc':
+        return 'GTC'
+      case 'Ioc':
+        return 'IOC'
+      case 'Alo':
+        return 'ALO'
+      default:
+        return undefined
+    }
   }
 }

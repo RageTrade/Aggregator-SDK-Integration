@@ -170,7 +170,10 @@ export type UpdateOrder = OrderData &
   }
 
 export type OrderInfo = OrderData &
-  OrderIdentifier & { orderType: OrderType } & CollateralData & {
+  OrderIdentifier &
+  CollateralData & {
+    orderType: OrderType
+    tif: TimeInForce | undefined
     protocolId: ProtocolId
   }
 

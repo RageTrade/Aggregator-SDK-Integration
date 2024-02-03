@@ -1170,7 +1170,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         ...oId,
         ...oType,
         ...oCollateralData,
-        ...oProtocolId
+        ...oProtocolId,
+        tif: 'GTC'
       }
 
       ordersInfo.push(orderInfo)

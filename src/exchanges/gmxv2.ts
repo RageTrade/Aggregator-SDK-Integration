@@ -2072,7 +2072,8 @@ export default class GmxV2Service implements IAdapterV1 {
       ...oId,
       ...oType,
       ...oCollateralData,
-      ...oProtocolId
+      ...oProtocolId,
+      tif: 'GTC'
     }
 
     return orderInfo
