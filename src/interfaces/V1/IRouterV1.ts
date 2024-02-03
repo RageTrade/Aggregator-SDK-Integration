@@ -1,3 +1,4 @@
+import { ApiOpts } from '@kwenta/sdk/src/common/cache'
 import { ProtocolInfo } from './IAdapterV1'
 import { AmountInfo, AvailableToTradeParams, IRouterAdapterBaseV1, Protocol, ProtocolId } from './IRouterAdapterBaseV1'
 
@@ -10,6 +11,7 @@ export interface IRouterV1 extends IRouterAdapterBaseV1 {
   getAvailableToTrade<T extends ProtocolId>(
     protocol: T,
     wallet: string,
-    params: AvailableToTradeParams<T>
+    params: AvailableToTradeParams<T>,
+    opts?: ApiOpts
   ): Promise<AmountInfo>
 }

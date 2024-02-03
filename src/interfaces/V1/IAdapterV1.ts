@@ -1,4 +1,4 @@
-import { AmountInfo, AvailableToTradeParams, IRouterAdapterBaseV1, ProtocolId } from './IRouterAdapterBaseV1'
+import { AmountInfo, ApiOpts, AvailableToTradeParams, IRouterAdapterBaseV1, ProtocolId } from './IRouterAdapterBaseV1'
 
 export type ProtocolInfo = {
   hasAgent: boolean
@@ -14,5 +14,9 @@ export interface IAdapterV1 extends IRouterAdapterBaseV1 {
 
   getProtocolInfo(): ProtocolInfo
 
-  getAvailableToTrade(wallet: string, params: AvailableToTradeParams<this['protocolId']>): Promise<AmountInfo>
+  getAvailableToTrade(
+    wallet: string,
+    params: AvailableToTradeParams<this['protocolId']>,
+    opts?: ApiOpts
+  ): Promise<AmountInfo>
 }
