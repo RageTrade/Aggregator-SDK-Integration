@@ -19,6 +19,12 @@ const connectionMap: Record<string, WebsocketData> = {}
 // coin => precision => L2Book
 const cachedBooks: Record<string, Record<number, L2Book>> = {}
 
+export function hlGetCachedL2Book(coin: string, precision: number): L2Book | undefined {
+  const preBook = cachedBooks[coin]
+  if (!preBook) return undefined
+  return preBook[precision]
+}
+
 export function hlGetCachedOrderBook(coin: string, precision: number): OBData | undefined {
   const preBook = cachedBooks[coin]
   if (!preBook) return undefined

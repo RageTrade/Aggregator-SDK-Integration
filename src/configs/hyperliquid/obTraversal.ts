@@ -5,6 +5,7 @@ import { getL2Book } from './api/client'
 import { HL_TAKER_FEE_BPS } from './api/config'
 import { L2Book } from './api/types'
 import { hlMarketIdToCoin } from './helper'
+import { hlGetCachedL2Book } from './api/wsclient'
 
 export type TraverseResult = {
   avgExecPrice: FixedNumber
@@ -26,13 +27,16 @@ export async function traverseHLBook(
   const l2BookPromises: Promise<L2Book>[] = []
   for (let nSigFigs = 2; nSigFigs <= 5; nSigFigs++) {
     const sTimeL2B = getStaleTime(CACHE_SECOND * 5, opts)
-    const l2BookPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'l2Book', coin, nSigFigs],
-      fn: () => getL2Book(coin, nSigFigs),
-      staleTime: sTimeL2B,
-      cacheTime: sTimeL2B * CACHE_TIME_MULT,
-      opts
-    })
+    const cachedOb = hlGetCachedL2Book(coin, nSigFigs - 1)
+    const l2BookPromise = cachedOb
+      ? Promise.resolve(cachedOb)
+      : cacheFetch({
+          key: [HL_CACHE_PREFIX, 'l2Book', coin, nSigFigs],
+          fn: () => getL2Book(coin, nSigFigs),
+          staleTime: sTimeL2B,
+          cacheTime: sTimeL2B * CACHE_TIME_MULT,
+          opts
+        })
 
     l2BookPromises.push(l2BookPromise)
   }
