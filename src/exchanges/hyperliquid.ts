@@ -97,12 +97,12 @@ import {
   OrderStatusInfo,
   WebData2,
   MarkedModeType,
-  ReferralResponse,
   ExtraAgent,
   AllMids,
   ActiveAssetData,
   ClearinghouseState,
-  Tif
+  Tif,
+  ReferralResponse
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
@@ -1481,9 +1481,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         }
       }
 
-      const fee = isMarket
+      let fee = isMarket
         ? traResult!.fees
         : mulFN(mulFN(orderSize, trigPrice), FixedNumber.fromString(HL_MAKER_FEE_BPS))
+      const code = await this._getRefCode(wallet, opts)
+      // apply 4% discount to fees for market orders if referral code is set
+      if (isMarket && code && code != null && code.length > 0) {
+        fee = mulFN(fee, FixedNumber.fromString('0.96'))
+      }
+
       const priceImpact = isMarket ? traResult!.priceImpact : FixedNumber.fromString('0')
 
       const isError = traResult ? (traResult.priceImpact.eq(FixedNumber.fromString('100')) ? true : false) : false
@@ -1574,11 +1580,21 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       }
 
       // fee for tp/sl order is calculated basis the trigger price (ignoring the slippage accurred)
-      const fee = isMarket
+      let fee = isMarket
         ? traResult!.fees
         : isSpTlLimit
         ? mulFN(mulFN(closeSize, trigPrice), FixedNumber.fromString(HL_MAKER_FEE_BPS))
         : mulFN(mulFN(closeSize, trigPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS))
+      const code = await this._getRefCode(wallet, opts)
+      // apply 4% discount to fees for market orders (market close, TP, SL) if referral code is set
+      if (
+        (isMarket || cpd.type == 'TAKE_PROFIT' || cpd.type == 'STOP_LOSS') &&
+        code &&
+        code != null &&
+        code.length > 0
+      ) {
+        fee = mulFN(fee, FixedNumber.fromString('0.96'))
+      }
 
       const remainingSize = subFN(posSize, closeSize)
       const marginReqByPos = divFN(mulFN(remainingSize, trigPrice), ml)
@@ -1832,6 +1848,30 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       staleTime: 0,
       cacheTime: 0
     })
+  }
+
+  async _getRefCode(wallet: string, opts?: ApiOpts): Promise<string | null> {
+    // check if the user has an active ref code
+    const refDataKey = [HL_CACHE_PREFIX, 'getReferralData', wallet]
+    const cachedRefData = getCachedValueByKey(refDataKey) as ReferralResponse | undefined
+    const cachedCode = cachedRefData?.referredBy.code
+
+    // if cached code exists, set stale time to 1 day otherwise fetch with minimum stale time
+    const sTimeRC =
+      cachedCode && cachedCode != null && cachedCode.length > 0
+        ? getStaleTime(CACHE_DAY, opts)
+        : getStaleTime(CACHE_SECOND * 2, opts)
+
+    const refData = (await cacheFetch({
+      key: refDataKey,
+      fn: () => getReferralData(wallet),
+      staleTime: sTimeRC,
+      cacheTime: sTimeRC * CACHE_TIME_MULT,
+      opts: opts
+    })) as ReferralResponse
+    const code = refData.referredBy.code
+
+    return code
   }
 
   _convertModeTypeToMarketMode(marketModeType: MarkedModeType): MarketMode {

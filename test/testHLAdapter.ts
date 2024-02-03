@@ -102,7 +102,7 @@ async function getOpenTradePreview() {
   const orderData: CreateOrder = {
     marketId: btcMarketId,
     mode: 'CROSS',
-    direction: 'SHORT',
+    direction: 'LONG',
     sizeDelta: toAmountInfoFN(size, true),
     marginDelta: toAmountInfoFN(marginAmount, true),
     triggerData: undefined /* {
@@ -123,7 +123,7 @@ async function getOpenTradePreview() {
     positions.filter((p) => p.marketId === orderData.marketId),
     undefined
   )
-  // console.dir(openTradePreview, { depth: 4 })
+  console.dir(openTradePreview, { depth: 4 })
 }
 
 async function getOpenTradePreviewIso() {
@@ -372,7 +372,7 @@ async function testRefData() {
 }
 
 hl.init(w).then(() => {
-  getOrderBooksViaWssConnection()
+  getOpenTradePreview()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
