@@ -609,7 +609,15 @@ export function placeOrders(orders: OrderRequest[], meta: Meta, isIncrease: bool
     if (isIncrease) {
       heading = getIncreasePositionHeading('HL', orderReq.is_buy ? 'LONG' : 'SHORT', orderReq.coin)
     } else {
-      heading = getClosePositionHeading('HL', orderReq.coin, 'MARKET')
+      heading = getClosePositionHeading(
+        'HL',
+        orderReq.coin,
+        orderReq.order_type.trigger
+          ? orderReq.order_type.trigger.tpsl == 'tp'
+            ? 'TAKE_PROFIT'
+            : 'STOP_LOSS'
+          : 'MARKET'
+      )
     }
   } else {
     heading = HYPERLIQUID_MULTIPLE_POSITION_H
