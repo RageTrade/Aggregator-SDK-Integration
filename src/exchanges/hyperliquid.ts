@@ -1766,20 +1766,20 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       // }
 
       const precisionOBData: Record<number, OBData> = {}
-      const actualPrecisions: FixedNumber[] = []
+      const actualPrecisionsMap: Record<number, FixedNumber> = {}
 
       // get obData for all precisions
       for (let j = 1; j <= 4; ++j) {
         let obData = hlGetCachedOrderBook(coin, j)
         obData = obData ? obData : await this._getApiObData(mId, j, opts)
         precisionOBData[j] = obData
-        actualPrecisions.push(obData.actualPrecision)
+        actualPrecisionsMap[j] = obData.actualPrecision
       }
 
       orderBooks.push({
         marketId: mId,
         precisionOBData: pre ? { [pre]: precisionOBData[pre] } : precisionOBData,
-        actualPrecisions: actualPrecisions
+        actualPrecisionsMap: actualPrecisionsMap
       })
     }
 

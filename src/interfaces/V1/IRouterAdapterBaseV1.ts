@@ -324,7 +324,7 @@ export type OBData = {
 export type OrderBook = {
   marketId: Market['marketId']
   precisionOBData: Record<number, OBData>
-  actualPrecisions: FixedNumber[]
+  actualPrecisionsMap: Record<number, FixedNumber>
 }
 
 export interface IRouterAdapterBaseV1 {
