@@ -21,6 +21,9 @@ import {
   hlUnsubscribeOrderBook
 } from '../src/configs/hyperliquid/api/wsclient'
 
+const ethMarketId = '42161-HL-ETH'
+const btcMarketId = '42161-HL-BTC'
+
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
 
@@ -136,10 +139,10 @@ async function getWSSOrderbook() {
   const coin = 'BTC'
   const precision = undefined
 
-  hlSubscribeOrderBook(coin, precision)
+  hlSubscribeOrderBook(btcMarketId, precision)
   await delay(4000)
 
-  hlUnsubscribeOrderBook(coin, precision)
+  hlUnsubscribeOrderBook(btcMarketId, precision)
   await delay(2000)
 
   for (let i = 1; i <= 4; i++) {

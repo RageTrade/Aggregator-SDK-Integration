@@ -1,8 +1,8 @@
-import WebSocket from 'ws'
 import { HL_WSS_URL } from './config'
 import { L2Book } from './types'
 import { OBData } from '../../../interfaces/V1/IRouterAdapterBaseV1'
 import { hlMapL2BookToObData, hlMarketIdToCoin } from '../helper'
+import WebSocket from 'isomorphic-ws'
 
 const PING_INTERVAL = 50_000 // 50 seconds
 const MAX_PRECISION = 4
@@ -84,31 +84,31 @@ function makeWebSocket(coin: string, precision: number) {
   }, PING_INTERVAL)
   connectionMap[wsKey] = { ws: ws, isOpen: false, precision: precision, intervalId: intervalId }
 
-  ws.on('open', () => {
+  ws.onopen = function open() {
     console.log(`HL wss connection opened for ${coin} with precision: ${precision}`)
     connectionMap[wsKey].isOpen = true
     const msg = getSubscribeMsg(coin, precision)
     ws.send(msg)
-  })
+  }
 
-  ws.on('message', (data: string) => {
-    const res = JSON.parse(data)
+  ws.onmessage = function incoming(data) {
+    const res = JSON.parse(data.data as string)
 
     if (res['channel'] && res['channel'] == 'l2Book') {
       const l2Book: L2Book = res['data']
       processBookRes(l2Book, precision)
     }
-  })
+  }
 
-  ws.on('error', (err) => {
-    // console.error(`In Error() for ${coin} with precision: ${precision}`)
+  ws.onerror = function error() {
+    // console.error(`In onerror() for ${coin} with precision: ${precision}`)
     connectionMap[wsKey].isOpen = false
-  })
+  }
 
-  ws.on('close', () => {
+  ws.onclose = function close() {
     // console.error(`In close() for ${coin} with precision: ${precision}`)
     connectionMap[wsKey].isOpen = false
-  })
+  }
 }
 
 function getSubscribeMsg(coin: string, precision: number): string {
