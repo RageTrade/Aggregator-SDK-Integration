@@ -49,7 +49,7 @@ export function hlUnsubscribeOrderBook(marketId: string, precision: number | und
       connectionMap[wsKey]?.ws?.close()
       clearInterval(connectionMap[wsKey].intervalId)
       connectionMap[wsKey].isOpen = false
-      console.log(`HL wss connection closed for ${coin} with precision: ${precision}`)
+      // console.log(`HL wss connection closed for ${coin} with precision: ${precision}`)
     }
   } else {
     for (let i = 1; i <= MAX_PRECISION; i++) {
@@ -58,7 +58,7 @@ export function hlUnsubscribeOrderBook(marketId: string, precision: number | und
         connectionMap[wsKey]?.ws?.close()
         clearInterval(connectionMap[wsKey].intervalId)
         connectionMap[wsKey].isOpen = false
-        console.log(`HL wss connection closed for ${coin} with precision: ${i}`)
+        // console.log(`HL wss connection closed for ${coin} with precision: ${i}`)
       }
     }
   }
@@ -85,7 +85,7 @@ function makeWebSocket(coin: string, precision: number) {
   connectionMap[wsKey] = { ws: ws, isOpen: false, precision: precision, intervalId: intervalId }
 
   ws.onopen = function open() {
-    console.log(`HL wss connection opened for ${coin} with precision: ${precision}`)
+    // console.log(`HL wss connection opened for ${coin} with precision: ${precision}`)
     connectionMap[wsKey].isOpen = true
     const msg = getSubscribeMsg(coin, precision)
     ws.send(msg)
