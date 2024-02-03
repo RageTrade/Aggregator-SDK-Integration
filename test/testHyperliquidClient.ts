@@ -15,7 +15,11 @@ import {
 } from '../src/configs/hyperliquid/api/client'
 import { Token } from '../src/common/tokens'
 import { estLiqPrice } from '../src/configs/hyperliquid/liqPrice'
-import { hlGetCachedOrderBook, hlSubscribeOrderBook, hlUnsubscribeOrderBook } from '../src/configs/hyperliquid/api/wsclient'
+import {
+  hlGetCachedOrderBook,
+  hlSubscribeOrderBook,
+  hlUnsubscribeOrderBook
+} from '../src/configs/hyperliquid/api/wsclient'
 
 const normalAddress = '0x2f88a09ed4174750a464576FE49E586F90A34820'
 const w = normalAddress
