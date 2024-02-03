@@ -5,6 +5,7 @@ import {
   AllMids,
   CancelRequest,
   ClearinghouseState,
+  ExtraAgent,
   FundingHistory,
   Grouping,
   L2Book,
@@ -160,7 +161,7 @@ export async function getWebdata2(wallet: string): Promise<WebData2> {
   return makeRequest(HL_INFO_URL, reqData)
 }
 
-export async function getExtraAgents(wallet: string): Promise<{ address: string; name: string }[]> {
+export async function getExtraAgents(wallet: string): Promise<ExtraAgent[]> {
   const user = getAddress(wallet)
   const reqData = JSON.stringify({
     type: 'extraAgents',

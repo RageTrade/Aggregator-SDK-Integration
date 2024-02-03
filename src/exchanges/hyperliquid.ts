@@ -43,7 +43,15 @@ import {
   AgentState,
   TradeDirection
 } from '../interfaces/V1/IRouterAdapterBaseV1'
-import { CACHE_DAY, CACHE_SECOND, CACHE_TIME_MULT, cacheFetch, getStaleTime, HL_CACHE_PREFIX } from '../common/cache'
+import {
+  CACHE_DAY,
+  CACHE_SECOND,
+  CACHE_TIME_MULT,
+  cacheFetch,
+  getCachedValueByKey,
+  getStaleTime,
+  HL_CACHE_PREFIX
+} from '../common/cache'
 import {
   HL_COLLATERAL_TOKEN,
   HL_TOKENS_MAP,
@@ -87,7 +95,12 @@ import {
   OrderRequest,
   OrderStatusInfo,
   WebData2,
-  MarkedModeType
+  MarkedModeType,
+  ReferralResponse,
+  ExtraAgent,
+  AllMids,
+  ActiveAssetData,
+  ClearinghouseState
 } from '../configs/hyperliquid/api/types'
 import { encodeMarketId } from '../common/markets'
 import { hyperliquid, HL_MAKER_FEE_BPS, HL_TAKER_FEE_BPS } from '../configs/hyperliquid/api/config'
@@ -188,14 +201,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     let marketInfo: MarketInfo[] = []
 
     if (chains == undefined || chains.includes(hyperliquid)) {
-      let sTimeMeta = getStaleTime(CACHE_DAY, opts)
-      const meta = (await cacheFetch({
-        key: [HL_CACHE_PREFIX, 'meta'],
-        fn: () => getMeta(),
-        staleTime: sTimeMeta,
-        cacheTime: sTimeMeta * CACHE_TIME_MULT,
-        opts: opts
-      })) as Meta
+      const meta = await this._getMeta(opts)
 
       meta.universe.forEach((u) => {
         const market: Market = {
@@ -266,12 +272,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     opts?: ApiOpts | undefined
   ): Promise<AmountInfo> {
     // get market
-    const market = (await this.getMarketsInfo([params.market]))[0]
-
-    if (!market) throw new Error('market not found')
+    // const market = (await this.getMarketsInfo([params.market], opts))[0]
+    //
+    // if (!market) throw new Error('market not found')
 
     // get current positions for market
-    const clearinghouseState = await getClearinghouseState(wallet)
+    const clearinghouseState = await this._getClearingHouseState(wallet, opts)
     const withdrawable = Number(clearinghouseState.withdrawable)
 
     return {
@@ -377,7 +383,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   async getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     // populate meta
-    await this._populateMeta(opts)
+    await this._getMeta(opts)
 
     // get markets
     const markets = await this.getMarketsInfo(marketIds, opts)
@@ -385,14 +391,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // get active asset data for all markets
     const activeAssetsData = await Promise.all(
       markets.map((m) => {
-        const sTimeAAD = getStaleTime(CACHE_SECOND * 2, opts)
-        return cacheFetch({
-          key: [HL_CACHE_PREFIX, 'activeAssetsData', wallet, m.marketSymbol],
-          fn: () => getActiveAssetData(wallet, HL_TOKENS_MAP[m.marketSymbol].assetIndex),
-          staleTime: sTimeAAD,
-          cacheTime: sTimeAAD * CACHE_TIME_MULT,
-          opts: opts
-        })
+        return this._getActiveAssetData(wallet, m.marketSymbol, opts)
       })
     )
 
@@ -415,7 +414,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     if (agent.protocolId !== 'HL') throw new Error('invalid protocol id')
 
-    const allAgents = await getExtraAgents(wallet)
+    const allAgents = await this._getExtraAgents(wallet, opts)
 
     return checkIfRageTradeAgent(allAgents, agent.agentAddress)
   }
@@ -423,14 +422,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
     const prices: FixedNumber[] = []
 
-    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
-    const mids = await cacheFetch({
-      key: [HL_CACHE_PREFIX, 'allMids'],
-      fn: () => getAllMids(),
-      staleTime: sTimeAM,
-      cacheTime: sTimeAM * CACHE_TIME_MULT,
-      opts: opts
-    })
+    const mids = await this._getAllMids(opts)
 
     marketIds.forEach((mId) => {
       const mid = mids[hlMarketIdToCoin(mId)]
@@ -536,15 +528,91 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return dynamicMarketMetadata
   }
 
+  async _getMeta(opts?: ApiOpts): Promise<Meta> {
+    const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+
+    return cacheFetch({
+      key: [HL_CACHE_PREFIX, 'meta'],
+      fn: () => getMeta(),
+      staleTime: sTimeMarkets,
+      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
+  async _getAllMids(opts?: ApiOpts): Promise<AllMids> {
+    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
+
+    return cacheFetch({
+      key: [HL_CACHE_PREFIX, 'allMids'],
+      fn: () => getAllMids(),
+      staleTime: sTimeAM,
+      cacheTime: sTimeAM * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
+  async _getActiveAssetData(wallet: string, symbol: string, opts?: ApiOpts): Promise<ActiveAssetData> {
+    const sTimeAAD = getStaleTime(CACHE_SECOND * 2, opts)
+
+    return cacheFetch({
+      key: [HL_CACHE_PREFIX, 'activeAssetsData', wallet, symbol],
+      fn: () => getActiveAssetData(wallet, HL_TOKENS_MAP[symbol].assetIndex),
+      staleTime: sTimeAAD,
+      cacheTime: sTimeAAD * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
+  async _getClearingHouseState(wallet: string, opts?: ApiOpts): Promise<ClearinghouseState> {
+    const sTimeCHS = getStaleTime(CACHE_SECOND * 2, opts)
+
+    return cacheFetch({
+      key: [HL_CACHE_PREFIX, 'clearingHouseState', wallet],
+      fn: () => getClearinghouseState(wallet),
+      staleTime: sTimeCHS,
+      cacheTime: sTimeCHS * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
+  async _getExtraAgents(wallet: string, opts?: ApiOpts): Promise<ExtraAgent[]> {
+    const sTimeAgent = getStaleTime(CACHE_SECOND * 30, opts)
+
+    return cacheFetch({
+      key: [HL_CACHE_PREFIX, 'agents', wallet],
+      fn: () => getExtraAgents(wallet),
+      staleTime: sTimeAgent,
+      cacheTime: sTimeAgent * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
+  async _getReferralData(wallet: string, opts?: ApiOpts): Promise<ReferralResponse> {
+    const key = [HL_CACHE_PREFIX, 'refCode', wallet]
+
+    const cachedData = getCachedValueByKey<Awaited<ReturnType<typeof getReferralData>>>(key)
+
+    const sTimeRef =
+      cachedData && cachedData.referredBy ? getStaleTime(CACHE_DAY, opts) : getStaleTime(CACHE_SECOND * 3, opts)
+
+    return cacheFetch({
+      key: key,
+      fn: () => getReferralData(wallet),
+      staleTime: sTimeRef,
+      cacheTime: sTimeRef * CACHE_TIME_MULT,
+      opts: opts
+    })
+  }
+
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     const payload: ActionParam[] = []
 
-    // TODO: cache this
     const [meta, mids, refData, extraAgents] = await Promise.all([
-      getMeta(),
-      getAllMids(),
-      getReferralData(wallet),
-      getExtraAgents(wallet)
+      this._getMeta(opts),
+      this._getAllMids(opts),
+      this._getReferralData(wallet, opts),
+      this._getExtraAgents(wallet, opts)
     ])
 
     // check if agent is available, if not, create agent
@@ -569,6 +637,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (each.marginDelta.amount.eq(FixedNumber.fromValue(0))) throw new Error('invalid margin delta')
 
       // get market info
+      // cached unless opts has bypass cache
       const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
       const marketState = (await this.getMarketState(wallet, [each.marketId], opts))[0]
 
@@ -610,7 +679,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       const availableToTrade = await this.getAvailableToTrade(
         wallet,
-        hlParams as AvailableToTradeParams<'HL' & this['protocolId']>
+        hlParams as AvailableToTradeParams<'HL' & this['protocolId']>,
+        opts
       )
 
       totalMarginRequired = addFN(
@@ -672,12 +742,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // - size delta
     // - trigger data
 
-    // TODO: cache this
     const [meta, mids, refData, extraAgents] = await Promise.all([
-      getMeta(),
-      getAllMids(),
-      getReferralData(wallet),
-      getExtraAgents(wallet)
+      this._getMeta(opts),
+      this._getAllMids(opts),
+      this._getReferralData(wallet, opts),
+      this._getExtraAgents(wallet, opts)
     ])
 
     // check if agent is available, if not, create agent
@@ -696,7 +765,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (!each.triggerData) throw new Error('trigger data required but not present')
 
       // get market info
-      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+      const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
 
       // retrive original order
       const order = (await getOpenOrders(wallet)).find((o) => o.oid === Number(each.orderId))
@@ -757,8 +826,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const cancelledOrders: CancelRequest[] = []
 
-    // TODO: cache this
-    const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
+    const [meta, refData, extraAgents] = await Promise.all([
+      this._getMeta(opts),
+      this._getReferralData(wallet, opts),
+      this._getExtraAgents(wallet, opts)
+    ])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
@@ -770,7 +842,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     for (const each of orderData) {
       // get market info
-      const marketInfo = (await this.getMarketsInfo([each.marketId]))[0]
+      const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
 
       // retrive original order
       const order = (await getOpenOrders(wallet)).find((o) => o.oid === Number(each.orderId))
@@ -807,7 +879,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const payload: ActionParam[] = []
 
-    const extraAgents = await getExtraAgents(wallet)
+    const extraAgents = await this._getExtraAgents(wallet, opts)
 
     // check if agent is available, if not, create agent
     if ((await checkIfRageTradeAgent(extraAgents, ethers.constants.AddressZero))[0].isAuthenticated)
@@ -828,12 +900,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const requests: OrderRequest[] = []
 
-    // TODO: cache this
     const [meta, mids, refData, extraAgents] = await Promise.all([
-      getMeta(),
-      getAllMids(),
-      getReferralData(wallet),
-      getExtraAgents(wallet)
+      this._getMeta(opts),
+      this._getAllMids(opts),
+      this._getReferralData(wallet, opts),
+      this._getExtraAgents(wallet, opts)
     ])
 
     // check if agent is available, if not, create agent
@@ -857,7 +928,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (!closeData.closeSize.isTokenAmount) throw new Error('size delta required in token terms')
 
       // get market info
-      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId]))[0]
+      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId], opts))[0]
       const coin = marketInfo.indexToken.symbol
 
       let sizeDelta = Number(closeData.closeSize.amount._value)
@@ -929,8 +1000,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const payload: ActionParam[] = []
 
-    // TODO: cache this
-    const [meta, refData, extraAgents] = await Promise.all([getMeta(), getReferralData(wallet), getExtraAgents(wallet)])
+    const [meta, refData, extraAgents] = await Promise.all([
+      this._getMeta(opts),
+      this._getReferralData(wallet, opts),
+      this._getExtraAgents(wallet, opts)
+    ])
 
     // check if agent is available, if not, create agent
     if (!(await checkIfRageTradeAgentInternal(extraAgents))) payload.push(approveAgent())
@@ -947,7 +1021,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const updateMarginData = updatePositionMarginData[i]
 
       // get market info
-      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId]))[0]
+      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId], opts))[0]
 
       // compare mode
       if (!positionInfoData.mode || positionInfoData.mode === 'CROSS') throw new Error('invalid mode to update margin')
@@ -984,7 +1058,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   ): Promise<PaginatedRes<PositionInfo>> {
     const positions: PositionInfo[] = []
 
-    const clearinghouseState = await getClearinghouseState(wallet)
+    const clearinghouseState = await this._getClearingHouseState(wallet, opts)
     const assetPositions = clearinghouseState.assetPositions
 
     assetPositions.forEach((ap, index) => {
@@ -1045,7 +1119,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     // get all open orders
     const ordersPromise = getOpenOrders(wallet)
     // getAllPositions - because for TP/SL orders that close the position entirely, size is not provided in order/status
-    const clearinghouseStatePromise = getClearinghouseState(wallet)
+    const clearinghouseStatePromise = this._getClearingHouseState(wallet, opts)
     const [orders, clearinghouseState] = await Promise.all([ordersPromise, clearinghouseStatePromise])
 
     // get order status for each order
@@ -1285,14 +1359,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       orderData.map((o) => o.marketId),
       opts
     )
-    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
-    const allMidsPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'allMids'],
-      fn: () => getAllMids(),
-      staleTime: sTimeAM,
-      cacheTime: sTimeAM * CACHE_TIME_MULT,
-      opts: opts
-    })
 
     let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
     const webData2Promise = cacheFetch({
@@ -1303,7 +1369,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     }) as Promise<WebData2>
 
-    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, this._getAllMids(opts), webData2Promise])
 
     const meta = webData2.meta
     for (let i = 0; i < orderData.length; i++) {
@@ -1324,7 +1390,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const orderSize = FixedNumber.fromString(orderSizeN.toString())
       const mid = mids[coin]
       const mp = FixedNumber.fromString(mid, 30)
-      const trigPriceN = isMarket ? mid : roundedPrice(Number(od.triggerData!.triggerPrice._value))
+      const trigPriceN = isMarket ? Number(mid) : roundedPrice(Number(od.triggerData!.triggerPrice._value))
       const trigPrice = isMarket ? mp : FixedNumber.fromString(trigPriceN.toString())
 
       if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
@@ -1451,15 +1517,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const mIds = positionInfo.map((p) => p.marketId)
     const marketsPromise = this.getMarketsInfo(mIds, opts)
 
-    const sTimeAM = getStaleTime(CACHE_SECOND * 2, opts)
-    const allMidsPromise = cacheFetch({
-      key: [HL_CACHE_PREFIX, 'allMids'],
-      fn: () => getAllMids(),
-      staleTime: sTimeAM,
-      cacheTime: sTimeAM * CACHE_TIME_MULT,
-      opts: opts
-    })
-
     let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
     const webData2Promise = cacheFetch({
       key: [HL_CACHE_PREFIX, 'webData2', wallet],
@@ -1469,7 +1526,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     }) as Promise<WebData2>
 
-    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, this._getAllMids(opts), webData2Promise])
 
     const meta = webData2.meta
 
@@ -1580,7 +1637,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const mIds = existingPos.map((p) => p.marketId)
     const marketsPromise = this.getMarketsInfo(mIds, opts)
-    const allMidsPromise = getAllMids()
 
     let sTimeW2D = getStaleTime(CACHE_SECOND * 2, opts)
     const webData2Promise = cacheFetch({
@@ -1591,7 +1647,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       opts: opts
     })
 
-    const [markets, mids, webData2] = await Promise.all([marketsPromise, allMidsPromise, webData2Promise])
+    const [markets, mids, webData2] = await Promise.all([marketsPromise, this._getAllMids(opts), webData2Promise])
 
     for (let i = 0; i < existingPos.length; i++) {
       const pos = existingPos[i]
@@ -1651,7 +1707,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
-    const clearinghouseState = await getClearinghouseState(wallet)
+    const clearinghouseState = await this._getClearingHouseState(wallet, opts)
 
     const crossAccountValue = FixedNumber.fromString(clearinghouseState.crossMarginSummary.accountValue)
     const crossTotalNtlPos = FixedNumber.fromString(clearinghouseState.crossMarginSummary.totalNtlPos)
@@ -1752,6 +1808,24 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     await cacheFetch({
       key: [HL_CACHE_PREFIX, 'meta'],
       fn: () => getMeta(),
+      staleTime: 0,
+      cacheTime: 0
+    })
+
+    if (!wallet) return
+
+    // ref code
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'refCode', wallet],
+      fn: () => getReferralData(wallet),
+      staleTime: 0,
+      cacheTime: 0
+    })
+
+    // agent
+    await cacheFetch({
+      key: [HL_CACHE_PREFIX, 'agents', wallet],
+      fn: () => getExtraAgents(wallet),
       staleTime: 0,
       cacheTime: 0
     })

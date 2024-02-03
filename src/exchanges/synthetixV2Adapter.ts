@@ -118,7 +118,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       })
 
       // build MarketInfo
-      markets.forEach((m: FuturesMarket) => {
+      markets.forEach((m: Partial<FuturesMarket>) => {
         const market: Market = {
           marketId: encodeMarketId(optimism.id.toString(), SYN_V2, m.market!),
           chain: optimism,

@@ -67,6 +67,8 @@ export type Leverage = {
   value: number
 }
 
+export type ExtraAgent = { address: string; name: string }
+
 export type MarginSummary = {
   accountValue: string
   totalMarginUsed: string
