@@ -27,9 +27,9 @@ export async function traverseHLBook(
   const l2BookPromises: Promise<L2Book>[] = []
   for (let nSigFigs = 2; nSigFigs <= 5; nSigFigs++) {
     const sTimeL2B = getStaleTime(CACHE_SECOND * 5, opts)
-    const cachedOb = hlGetCachedL2Book(coin, nSigFigs - 1)
-    const l2BookPromise = cachedOb
-      ? Promise.resolve(cachedOb)
+    const cachedL2Book = hlGetCachedL2Book(coin, nSigFigs - 1)
+    const l2BookPromise = cachedL2Book
+      ? Promise.resolve(cachedL2Book)
       : cacheFetch({
           key: [HL_CACHE_PREFIX, 'l2Book', coin, nSigFigs],
           fn: () => getL2Book(coin, nSigFigs),
