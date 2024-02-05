@@ -131,7 +131,6 @@ export type ExtendedPosition = Position & {
   pnlwithoutfees?: BigNumber
   closeFee?: BigNumber
   swapFee?: BigNumber
-  borrowFee?: BigNumber
   positionFee?: BigNumber
   collateralAfterFee?: BigNumber
   delta?: BigNumber
@@ -146,6 +145,10 @@ export type ExtendedPosition = Position & {
   error?: string
   asset?: string
   roe?: BigNumber
+  aggregatePnl?: BigNumber
+  rawPnl?: BigNumber
+  borrowFee?: BigNumber
+  fundingFee?: BigNumber
 }
 
 export type Trade = ExtendedPosition & {

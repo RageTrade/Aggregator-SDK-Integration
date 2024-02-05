@@ -182,6 +182,13 @@ export type CancelOrder = OrderIdentifier & {
   type: OrderType
 }
 
+export type PnlData = {
+  aggregatePnl: FixedNumber
+  rawPnl: FixedNumber
+  fundingFee: FixedNumber
+  borrowFee: FixedNumber
+}
+
 export type PositionData = {
   marketId: Market['marketId']
   posId: string
@@ -190,7 +197,7 @@ export type PositionData = {
   accessibleMargin: AmountInfo
   avgEntryPrice: FixedNumber
   cumulativeFunding: FixedNumber
-  unrealizedPnl: FixedNumber
+  unrealizedPnl: PnlData
   liquidationPrice: FixedNumber
   leverage: FixedNumber
   direction: TradeDirection

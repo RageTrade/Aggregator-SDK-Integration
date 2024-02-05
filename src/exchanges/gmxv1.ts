@@ -826,8 +826,9 @@ export default class GmxV1Service implements IExchange {
       const maxAmount: BigNumber = pos.collateralAfterFee.sub(MIN_ORDER_USD).gt(0)
         ? pos.collateralAfterFee.sub(MIN_ORDER_USD)
         : bigNumberify(0)
-      const upnl = pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1)
-
+      // const upnl = pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1)
+      const rawPnl = pos.hasProfit ? pos.delta : pos.delta.mul(-1)
+      const aggregatePnl = rawPnl.sub(pos.fundingFee)
       // console.log({ maxAmount });
 
       const extP: ExtendedPosition = {
@@ -837,7 +838,7 @@ export default class GmxV1Service implements IExchange {
         averageEntryPrice: pos.averagePrice,
         cumulativeFunding: pos.fundingFee,
         lastUpdatedAtTimestamp: pos.lastIncreasedTime,
-        unrealizedPnl: pos.hasProfitAfterFees ? pos.pendingDeltaAfterFees : pos.pendingDeltaAfterFees.mul(-1),
+        unrealizedPnl: aggregatePnl,
         liqudationPrice: getLiquidationPrice({
           size: pos.size,
           collateral: pos.collateral,
@@ -863,7 +864,6 @@ export default class GmxV1Service implements IExchange {
         pnlwithoutfees: pos.delta,
         closeFee: pos.closingFee,
         swapFee: pos.swapFee,
-        borrowFee: pos.fundingFee,
         positionFee: pos.positionFee,
         collateralAfterFee: pos.collateralAfterFee,
         delta: pos.delta,
@@ -874,7 +874,11 @@ export default class GmxV1Service implements IExchange {
         protocolMetadata: {
           protocolName: this.protocolIdentifier
         },
-        roe: upnl.div(pos.collateral)
+        roe: aggregatePnl.div(pos.collateral),
+        aggregatePnl: aggregatePnl,
+        rawPnl: rawPnl,
+        borrowFee: pos.fundingFee,
+        fundingFee: ZERO
       }
 
       extPositions.push(extP)

@@ -30,7 +30,8 @@ import {
   AvailableToTradeParams,
   DepositWithdrawParams,
   AgentParams,
-  AgentState
+  AgentState,
+  PnlData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { rpc } from '../common/provider'
 import {
@@ -1094,7 +1095,17 @@ export default class GmxV2Service implements IAdapterV1 {
 
     for (const posData of positionsData) {
       const accessibleMargin = posData.remainingCollateralUsd.sub(this.minCollateralUsd)
-      const upnl = FixedNumber.fromValue(posData.pnlAfterFees.toString(), 30, 30)
+      const rawPnl = posData.pnl
+      const borrowFee = posData.pendingBorrowingFeesUsd
+      const fundingFee = posData.pendingFundingFeesUsd
+      const aggregatePnl = rawPnl.sub(borrowFee.add(fundingFee))
+      const upnl: PnlData = {
+        aggregatePnl: FixedNumber.fromValue(aggregatePnl.toString(), 30, 30),
+        rawPnl: FixedNumber.fromValue(rawPnl.toString(), 30, 30),
+        borrowFee: FixedNumber.fromValue(borrowFee.toString(), 30, 30),
+        fundingFee: FixedNumber.fromValue(fundingFee.toString(), 30, 30)
+      }
+
       positionsInfo.push({
         marketId: encodeMarketId(arbitrum.id.toString(), 'GMXV2', posData.marketInfo.marketTokenAddress),
         posId: posData.key,
@@ -1116,7 +1127,7 @@ export default class GmxV2Service implements IAdapterV1 {
         collateral: getGmxV2TokenByAddress(posData.collateralTokenAddress),
         indexToken: getGmxV2TokenByAddress(posData.indexToken.address),
         protocolId: 'GMXV2',
-        roe: divFN(upnl, FixedNumber.fromValue(posData.collateralUsd.toBigInt(), 30, 30)),
+        roe: divFN(upnl.aggregatePnl, FixedNumber.fromValue(posData.collateralUsd.toBigInt(), 30, 30)),
         metadata: posData,
         mode: 'ISOLATED'
       })

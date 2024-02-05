@@ -42,7 +42,8 @@ import {
   AgentParams,
   AgentState,
   TradeDirection,
-  TimeInForce
+  TimeInForce,
+  PnlData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import {
   CACHE_DAY,
@@ -1073,7 +1074,15 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const leverage = FixedNumber.fromString(position.leverage.value.toString())
       const marginUsed = FixedNumber.fromString(position.marginUsed)
       const positionValue = FixedNumber.fromString(position.positionValue)
-      const unrealizedPnl = FixedNumber.fromString(position.unrealizedPnl)
+      const rawPnl = FixedNumber.fromString(position.unrealizedPnl)
+      const fundingFee = mulFN(FixedNumber.fromString(position.cumFunding.sinceOpen), FixedNumber.fromString('-1'))
+      const aggregatePnl = subFN(rawPnl, fundingFee)
+      const upnl: PnlData = {
+        aggregatePnl: aggregatePnl,
+        rawPnl: rawPnl,
+        borrowFee: FixedNumber.fromString('0'),
+        fundingFee: fundingFee
+      }
       let accessibleMargin = subFN(marginUsed, divFN(positionValue, leverage))
       accessibleMargin = accessibleMargin.isNegative() ? FixedNumber.fromString('0') : accessibleMargin
       if (accessibleMargin._value.includes('.')) {
@@ -1091,7 +1100,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         accessibleMargin: toAmountInfoFN(accessibleMargin, false),
         avgEntryPrice: FixedNumber.fromString(position.entryPx),
         cumulativeFunding: FixedNumber.fromString(position.cumFunding.allTime),
-        unrealizedPnl: unrealizedPnl,
+        unrealizedPnl: upnl,
         liquidationPrice: position.liquidationPx
           ? FixedNumber.fromString(position.liquidationPx)
           : FixedNumber.fromString('0'),
@@ -1100,7 +1109,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         collateral: collateral,
         indexToken: indexToken,
         protocolId: 'HL',
-        roe: divFN(unrealizedPnl, marginUsed),
+        roe: divFN(aggregatePnl, marginUsed),
         metadata: ap,
         mode: position.leverage.type === 'isolated' ? 'ISOLATED' : 'CROSS'
       }

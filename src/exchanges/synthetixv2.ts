@@ -891,6 +891,9 @@ export default class SynthetixV2Service implements IExchange {
   //// HELPERS ////
 
   mapFuturePositionToExtendedPosition(futurePosition: FuturesPosition, marketAddress: string): ExtendedPosition {
+    const rawPnl = futurePosition.position!.profitLoss
+    const accurredFunding = futurePosition.position!.accruedFunding
+    const aggregatePnl = rawPnl.add(accurredFunding)
     return {
       indexOrIdentifier: futurePosition.marketKey.toString(),
       size: futurePosition.position!.size.toBN(),
@@ -898,7 +901,7 @@ export default class SynthetixV2Service implements IExchange {
       collateralToken: this.sUsd,
       averageEntryPrice: futurePosition.position!.lastPrice.toBN(),
       cumulativeFunding: futurePosition.position!.accruedFunding.toBN(),
-      unrealizedPnl: futurePosition.position!.pnl.toBN(),
+      unrealizedPnl: aggregatePnl.toBN(),
       liqudationPrice: futurePosition.position!.liquidationPrice.toBN(),
       leverage: futurePosition.position!.initialLeverage.toBN(),
       direction: futurePosition.position!.side == PositionSide.LONG ? 'LONG' : 'SHORT',
@@ -909,7 +912,11 @@ export default class SynthetixV2Service implements IExchange {
         protocolName: this.protocolIdentifier
       },
       asset: this._getTokenSymbol(futurePosition.asset.toString()),
-      roe: futurePosition.position!.pnl.div(futurePosition.position!.initialMargin).toBN()
+      roe: aggregatePnl.div(futurePosition.position!.initialMargin).toBN(),
+      aggregatePnl: aggregatePnl.toBN(),
+      rawPnl: rawPnl.toBN(),
+      fundingFee: accurredFunding.mul(-1).toBN(),
+      borrowFee: ZERO
     }
   }
 
