@@ -591,18 +591,18 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   async _getReferralData(wallet: string, opts?: ApiOpts): Promise<ReferralResponse> {
-    const key = [HL_CACHE_PREFIX, 'refCode', wallet]
+    const key = [HL_CACHE_PREFIX, 'getReferralData', wallet]
 
     const cachedData = getCachedValueByKey<Awaited<ReturnType<typeof getReferralData>>>(key)
 
     const sTimeRef =
-      cachedData && cachedData.referredBy ? getStaleTime(CACHE_DAY, opts) : getStaleTime(CACHE_SECOND * 3, opts)
+      cachedData && cachedData.referredBy ? getStaleTime(CACHE_DAY, opts) : getStaleTime(CACHE_SECOND * 2, opts)
 
     return cacheFetch({
       key: key,
       fn: () => getReferralData(wallet),
       staleTime: sTimeRef,
-      cacheTime: sTimeRef * CACHE_TIME_MULT,
+      cacheTime: sTimeRef,
       opts: opts
     })
   }
@@ -1835,7 +1835,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     // ref code
     await cacheFetch({
-      key: [HL_CACHE_PREFIX, 'refCode', wallet],
+      key: [HL_CACHE_PREFIX, 'getReferralData', wallet],
       fn: () => getReferralData(wallet),
       staleTime: 0,
       cacheTime: 0
@@ -1851,24 +1851,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   }
 
   async _getRefCode(wallet: string, opts?: ApiOpts): Promise<string | null> {
-    // check if the user has an active ref code
-    const refDataKey = [HL_CACHE_PREFIX, 'getReferralData', wallet]
-    const cachedRefData = getCachedValueByKey(refDataKey) as ReferralResponse | undefined
-    const cachedCode = cachedRefData?.referredBy.code
-
-    // if cached code exists, set stale time to 1 day otherwise fetch with minimum stale time
-    const sTimeRC =
-      cachedCode && cachedCode != null && cachedCode.length > 0
-        ? getStaleTime(CACHE_DAY, opts)
-        : getStaleTime(CACHE_SECOND * 2, opts)
-
-    const refData = (await cacheFetch({
-      key: refDataKey,
-      fn: () => getReferralData(wallet),
-      staleTime: sTimeRC,
-      cacheTime: sTimeRC * CACHE_TIME_MULT,
-      opts: opts
-    })) as ReferralResponse
+    const refData = await this._getReferralData(wallet, opts)
     const code = refData.referredBy.code
 
     return code
