@@ -44,7 +44,15 @@ import { timer } from 'execution-time-decorators'
 import { formatUnits, parseUnits } from 'ethers/lib/utils'
 import { getTokenPrice, getTokenPriceD } from '../configs/pyth/prices'
 import { ApiOpts, ProtocolId } from '../interfaces/V1/IRouterAdapterBaseV1'
-import { CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, SYNV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../common/cache'
+import {
+  CACHE_DAY,
+  CACHE_MINUTE,
+  CACHE_SECOND,
+  CACHE_TIME_MULT,
+  SYNV2_CACHE_PREFIX,
+  cacheFetch,
+  getStaleTime
+} from '../common/cache'
 import { rpc } from '../common/provider'
 import { ZERO } from '../common/constants'
 import {
@@ -204,7 +212,8 @@ export default class SynthetixV2Service implements IExchange {
     provider: Provider,
     market: ExtendedMarket,
     order: Order,
-    wallet: string
+    wallet: string,
+    opts?: ApiOpts
   ): Promise<UnsignedTxWithMetadata[]> {
     let txs: UnsignedTxWithMetadata[] = []
     if (order.sizeDelta.eq(0)) return txs
@@ -216,10 +225,26 @@ export default class SynthetixV2Service implements IExchange {
       // withdraw unused collateral tx's
       // txs.push(...(await this.withdrawUnusedCollateral(wallet, provider)))
 
-      // deposit
-      let depositTx = await this.formulateDepositTx(marketAddress, wei(order.inputCollateralAmount))
-      // logObject("depositTx", depositTx);
-      txs.push(depositTx)
+      const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
+      const sTimeSB = getStaleTime(CACHE_SECOND * 5, opts)
+      const sUsdBalanceInMarket = await cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', wallet, market.indexOrIdentifier],
+        fn: () =>
+          this.sdk.futures.getIdleMarginInMarketsCached(wallet, [futureMarket]).then((r) => r.totalIdleInMarkets),
+        staleTime: sTimeSB,
+        cacheTime: sTimeSB,
+        opts
+      })
+
+      let inputCollateralAmount = order.inputCollateralAmount.sub(sUsdBalanceInMarket.toBN())
+      inputCollateralAmount = inputCollateralAmount.gt(0) ? inputCollateralAmount : ZERO
+
+      if (inputCollateralAmount.gt(0)) {
+        // deposit
+        let depositTx = await this.formulateDepositTx(marketAddress, wei(inputCollateralAmount))
+        // logObject("depositTx", depositTx);
+        txs.push(depositTx)
+      }
     }
 
     // proper orders
@@ -409,18 +434,20 @@ export default class SynthetixV2Service implements IExchange {
 
     await this.sdk.setProvider(opProvider)
 
-    // const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
-    // const sTimeSB = getStaleTime(CACHE_MINUTE, opts)
-    // const sUsdBalanceInMarket = await cacheFetch({
-    //   key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', user, market.indexOrIdentifier],
-    //   fn: () => this.sdk.futures.getIdleMarginInMarketsCached(user, [futureMarket]).then((r) => r.totalIdleInMarkets),
-    //   staleTime: sTimeSB,
-    //   cacheTime: sTimeSB * CACHE_TIME_MULT,
-    //   opts
-    // })
+    const futureMarket = this.mapExtendedMarketsToPartialFutureMarkets([market])[0]
+    const sTimeSB = getStaleTime(CACHE_SECOND * 5, opts)
+    const sUsdBalanceInMarket = await cacheFetch({
+      key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', user, market.indexOrIdentifier],
+      fn: () => this.sdk.futures.getIdleMarginInMarketsCached(user, [futureMarket]).then((r) => r.totalIdleInMarkets),
+      staleTime: sTimeSB,
+      cacheTime: sTimeSB,
+      opts
+    })
 
     let sizeDelta = wei(order.sizeDelta)
     sizeDelta = order.direction == 'LONG' ? sizeDelta : sizeDelta.neg()
+    let inputCollateralAmount = wei(order.inputCollateralAmount).sub(sUsdBalanceInMarket)
+    inputCollateralAmount = inputCollateralAmount.gt(0) ? inputCollateralAmount : wei(ZERO)
 
     const tradePreviewPromise = this.sdk.futures.getSimulatedIsolatedTradePreview(
       user,
@@ -428,13 +455,13 @@ export default class SynthetixV2Service implements IExchange {
       marketAddress,
       {
         sizeDelta: sizeDelta,
-        marginDelta: wei(order.inputCollateralAmount) /* .sub(sUsdBalanceInMarket) */,
+        marginDelta: inputCollateralAmount,
         orderPrice: wei(order.trigger!.triggerPrice)
       },
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 1, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -495,7 +522,7 @@ export default class SynthetixV2Service implements IExchange {
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 1, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),
@@ -553,7 +580,7 @@ export default class SynthetixV2Service implements IExchange {
       opts
     )
 
-    const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
+    const sTimeKF = getStaleTime(CACHE_MINUTE * 1, opts)
     const keeperFeePromise = cacheFetch({
       key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
       fn: () => this.sdk.futures.getMinKeeperFee(),

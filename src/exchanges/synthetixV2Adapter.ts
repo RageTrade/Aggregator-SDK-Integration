@@ -365,33 +365,19 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       const marketAddress = decodeMarketId(m.marketId).protocolMarketId
       const marketPrice = getTokenPriceD(m.indexToken.symbol, D18)!
 
-      // const futureMarket = m.metadata! as FuturesMarket
-      // const sTimeAM = getStaleTime(CACHE_SECOND * 10, opts)
-      // const accessibleMarginPromise = cacheFetch({
-      //   key: [SYNV2_CACHE_PREFIX, 'accessibleMargin', wallet, futureMarket.market],
-      //   fn: () =>
-      //     this.sdk.futures
-      //       .getFuturesPositions(wallet, [
-      //         {
-      //           asset: futureMarket.asset!,
-      //           marketKey: futureMarket.marketKey!,
-      //           address: futureMarket.market!
-      //         }
-      //       ])
-      //       .then((r) => r[0].accessibleMargin.toBN()),
-      //   staleTime: sTimeAM,
-      //   cacheTime: sTimeAM * CACHE_TIME_MULT,
-      //   opts
-      // }) as Promise<BigNumber>
-
-      const sTimeKF = getStaleTime(CACHE_MINUTE * 5, opts)
-      const keeperFeePromise = cacheFetch({
-        key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
-        fn: () => this.sdk.futures.getMinKeeperFee(),
-        staleTime: sTimeKF,
-        cacheTime: sTimeKF * CACHE_TIME_MULT,
+      const futureMarket = m.metadata! as FuturesMarket
+      const sTimeSB = getStaleTime(CACHE_SECOND * 10, opts)
+      const sUsdBalanceInMarket = await cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'sUSDBalanceMarket', wallet, m.metadata!.marketKey!],
+        fn: () =>
+          this.sdk.futures.getIdleMarginInMarketsCached(wallet, [futureMarket]).then((r) => r.totalIdleInMarkets),
+        staleTime: sTimeSB,
+        cacheTime: sTimeSB * CACHE_TIME_MULT,
         opts
-      }) as Promise<BigNumber>
+      })
+
+      let inputCollateralAmount = marginDeltaBN.sub(sUsdBalanceInMarket.toBN())
+      inputCollateralAmount = inputCollateralAmount.gt(ZERO) ? inputCollateralAmount : ZERO
 
       // const [accessibleMargin, keeperFee] = await Promise.all([accessibleMarginPromise, keeperFeePromise])
       // const inputCollateralAmount = marginDeltaBN.gt(accessibleMargin.sub(keeperFee)) ? marginDeltaBN : ZERO
@@ -405,11 +391,20 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
         marketAddress,
         {
           sizeDelta: sizeDelta,
-          marginDelta: wei(marginDeltaBN),
+          marginDelta: wei(inputCollateralAmount),
           orderPrice: wei(getBNFromFN(o.triggerData!.triggerPrice.toFormat(D18)))
         },
         opts
       )
+
+      const sTimeKF = getStaleTime(CACHE_MINUTE * 1, opts)
+      const keeperFeePromise = cacheFetch({
+        key: [SYNV2_CACHE_PREFIX, 'getMinKeeperFee'],
+        fn: () => this.sdk.futures.getMinKeeperFee(),
+        staleTime: sTimeKF,
+        cacheTime: sTimeKF * CACHE_TIME_MULT,
+        opts
+      }) as Promise<BigNumber>
 
       const [tradePreview, keeperFee] = await Promise.all([tradePreviewPromise, keeperFeePromise])
 
