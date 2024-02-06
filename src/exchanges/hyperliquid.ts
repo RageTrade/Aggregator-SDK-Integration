@@ -263,7 +263,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       hasOrderbook: true,
       sizeDeltaInToken: true,
       explicitFundingClaim: false,
-      collateralDeltaInToken: true
+      collateralDeltaInToken: true,
+      collateralUsesLimitPricing: false
     }
 
     return info
