@@ -22,7 +22,8 @@ import {
   UnsignedTxWithMetadata,
   LiquidationHistory,
   PaginatedRes,
-  PageOptions
+  PageOptions,
+  PnlDataBN
 } from '../interface'
 import {
   IERC20__factory,
@@ -830,6 +831,12 @@ export default class GmxV1Service implements IExchange {
       const rawPnl = pos.hasProfit ? pos.delta : pos.delta.mul(-1)
       const aggregatePnl = rawPnl.sub(pos.fundingFee)
       // console.log({ maxAmount });
+      const upnl: PnlDataBN = {
+        aggregatePnl: aggregatePnl,
+        rawPnl: rawPnl,
+        borrowFee: pos.fundingFee,
+        fundingFee: ZERO
+      }
 
       const extP: ExtendedPosition = {
         indexOrIdentifier: pos.key, // account + collateral + index + isLong
@@ -838,7 +845,7 @@ export default class GmxV1Service implements IExchange {
         averageEntryPrice: pos.averagePrice,
         cumulativeFunding: pos.fundingFee,
         lastUpdatedAtTimestamp: pos.lastIncreasedTime,
-        unrealizedPnl: aggregatePnl,
+        unrealizedPnl: upnl,
         liqudationPrice: getLiquidationPrice({
           size: pos.size,
           collateral: pos.collateral,
@@ -875,10 +882,7 @@ export default class GmxV1Service implements IExchange {
           protocolName: this.protocolIdentifier
         },
         roe: aggregatePnl.div(pos.collateral),
-        aggregatePnl: aggregatePnl,
-        rawPnl: rawPnl,
-        borrowFee: pos.fundingFee,
-        fundingFee: ZERO
+        borrowFee: pos.fundingFee
       }
 
       extPositions.push(extP)

@@ -110,8 +110,15 @@ export type Position = {
   lastUpdatedAtTimestamp?: number
 }
 
+export type PnlDataBN = {
+  aggregatePnl?: BigNumber
+  rawPnl?: BigNumber
+  borrowFee?: BigNumber
+  fundingFee?: BigNumber
+}
+
 export type ExtendedPosition = Position & {
-  unrealizedPnl?: BigNumber
+  unrealizedPnl?: PnlDataBN
   liqudationPrice?: BigNumber
   otherFees?: BigNumber
   fee?: BigNumber
@@ -145,10 +152,7 @@ export type ExtendedPosition = Position & {
   error?: string
   asset?: string
   roe?: BigNumber
-  aggregatePnl?: BigNumber
-  rawPnl?: BigNumber
   borrowFee?: BigNumber
-  fundingFee?: BigNumber
 }
 
 export type Trade = ExtendedPosition & {

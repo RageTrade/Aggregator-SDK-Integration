@@ -171,7 +171,7 @@ export type OrderData = {
   reduceOnly: boolean
   side: Side
   sz: string
-  tif: Tif | null 
+  tif: Tif | null
   timestamp: number
   triggerCondition: string
   triggerPx: string

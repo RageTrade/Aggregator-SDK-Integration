@@ -25,7 +25,8 @@ import {
   UnsignedTxWithMetadata,
   LiquidationHistory,
   PageOptions,
-  PaginatedRes
+  PaginatedRes,
+  PnlDataBN
 } from '../interface'
 import Wei, { wei } from '@synthetixio/wei'
 import { ContractOrderType, FuturesMarket, FuturesMarketKey, PositionSide } from '@kwenta/sdk/dist/types'
@@ -894,6 +895,12 @@ export default class SynthetixV2Service implements IExchange {
     const rawPnl = futurePosition.position!.profitLoss
     const accurredFunding = futurePosition.position!.accruedFunding
     const aggregatePnl = rawPnl.add(accurredFunding)
+    const upnl: PnlDataBN = {
+      aggregatePnl: aggregatePnl.toBN(),
+      rawPnl: rawPnl.toBN(),
+      fundingFee: accurredFunding.mul(-1).toBN(),
+      borrowFee: ZERO
+    }
     return {
       indexOrIdentifier: futurePosition.marketKey.toString(),
       size: futurePosition.position!.size.toBN(),
@@ -901,7 +908,7 @@ export default class SynthetixV2Service implements IExchange {
       collateralToken: this.sUsd,
       averageEntryPrice: futurePosition.position!.lastPrice.toBN(),
       cumulativeFunding: futurePosition.position!.accruedFunding.toBN(),
-      unrealizedPnl: aggregatePnl.toBN(),
+      unrealizedPnl: upnl,
       liqudationPrice: futurePosition.position!.liquidationPrice.toBN(),
       leverage: futurePosition.position!.initialLeverage.toBN(),
       direction: futurePosition.position!.side == PositionSide.LONG ? 'LONG' : 'SHORT',
@@ -912,11 +919,7 @@ export default class SynthetixV2Service implements IExchange {
         protocolName: this.protocolIdentifier
       },
       asset: this._getTokenSymbol(futurePosition.asset.toString()),
-      roe: aggregatePnl.div(futurePosition.position!.initialMargin).toBN(),
-      aggregatePnl: aggregatePnl.toBN(),
-      rawPnl: rawPnl.toBN(),
-      fundingFee: accurredFunding.mul(-1).toBN(),
-      borrowFee: ZERO
+      roe: aggregatePnl.div(futurePosition.position!.initialMargin).toBN()
     }
   }
 
