@@ -178,7 +178,8 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       hasOrderbook: false,
       sizeDeltaInToken: true,
       explicitFundingClaim: false,
-      collateralDeltaInToken: true
+      collateralDeltaInToken: true,
+      collateralUsesLimitPricing: false
     }
 
     return info

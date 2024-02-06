@@ -148,7 +148,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
       hasOrderbook: false,
       sizeDeltaInToken: false,
       explicitFundingClaim: false,
-      collateralDeltaInToken: true
+      collateralDeltaInToken: true,
+      collateralUsesLimitPricing: false
     }
 
     return info

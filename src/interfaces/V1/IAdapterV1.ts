@@ -7,6 +7,7 @@ export type ProtocolInfo = {
   sizeDeltaInToken: boolean
   explicitFundingClaim: boolean
   collateralDeltaInToken: boolean
+  collateralUsesLimitPricing: boolean
 }
 
 export interface IAdapterV1 extends IRouterAdapterBaseV1 {
