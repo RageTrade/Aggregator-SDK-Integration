@@ -678,6 +678,32 @@ export class FixedNumber {
   }
 
   /**
+   *  Creates a new [[FixedNumber]] for %%value%% divided by
+   *  %%decimal%% places with %%format%%.
+   *
+   *  This will throw a [[NumericFaultError]] if %%value%% (once adjusted
+   *  for %%decimals%%) cannot fit in %%format%%, either due to overflow
+   *  or underflow (precision loss).
+   */
+  static fromValueWithTruncate(_value: BigNumberish, _decimals?: Numeric, _format?: FixedFormat): FixedNumber {
+    const decimals = _decimals == null ? 0 : getNumber(_decimals)
+    const format = getFormat(_format)
+
+    let value = getBigInt(_value, 'value')
+    const delta = decimals - format.decimals
+    if (delta > 0) {
+      const tens = getTens(delta)
+      value /= tens
+    } else if (delta < 0) {
+      value *= getTens(-delta)
+    }
+
+    checkValue(value, format, 'fromValue')
+
+    return new FixedNumber(_guard, value, format)
+  }
+
+  /**
    *  Creates a new [[FixedNumber]] for %%value%% with %%format%%.
    *
    *  This will throw a [[NumericFaultError]] if %%value%% cannot fit
@@ -715,6 +741,37 @@ export class FixedNumber {
   }
 
   /**
+   *  Creates a new [[FixedNumber]] for %%value%% with %%format%%.
+   *
+   *  This will throw a [[NumericFaultError]] if %%value%% cannot fit
+   *  in %%format%%, either due to overflow or underflow (precision loss).
+   */
+
+  static fromStringWithTruncate(_value: string, _format?: FixedFormat): FixedNumber {
+    const match = _value.match(/^(-?)([0-9]*)\.?([0-9]*)$/)
+    assertArgument(match && match[2].length + match[3].length > 0, 'invalid FixedNumber string value', 'value', _value)
+
+    const format = getFormat(_format)
+
+    const whole = match[2] || '0'
+    let decimal = match[3] || ''
+
+    // Pad out the decimals
+    while (decimal.length < format.decimals) {
+      decimal += Zeros
+    }
+
+    // Remove extra padding
+    decimal = decimal.substring(0, format.decimals)
+
+    const value = BigInt(match[1] + whole + decimal)
+
+    checkValue(value, format, 'fromString')
+
+    return new FixedNumber(_guard, value, format)
+  }
+
+  /**
    *  Creates a new [[FixedNumber]] with the big-endian representation
    *  %%value%% with %%format%%.
    *
@@ -732,6 +789,26 @@ export class FixedNumber {
     checkValue(value, format, 'fromBytes')
 
     return new FixedNumber(_guard, value, format)
+  }
+
+  addFN(o: FixedNumber, format?: FixedFormat): FixedNumber {
+    return addFN(this, o, format)
+  }
+
+  subFN(o: FixedNumber, format?: FixedFormat): FixedNumber {
+    return subFN(this, o, format)
+  }
+
+  mulFN(o: FixedNumber, format?: FixedFormat): FixedNumber {
+    return mulFN(this, o, format)
+  }
+
+  divFN(o: FixedNumber, format?: FixedFormat): FixedNumber {
+    return divFN(this, o, format)
+  }
+
+  abs(): FixedNumber {
+    return abs(this)
   }
 }
 
