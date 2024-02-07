@@ -60,12 +60,15 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
+
   deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
     return [arbitrum]
   }
@@ -76,9 +79,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     if (chains == undefined || chains.includes(hyperliquid)) {
       const allMarkets = (await this._getAllMarkets(opts)).filter((m) => m.is_active)
 
-      allMarkets.forEach((m) => {
-        
-      })
+      allMarkets.forEach((m) => {})
     }
 
     return marketInfo
