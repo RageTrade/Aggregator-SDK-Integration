@@ -1,5 +1,5 @@
-import { Chain, formatUnits } from 'viem'
-import { FixedNumber } from '../common/fixedNumber'
+import { Chain } from 'viem'
+import { FixedNumber, mulFN } from '../common/fixedNumber'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
@@ -30,12 +30,12 @@ import {
   AccountInfo,
   MarketState,
   AgentState,
-  OrderBook
+  OrderBook,
+  Market,
+  GenericStaticMarketMetadata,
+  Protocol
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
-import { hyperliquid } from '../configs/hyperliquid/api/config'
-import { AevoClient } from '../../generated/aevo'
-import { AEVO_CACHE_PREFIX, CACHE_DAY, CACHE_MINUTE, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
 import { aevoAddresses } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
@@ -45,6 +45,21 @@ import { IERC20 } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
 import { formatEther } from 'ethers/lib/utils'
+import { hyperliquid } from '../configs/hyperliquid/api/config'
+import { AevoClient } from '../../generated/aevo'
+import {
+  AEVO_CACHE_PREFIX,
+  CACHE_DAY,
+  CACHE_MINUTE,
+  CACHE_SECOND,
+  CACHE_TIME_MULT,
+  cacheFetch,
+  getStaleTime
+} from '../common/cache'
+import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo, aevoUpdateTokensMap } from '../configs/aevo/config'
+import { encodeMarketId } from '../common/markets'
+import { ZERO_FN } from '../common/constants'
+import { aevoMarketIdToAsset } from '../configs/aevo/helper'
 
 class ExtendedAevoClient extends AevoClient {
   public static setCredentials(apiKey: string, apiSecret: string) {}
@@ -224,30 +239,127 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
-    return [arbitrum]
+    return [aevo]
   }
 
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     let marketInfo: MarketInfo[] = []
 
     if (chains == undefined || chains.includes(hyperliquid)) {
-      const allMarkets = (await this._getAllMarkets(opts)).filter((m) => m.is_active)
+      const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
+      const allMarkets = (await this._getAllMarkets(sTimeMarkets, sTimeMarkets * CACHE_TIME_MULT, opts)).filter(
+        (m) => m.is_active
+      )
 
-      allMarkets.forEach((m) => {})
+      allMarkets.forEach((m) => {
+        const market: Market = {
+          marketId: encodeMarketId(aevo.id.toString(), this.protocolId, m.underlying_asset),
+          chain: aevo,
+          indexToken: AEVO_TOKENS_MAP[m.underlying_asset],
+          longCollateral: [AEVO_COLLATERAL_TOKEN],
+          shortCollateral: [AEVO_COLLATERAL_TOKEN],
+          supportedModes: {
+            ISOLATED: false,
+            CROSS: true
+          },
+          supportedOrderTypes: {
+            LIMIT: true,
+            MARKET: true,
+            STOP_LOSS: true,
+            TAKE_PROFIT: true,
+            STOP_LOSS_LIMIT: true,
+            TAKE_PROFIT_LIMIT: true
+          },
+          supportedOrderActions: {
+            CREATE: true,
+            UPDATE: true,
+            CANCEL: true
+          },
+          marketSymbol: m.underlying_asset
+        }
+
+        const staticMetadata: GenericStaticMarketMetadata = {
+          maxLeverage: FixedNumber.fromString(m.max_leverage!.toString()),
+          minLeverage: FixedNumber.fromString('1'),
+          minInitialMargin: FixedNumber.fromString('1'),
+          minPositionSize: FixedNumber.fromString(m.min_order_value.toString()),
+          maxPrecision: 4 // TODO - maxPrecision pending
+        }
+
+        const protocol: Protocol = {
+          protocolId: 'AEVO'
+        }
+
+        marketInfo.push({
+          ...market,
+          ...staticMetadata,
+          ...protocol
+        })
+      })
     }
 
     return marketInfo
   }
 
-  getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
-    throw new Error('Method not implemented.')
+  async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
+    const sTimePrices = getStaleTime(CACHE_SECOND * 2, opts)
+    const allMarkets = (await this._getAllMarkets(sTimePrices, sTimePrices, opts)).filter((m) => m.is_active)
+
+    return marketIds.map((marketId) => {
+      const market = allMarkets.find((m) => m.underlying_asset == aevoMarketIdToAsset(marketId))
+      return market ? FixedNumber.fromString(market.mark_price) : ZERO_FN
+    })
   }
-  getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
-    throw new Error('Method not implemented.')
+
+  async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
+    let marketInfo: MarketInfo[] = []
+
+    const supportedMarkets = await this.supportedMarkets(this.supportedChains(), opts)
+
+    marketIds.forEach((mId) => {
+      const market = supportedMarkets.find((m) => m.marketId === mId)
+      if (market) {
+        marketInfo.push(market)
+      }
+    })
+
+    return marketInfo
   }
-  getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
-    throw new Error('Method not implemented.')
+
+  async getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
+    let dynamicMarketMetadata: DynamicMarketMetadata[] = []
+
+    const sTimeCS = getStaleTime(CACHE_SECOND * 10, opts)
+    const cgStats = await this._getCoingeckoStats(sTimeCS, sTimeCS * CACHE_TIME_MULT, opts)
+
+    marketIds.forEach((mId) => {
+      const asset = aevoMarketIdToAsset(mId)
+      const cgStat = cgStats.find((cg) => cg.base_currency === asset)
+
+      if (cgStat) {
+        const oiToken = FixedNumber.fromString(cgStat.open_interest!)
+        const iPrice = FixedNumber.fromString(cgStat.index_price!)
+        const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
+        const fundingRate = FixedNumber.fromString(cgStat.funding_rate!)
+
+        dynamicMarketMetadata.push({
+          oiLong: oiUsd,
+          oiShort: oiUsd,
+          availableLiquidityLong: ZERO_FN, // TODO - availableLiquidity from OB
+          availableLiquidityShort: ZERO_FN, // TODO - availableLiquidity from OB
+          longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
+          shortFundingRate: fundingRate,
+          longBorrowRate: ZERO_FN,
+          shortBorrowRate: ZERO_FN
+        })
+      } else {
+        throw new Error(`No stats found for asset ${asset}`)
+      }
+    })
+
+    return dynamicMarketMetadata
   }
+
   increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
@@ -374,14 +486,30 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   /// Internal helper functions ///
-  async _getAllMarkets(opts?: ApiOpts) {
-    const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
-    return await cacheFetch({
+
+  // CACHE FUNCTIONS//
+
+  async _getAllMarkets(staleTime: number, cacheTime: number, opts?: ApiOpts) {
+    const allMarkets = await cacheFetch({
       key: [AEVO_CACHE_PREFIX, 'allmarkets'],
       fn: () => this.publicApi.getMarkets(undefined, 'PERPETUAL'),
-      staleTime: sTimeMarkets,
-      cacheTime: sTimeMarkets * CACHE_TIME_MULT,
+      staleTime: staleTime,
+      cacheTime: cacheTime,
       opts
+    })
+
+    // aevo update tokens map
+    aevoUpdateTokensMap(allMarkets)
+
+    return allMarkets
+  }
+
+  async _getCoingeckoStats(staleTime: number, cacheTime: number, opts?: ApiOpts) {
+    return await cacheFetch({
+      key: [AEVO_CACHE_PREFIX, 'coingeckoStats'],
+      fn: () => this.publicApi.getCoingeckoStatistics(),
+      staleTime: staleTime,
+      cacheTime: cacheTime
     })
   }
 }

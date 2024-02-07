@@ -451,7 +451,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const coins = markets.map((m) => m.indexToken.symbol)
 
     // metaAndAssetCtxs promise
-    const sTimeDM = getStaleTime(CACHE_SECOND * 5, opts)
+    const sTimeDM = getStaleTime(CACHE_SECOND * 10, opts)
     const metaAndAssetCtxsPromise = cacheFetch({
       key: [HL_CACHE_PREFIX, 'metaAndAssetCtxs'],
       fn: () => getMetaAndAssetCtxs(),
