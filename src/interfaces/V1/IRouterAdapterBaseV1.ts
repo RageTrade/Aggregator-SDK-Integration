@@ -3,9 +3,15 @@ import { Token } from '../../common/tokens'
 import { ActionParam } from '../IActionExecutor'
 import { FixedNumber } from '../../common/fixedNumber'
 
+export type AevoAuth = {
+  apiKey: string
+  secret: string
+}
+
 export type ApiOpts = {
   bypassCache: boolean // bypass query client cache altogether
   overrideStaleTime?: number // pass the stale time to override default stale time
+  aevoAuth?: AevoAuth
 }
 
 export type AmountInfo = {
@@ -21,7 +27,7 @@ export type OrderType = CreateOrderType | CloseOrderType
 
 export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO'
 
 export type TradeOperationType =
   | 'Open Long'
