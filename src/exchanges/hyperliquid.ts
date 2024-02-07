@@ -143,6 +143,7 @@ import {
   HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
 import { hlGetCachedOrderBook } from '../configs/hyperliquid/api/wsclient'
+import { arbitrum } from 'viem/dist/types/chains'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -168,6 +169,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     for (const each of params) {
       if (each.protocol !== 'HL') throw new Error('invalid protocol id')
+      if (each.chainId !== arbitrum.id) throw new Error('chain id mismatch')
 
       const tx = await this.usdc.populateTransaction.transfer(this.BRIDGE2, each.amount.toFormat(6).value)
 
@@ -190,6 +192,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     for (const each of params) {
       if (each.protocol !== 'HL') throw new Error('invalid protocol id')
+      if (each.chainId !== arbitrum.id) throw new Error('chain id mismatch')
+
       txs.push(withdrawFromBridge(each.amount.toString()))
     }
 
@@ -723,7 +727,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           {
             amount: subFN(totalMarginRequired, totalAvailableToTrade),
             wallet,
-            protocol: 'HL'
+            protocol: 'HL',
+            chainId: arbitrum.id
           }
         ]))
       )

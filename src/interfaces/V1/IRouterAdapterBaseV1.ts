@@ -67,6 +67,7 @@ export type DepositWithdrawParams = {
   amount: FixedNumber
   wallet: string
   protocol: ProtocolId
+  chainId: Chain['id']
   market?: Market['marketId']
 }
 
