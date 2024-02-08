@@ -37,12 +37,17 @@ import { hyperliquid } from '../configs/hyperliquid/api/config'
 import { AevoClient } from '../../generated/aevo'
 import { AEVO_CACHE_PREFIX, CACHE_DAY, CACHE_TIME_MULT, cacheFetch, getStaleTime } from '../common/cache'
 
-const aevoClient = new AevoClient()
-const publicApi = aevoClient.publicApi
-const privateApi = aevoClient.privateApi
+class ExtendedAevoClient extends AevoClient {
+  public static setCredentials(apiKey: string, apiSecret: string) {}
+}
 
 export default class AevoAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'AEVO'
+
+  private aevoClient = new ExtendedAevoClient()
+
+  private publicApi = this.aevoClient.publicApi
+  private privateApi = this.aevoClient.privateApi
 
   getProtocolInfo(): ProtocolInfo {
     throw new Error('Method not implemented.')
@@ -224,7 +229,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
     return await cacheFetch({
       key: [AEVO_CACHE_PREFIX, 'allmarkets'],
-      fn: () => publicApi.getMarkets(undefined, 'PERPETUAL'),
+      fn: () => this.publicApi.getMarkets(undefined, 'PERPETUAL'),
       staleTime: sTimeMarkets,
       cacheTime: sTimeMarkets * CACHE_TIME_MULT,
       opts
