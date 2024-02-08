@@ -1,8 +1,8 @@
 import { Chain } from 'viem'
 import { Token } from '../../common/tokens'
 
-export const config = {
-  optimism: {
+export const aevoAddresses = {
+  10: {
     socketHelper: '0xe49dee5353bea74caf65089237005198a14f7c83',
     vault: {
       'USDC.e': '0xFff4A34925301d231ddF42B871c3b199c1E80584',
@@ -21,7 +21,7 @@ export const config = {
     },
     l2WithdrawProxy: '0xE3EF8bEE5c378D4D3DB6FEC96518e49AE2D2b957'
   },
-  arbitrum: {
+  42161: {
     socketHelper: '0xfb73dfff0ae6aa94559b1b17421cf42e198b8d22',
     vault: {
       'USDC.e': '0x80d40e32FAD8bE8da5C6A42B8aF1E181984D137c',
@@ -41,7 +41,7 @@ export const config = {
     l2WithdrawProxy: '0xE3EF8bEE5c378D4D3DB6FEC96518e49AE2D2b957'
   }
 } as Record<
-  Chain['name'],
+  Chain['id'],
   {
     socketHelper: `0x${string}`
     vault: Record<Token['symbol'], `0x${string}`>

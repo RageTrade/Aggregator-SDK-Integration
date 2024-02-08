@@ -728,6 +728,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
             amount: subFN(totalMarginRequired, totalAvailableToTrade),
             wallet,
             protocol: 'HL',
+            token: tokens.USDC,
             chainId: arbitrum.id
           }
         ]))

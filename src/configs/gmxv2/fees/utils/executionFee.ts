@@ -19,8 +19,8 @@ import { useMulticall } from '../../lib/multicall/useMulticall'
 import DataStore from '../../abis/DataStore.json'
 import { GAS_PRICE_ADJUSTMENT_MAP } from '../../../gmx/chains'
 import { CACHE_TIME_MULT, GMXV2_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../../../common/cache'
-import { StaticJsonRpcProvider } from '@ethersproject/providers'
 import { CACHE_MINUTE } from '@kwenta/sdk/src/common/cache'
+import { rpc } from '../../../../common/provider'
 
 export const ESTIMATED_GAS_FEE_BASE_AMOUNT = hashString('ESTIMATED_GAS_FEE_BASE_AMOUNT')
 export const ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR = hashString('ESTIMATED_GAS_FEE_MULTIPLIER_FACTOR')
@@ -199,10 +199,12 @@ export const EXECUTION_FEE_CONFIG_V2: {
   [42161]: {
     shouldUseMaxPriorityFeePerGas: false,
     defaultBufferBps: 1500 // 15%
+  },
+  [10]: {
+    shouldUseMaxPriorityFeePerGas: true,
+    defaultBufferBps: 1500 // 15%
   }
 }
-
-const provider = new StaticJsonRpcProvider('https://arb1.arbitrum.io/rpc')
 
 export async function useGasPrice(chainId: number) {
   const executionFeeConfig = EXECUTION_FEE_CONFIG_V2[chainId]
@@ -210,10 +212,10 @@ export async function useGasPrice(chainId: number) {
   const data = await cacheFetch({
     key: ['gasPrice', chainId, executionFeeConfig.shouldUseMaxPriorityFeePerGas, 1000],
     fn: async () => {
-      let gasPrice = await provider.getGasPrice()
+      let gasPrice = await rpc[chainId].getGasPrice()
 
       if (executionFeeConfig.shouldUseMaxPriorityFeePerGas) {
-        const feeData = await provider.getFeeData()
+        const feeData = await rpc[chainId].getFeeData()
 
         // the wallet provider might not return maxPriorityFeePerGas in feeData
         // in which case we should fallback to the usual getGasPrice flow handled below
