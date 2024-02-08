@@ -78,11 +78,21 @@ function _getProtocolString(protocolId: ProtocolId) {
 }
 
 // HYPERLIQUID
-export const HYPERLIQUID_ENABLE_TRADING_H = 'HyperLiquid: Enable Trading'
-export const HYPERLIQUID_DEPOSIT_H = 'HyperLiquid: Deposit'
-export const HYPERLIQUID_WITHDRAW_H = 'HyperLiquid: Withdraw'
+export const HYPERLIQUID_ENABLE_TRADING_H = 'Hyperliquid: Enable Trading'
+export const HYPERLIQUID_DEPOSIT_H = 'Hyperliquid: Deposit'
+export const HYPERLIQUID_WITHDRAW_H = 'Hyperliquid: Withdraw'
 export const HYPERLIQUID_UPDATE_ORDER_H = 'Update Order'
 export const HYPERLIQUID_UPDATE_LEVERAGE_H = 'Update Leverage'
 export const HYPERLIQUID_UPDATE_MARGIN_H = 'Update Margin'
 export const HYPERLIQUID_MULTIPLE_POSITION_H = 'Multiple Position Update'
 export const HYPERLIQUID_SET_REF_H = 'Hyperliquid: Set Referrer'
+
+// AEVO
+export const AEVO_ENABLE_TRADING_H = 'Aevo: Enable Trading'
+export const AEVO_DEPOSIT_H = 'Aevo: Deposit'
+export const AEVO_WITHDRAW_H = 'Aevo: Withdraw'
+export const AEVO_UPDATE_ORDER_H = 'Update Order'
+export const AEVO_UPDATE_LEVERAGE_H = 'Update Leverage'
+export const AEVO_UPDATE_MARGIN_H = 'Update Margin'
+export const AEVO_MULTIPLE_POSITION_H = 'Multiple Position Update'
+export const AEVO_SET_REF_H = 'Aevo: Set Referrer'

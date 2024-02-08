@@ -1,4 +1,4 @@
-import { arbitrum, optimism } from 'viem/chains'
+import { Chain, arbitrum, optimism } from 'viem/chains'
 
 export type Maybe<T> = T | undefined
 
@@ -6,10 +6,7 @@ export interface Token {
   symbol: string
   name: string
   decimals: number
-  address: {
-    [arbitrum.id]: Maybe<`0x${string}`>
-    [optimism.id]: Maybe<`0x${string}`>
-  }
+  address: Record<Chain['id'], Maybe<`0x${string}`>>
 }
 
 export const tokens = {

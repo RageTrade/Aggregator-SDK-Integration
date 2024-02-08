@@ -442,19 +442,13 @@ export default class GmxV2Service implements IAdapterV1 {
     return metadata
   }
 
-  async _approveIfNeeded(
-    token: string,
-    amount: bigint,
-    wallet: string,
-    opts?: ApiOpts
-  ): Promise<ActionParam | undefined> {
+  async _approveIfNeeded(token: string, amount: bigint, wallet: string): Promise<ActionParam | undefined> {
     if (token == ethers.constants.AddressZero) return
     const tokenContract = IERC20__factory.connect(token, this.provider)
     const key = `${wallet}-${token}-${this.ROUTER_ADDR}`
 
     if (this.tokenSpentApprovedMap[key]) return
 
-    const sTimeAllowance = getStaleTime(CACHE_MINUTE * 5)
     const allowance = await tokenContract.allowance(wallet, this.ROUTER_ADDR)
 
     // if allowance is 80% of Max then
@@ -578,12 +572,7 @@ export default class GmxV2Service implements IAdapterV1 {
       }
 
       // check if collateral token has enough amount approved
-      const approvalTx = await this._approveIfNeeded(
-        od.collateral.address[42161]!,
-        od.marginDelta.amount.value,
-        wallet,
-        opts
-      )
+      const approvalTx = await this._approveIfNeeded(od.collateral.address[42161]!, od.marginDelta.amount.value, wallet)
       if (approvalTx) txs.push(approvalTx)
 
       const multicallData: string[] = []
@@ -977,8 +966,7 @@ export default class GmxV2Service implements IAdapterV1 {
         const approvalTx = await this._approveIfNeeded(
           updatePositionMarginData[i].collateral.address[42161]!,
           updatePositionMarginData[i].margin.amount.value,
-          wallet,
-          opts
+          wallet
         )
 
         if (approvalTx) txs.push(approvalTx)
