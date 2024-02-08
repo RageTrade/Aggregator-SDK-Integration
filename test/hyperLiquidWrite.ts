@@ -41,6 +41,7 @@ import {
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { createWalletClient, http } from 'viem'
 import { arbitrum, mainnet } from 'viem/chains'
+import { execute } from './execute'
 
 async function main() {
   const hl = new HyperliquidAdapterV1()
@@ -217,8 +218,6 @@ async function main() {
   // console.log(await checkIfRageTradeAgent(wallet.address))
 }
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
-
 const hl = new HyperliquidAdapterV1()
 
 const wallet = createWalletClient({
@@ -235,55 +234,6 @@ const agentWallet = createWalletClient({
 
 console.log('using wallet', wallet.account.address)
 console.log('using agent wallet', agentWallet.account.address)
-
-async function execute(executionPayload: ActionParam[]) {
-  for (const payload of executionPayload) {
-    if (isUnsignedTxWithMetadata(payload)) {
-      const tx = await wallet.sendTransaction({
-        chain: arbitrum,
-        to: payload.tx.to as `0x${string}`,
-        data: payload.tx.data as `0x${string}`,
-        gasPrice: 100000000n
-      })
-
-      console.log(payload.heading, 'success')
-      console.dir(tx, { depth: 6 })
-
-      await sleep(2000)
-      continue
-    }
-
-    if (!isRequestSignerFn(payload)) continue
-
-    // is submitting
-    const fetchPayload = await payload.fn(
-      payload.isEoaSigner ? wallet : agentWallet,
-      payload.isAgentRequired ? agentWallet.account.address : undefined
-    )
-
-    if (!fetchPayload) continue
-
-    // is executing
-    const res = await fetch(...fetchPayload).catch((e) => {
-      // failure
-      console.log(payload.heading, 'failed (catch block)')
-      console.dir(e.body, { depth: 6 })
-    })
-
-    if (!res) throw new Error('res not found')
-
-    if (res.ok) {
-      // is success
-      const data = await res.json()
-      console.log(payload.heading, 'success')
-      console.dir(data, { depth: 6 })
-    } else {
-      // failure
-      console.log(payload.heading, 'failed (not ok code)')
-      console.dir(res, { depth: 6 })
-    }
-  }
-}
 
 async function testIncreaseOrder() {
   const market = (await hl.supportedMarkets([hyperliquid])).find((m) => m.indexToken.symbol === 'ETH')!
@@ -305,7 +255,7 @@ async function testIncreaseOrder() {
   const executionPayload = await hl.increasePosition(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 async function testUpdateOrder() {
@@ -348,7 +298,7 @@ async function testUpdateOrder() {
   const executionPayload = await hl.updateOrder(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 async function testCancelOrder() {
@@ -362,7 +312,7 @@ async function testCancelOrder() {
   const executionPayload = await hl.cancelOrder(orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 async function testUpdateMargin() {
@@ -383,7 +333,7 @@ async function testUpdateMargin() {
   const executionPayload = await hl.updatePositionMargin([positionData], [updateData], wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 async function testClosePosition() {
@@ -413,7 +363,7 @@ async function testClosePosition() {
   const executionPayload = await hl.closePosition([positionData], orderData, wallet.account.address)
   console.dir(executionPayload, { depth: 4 })
 
-  await execute(executionPayload)
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 async function testAuthenticateAgent() {
@@ -431,8 +381,8 @@ async function testAuthenticateAgent() {
 }
 
 async function testSetReferralCode() {
-  const params = await setReferralCode()
-  await execute([params])
+  const params = setReferralCode()
+  await execute(wallet, agentWallet, [params])
 }
 
 async function testPoints() {
