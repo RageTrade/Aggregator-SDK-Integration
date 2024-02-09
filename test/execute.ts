@@ -5,6 +5,8 @@ import { BigNumber } from 'ethers'
 export const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
 export async function execute(wallet: WalletClient, agentWallet: WalletClient, executionPayload: ActionParam[]) {
+  const ret = []
+
   for (const payload of executionPayload) {
     if (isUnsignedTxWithMetadata(payload)) {
       const tx = await wallet.sendTransaction({
@@ -14,6 +16,8 @@ export async function execute(wallet: WalletClient, agentWallet: WalletClient, e
         data: payload.tx.data as `0x${string}`,
         value: payload.tx.value ? (payload.tx.value as BigNumber).toBigInt() : 0n
       })
+
+      ret.push(tx)
 
       console.log(payload.heading, 'success')
       console.dir(tx, { depth: 6 })
@@ -44,12 +48,21 @@ export async function execute(wallet: WalletClient, agentWallet: WalletClient, e
     if (res.ok) {
       // is success
       const data = await res.json()
+      ret.push(data)
+
       console.log(payload.heading, 'success')
       console.dir(data, { depth: 6 })
     } else {
       // failure
       console.log(payload.heading, 'failed (not ok code)')
-      console.dir(res, { depth: 6 })
+
+      try {
+        console.dir(await res.json(), { depth: 6 })
+      } catch {
+        console.dir(res, { depth: 6 })
+      }
     }
   }
+
+  return ret
 }
