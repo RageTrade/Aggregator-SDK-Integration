@@ -35,7 +35,7 @@ export type PriceStamp = {
 
 type PricesMap = Record<string, PriceStamp>
 
-let prices: PricesMap = {}
+export const prices: PricesMap = {}
 
 let isTVStreamingOn = false
 
