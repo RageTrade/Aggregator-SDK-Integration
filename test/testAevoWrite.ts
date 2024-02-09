@@ -1,5 +1,5 @@
 import { createWalletClient, http } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import AevoAdapterV1 from '../src/exchanges/aevo'
 import { tokens } from '../src/common/tokens'
 import { FixedNumber } from '../src/common/fixedNumber'
@@ -7,13 +7,13 @@ import { optimism, arbitrum } from 'viem/chains'
 import { execute } from './execute'
 
 const wallet = createWalletClient({
-  account: privateKeyToAccount('0x_INPUT_PK'),
+  account: privateKeyToAccount(generatePrivateKey()),
   transport: http(),
   chain: optimism
 })
 
 const agentWallet = createWalletClient({
-  account: privateKeyToAccount('0x_INPUT_PK'),
+  account: privateKeyToAccount(generatePrivateKey()),
   transport: http(),
   chain: optimism
 })
@@ -47,4 +47,11 @@ async function testDeposit() {
   // ])
 }
 
-testDeposit()
+async function testRegister() {
+  const executionPayload = await aevo._register(wallet.account.address)
+
+  await execute(wallet, agentWallet, executionPayload)
+}
+
+// testDeposit()
+testRegister()
