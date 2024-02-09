@@ -23,8 +23,8 @@ export const protocols = {
     symbol: 'HL',
     supportedChains: [arbitrum]
   },
-  PERV2: {
-    symbol: 'PERV2',
-    supportedChains: [arbitrum]
+  AEVO: {
+    symbol: 'AEVO',
+    supportedChains: [arbitrum, optimism]
   }
 }
