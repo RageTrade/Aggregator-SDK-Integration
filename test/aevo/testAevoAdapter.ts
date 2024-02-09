@@ -1,4 +1,4 @@
-import AevoAdapterV1 from '../src/exchanges/aevo'
+import AevoAdapterV1 from '../../src/exchanges/aevo'
 
 const aa = new AevoAdapterV1()
 
@@ -21,7 +21,11 @@ async function getMarketsInfo() {
 }
 
 async function getDynamicMarketMetadata() {
-  const metadata = await aa.getDynamicMarketMetadata([btcMarketId, ethMarketId])
+  // await aa.setup()
+  // const metadata1 = await aa.getDynamicMarketMetadata([btcMarketId /* , ethMarketId */])
+  // console.dir(metadata1, { depth: 4 })
+  // await delay(2500)
+  const metadata = await aa.getDynamicMarketMetadata([btcMarketId /* , ethMarketId */])
   console.dir(metadata, { depth: 4 })
 }
 
@@ -31,3 +35,5 @@ getDynamicMarketMetadata()
     console.error(error)
     process.exit(1)
   })
+
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))

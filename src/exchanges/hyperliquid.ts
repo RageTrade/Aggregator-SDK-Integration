@@ -131,7 +131,7 @@ import { ARBITRUM } from '../configs/gmx/chains'
 import { rpc } from '../common/provider'
 import { BigNumber, ethers } from 'ethers'
 import { estLiqPrice } from '../configs/hyperliquid/liqPrice'
-import { TraverseResult, traverseHLBook } from '../configs/hyperliquid/obTraversal'
+import { traverseHLBook } from '../configs/hyperliquid/obTraversal'
 import { tokens } from '../common/tokens'
 import { EMPTY_DESC, HYPERLIQUID_DEPOSIT_H } from '../common/buttonHeadings'
 import {
@@ -142,8 +142,9 @@ import {
   HL_CANNOT_DEC_LEV,
   HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
-import { hlGetCachedOrderBook } from '../configs/hyperliquid/api/wsclient'
-import { arbitrum } from 'viem/chains'
+import { arbitrum } from 'viem/dist/types/chains'
+import { hlGetCachedOrderBook, hlGetCachedL2Book } from '../configs/hyperliquid/api/wsclient'
+import { TraverseResult } from '../common/types'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -242,7 +243,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
           minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
-          maxPrecision: 4
+          maxPrecision: 4,
+          amountStep: undefined,
+          priceStep: undefined
         }
 
         const protocol: Protocol = {
@@ -466,14 +469,17 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const nSigFigs = 3
     const sTimeL2Book = getStaleTime(CACHE_SECOND * 5, opts)
     coins.forEach(async (c) => {
+      const cachedL2Book = hlGetCachedL2Book(c, nSigFigs - 1)
       l2BookPromises.push(
-        cacheFetch({
-          key: [HL_CACHE_PREFIX, 'l2Book', c, nSigFigs],
-          fn: () => getL2Book(c, nSigFigs),
-          staleTime: sTimeL2Book,
-          cacheTime: sTimeL2Book * CACHE_TIME_MULT,
-          opts: opts
-        }) as Promise<L2Book>
+        cachedL2Book
+          ? Promise.resolve(cachedL2Book)
+          : (cacheFetch({
+              key: [HL_CACHE_PREFIX, 'l2Book', c, nSigFigs],
+              fn: () => getL2Book(c, nSigFigs),
+              staleTime: sTimeL2Book,
+              cacheTime: sTimeL2Book * CACHE_TIME_MULT,
+              opts: opts
+            }) as Promise<L2Book>)
       )
     })
 

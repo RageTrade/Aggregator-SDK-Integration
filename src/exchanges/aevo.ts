@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, mulFN } from '../common/fixedNumber'
+import { FixedNumber, mulFN, addFN } from '../common/fixedNumber'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
@@ -59,7 +59,9 @@ import {
 import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo, aevoUpdateTokensMap } from '../configs/aevo/config'
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
-import { aevoMarketIdToAsset } from '../configs/aevo/helper'
+import { aevoIndexBasisSlippage, aevoMarketIdToAsset } from '../configs/aevo/helper'
+import { aevoCacheGetAllMarkets, aevoCacheGetCoingeckoStats } from '../configs/aevo/aevoCacheHelper'
+import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 
 class ExtendedAevoClient extends AevoClient {
   public static setCredentials(apiKey: string, apiSecret: string) {}
@@ -95,11 +97,12 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
-    throw new Error('Method not implemented.')
+  async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
+    await openAevoWssConnection()
   }
 
-  setup(): Promise<ActionParam[]> {
+  async setup(): Promise<ActionParam[]> {
+    await openAevoWssConnection()
     return Promise.resolve([])
   }
 
@@ -247,9 +250,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
     if (chains == undefined || chains.includes(hyperliquid)) {
       const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
-      const allMarkets = (await this._getAllMarkets(sTimeMarkets, sTimeMarkets * CACHE_TIME_MULT, opts)).filter(
-        (m) => m.is_active
-      )
+      const allMarkets = (
+        await aevoCacheGetAllMarkets(this.publicApi, sTimeMarkets, sTimeMarkets * CACHE_TIME_MULT, opts)
+      ).filter((m) => m.is_active)
 
       allMarkets.forEach((m) => {
         const market: Market = {
@@ -279,11 +282,13 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         }
 
         const staticMetadata: GenericStaticMarketMetadata = {
-          maxLeverage: FixedNumber.fromString(m.max_leverage!.toString()),
+          maxLeverage: FixedNumber.fromString(m.max_leverage!),
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromString('1'),
-          minPositionSize: FixedNumber.fromString(m.min_order_value.toString()),
-          maxPrecision: 4 // TODO - maxPrecision pending
+          minPositionSize: FixedNumber.fromString(m.min_order_value),
+          maxPrecision: 1,
+          amountStep: FixedNumber.fromString(m.amount_step),
+          priceStep: FixedNumber.fromString(m.price_step)
         }
 
         const protocol: Protocol = {
@@ -302,13 +307,24 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
-    const sTimePrices = getStaleTime(CACHE_SECOND * 2, opts)
-    const allMarkets = (await this._getAllMarkets(sTimePrices, sTimePrices, opts)).filter((m) => m.is_active)
+    const assets = marketIds.map((mId) => aevoMarketIdToAsset(mId))
+    const cachedTickers = assets.map((a) => getAevoWssTicker(a))
 
-    return marketIds.map((marketId) => {
-      const market = allMarkets.find((m) => m.underlying_asset == aevoMarketIdToAsset(marketId))
-      return market ? FixedNumber.fromString(market.mark_price) : ZERO_FN
-    })
+    if (!cachedTickers.includes(undefined)) {
+      // return from cache
+      return cachedTickers.map((t) => FixedNumber.fromString(t!.mark.price))
+    } else {
+      // get from allMarkets Api
+      const sTimePrices = getStaleTime(CACHE_SECOND * 2, opts)
+      const allMarkets = (await aevoCacheGetAllMarkets(this.publicApi, sTimePrices, sTimePrices, opts)).filter(
+        (m) => m.is_active
+      )
+
+      return marketIds.map((marketId) => {
+        const market = allMarkets.find((m) => m.underlying_asset == aevoMarketIdToAsset(marketId))
+        return market ? FixedNumber.fromString(market.mark_price) : ZERO_FN
+      })
+    }
   }
 
   async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
@@ -329,10 +345,38 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   async getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
     let dynamicMarketMetadata: DynamicMarketMetadata[] = []
 
-    const sTimeCS = getStaleTime(CACHE_SECOND * 10, opts)
-    const cgStats = await this._getCoingeckoStats(sTimeCS, sTimeCS * CACHE_TIME_MULT, opts)
+    const assets = marketIds.map((mId) => aevoMarketIdToAsset(mId))
+    const cachedTickers = assets.map((a) => getAevoWssTicker(a))
+    // count liquidity till LIQUIDITY_SLIPPAGE in bps
+    const LIQUIDITY_SLIPPAGE = '100'
 
-    marketIds.forEach((mId) => {
+    // TODO - turn on when funding rate from cache is resolved
+    // if (!cachedTickers.includes(undefined)) {
+    //   // return from cache
+    //   cachedTickers.forEach((t) => {
+    //     const oiToken = FixedNumber.fromString(t!.open_interest)
+    //     const iPrice = FixedNumber.fromString(t!.index_price)
+    //     const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
+    //     const fundingRate = FixedNumber.fromString(t!.funding_rate)
+
+    //     dynamicMarketMetadata.push({
+    //       oiLong: oiUsd,
+    //       oiShort: oiUsd,
+    //       availableLiquidityLong: ZERO_FN, // TODO - availableLiquidity from OB
+    //       availableLiquidityShort: ZERO_FN, // TODO - availableLiquidity from OB
+    //       longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
+    //       shortFundingRate: fundingRate,
+    //       longBorrowRate: ZERO_FN,
+    //       shortBorrowRate: ZERO_FN
+    //     })
+    //   })
+    // } else {
+    // get from CoingeckoStats Api
+    const sTimeCS = getStaleTime(CACHE_SECOND * 10, opts)
+    const cgStats = await aevoCacheGetCoingeckoStats(this.publicApi, sTimeCS, sTimeCS * CACHE_TIME_MULT, opts)
+
+    for (let i = 0; i < marketIds.length; i++) {
+      const mId = marketIds[i]
       const asset = aevoMarketIdToAsset(mId)
       const cgStat = cgStats.find((cg) => cg.base_currency === asset)
 
@@ -342,11 +386,29 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
         const fundingRate = FixedNumber.fromString(cgStat.funding_rate!)
 
+        const cachedOB = getAevoWssOrderBook(asset)
+        const ob = cachedOB ? cachedOB : await this.publicApi.getOrderbook(`${asset}-PERP`)
+
+        let bids = ob.bids!
+        let asks = ob.asks!
+
+        bids = bids.slice(0, aevoIndexBasisSlippage(bids, LIQUIDITY_SLIPPAGE))
+        asks = asks.slice(0, aevoIndexBasisSlippage(asks, LIQUIDITY_SLIPPAGE))
+
+        // long liquidity is the total available asks (sell orders) in the book
+        const longLiquidity = asks.reduce((acc, ask) => {
+          return addFN(acc, mulFN(FixedNumber.fromString(ask[0]), FixedNumber.fromString(ask[1])))
+        }, FixedNumber.fromString('0'))
+        // short liquidity is the total available bids (buy orders) in the book
+        const shortLiquidity = bids.reduce((acc, bid) => {
+          return addFN(acc, mulFN(FixedNumber.fromString(bid[0]), FixedNumber.fromString(bid[1])))
+        }, FixedNumber.fromString('0'))
+
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
           oiShort: oiUsd,
-          availableLiquidityLong: ZERO_FN, // TODO - availableLiquidity from OB
-          availableLiquidityShort: ZERO_FN, // TODO - availableLiquidity from OB
+          availableLiquidityLong: longLiquidity,
+          availableLiquidityShort: shortLiquidity,
           longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
           shortFundingRate: fundingRate,
           longBorrowRate: ZERO_FN,
@@ -355,7 +417,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       } else {
         throw new Error(`No stats found for asset ${asset}`)
       }
-    })
+    }
 
     return dynamicMarketMetadata
   }
@@ -486,30 +548,4 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   /// Internal helper functions ///
-
-  // CACHE FUNCTIONS//
-
-  async _getAllMarkets(staleTime: number, cacheTime: number, opts?: ApiOpts) {
-    const allMarkets = await cacheFetch({
-      key: [AEVO_CACHE_PREFIX, 'allmarkets'],
-      fn: () => this.publicApi.getMarkets(undefined, 'PERPETUAL'),
-      staleTime: staleTime,
-      cacheTime: cacheTime,
-      opts
-    })
-
-    // aevo update tokens map
-    aevoUpdateTokensMap(allMarkets)
-
-    return allMarkets
-  }
-
-  async _getCoingeckoStats(staleTime: number, cacheTime: number, opts?: ApiOpts) {
-    return await cacheFetch({
-      key: [AEVO_CACHE_PREFIX, 'coingeckoStats'],
-      fn: () => this.publicApi.getCoingeckoStatistics(),
-      staleTime: staleTime,
-      cacheTime: cacheTime
-    })
-  }
 }

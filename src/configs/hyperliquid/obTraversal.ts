@@ -6,13 +6,7 @@ import { HL_TAKER_FEE_BPS } from './api/config'
 import { L2Book } from './api/types'
 import { hlMarketIdToCoin } from './helper'
 import { hlGetCachedL2Book } from './api/wsclient'
-
-export type TraverseResult = {
-  avgExecPrice: FixedNumber
-  fees: FixedNumber
-  remainingSize: FixedNumber
-  priceImpact: FixedNumber
-}
+import { TraverseResult } from '../../common/types'
 
 export async function traverseHLBook(
   marketId: string,
@@ -69,25 +63,23 @@ export async function traverseHLBook(
         // increment fees and avgPriceAc
         avgPriceAcc = addFN(avgPriceAcc, mulFN(levelPrice, remainingSize))
         feesAcc = addFN(feesAcc, mulFN(mulFN(remainingSize, levelPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS)))
+        remainingSize = FixedNumber.fromValue(0)
+        break
         // console.log('satisfied at nSigFigs = ', i + 2)
-
-        const execPrice = divFN(avgPriceAcc, size)
-        const priceImpact = abs(mulFN(divFN(subFN(marketPrice, execPrice), marketPrice), FixedNumber.fromValue(100)))
-
-        return {
-          avgExecPrice: execPrice,
-          fees: feesAcc,
-          remainingSize: FixedNumber.fromValue(0),
-          priceImpact: priceImpact
-        }
       }
     }
   }
 
+  const avgExecPrice = avgPriceAcc.divFN(size.subFN(remainingSize))
+  const fees = feesAcc
+  const priceImpact = remainingSize.isZero()
+    ? avgExecPrice.subFN(marketPrice).divFN(marketPrice).mulFN(FixedNumber.fromValue(100)).abs()
+    : FixedNumber.fromValue(100)
+
   return {
-    avgExecPrice: divFN(avgPriceAcc, subFN(size, remainingSize)),
-    fees: feesAcc,
-    remainingSize: remainingSize,
-    priceImpact: FixedNumber.fromValue(100)
+    avgExecPrice,
+    fees,
+    remainingSize,
+    priceImpact
   }
 }

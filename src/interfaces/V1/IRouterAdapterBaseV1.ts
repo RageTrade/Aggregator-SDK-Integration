@@ -103,6 +103,8 @@ export type GenericStaticMarketMetadata = {
   minInitialMargin: FixedNumber
   minPositionSize: FixedNumber
   maxPrecision: number // used for OrderBook exchanges, for non orderbook exchanges, this is defaulted to 1
+  amountStep: FixedNumber | undefined
+  priceStep: FixedNumber | undefined
 }
 
 export type SynV2StaticMarketMetadata = GenericStaticMarketMetadata & {

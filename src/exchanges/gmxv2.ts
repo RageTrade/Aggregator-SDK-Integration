@@ -311,7 +311,9 @@ export default class GmxV2Service implements IAdapterV1 {
             minLeverage: FixedNumber.fromValue('11000', 4, 4),
             minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
             minPositionSize: FixedNumber.fromValue('0', 30, 30),
-            maxPrecision: 1
+            maxPrecision: 1,
+            amountStep: undefined,
+            priceStep: undefined
           }
 
           const protocol: Protocol = {
