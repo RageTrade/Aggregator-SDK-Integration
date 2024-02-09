@@ -44,6 +44,7 @@ import SynthetixV2Adapter from '../src/exchanges/synthetixV2Adapter'
 import { ActionParam } from '../src/interfaces/IActionExecutor'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
+import AevoAdapterV1 from '../src/exchanges/aevo'
 
 export default class ConsolidatedRouterV1 implements IRouterV1 {
   adapters: Record<string, IAdapterV1> = {}
@@ -60,6 +61,8 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.GMXV1.symbol] = new GmxV1Adapter()
     this.adapters[protocols.SNXV2.symbol] = new SynthetixV2Adapter()
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
+    //TODO: Uncomment when openTradePreview is ready for AEVO
+    // this.adapters[protocols.AEVO.symbol] = new AevoAdapterV1()
   }
 
   async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
@@ -105,7 +108,12 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     return res
   }
 
-  async getAvailableToTrade<T extends ProtocolId>(protocol: T, wallet: string, params: AvailableToTradeParams<T>, opts?: ApiOpts) {
+  async getAvailableToTrade<T extends ProtocolId>(
+    protocol: T,
+    wallet: string,
+    params: AvailableToTradeParams<T>,
+    opts?: ApiOpts
+  ) {
     const adapter = this.adapters[protocol]
     const out = adapter.getAvailableToTrade(wallet, params, opts)
 
@@ -202,11 +210,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     const out = await Promise.all(promises)
     return out.flat()
   }
-  async getAgentState(
-    wallet: string,
-    agentParams: AgentParams[],
-    opts?: ApiOpts
-  ): Promise<AgentState[]> {
+  async getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
     const promises = []
 
     for (const each of agentParams) {
