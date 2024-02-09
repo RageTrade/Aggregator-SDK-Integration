@@ -36,15 +36,23 @@ import {
   Protocol
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
+import { OpenAPI } from '../../generated/aevo'
 import { aevoAddresses } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
 import { Token, tokens } from '../common/tokens'
-import { IERC20__factory } from '../../typechain/gmx-v2'
-import { IERC20 } from '../../typechain/gmx-v1'
+import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
-import { formatEther } from 'ethers/lib/utils'
+import { signRegisterAgent, signRegisterWallet } from '../configs/aevo/signing'
+
+type FunctionKeys<T> = {
+  [K in keyof T]: T[K] extends (...args: any) => any ? K : never
+}[keyof T]
+
+type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
+
+export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
 import { hyperliquid } from '../configs/hyperliquid/api/config'
 import { AevoClient } from '../../generated/aevo'
 import {
@@ -64,7 +72,64 @@ import { aevoCacheGetAllMarkets, aevoCacheGetCoingeckoStats } from '../configs/a
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 
 class ExtendedAevoClient extends AevoClient {
-  public static setCredentials(apiKey: string, apiSecret: string) {}
+  private headers: Record<string, string> & HeadersInit = {
+    'Content-Type': 'application/json'
+  }
+
+  public setCredentials(apiKey: string, apiSecret: string) {
+    if (!apiKey || !apiSecret) throw new Error('key or secret not passed')
+
+    this.headers['AEVO-KEY'] = apiKey
+    this.headers['AEVO-SECRET'] = apiSecret
+  }
+
+  private _getUrlAndMethod(name: AllowedMethods): { url: string; method: RequestInit['method'] } {
+    let method: RequestInit['method']
+    let url: string
+
+    switch (true) {
+      case name.startsWith('get'):
+        method = 'GET'
+        url = `/${name.replace(/^get/, '').toLowerCase()}`
+        break
+      case name.startsWith('post'):
+        method = 'POST'
+        url = `/${name.replace(/^post/, '').toLowerCase()}`
+        break
+      case name.startsWith('put'):
+        method = 'PUT'
+        url = `/${name.replace(/^put/, '').toLowerCase()}`
+        break
+      case name.startsWith('delete'):
+        method = 'DELETE'
+        url = `/${name.replace(/^delete/, '').toLowerCase()}`
+        break
+      default:
+        throw new Error('not able to parse method and url')
+    }
+
+    return { url, method }
+  }
+
+  public transform<T extends AllowedMethods>(name: T, args: Parameters<AevoClient['privateApi'][T]>[0]) {
+    if (!args) throw new Error('request body not passed')
+
+    let { method, url } = this._getUrlAndMethod(name)
+    url = OpenAPI.BASE + url
+
+    const body = JSON.stringify(args)
+
+    const params: Parameters<typeof fetch> = [
+      url,
+      {
+        body,
+        method,
+        headers: this.headers
+      }
+    ]
+
+    return params
+  }
 }
 
 export default class AevoAdapterV1 implements IAdapterV1 {
@@ -73,10 +138,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   private static AEVO_GAS_LIMIT = 650_000
   private static AEVO_GAS_LIMIT_WITH_BUFFER = 650_000 + 65_000 // 10% buffer
 
-  private aevoClient = new ExtendedAevoClient()
+  public aevoClient = new ExtendedAevoClient()
 
-  private publicApi = this.aevoClient.publicApi
-  private privateApi = this.aevoClient.privateApi
+  public publicApi = this.aevoClient.publicApi
+  public privateApi = this.aevoClient.privateApi
 
   private contracts: Record<Chain['id'], L1SocketDepositHelper> = {
     10: L1SocketDepositHelper__factory.connect(aevoAddresses[optimism.id].socketHelper, rpc[10]),
@@ -84,6 +149,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   private tokenSpentApprovedMap: Record<string, boolean> = {}
+
+  private lastSig: string = ''
+  private lastAddress: `0x${string}` = ethers.constants.AddressZero
 
   getProtocolInfo(): ProtocolInfo {
     throw new Error('Method not implemented.')
@@ -233,6 +301,33 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         heading: AEVO_DEPOSIT_H
       })
     }
+
+    return payload
+  }
+
+  _getSigKey() {
+    if (!this.lastSig || !this.lastAddress || this.lastAddress == ethers.constants.AddressZero)
+      throw new Error('invalid sig state')
+
+    return {
+      sig: this.lastSig,
+      key: this.lastAddress
+    }
+  }
+
+  _setSig(key: `0x${string}`, sig: `0x${string}`) {
+    this.lastSig = sig
+    this.lastAddress = key
+
+    if (!this.lastSig || !this.lastAddress || this.lastAddress == ethers.constants.AddressZero)
+      throw new Error('invalid sig state')
+  }
+
+  async _register(wallet: `0x${string}`): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    payload.push(signRegisterAgent(this, wallet))
+    payload.push(signRegisterWallet(this))
 
     return payload
   }

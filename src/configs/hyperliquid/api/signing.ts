@@ -6,21 +6,21 @@ const HL_EIP712_DOMAIN = {
   version: '1',
   chainId: 42161,
   verifyingContract: ethers.constants.AddressZero as `0x${string}`
-}
+} as const
 
 const HL_L1_EIP712_DOMAIN = {
   name: 'Exchange',
   version: '1',
   chainId: 1337,
   verifyingContract: ethers.constants.AddressZero as `0x${string}`
-}
+} as const
 
 const AGENT_EIP712_TYPE = {
   Agent: [
     { name: 'source', type: 'string' },
     { name: 'connectionId', type: 'bytes32' }
   ]
-}
+} as const
 
 const WITHDRAW_EIP712_TYPE = {
   WithdrawFromBridge2SignPayload: [
@@ -28,7 +28,7 @@ const WITHDRAW_EIP712_TYPE = {
     { name: 'usd', type: 'string' },
     { name: 'time', type: 'uint64' }
   ]
-}
+} as const
 
 const USD_TRANSFER_EIP712_TYPE = {
   UsdTransferSignPayload: [
@@ -36,7 +36,7 @@ const USD_TRANSFER_EIP712_TYPE = {
     { name: 'amount', type: 'string' },
     { name: 'time', type: 'uint64' }
   ]
-}
+} as const
 
 export function signReadOnlyAuth(wallet: WalletClient, signatureTypes: ethers.utils.ParamType[], signatureData: any[]) {
   const phantomAgent = constructPhantomAgent(signatureTypes, signatureData, true)
