@@ -868,10 +868,10 @@ export function roundAndFormat(f: FixedNumber, format: FixedFormat): FixedNumber
 }
 
 export function bipsDiff(f1: FixedNumber, f2: FixedNumber): FixedNumber {
-  if (f1.decimals != f2.decimals) throw new Error('decimals must be equal')
-  return f1.sub(f2).div(f1).mul(FixedNumber.fromString('10000', f1.decimals))
+  // if (f1.decimals != f2.decimals) throw new Error('decimals must be equal')
+  return f1.subFN(f2).divFN(f1).mulFN(FixedNumber.fromString('10000', f1.decimals))
 }
 
 export function abs(f: FixedNumber): FixedNumber {
-  return f.isNegative() ? f.mul(FixedNumber.fromString('-1', f.decimals)) : f
+  return f.isNegative() ? f.mulFN(FixedNumber.fromString('-1', f.decimals)) : f
 }

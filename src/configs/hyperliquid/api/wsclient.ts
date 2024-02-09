@@ -88,11 +88,11 @@ function makeWebSocket(coin: string, precision: number) {
   const intervalId = setInterval(() => {
     ws.send(getPingMsg())
   }, PING_INTERVAL)
-  connectionMap[wsKey] = { ws: ws, isOpen: false, precision: precision, intervalId: intervalId }
+  // setting isOpen = true to prevent recurring calls
+  connectionMap[wsKey] = { ws: ws, isOpen: true, precision: precision, intervalId: intervalId }
 
   ws.onopen = function open() {
     // console.log(`HL wss connection opened for ${coin} with precision: ${precision}`)
-    connectionMap[wsKey].isOpen = true
     const msg = getSubscribeMsg(coin, precision)
     ws.send(msg)
   }
