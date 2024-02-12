@@ -45,15 +45,6 @@ import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
 import { signRegisterAgent, signRegisterWallet } from '../configs/aevo/signing'
-
-type FunctionKeys<T> = {
-  [K in keyof T]: T[K] extends (...args: any) => any ? K : never
-}[keyof T]
-
-type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
-
-export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
-import { hyperliquid } from '../configs/hyperliquid/api/config'
 import { AevoClient } from '../../generated/aevo'
 import {
   AEVO_CACHE_PREFIX,
@@ -64,12 +55,20 @@ import {
   cacheFetch,
   getStaleTime
 } from '../common/cache'
-import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo, aevoUpdateTokensMap } from '../configs/aevo/config'
+import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo } from '../configs/aevo/config'
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
 import { aevoIndexBasisSlippage, aevoMarketIdToAsset } from '../configs/aevo/helper'
 import { aevoCacheGetAllMarkets, aevoCacheGetCoingeckoStats } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
+
+type FunctionKeys<T> = {
+  [K in keyof T]: T[K] extends (...args: any) => any ? K : never
+}[keyof T]
+
+type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
+
+export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
 
 class ExtendedAevoClient extends AevoClient {
   private headers: Record<string, string> & HeadersInit = {
@@ -81,6 +80,8 @@ class ExtendedAevoClient extends AevoClient {
 
     this.headers['AEVO-KEY'] = apiKey
     this.headers['AEVO-SECRET'] = apiSecret
+
+    this.request.config.HEADERS = this.headers
   }
 
   private _getUrlAndMethod(name: AllowedMethods): { url: string; method: RequestInit['method'] } {
@@ -338,7 +339,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
   // to pass opts to set keys from local storage
   // should be set where private apis are used
-  _setCredentials(opts: ApiOpts, strict: boolean) {
+  _setCredentials(opts: ApiOpts | undefined, strict: boolean) {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
     } else if (strict) throw new Error('missing aevo credentials')
@@ -355,6 +356,34 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return payload
   }
 
+  // should pass api keys in opts, if not passed then throws
+  async getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    if (agent.protocolId !== 'AEVO') throw new Error('invalid protocol id')
+
+    this._setCredentials(opts, true)
+
+    const isAuthenticated = await this.privateApi
+      .getAccount()
+      .then((v) => (v.signing_keys?.some((k) => k.signing_key === agent.agentAddress) || false) && v.account === wallet)
+      .catch((_) => false)
+
+    return [
+      {
+        isAuthenticated,
+        protocolId: 'AEVO',
+        agentAddress: agent.agentAddress
+      }
+    ]
+  }
+
+  authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    throw new Error('Method not implemented.')
+  }
+
   withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
@@ -366,7 +395,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
     let marketInfo: MarketInfo[] = []
 
-    if (chains == undefined || chains.includes(hyperliquid)) {
+    if (chains == undefined || chains.includes(aevo)) {
       const sTimeMarkets = getStaleTime(CACHE_DAY, opts)
       const allMarkets = (
         await aevoCacheGetAllMarkets(this.publicApi, sTimeMarkets, sTimeMarkets * CACHE_TIME_MULT, opts)
@@ -549,9 +578,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
-  authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
-  }
+
   closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
@@ -654,9 +681,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     throw new Error('Method not implemented.')
   }
-  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts | undefined): Promise<AgentState[]> {
-    throw new Error('Method not implemented.')
-  }
+
   getOrderBooks(
     marketIds: string[],
     precision: (number | undefined)[],
