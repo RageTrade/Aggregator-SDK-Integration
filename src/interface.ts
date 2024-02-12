@@ -294,7 +294,7 @@ export type PageOptions = {
   limit: number
   skip: number
 }
-
+// Deprecated: This interface is used for old integrations
 export interface IExchange {
   init(wallet: string | undefined): Promise<void>
 
