@@ -50,7 +50,23 @@ async function testDeposit() {
 async function testRegister() {
   const executionPayload = await aevo._register(wallet.account.address)
 
-  await execute(wallet, agentWallet, executionPayload)
+  const data = await execute(wallet, agentWallet, executionPayload)
+
+  const key = data[0].api_key as `0x%{string}`
+  const secret = data[0].api_secret as `0x%{string}`
+
+  console.log({ key, secret })
+
+  aevo._setCredentials(
+    {
+      aevoAuth: {
+        apiKey: key,
+        secret
+      },
+      bypassCache: false
+    },
+    true
+  )
 }
 
 // testDeposit()
