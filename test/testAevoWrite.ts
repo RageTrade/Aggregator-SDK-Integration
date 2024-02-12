@@ -6,20 +6,25 @@ import { FixedNumber } from '../src/common/fixedNumber'
 import { optimism, arbitrum } from 'viem/chains'
 import { execute } from './execute'
 
+const p1 = generatePrivateKey()
+const p2 = generatePrivateKey()
+
 const wallet = createWalletClient({
-  account: privateKeyToAccount(generatePrivateKey()),
+  account: privateKeyToAccount(p1),
   transport: http(),
   chain: optimism
 })
 
 const agentWallet = createWalletClient({
-  account: privateKeyToAccount(generatePrivateKey()),
+  account: privateKeyToAccount(p2),
   transport: http(),
   chain: optimism
 })
 
 console.log('using wallet', wallet.account.address)
+console.log('wallet pk', p1)
 console.log('using agent wallet', agentWallet.account.address)
+console.log('agent wallet pk', p2)
 
 const aevo = new AevoAdapterV1()
 
@@ -69,5 +74,30 @@ async function testRegister() {
   )
 }
 
+async function testGetAgentState() {
+  const apiKey = 'replace_with_api_key'
+  const secret = 'replace_with_api_secret'
+
+  const state = await aevo.getAgentState(
+    wallet.account.address,
+    [
+      {
+        protocolId: 'AEVO',
+        agentAddress: agentWallet.account.address
+      }
+    ],
+    {
+      aevoAuth: {
+        apiKey,
+        secret
+      },
+      bypassCache: false
+    }
+  )
+
+  console.log(state)
+}
+
 // testDeposit()
-testRegister()
+// testRegister()
+testGetAgentState()
