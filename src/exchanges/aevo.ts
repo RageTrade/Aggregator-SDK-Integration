@@ -155,7 +155,17 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   private lastAddress: `0x${string}` = ethers.constants.AddressZero
 
   getProtocolInfo(): ProtocolInfo {
-    throw new Error('Method not implemented.')
+    const info: ProtocolInfo = {
+      hasAgent: true,
+      hasAccount: true,
+      hasOrderbook: true,
+      sizeDeltaInToken: true,
+      explicitFundingClaim: false,
+      collateralDeltaInToken: true,
+      collateralUsesLimitPricing: false
+    }
+
+    return info
   }
 
   getAvailableToTrade(
