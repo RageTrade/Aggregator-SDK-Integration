@@ -1,10 +1,11 @@
-import { createWalletClient, http } from 'viem'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import AevoAdapterV1 from '../src/exchanges/aevo'
-import { tokens } from '../src/common/tokens'
-import { FixedNumber } from '../src/common/fixedNumber'
-import { optimism, arbitrum } from 'viem/chains'
 import { execute } from './execute'
+import { createWalletClient, http } from 'viem'
+import { optimism, arbitrum } from 'viem/chains'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
+
+import { tokens } from '../src/common/tokens'
+import AevoAdapterV1 from '../src/exchanges/aevo'
+import { FixedNumber } from '../src/common/fixedNumber'
 
 const p1 = generatePrivateKey()
 const p2 = generatePrivateKey()
@@ -57,11 +58,13 @@ async function testRegister() {
 
   const data = await execute(wallet, agentWallet, executionPayload)
 
-  const key = data[0].api_key as `0x%{string}`
-  const secret = data[0].api_secret as `0x%{string}`
+  const key = data[0].api_key as string
+  const secret = data[0].api_secret as string
 
   console.log({ key, secret })
 
+  // below calls internal method directly
+  // but UI would save it in local storage and pass it in function calls
   aevo._setCredentials(
     {
       aevoAuth: {
@@ -98,6 +101,50 @@ async function testGetAgentState() {
   console.log(state)
 }
 
+async function testAuthenticateAgent() {
+  const executionPayload = await aevo.authenticateAgent(
+    [
+      {
+        protocolId: 'AEVO',
+        agentAddress: agentWallet.account.address
+      }
+    ],
+    wallet.account.address
+  )
+
+  const data = await execute(wallet, agentWallet, executionPayload)
+
+  const key = data[0].api_key as string
+  const secret = data[0].api_secret as string
+
+  console.log({ key, secret })
+
+  // below calls internal method directly
+  // but UI would save it in local storage and pass it in function calls
+
+  const opts = {
+    aevoAuth: {
+      apiKey: key,
+      secret
+    },
+    bypassCache: false
+  }
+
+  const state = await aevo.getAgentState(
+    wallet.account.address,
+    [
+      {
+        protocolId: 'AEVO',
+        agentAddress: agentWallet.account.address
+      }
+    ],
+    opts
+  )
+
+  console.log(state)
+}
+
 // testDeposit()
 // testRegister()
-testGetAgentState()
+// testGetAgentState()
+testAuthenticateAgent()
