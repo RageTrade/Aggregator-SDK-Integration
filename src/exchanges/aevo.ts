@@ -111,6 +111,7 @@ class ExtendedAevoClient extends AevoClient {
     return { url, method }
   }
 
+  // helper to infer types since we can't use generated client because fetch needs to be seperate
   public transform<T extends AllowedMethods>(name: T, args: Parameters<AevoClient['privateApi'][T]>[0]) {
     if (!args) throw new Error('request body not passed')
 
@@ -305,6 +306,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return payload
   }
 
+  // to maintain context while registering since it request sign from owner & burner
   _getSigKey() {
     if (!this.lastSig || !this.lastAddress || this.lastAddress == ethers.constants.AddressZero)
       throw new Error('invalid sig state')
@@ -315,6 +317,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     }
   }
 
+  // sets interim sig from agent wallet
   _setSig(key: `0x${string}`, sig: `0x${string}`) {
     this.lastSig = sig
     this.lastAddress = key
@@ -323,6 +326,16 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       throw new Error('invalid sig state')
   }
 
+  // to pass opts to set keys from local storage
+  // should be set where private apis are used
+  _setCredentials(opts: ApiOpts, strict: boolean) {
+    if (opts && opts.aevoAuth) {
+      this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
+    } else if (strict) throw new Error('missing aevo credentials')
+  }
+
+  // onboarding & setting referral code
+  // called from write functions and authenticateAgent
   async _register(wallet: `0x${string}`): Promise<ActionParam[]> {
     const payload: ActionParam[] = []
 
