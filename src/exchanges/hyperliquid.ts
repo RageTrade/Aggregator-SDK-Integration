@@ -143,7 +143,7 @@ import {
   HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
 import { hlGetCachedOrderBook } from '../configs/hyperliquid/api/wsclient'
-import { arbitrum } from 'viem/dist/types/chains'
+import { arbitrum } from 'viem/chains'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
