@@ -142,7 +142,7 @@ import {
   HL_CANNOT_DEC_LEV,
   HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
-import { arbitrum } from 'viem/dist/types/chains'
+import { arbitrum } from 'viem/chains'
 import { hlGetCachedOrderBook, hlGetCachedL2Book } from '../configs/hyperliquid/api/wsclient'
 import { TraverseResult } from '../common/types'
 
