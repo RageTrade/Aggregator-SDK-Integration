@@ -380,8 +380,20 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     ]
   }
 
+  // registers with given agent, eoa sign required
+  // if agent wallet is lost from local storage, generate only signing_key
+  // if api keys are lost, then generate only api keys
+  // TODO: check
   authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    if (agent.protocolId !== 'AEVO') throw new Error('invalid protocol id')
+
+    this._setCredentials(opts, false)
+
+    return this._register(wallet as `0x${string}`)
   }
 
   withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
