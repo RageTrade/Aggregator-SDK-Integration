@@ -1,5 +1,6 @@
 import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
 import { HL_LEV_OUT_OF_BOUNDS } from '../hyperliquid/hlErrors'
+
 export function aevoMarketIdToAsset(marketId: string): string {
   return marketId.split('-')[2]
 }
@@ -48,4 +49,8 @@ export function getReqdLeverageFN(sizeDelta: FixedNumber, marginDelta: FixedNumb
   if (md <= 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
 
   return Math.round((sd * px) / md)
+}
+
+export function aevoInstrumentNameToAsset(instrument_name: string): string {
+  return instrument_name.split('-')[0]
 }
