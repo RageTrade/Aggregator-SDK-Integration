@@ -20,7 +20,7 @@ export type APICallParamsWithMetadata = { apiArgs: APICallParams } & ExecutionMe
 export type RequestSignerFn = (
   wallet: WalletClient,
   agentAddress: string | undefined
-) => Promise<APICallParams | undefined>
+) => Promise<{ fetchParams: APICallParams; onSuccess?: (res: Response) => void | Promise<void> } | void>
 export type RequestSignerFnWithMetadata = {
   fn: RequestSignerFn
   isEoaSigner: boolean

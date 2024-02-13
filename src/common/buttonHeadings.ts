@@ -97,3 +97,9 @@ export const AEVO_UPDATE_MARGIN_H = 'Update Margin'
 export const AEVO_MULTIPLE_POSITION_H = 'Multiple Position Update'
 export const AEVO_SET_REF_H = 'Aevo: Set Referrer'
 export const AEVO_REGISTER_H = 'Aevo: Register'
+
+// ORDERLY
+export const ORDERLY_REGISTER_H = 'Orderly: Register'
+export const ORDERLY_CREATE_KEY_H = 'Orderly: Create Key'
+export const ORDERLY_DEPOSIT_H = 'Orderly: Deposit'
+export const ORDERLY_WITHDRAW_H = 'Orderly: Withdraw'

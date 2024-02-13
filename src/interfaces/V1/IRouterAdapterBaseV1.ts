@@ -24,6 +24,21 @@ export type ApiOpts = {
   aevoAuth?: AevoAuth
 }
 
+export type SetupOpts = {
+  protocolId: 'ORDERLY'
+  data: OrderlySetupOpts
+}
+
+/**
+ * Represents the options for Orderly setup.
+ * @property regenerateKey by default a new Orderly key is generated if none exists. If this option is set to true a new key will be generated even if one exists
+ * @property keyExpirationInDays amount in days when Orderly key will expire. Default = 365
+ */
+export type OrderlySetupOpts = {
+  regenerateKey?: boolean
+  keyExpirationInDays?: number
+}
+
 /**
  * Used to represent token / usd amount.
  * @property amount The amount. If the amount is usd terms it has 30 decimals else it has token decimals
@@ -57,7 +72,7 @@ export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 /**
  * Represents the protocol ID.
  */
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO' | 'ORDERLY'
 
 /**
  * Represents the type of trade operation.
@@ -671,7 +686,7 @@ export interface IRouterAdapterBaseV1 {
    * Run the setup transactions (different for each route) - like plugin approvals / referral code setup etc.
    * @returns A promise that resolves to an array of action parameters for setup.
    */
-  setup(): Promise<ActionParam[]>
+  setup(opts?: SetupOpts): Promise<ActionParam[]>
 
   /**
    * Deposits assets into the protocol.
