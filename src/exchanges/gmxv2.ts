@@ -1638,10 +1638,10 @@ export default class GmxV2Service implements IAdapterV1 {
       let priceImpact = ZERO
       if (od.type == 'MARKET') {
         const priceDiff = nextPositionValues.nextEntryPrice!.sub(toToken.prices.maxPrice).abs()
-        priceImpact = priceDiff.mul(BASIS_POINTS_DIVISOR).div(toToken.prices.maxPrice)
+        priceImpact = priceDiff.mul(100).div(toToken.prices.maxPrice)
       } else {
         const priceDiff = nextPositionValues.nextEntryPrice!.sub(orderTriggerPrice!).abs()
-        priceImpact = priceDiff.mul(BASIS_POINTS_DIVISOR).div(orderTriggerPrice!)
+        priceImpact = priceDiff.mul(100).div(orderTriggerPrice!)
       }
 
       const longLiquidity = getAvailableUsdLiquidityForPosition(marketInfo, true)
