@@ -1,4 +1,5 @@
 import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
+
 export function aevoMarketIdToAsset(marketId: string): string {
   return marketId.split('-')[2]
 }
@@ -15,4 +16,8 @@ export function aevoIndexBasisSlippage(val: Array<string[]>, slippageBp: string)
     }
   }
   return index
+}
+
+export function aevoInstrumentNameToAsset(instrument_name: string): string {
+  return instrument_name.split('-')[0]
 }

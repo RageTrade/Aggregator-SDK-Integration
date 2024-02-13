@@ -33,7 +33,11 @@ import {
   OrderBook,
   Market,
   GenericStaticMarketMetadata,
-  Protocol
+  Protocol,
+  PnlData,
+  TradeData,
+  OrderType,
+  TriggerData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import { OpenAPI } from '../../generated/aevo'
@@ -58,9 +62,10 @@ import {
 import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo } from '../configs/aevo/config'
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
-import { aevoIndexBasisSlippage, aevoMarketIdToAsset } from '../configs/aevo/helper'
+import { aevoIndexBasisSlippage, aevoMarketIdToAsset, aevoInstrumentNameToAsset } from '../configs/aevo/helper'
 import { aevoCacheGetAllMarkets, aevoCacheGetCoingeckoStats } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
+import { getPaginatedResponse, toAmountInfoFN } from '../common/helper'
 
 type FunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any) => any ? K : never
@@ -337,14 +342,6 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       throw new Error('invalid sig state')
   }
 
-  // to pass opts to set keys from local storage
-  // should be set where private apis are used
-  _setCredentials(opts: ApiOpts | undefined, strict: boolean) {
-    if (opts && opts.aevoAuth) {
-      this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
-    } else if (strict) throw new Error('missing aevo credentials')
-  }
-
   // onboarding & setting referral code
   // called from write functions and authenticateAgent
   async _register(wallet: `0x${string}`): Promise<ActionParam[]> {
@@ -613,28 +610,193 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
     throw new Error('Method not implemented.')
   }
-  getAllPositions(
+
+  async getAllPositions(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<PositionInfo>> {
-    throw new Error('Method not implemented.')
+    this._setCredentials(opts, true)
+    const positions: PositionInfo[] = []
+
+    const accountDataPromise = this.privateApi.getAccount()
+    const accumulatedFundingsPromise = this.privateApi.getAccountAccumulatedFundings()
+    const [accountData, accumulatedFundings] = await Promise.all([accountDataPromise, accumulatedFundingsPromise])
+
+    const leverages = accountData.leverages!
+
+    for (let i = 0; i < accountData.positions!.length; i++) {
+      const pos = accountData.positions![i]
+      const marketId = encodeMarketId(aevo.id.toString(), this.protocolId, pos.asset)
+      const posSize = FixedNumber.fromString(pos.amount)
+      const posNtl = posSize.mulFN(FixedNumber.fromString(pos.mark_price))
+      const leverage = FixedNumber.fromString(leverages.find((l) => l.instrument_id == pos.instrument_id)!.leverage)
+      const marginUsed = posNtl.divFN(leverage)
+      const direction = pos.side == 'buy' ? 'LONG' : 'SHORT'
+
+      const accFunding = accumulatedFundings.accumulated_fundings!.find((ac) => ac.instrument_id == pos.instrument_id)
+      const fundingFee = accFunding
+        ? FixedNumber.fromString(accFunding.accumulated_funding!).mulFN(FixedNumber.fromString('-1'))
+        : ZERO_FN
+      const rawPnl = FixedNumber.fromString(pos.unrealized_pnl)
+      const aggregatePnl = rawPnl.subFN(fundingFee)
+      const upnl: PnlData = {
+        aggregatePnl: aggregatePnl,
+        rawPnl: rawPnl,
+        borrowFee: ZERO_FN,
+        fundingFee: fundingFee
+      }
+
+      const posInfo: PositionInfo = {
+        marketId: encodeMarketId(aevo.id.toString(), this.protocolId, pos.asset),
+        posId: `${marketId}-${direction}-${accountData.account}`,
+        size: toAmountInfoFN(posSize, true),
+        margin: toAmountInfoFN(marginUsed, false),
+        accessibleMargin: toAmountInfoFN(ZERO_FN, false), // TODO - accessibleMargin for isolated positions when those get enabled
+        avgEntryPrice: FixedNumber.fromString(pos.avg_entry_price),
+        cumulativeFunding: fundingFee,
+        unrealizedPnl: upnl,
+        liquidationPrice: pos.liquidation_price ? FixedNumber.fromString(pos.liquidation_price) : ZERO_FN,
+        leverage: leverage,
+        direction: direction,
+        collateral: AEVO_COLLATERAL_TOKEN,
+        indexToken: AEVO_TOKENS_MAP[pos.asset],
+        protocolId: this.protocolId,
+        roe: aggregatePnl.divFN(marginUsed),
+        mode: pos.margin_type == 'CROSS' ? 'CROSS' : 'ISOLATED',
+        metadata: pos
+      }
+
+      positions.push(posInfo)
+    }
+
+    return getPaginatedResponse(positions, pageOptions)
   }
-  getAllOrders(
+
+  async getAllOrders(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<OrderInfo>> {
-    throw new Error('Method not implemented.')
+    this._setCredentials(opts, true)
+    const ordersInfo: OrderInfo[] = []
+
+    const ordersDataPromise = this.privateApi.getOrders()
+    const accountDataPromise = this.privateApi.getAccount()
+
+    const [ordersData, accountData] = await Promise.all([ordersDataPromise, accountDataPromise])
+    const leverages = accountData.leverages!
+
+    for (let i = 0; i < ordersData.length; i++) {
+      const od = ordersData[i]
+      const pos = accountData.positions?.find(
+        (p) => p.triggers?.stop_loss?.order_id === od.order_id || p.triggers?.take_profit?.order_id === od.order_id
+      )
+      const asset = aevoInstrumentNameToAsset(od.instrument_name)
+
+      let orderType: OrderType
+      if (od.order_type == 'limit') {
+        if (od.stop) {
+          orderType = od.stop == 'STOP_LOSS' ? 'STOP_LOSS_LIMIT' : 'TAKE_PROFIT_LIMIT'
+        } else {
+          orderType = 'LIMIT'
+        }
+      } else {
+        orderType = od.stop!
+      }
+
+      const isStopOrder = orderType != 'LIMIT'
+      // for consistency with hyperliquid order direction of close position is same as position direction
+      const direction = isStopOrder ? (od.side == 'buy' ? 'SHORT' : 'LONG') : od.side == 'buy' ? 'LONG' : 'SHORT'
+      const orderAmount = FixedNumber.fromString(od.amount)
+      const sizeDelta = pos && od.close_position ? FixedNumber.fromString(pos.amount) : orderAmount
+
+      const tradeData: TradeData = {
+        marketId: encodeMarketId(aevo.id.toString(), this.protocolId, asset),
+        direction: direction,
+        sizeDelta: toAmountInfoFN(sizeDelta, true),
+        marginDelta: toAmountInfoFN(FixedNumber.fromString(od.initial_margin || '0'), false)
+      }
+
+      let triggerPrice = ZERO_FN
+      let triggerAboveThreshold = false
+      let triggerLimitPrice = undefined
+      switch (orderType) {
+        case 'LIMIT':
+          triggerPrice = FixedNumber.fromString(od.price)
+          triggerAboveThreshold = direction == 'SHORT'
+          break
+        case 'STOP_LOSS':
+          triggerPrice = FixedNumber.fromString(od.trigger!)
+          triggerAboveThreshold = direction == 'SHORT'
+          break
+        case 'TAKE_PROFIT':
+          triggerPrice = FixedNumber.fromString(od.trigger!)
+          triggerAboveThreshold = direction == 'LONG'
+          break
+        case 'STOP_LOSS_LIMIT':
+          triggerPrice = FixedNumber.fromString(od.trigger!)
+          triggerLimitPrice = FixedNumber.fromString(od.price)
+          triggerAboveThreshold = direction == 'SHORT'
+          break
+        case 'TAKE_PROFIT_LIMIT':
+          triggerPrice = FixedNumber.fromString(od.trigger!)
+          triggerLimitPrice = FixedNumber.fromString(od.price)
+          triggerAboveThreshold = direction == 'LONG'
+          break
+      }
+      const triggerData: TriggerData = {
+        triggerPrice,
+        triggerAboveThreshold,
+        triggerLimitPrice
+      }
+
+      const orderData: OrderInfo = {
+        ...tradeData,
+        mode: leverages.find((l) => l.instrument_id == od.instrument_id)!.margin_type,
+        triggerData: triggerData,
+        marketId: encodeMarketId(aevo.id.toString(), this.protocolId, asset),
+        orderId: od.order_id,
+        orderType,
+        collateral: AEVO_COLLATERAL_TOKEN,
+        protocolId: this.protocolId,
+        tif: 'GTC'
+      }
+
+      ordersInfo.push(orderData)
+    }
+
+    return getPaginatedResponse(ordersInfo, pageOptions)
   }
-  getAllOrdersForPosition(
+
+  async getAllOrdersForPosition(
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<Record<string, PaginatedRes<OrderInfo>>> {
-    throw new Error('Method not implemented.')
+    const allOrders = (await this.getAllOrders(wallet, undefined, opts)).result
+    const ordersForPositionInternal: Record<string, OrderInfo[]> = {}
+
+    for (const o of allOrders) {
+      for (const p of positionInfo) {
+        if (o.marketId === p.marketId) {
+          if (ordersForPositionInternal[p.posId] === undefined) {
+            ordersForPositionInternal[p.posId] = []
+          }
+          ordersForPositionInternal[p.posId].push(o)
+        }
+      }
+    }
+
+    const ordersForPosition: Record<string, PaginatedRes<OrderInfo>> = {}
+    for (const posId of Object.keys(ordersForPositionInternal)) {
+      ordersForPosition[posId] = getPaginatedResponse(ordersForPositionInternal[posId], pageOptions)
+    }
+
+    return ordersForPosition
   }
+
   getTradesHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
@@ -703,4 +865,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   }
 
   /// Internal helper functions ///
+  // to pass opts to set keys from local storage
+  // should be set where private apis are used
+  _setCredentials(opts: ApiOpts | undefined, strict: boolean) {
+    if (opts && opts.aevoAuth) {
+      this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
+    } else if (strict) throw new Error('missing aevo credentials')
+  }
 }

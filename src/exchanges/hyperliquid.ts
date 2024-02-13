@@ -1114,7 +1114,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         margin: toAmountInfoFN(marginUsed, false),
         accessibleMargin: toAmountInfoFN(accessibleMargin, false),
         avgEntryPrice: FixedNumber.fromString(position.entryPx),
-        cumulativeFunding: FixedNumber.fromString(position.cumFunding.allTime),
+        cumulativeFunding: fundingFee,
         unrealizedPnl: upnl,
         liquidationPrice: position.liquidationPx
           ? FixedNumber.fromString(position.liquidationPx)
