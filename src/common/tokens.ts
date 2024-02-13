@@ -6,8 +6,13 @@ export interface Token {
   symbol: string
   name: string
   decimals: number
-  address: Record<Chain['id'], Maybe<`0x${string}`>>
+  address: {
+    [arbitrum.id]: Maybe<`0x${string}`>
+    [optimism.id]: Maybe<`0x${string}`>
+  }
 }
+
+export type supportedChains = keyof Token['address']
 
 export const tokens = {
   ETH: {
