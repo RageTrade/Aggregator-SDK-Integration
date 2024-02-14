@@ -12,7 +12,7 @@ export interface Token {
   }
 }
 
-export type supportedChains = keyof Token['address']
+export type SupportedChains = keyof Token['address']
 
 export const tokens = {
   ETH: {

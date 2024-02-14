@@ -44,7 +44,7 @@ import { OpenAPI } from '../../generated/aevo'
 import { aevoAddresses } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
-import { Token, supportedChains, tokens } from '../common/tokens'
+import { Token, SupportedChains, tokens } from '../common/tokens'
 import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
@@ -276,7 +276,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
       if (each.protocol !== 'AEVO') throw new Error('invalid protocol id')
 
-      const address = each.token.address[each.chainId as supportedChains]
+      const address = each.token.address[each.chainId]
 
       if (!address || address === ethers.constants.AddressZero) throw new Error('token address not found')
 

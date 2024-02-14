@@ -1,4 +1,4 @@
-import { WalletClient, maxUint256 } from 'viem'
+import { WalletClient, getAddress, maxUint256 } from 'viem'
 import AevoAdapterV1, { AEVO_REF_CODE } from '../../exchanges/aevo'
 import { RequestSignerFnWithMetadata } from '../../interfaces/IActionExecutor'
 import { AEVO_REGISTER_H, AEVO_SET_REF_H, EMPTY_DESC } from '../../common/buttonHeadings'
@@ -18,6 +18,18 @@ const REGISTER_TYPE = {
 
 const SIGN_KEY_TYPE = {
   SignKey: [{ name: 'account', type: 'address' }]
+} as const
+
+const ORDER_TYPE = {
+  Order: [
+    { name: 'maker', type: 'address' },
+    { name: 'isBuy', type: 'bool' },
+    { name: 'limitPrice', type: 'uint256' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'salt', type: 'uint256' },
+    { name: 'instrument', type: 'uint256' },
+    { name: 'timestamp', type: 'uint256' }
+  ]
 } as const
 
 export function signRegisterAgent(instance: AevoAdapterV1, userAddress: `0x${string}`): RequestSignerFnWithMetadata {
@@ -81,5 +93,49 @@ export function signRegisterWallet(instance: AevoAdapterV1): RequestSignerFnWith
     isAgentRequired: true,
     desc: EMPTY_DESC,
     heading: AEVO_SET_REF_H
+  }
+}
+
+export function signCreateOrder(
+  instance: AevoAdapterV1,
+  order: Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]
+): RequestSignerFnWithMetadata {
+  if (!order) throw new Error('order expected')
+
+  return {
+    fn: async (wallet: WalletClient) => {
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
+      const timestamp = Math.floor(new Date().getTime() / 1000)
+
+      const signableOrder = {
+        maker: getAddress(order.maker),
+        isBuy: order.is_buy,
+        limitPrice: BigInt(Math.round(Number(order.limit_price))),
+        amount: BigInt(Math.round(Number(order.amount))),
+        salt: salt,
+        instrument: BigInt(order.instrument),
+        timestamp: BigInt(timestamp)
+      } as const
+
+      const sig = await wallet.signTypedData({
+        account: wallet.account!,
+        domain: AEVO_EIP712_DOMAIN,
+        types: ORDER_TYPE,
+        primaryType: 'Order',
+        message: signableOrder
+      })
+
+      order.signature = sig
+
+      const args: Parameters<(typeof instance.privateApi)['postOrders']>[0] = order
+
+      return instance.aevoClient.transform('postOrders', args)
+    },
+    chainId: 1,
+    isEoaSigner: false,
+    isUserAction: true,
+    isAgentRequired: true,
+    desc: EMPTY_DESC,
+    heading: AEVO_REGISTER_H
   }
 }

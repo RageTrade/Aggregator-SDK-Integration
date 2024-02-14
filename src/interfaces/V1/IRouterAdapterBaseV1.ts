@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { Token } from '../../common/tokens'
+import { SupportedChains, Token } from '../../common/tokens'
 import { ActionParam } from '../IActionExecutor'
 import { FixedNumber } from '../../common/fixedNumber'
 /**
@@ -128,7 +128,7 @@ export type DepositWithdrawParams = {
   amount: FixedNumber
   wallet: string
   protocol: ProtocolId
-  chainId: Chain['id']
+  chainId: SupportedChains
   token: Token
   market?: Market['marketId']
 }
