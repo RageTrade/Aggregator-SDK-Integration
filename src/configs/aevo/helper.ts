@@ -1,6 +1,5 @@
 import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
-import { HL_LEV_OUT_OF_BOUNDS } from '../hyperliquid/hlErrors'
-
+import { LEV_OUT_OF_BOUNDS } from '../hyperliquid/hlErrors'
 export function aevoMarketIdToAsset(marketId: string): string {
   return marketId.split('-')[2]
 }
@@ -44,7 +43,7 @@ export function toNearestTick(input: number, tickSize: number): number {
 }
 
 export function getReqdLeverage(sizeDelta: number, marginDelta: number, price: number) {
-  if (marginDelta <= 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+  if (marginDelta <= 0) throw new Error(LEV_OUT_OF_BOUNDS)
 
   return Math.round((sizeDelta * price) / marginDelta)
 }
@@ -54,7 +53,7 @@ export function getReqdLeverageFN(sizeDelta: FixedNumber, marginDelta: FixedNumb
   const sd = Number(sizeDelta._value)
   const md = Number(marginDelta._value)
 
-  if (md <= 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+  if (md <= 0) throw new Error(LEV_OUT_OF_BOUNDS)
 
   return Math.round((sd * px) / md)
 }
