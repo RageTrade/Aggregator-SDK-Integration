@@ -6,6 +6,8 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { tokens } from '../src/common/tokens'
 import AevoAdapterV1 from '../src/exchanges/aevo'
 import { FixedNumber } from '../src/common/fixedNumber'
+import { CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { AEVO_COLLATERAL_TOKEN, aevo as aevoChain } from '../src/configs/aevo/config'
 
 const p1 = generatePrivateKey()
 const p2 = generatePrivateKey()
@@ -28,6 +30,8 @@ console.log('using agent wallet', agentWallet.account.address)
 console.log('agent wallet pk', p2)
 
 const aevo = new AevoAdapterV1()
+
+const ethMarketId = '42161-AEVO-ETH'
 
 async function testDeposit() {
   const executionPayload = await aevo.deposit([
@@ -142,9 +146,41 @@ async function testAuthenticateAgent() {
   )
 
   console.log(state)
+
+  return opts
+}
+
+async function testIncreaseOrder() {
+  const opts = await testAuthenticateAgent()
+
+  const market = (await aevo.supportedMarkets([aevoChain])).find((m) => m.indexToken.symbol === 'BTC')!
+
+  const orderData: CreateOrder[] = [
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.0005'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('6.117002'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('50000'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: undefined
+      },
+      collateral: AEVO_COLLATERAL_TOKEN,
+      type: 'LIMIT',
+      mode: 'ISOLATED',
+      slippage: undefined
+    }
+  ]
+
+  const executionPayload = await aevo.increasePosition(orderData, wallet.account.address, opts)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(wallet, agentWallet, executionPayload)
 }
 
 // testDeposit()
 // testRegister()
 // testGetAgentState()
-testAuthenticateAgent()
+// testAuthenticateAgent()
+testIncreaseOrder()
