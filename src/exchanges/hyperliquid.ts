@@ -671,6 +671,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // round towards closest int
       const currentLeverage = Number(marketState.leverage._value)
+      const currentMode = marketState.marketMode
       const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
 
       const hlParams: AvailableToTradeParams<'HL'> = {
@@ -696,7 +697,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
         throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
 
-      if (reqdLeverage !== currentLeverage) payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
+      if (reqdLeverage !== currentLeverage || mode !== currentMode)
+        payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
 
       // populate trigger data if required
       let orderData: OrderRequest['order_type'] = { limit: { tif: toTif(each.tif || 'GTC') } }
