@@ -58,7 +58,3 @@ export function getReqdLeverageFN(sizeDelta: FixedNumber, marginDelta: FixedNumb
 
   return Math.round((sd * px) / md)
 }
-
-export function aevoInstrumentNameToAsset(instrument_name: string): string {
-  return instrument_name.split('-')[0]
-}
