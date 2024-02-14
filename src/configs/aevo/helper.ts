@@ -26,13 +26,21 @@ export function aevoInstrumentNameToAsset(instrument_name: string): string {
 export function to6Decimals(input: number | string): number {
   const inputNumber = typeof input === 'string' ? parseFloat(input) : input
   const result = inputNumber * 1e6
-  return Number(result.toFixed(6))
+  return Math.round(result)
 }
 
 export function to6DecimalsFN(input: FixedNumber): number {
   const inputNumber = Number(input._value)
   const result = inputNumber * 1e6
-  return Number(result.toFixed(6))
+  return Math.round(result)
+}
+
+export function toNearestTick(input: number, tickSize: number): number {
+  if (tickSize <= 0) {
+    throw new Error('Tick size must be greater than zero')
+  }
+
+  return Math.round(input / tickSize) * tickSize
 }
 
 export function getReqdLeverage(sizeDelta: number, marginDelta: number, price: number) {

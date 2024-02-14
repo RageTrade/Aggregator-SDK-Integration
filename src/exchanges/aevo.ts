@@ -40,15 +40,15 @@ import {
   TriggerData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
-import { OpenAPI } from '../../generated/aevo'
+import { OpenAPI, time_in_force } from '../../generated/aevo'
 import { aevoAddresses } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
-import { Token, SupportedChains, tokens } from '../common/tokens'
+import { SupportedChains, Token, tokens } from '../common/tokens'
 import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
-import { signRegisterAgent, signRegisterWallet } from '../configs/aevo/signing'
+import { signCreateOrder, signRegisterAgent, signRegisterWallet, updateAevoLeverage } from '../configs/aevo/signing'
 import { AevoClient } from '../../generated/aevo'
 import {
   AEVO_CACHE_PREFIX,
@@ -62,7 +62,14 @@ import {
 import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo } from '../configs/aevo/config'
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
-import { aevoIndexBasisSlippage, aevoMarketIdToAsset, aevoInstrumentNameToAsset } from '../configs/aevo/helper'
+import {
+  aevoIndexBasisSlippage,
+  aevoMarketIdToAsset,
+  aevoInstrumentNameToAsset,
+  to6Decimals,
+  getReqdLeverage,
+  toNearestTick
+} from '../configs/aevo/helper'
 import {
   aevoCacheGetAccount,
   aevoCacheGetAllMarkets,
@@ -71,12 +78,15 @@ import {
 } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { getPaginatedResponse, toAmountInfoFN } from '../common/helper'
+import { slippagePrice } from '../configs/hyperliquid/api/client'
 
 type FunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any) => any ? K : never
 }[keyof T]
 
 type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
+
+type UrlParams = { [key: string]: string | number }
 
 export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
 
@@ -94,39 +104,66 @@ class ExtendedAevoClient extends AevoClient {
     this.request.config.HEADERS = this.headers
   }
 
-  private _getUrlAndMethod(name: AllowedMethods): { url: string; method: RequestInit['method'] } {
+  private _getUrlAndMethod(name: AllowedMethods, params?: UrlParams): { url: string; method: RequestInit['method'] } {
     let method: RequestInit['method']
     let url: string
 
     switch (true) {
       case name.startsWith('get'):
         method = 'GET'
-        url = `/${name.replace(/^get/, '').toLowerCase()}`
+        url = this.parseNestedPath(name, params)
         break
       case name.startsWith('post'):
         method = 'POST'
-        url = `/${name.replace(/^post/, '').toLowerCase()}`
+        url = this.parseNestedPath(name, params)
         break
       case name.startsWith('put'):
         method = 'PUT'
-        url = `/${name.replace(/^put/, '').toLowerCase()}`
+        url = this.parseNestedPath(name, params)
         break
       case name.startsWith('delete'):
         method = 'DELETE'
-        url = `/${name.replace(/^delete/, '').toLowerCase()}`
+        url = this.parseNestedPath(name, params)
         break
       default:
-        throw new Error('not able to parse method and url')
+        throw new Error('Not able to parse method and URL')
     }
 
     return { url, method }
   }
 
+  private parseNestedPath(name: string, params?: UrlParams): string {
+    // splitting camel case method name to url
+    const pathSegments = name.split(/(?=[A-Z])/).map((segment) => segment.toLowerCase())
+    let url = ''
+
+    for (const segment of pathSegments) {
+      if (segment === 'delete' || segment === 'put') {
+        url += '/'
+      } else if (segment !== 'get' && segment !== 'post') {
+        url += `/${segment}`
+      }
+    }
+
+    // to handle cases like DELETE /order/:id
+    if (params) {
+      Object.entries(params).forEach(([key, value]) => {
+        url = url.replace(key, String(value))
+      })
+    }
+
+    return url
+  }
+
   // helper to infer types since we can't use generated client because fetch needs to be seperate
-  public transform<T extends AllowedMethods>(name: T, args: Parameters<AevoClient['privateApi'][T]>[0]) {
+  public transform<T extends AllowedMethods>(
+    name: T,
+    args: Parameters<AevoClient['privateApi'][T]>[0],
+    urlParams?: UrlParams
+  ) {
     if (!args) throw new Error('request body not passed')
 
-    let { method, url } = this._getUrlAndMethod(name)
+    let { method, url } = this._getUrlAndMethod(name, urlParams)
     url = OpenAPI.BASE + url
 
     const body = JSON.stringify(args)
@@ -155,7 +192,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   public publicApi = this.aevoClient.publicApi
   public privateApi = this.aevoClient.privateApi
 
-  private contracts: Record<Chain['id'], L1SocketDepositHelper> = {
+  private contracts: Record<SupportedChains, L1SocketDepositHelper> = {
     10: L1SocketDepositHelper__factory.connect(aevoAddresses[optimism.id].socketHelper, rpc[10]),
     42161: L1SocketDepositHelper__factory.connect(aevoAddresses[arbitrum.id].socketHelper, rpc[42161])
   }
@@ -593,12 +630,94 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return dynamicMarketMetadata
   }
 
-  increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    // this assumes agent is created on f/e
+    this._setCredentials(opts, true)
+
+    for (const each of orderData) {
+      // check if selected token is USDC
+      if (each.collateral.symbol !== AEVO_COLLATERAL_TOKEN.symbol) throw new Error('token not supported')
+
+      // ensure size delta is in token terms
+      if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // get market info
+      // cached unless opts has bypass cache
+      const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
+
+      const coin = marketInfo.indexToken.symbol
+      const asset = AEVO_TOKENS_MAP[coin]
+
+      // TODO: handle mode specific stuff when isolated is added,
+      const mode = each.mode
+
+      const isBuy = each.direction === 'LONG'
+      const slippage = each.slippage ? each.slippage / 100 : 0.01
+
+      const price = Number((await this.getMarketPrices([each.marketId], opts))[0]._value)
+
+      let limitPrice = 0
+      let limitPriceN = 0
+
+      if (each.type == 'MARKET') {
+        limitPrice = to6Decimals(toNearestTick(slippagePrice(isBuy, slippage, price), Number(marketInfo.priceStep)))
+        limitPriceN = slippagePrice(isBuy, slippage, price)
+      } else {
+        if (!each.triggerData) throw new Error('trigger data required for limit increase')
+        limitPrice = to6Decimals(
+          toNearestTick(Number(each.triggerData.triggerPrice._value), Number(marketInfo.priceStep))
+        )
+        limitPriceN = Number(each.triggerData.triggerPrice._value)
+      }
+
+      // calculate leverage using sizeDelta and marginDelta
+      const sizeDelta = toNearestTick(Number(each.sizeDelta.amount._value), Number(marketInfo.amountStep))
+      const marginDelta = Number(each.marginDelta.amount._value)
+
+      const reqdLeverage = getReqdLeverage(sizeDelta, marginDelta, limitPriceN)
+
+      const aevoParams: AvailableToTradeParams<'AEVO'> = undefined
+
+      const availableToTrade = Number(
+        (await this.getAvailableToTrade(wallet, aevoParams as AvailableToTradeParams<this['protocolId']>, opts)).amount
+          ._value
+      )
+
+      // TODO: add check that reqdLeverage > currentLeverage if there is open position (after market state is added)
+      // TODO: change margin mode when implementing isolated
+
+      if (availableToTrade < marginDelta) throw new Error('not enough available margin')
+
+      if (each.tif === 'ALO') throw new Error('ALO not supported')
+
+      payload.push(updateAevoLeverage(this, { instrument: Number(asset.instrumentId), leverage: reqdLeverage }))
+
+      const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]> = {
+        instrument: Number(asset.instrumentId),
+        maker: wallet,
+        is_buy: isBuy,
+        amount: to6Decimals(sizeDelta).toString(),
+        limit_price: limitPrice.toString(),
+        salt: '', // will be filled internally
+        signature: '', // will be filled internally
+        timestamp: '', // will be filled internally
+        post_only: false,
+        reduce_only: false,
+        time_in_force: each.tif ? (each.tif === 'GTC' ? time_in_force.GTC : time_in_force.IOC) : time_in_force.GTC
+      }
+
+      payload.push(signCreateOrder(this, request))
+    }
+
+    return payload
   }
+
   updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }

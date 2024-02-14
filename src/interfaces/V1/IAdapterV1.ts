@@ -15,7 +15,7 @@ export type ProtocolInfo = {
 }
 
 export interface IAdapterV1 extends IRouterAdapterBaseV1 {
-  protocolId: ProtocolId
+  readonly protocolId: ProtocolId
 
   getProtocolInfo(): ProtocolInfo
 

@@ -1,7 +1,7 @@
 import { WalletClient, getAddress, maxUint256 } from 'viem'
 import AevoAdapterV1, { AEVO_REF_CODE } from '../../exchanges/aevo'
-import { RequestSignerFnWithMetadata } from '../../interfaces/IActionExecutor'
-import { AEVO_REGISTER_H, AEVO_SET_REF_H, EMPTY_DESC } from '../../common/buttonHeadings'
+import { APICallParamsWithMetadata, RequestSignerFnWithMetadata } from '../../interfaces/IActionExecutor'
+import { AEVO_REGISTER_H, AEVO_SET_REF_H, AEVO_UPDATE_LEVERAGE_H, EMPTY_DESC } from '../../common/buttonHeadings'
 
 const AEVO_EIP712_DOMAIN = {
   name: 'Aevo Mainnet',
@@ -98,14 +98,13 @@ export function signRegisterWallet(instance: AevoAdapterV1): RequestSignerFnWith
 
 export function signCreateOrder(
   instance: AevoAdapterV1,
-  order: Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]
+  order: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]>
 ): RequestSignerFnWithMetadata {
-  if (!order) throw new Error('order expected')
-
   return {
     fn: async (wallet: WalletClient) => {
-      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
       const timestamp = Math.floor(new Date().getTime() / 1000)
+      // to avoid leading zeros
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
 
       const signableOrder = {
         maker: getAddress(order.maker),
@@ -126,10 +125,12 @@ export function signCreateOrder(
       })
 
       order.signature = sig
+      order.salt = signableOrder.salt.toString()
+      order.timestamp = signableOrder.timestamp.toString()
 
       const args: Parameters<(typeof instance.privateApi)['postOrders']>[0] = order
 
-      return instance.aevoClient.transform('postOrders', args)
+      return instance.aevoClient.transform('postOrders', args, undefined)
     },
     chainId: 1,
     isEoaSigner: false,
@@ -137,5 +138,20 @@ export function signCreateOrder(
     isAgentRequired: true,
     desc: EMPTY_DESC,
     heading: AEVO_REGISTER_H
+  }
+}
+
+export function updateAevoLeverage(
+  instance: AevoAdapterV1,
+  data: NonNullable<Parameters<AevoAdapterV1['privateApi']['postAccountLeverage']>[0]>
+): APICallParamsWithMetadata {
+  const params = instance.aevoClient.transform('postAccountLeverage', data, undefined)
+
+  return {
+    chainId: 1,
+    apiArgs: params,
+    isUserAction: true,
+    desc: EMPTY_DESC,
+    heading: AEVO_UPDATE_LEVERAGE_H
   }
 }
