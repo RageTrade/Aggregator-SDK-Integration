@@ -35,7 +35,7 @@ export function to6DecimalsFN(input: FixedNumber): number {
 }
 
 export function getReqdLeverage(sizeDelta: number, marginDelta: number, price: number) {
-  if (marginDelta <= 0 || marginDelta > 20) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+  if (marginDelta <= 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
 
   return Math.round((sizeDelta * price) / marginDelta)
 }
@@ -45,7 +45,7 @@ export function getReqdLeverageFN(sizeDelta: FixedNumber, marginDelta: FixedNumb
   const sd = Number(sizeDelta._value)
   const md = Number(marginDelta._value)
 
-  if (md <= 0 || md > 20) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+  if (md <= 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
 
   return Math.round((sd * px) / md)
 }
