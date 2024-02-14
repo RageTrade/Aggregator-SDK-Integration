@@ -54,9 +54,19 @@ async function getAllOrders() {
   console.dir(orders, { depth: 4 })
 }
 
+async function getAccountInfo() {
+  const accountInfo = await aa.getAccountInfo('', aevoPrivateOpts)
+  console.dir(accountInfo, { depth: 4 })
+}
+
+async function getAvailableToTrade() {
+  const availableToTrade = await aa.getAvailableToTrade('', undefined, aevoPrivateOpts)
+  console.dir(availableToTrade, { depth: 4 })
+}
+
 aa.init(undefined).then(() => {
   delay(2500).then(() => {
-    getAllOrders()
+    getAvailableToTrade()
       .then(() => process.exit(0))
       .catch((error) => {
         console.error(error)

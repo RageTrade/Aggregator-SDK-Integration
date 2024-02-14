@@ -63,7 +63,12 @@ import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo } from '../configs/aevo/co
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
 import { aevoIndexBasisSlippage, aevoMarketIdToAsset, aevoInstrumentNameToAsset } from '../configs/aevo/helper'
-import { aevoCacheGetAllMarkets, aevoCacheGetCoingeckoStats } from '../configs/aevo/aevoCacheHelper'
+import {
+  aevoCacheGetAccount,
+  aevoCacheGetAllMarkets,
+  aevoCacheGetCoingeckoStats,
+  aevoCacheGetAllAssets
+} from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { getPaginatedResponse, toAmountInfoFN } from '../common/helper'
 
@@ -178,15 +183,21 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return info
   }
 
-  getAvailableToTrade(
+  async getAvailableToTrade(
     wallet: string,
     params: AvailableToTradeParams<this['protocolId']>,
     opts?: ApiOpts | undefined
   ): Promise<AmountInfo> {
-    throw new Error('Method not implemented.')
+    this._setCredentials(opts, true)
+
+    const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
+    const accountInfo = await aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+
+    return toAmountInfoFN(FixedNumber.fromString(accountInfo.available_balance), false)
   }
 
   async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
+    await this._preWarmCache(opts)
     await openAevoWssConnection()
   }
 
@@ -822,6 +833,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   ): Promise<PaginatedRes<ClaimInfo>> {
     throw new Error('Method not implemented.')
   }
+
   getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
@@ -830,6 +842,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   ): Promise<OpenTradePreviewInfo[]> {
     throw new Error('Method not implemented.')
   }
+
   getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
@@ -853,9 +866,39 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     throw new Error('Method not implemented.')
   }
-  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
-    throw new Error('Method not implemented.')
+
+  async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
+    this._setCredentials(opts, true)
+
+    const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
+    const accountInfo = await aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+
+    const maintainenceMarginUsed = FixedNumber.fromString(accountInfo.maintenance_margin)
+    const initialMarginUsed = FixedNumber.fromString(accountInfo.initial_margin)
+    const equity = FixedNumber.fromString(accountInfo.equity)
+    const availableBalance = FixedNumber.fromString(accountInfo.available_balance)
+    const mmUtilizationPercent = maintainenceMarginUsed.divFN(equity).mulFN(FixedNumber.fromString('100'))
+    const imUtilizationPercent = initialMarginUsed
+      .addFN(maintainenceMarginUsed)
+      .divFN(equity)
+      .mulFN(FixedNumber.fromString('100'))
+
+    return Promise.resolve([
+      {
+        protocolId: this.protocolId,
+        accountInfoData: {
+          imUtilizationPercent: imUtilizationPercent,
+          mmUtilizationPercent: mmUtilizationPercent,
+          initialMarginUsed: initialMarginUsed,
+          maintainenceMarginUsed: maintainenceMarginUsed,
+          equityBalance: equity,
+          availableBalance: availableBalance,
+          storedCollateral: accountInfo.collaterals
+        }
+      }
+    ])
   }
+
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     throw new Error('Method not implemented.')
   }
@@ -875,5 +918,16 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
     } else if (strict) throw new Error('missing aevo credentials')
+  }
+
+  async _preWarmCache(opts?: ApiOpts) {
+    await aevoCacheGetAllMarkets(this.publicApi, 0, 0, opts)
+    await aevoCacheGetCoingeckoStats(this.publicApi, 0, 0, opts)
+    await aevoCacheGetAllAssets(this.publicApi, 0, 0, opts)
+
+    if (opts && opts.aevoAuth) {
+      this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
+      await aevoCacheGetAccount(this.privateApi, 0, 0, opts)
+    }
   }
 }

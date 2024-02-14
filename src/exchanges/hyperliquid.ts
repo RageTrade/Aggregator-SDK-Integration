@@ -158,7 +158,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
   private BRIDGE2 = ethers.utils.getAddress('0x2Df1c51E09aECF9cacB7bc98cB1742757f163dF7')
 
   async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
-    this._preWarmCache(wallet)
+    await this._preWarmCache(wallet)
   }
 
   setup(): Promise<ActionParam[]> {
@@ -1761,14 +1761,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
     const accountInfo: AccountInfo = {
       protocolId: 'HL',
-      accountEquity: FixedNumber.fromString(clearinghouseState.marginSummary.accountValue),
-      totalMarginUsed: FixedNumber.fromString(clearinghouseState.marginSummary.totalMarginUsed),
-      maintainenceMargin: FixedNumber.fromString(clearinghouseState.crossMaintenanceMarginUsed),
-      withdrawable: FixedNumber.fromString(clearinghouseState.withdrawable),
-      availableToTrade: FixedNumber.fromString(clearinghouseState.withdrawable),
-      crossAccountLeverage: crossAccountValue.isZero()
-        ? FixedNumber.fromString('0')
-        : divFN(crossTotalNtlPos, crossAccountValue)
+      accountInfoData: {
+        accountEquity: FixedNumber.fromString(clearinghouseState.marginSummary.accountValue),
+        totalMarginUsed: FixedNumber.fromString(clearinghouseState.marginSummary.totalMarginUsed),
+        maintainenceMargin: FixedNumber.fromString(clearinghouseState.crossMaintenanceMarginUsed),
+        withdrawable: FixedNumber.fromString(clearinghouseState.withdrawable),
+        availableToTrade: FixedNumber.fromString(clearinghouseState.withdrawable),
+        crossAccountLeverage: crossAccountValue.isZero()
+          ? FixedNumber.fromString('0')
+          : divFN(crossTotalNtlPos, crossAccountValue)
+      }
     }
 
     return [accountInfo]

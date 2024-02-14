@@ -5,12 +5,12 @@ import { AevoClient } from '../../../generated/aevo'
 export const aevo = arbitrum
 export const AEVO_TOKENS_MAP: Record<string, Token & { instrumentId: string }> = {}
 export const AEVO_COLLATERAL_TOKEN = {
-  symbol: 'USDC',
-  name: 'USD Coin',
+  symbol: 'AEVO-USD',
+  name: 'Aevo USD',
   decimals: 6,
   address: {
-    42161: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
-    10: '0x7F5c764cBc14f9669B88837ca1490cCa17c31607'
+    42161: undefined,
+    10: undefined
   }
 } as Token
 

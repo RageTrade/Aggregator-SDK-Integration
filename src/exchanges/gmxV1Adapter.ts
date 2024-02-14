@@ -1635,7 +1635,12 @@ export default class GmxV1Adapter implements IAdapterV1 {
     return Promise.resolve(FixedNumber.fromValue('0', 30, 30))
   }
   async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
-    return Promise.resolve([])
+    return Promise.resolve([
+      {
+        protocolId: this.protocolId,
+        accountInfoData: undefined
+      }
+    ])
   }
 
   ////////// GMX specific helper methods //////////

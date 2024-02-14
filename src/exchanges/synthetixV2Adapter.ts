@@ -462,7 +462,12 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
   }
 
   async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
-    return []
+    return Promise.resolve([
+      {
+        protocolId: this.protocolId,
+        accountInfoData: undefined
+      }
+    ])
   }
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {

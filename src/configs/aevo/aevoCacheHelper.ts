@@ -1,7 +1,7 @@
 import { ApiOpts } from '../../interfaces/V1/IRouterAdapterBaseV1'
 import { AEVO_CACHE_PREFIX, cacheFetch } from '../../common/cache'
 import { aevoUpdateTokensMap } from './config'
-import { PublicApiService } from '../../../generated/aevo'
+import { PrivateApiService, PublicApiService } from '../../../generated/aevo'
 
 export async function aevoCacheGetAllAssets(
   publicApi: PublicApiService,
@@ -49,5 +49,20 @@ export async function aevoCacheGetCoingeckoStats(
     fn: () => publicApi.getCoingeckoStatistics(),
     staleTime: staleTime,
     cacheTime: cacheTime
+  })
+}
+
+export async function aevoCacheGetAccount(
+  privateApi: PrivateApiService,
+  staleTime: number,
+  cacheTime: number,
+  opts?: ApiOpts
+) {
+  return await cacheFetch({
+    key: [AEVO_CACHE_PREFIX, 'account'],
+    fn: () => privateApi.getAccount(),
+    staleTime: staleTime,
+    cacheTime: cacheTime,
+    opts
   })
 }

@@ -2,6 +2,7 @@ import { Chain } from 'viem'
 import { SupportedChains, Token } from '../../common/tokens'
 import { ActionParam } from '../IActionExecutor'
 import { FixedNumber } from '../../common/fixedNumber'
+import { AevoClient } from '../../../generated/aevo'
 /**
  * Represents the authentication information required for AEVO protocol.
  * @property apiKey The API key for authentication.
@@ -101,7 +102,7 @@ export type Protocol = {
 /**
  * Represents the parameters to retreive available for trading based on the protocol.
  */
-export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2'
+export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2' | 'AEVO'
   ? undefined
   : T extends 'SYNTHETIX_V2'
   ? { market: Market['marketId'] }
@@ -582,23 +583,48 @@ export type PaginatedRes<T> = {
 export type RouterAdapterMethod = keyof IRouterAdapterBaseV1
 
 /**
+ * Represents the stored collateral data per protocol.
+ */
+type StoredCollateralData<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2' | 'SYNTHETIX_V2' | 'HL'
+  ? undefined
+  : T extends 'AEVO'
+  ? Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['collaterals']
+  : never
+
+/**
+ * Represents account information per protocol.
+ * */
+export type AccountInfoData<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2' | 'SYNTHETIX_V2'
+  ? undefined
+  : T extends 'HL'
+  ? {
+      accountEquity: FixedNumber // The equity of the account.
+      totalMarginUsed: FixedNumber // The total margin used.
+      maintainenceMargin: FixedNumber // The maintenance margin.
+      withdrawable: FixedNumber // The withdrawable amount.
+      availableToTrade: FixedNumber // The amount available for trading.
+      crossAccountLeverage: FixedNumber // The cross account leverage.
+    }
+  : T extends 'AEVO'
+  ? {
+      imUtilizationPercent: FixedNumber // (initialMarginUsed + maintainenceMarginUsed) / equityBalance
+      mmUtilizationPercent: FixedNumber // maintainenceMarginUsed / equityBalance
+      initialMarginUsed: FixedNumber // The initial margin used.
+      maintainenceMarginUsed: FixedNumber // The maintenance margin used.
+      equityBalance: FixedNumber // The equity balance.
+      availableBalance: FixedNumber // The available balance i.e. available to trade
+      storedCollateral: StoredCollateralData<'AEVO'>
+    }
+  : never
+
+/**
  * Represents account information.
  * @property protocolId The ID of the protocol.
- * @property accountEquity The equity of the account.
- * @property totalMarginUsed The total margin used.
- * @property maintainenceMargin The maintenance margin.
- * @property withdrawable The withdrawable amount.
- * @property availableToTrade The amount available for trading.
- * @property crossAccountLeverage The cross account leverage.
+ * @property accountInfoData Protocol specific account information.
  */
 export type AccountInfo = {
   protocolId: ProtocolId
-  accountEquity: FixedNumber
-  totalMarginUsed: FixedNumber
-  maintainenceMargin: FixedNumber
-  withdrawable: FixedNumber
-  availableToTrade: FixedNumber
-  crossAccountLeverage: FixedNumber
+  accountInfoData: AccountInfoData<ProtocolId>
 }
 
 /**
