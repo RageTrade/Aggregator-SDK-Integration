@@ -168,7 +168,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       sizeDeltaInToken: true,
       explicitFundingClaim: false,
       collateralDeltaInToken: true,
-      collateralUsesLimitPricing: false
+      collateralUsesLimitPricing: false,
+      depositData: {
+        10: [tokens.USDC, tokens['USDC.e'], tokens.WETH, tokens.ETH],
+        42161: [tokens.USDC, tokens['USDC.e'], tokens.WETH, tokens.ETH]
+      }
     }
 
     return info

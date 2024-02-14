@@ -271,7 +271,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       sizeDeltaInToken: true,
       explicitFundingClaim: false,
       collateralDeltaInToken: true,
-      collateralUsesLimitPricing: false
+      collateralUsesLimitPricing: false,
+      depositData: {
+        10: [],
+        42161: [tokens.USDC]
+      }
     }
 
     return info
