@@ -53,7 +53,7 @@ import { VaultTypes } from '../../typechain/orderly/Vault'
 import { BigNumber } from 'ethers'
 import { arbitrum, optimism } from 'viem/chains'
 import { API } from '@orderly.network/types'
-import { encodeMarketId } from '../common/markets'
+import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { Token } from '../common/tokens'
 
@@ -287,7 +287,15 @@ export default class OrderlyAdapter implements IAdapterV1 {
   }
 
   getProtocolInfo(): ProtocolInfo {
-    throw new Error('Method not implemented.')
+    return {
+      hasAgent: true,
+      hasAccount: true, // TODO check
+      hasOrderbook: true,
+      sizeDeltaInToken: true, // TODO check
+      explicitFundingClaim: false,
+      collateralDeltaInToken: false, // TODO check
+      collateralUsesLimitPricing: false // TODO check
+    }
   }
 
   getAvailableToTrade(
@@ -298,12 +306,34 @@ export default class OrderlyAdapter implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
-    throw new Error('Method not implemented.')
+  async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
+    const prices: FixedNumber[] = []
+
+    const res = await fetch(`${this.baseUrl}/v1/public/futures`)
+    const marketInfos = (await res.json()).data.rows as API.MarketInfo[]
+
+    marketIds.forEach((mId) => {
+      const { protocolMarketId } = decodeMarketId(mId)
+      const mark_price = marketInfos.find(({ symbol }) => symbol === protocolMarketId)?.mark_price
+      if (mark_price == null) return
+      prices.push(FixedNumber.fromString(String(mark_price)))
+    })
+    return prices
   }
 
-  getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
-    throw new Error('Method not implemented.')
+  async getMarketsInfo(marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
+    let marketInfo: MarketInfo[] = []
+
+    const supportedMarkets = await this.supportedMarkets(this.supportedChains(), opts)
+
+    marketIds.forEach((mId) => {
+      const market = supportedMarkets.find((m) => m.marketId === mId)
+      if (market) {
+        marketInfo.push(market)
+      }
+    })
+
+    return marketInfo
   }
 
   getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
