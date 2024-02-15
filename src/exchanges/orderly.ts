@@ -16,10 +16,12 @@ import {
   CreateOrder,
   DepositWithdrawParams,
   DynamicMarketMetadata,
+  GenericStaticMarketMetadata,
   HistoricalTradeInfo,
   IRouterAdapterBaseV1,
   IdleMarginInfo,
   LiquidationInfo,
+  Market,
   MarketInfo,
   MarketState,
   OpenTradePreviewInfo,
@@ -29,13 +31,13 @@ import {
   PaginatedRes,
   PositionInfo,
   PreviewInfo,
+  Protocol,
   ProtocolId,
-  SetupOpts,
   UpdateOrder,
   UpdatePositionMarginData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
-import { AbiCoder, encodeBase58, keccak256, solidityPackedKeccak256 } from 'ethers-v6'
+import { AbiCoder, keccak256, solidityPackedKeccak256 } from 'ethers-v6'
 import {
   EMPTY_DESC,
   ORDERLY_CREATE_KEY_H,
@@ -50,6 +52,10 @@ import { Vault__factory } from '../../typechain/orderly'
 import { VaultTypes } from '../../typechain/orderly/Vault'
 import { BigNumber } from 'ethers'
 import { arbitrum, optimism } from 'viem/chains'
+import { API } from '@orderly.network/types'
+import { encodeMarketId } from '../common/markets'
+import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
+import { Token } from '../common/tokens'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -103,109 +109,8 @@ export default class OrderlyAdapter implements IAdapterV1 {
 
   async init(wallet: string | undefined, opts?: ApiOpts): Promise<void> {}
 
-  async setup(opts?: SetupOpts): Promise<ActionParam[]> {
-    if (!opts) throw new Error('setup options required')
-    if (opts.protocolId !== 'ORDERLY') throw new Error('invalid protocol id')
-
-    const actions: ActionParam[] = []
-
-    const regenerateKey = opts.data.regenerateKey ?? false
-    const keyExpirationInDays = opts.data.keyExpirationInDays ?? 365
-
-    const res = await fetch(`${this.baseUrl}/v1/get_account?address=${this.address}&broker_id=${this.brokerId}`)
-    const getAccount: { success: boolean } = await res.json()
-    if (!getAccount.success) {
-      actions.push({
-        desc: 'Register new account at Orderly',
-        chainId: this.chainId,
-        heading: ORDERLY_REGISTER_H,
-        isUserAction: true,
-        fn: async (wallet: WalletClient, agentAddress?: string) => {
-          if (!wallet.account) return
-          const signature = await wallet.signTypedData({
-            account: wallet.account,
-            message: registerMessage,
-            primaryType: 'Registration',
-            types: OrderlyAdapter.MESSAGE_TYPES,
-            domain: this.getOffChainDomain(this.chainId)
-          })
-          return {
-            fetchParams: [
-              `${this.baseUrl}/v1/register_account`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  message: registerMessage,
-                  signature,
-                  userAddress: wallet.account.address
-                })
-              }
-            ]
-          }
-        },
-        isEoaSigner: true,
-        isAgentRequired: false
-      } satisfies RequestSignerFnWithMetadata)
-    }
-
-    this.orderlyKey = this.loadOrderlyKey()
-    if (!regenerateKey && this.orderlyKey != null) {
-      return actions
-    }
-
-    const privateKey = utils.randomPrivateKey()
-    const orderlyKey = `ed25519:${encodeBase58(await getPublicKeyAsync(privateKey))}`
-    const timestamp = Date.now()
-    const registerMessage = {
-      brokerId: this.brokerId,
-      chainId: String(this.chainId),
-      orderlyKey,
-      scope: 'read,trading',
-      timestamp,
-      expiration: timestamp + 1_000 * 60 * 60 * 24 * keyExpirationInDays
-    }
-
-    actions.push({
-      desc: 'Create new Orderly key',
-      chainId: this.chainId,
-      heading: ORDERLY_CREATE_KEY_H,
-      isUserAction: true,
-      fn: async (wallet: WalletClient, agentAddress?: string) => {
-        if (!wallet.account) return
-        const signature = await wallet.signTypedData({
-          account: wallet.account,
-          message: registerMessage,
-          primaryType: 'AddOrderlyKey',
-          types: OrderlyAdapter.MESSAGE_TYPES,
-          domain: this.getOffChainDomain(this.chainId)
-        })
-        return {
-          fetchParams: [
-            `${this.baseUrl}/v1/orderly_key`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                message: registerMessage,
-                signature,
-                userAddress: wallet.account.address
-              })
-            }
-          ],
-          onSuccess: () => {
-            this.saveOrderlyKey(orderlyKey)
-          }
-        }
-      },
-      isEoaSigner: true,
-      isAgentRequired: false
-    } satisfies RequestSignerFnWithMetadata)
-    return actions
+  async setup(): Promise<ActionParam[]> {
+    return []
   }
 
   async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
@@ -257,11 +162,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     for (const { amount, protocol, wallet } of params) {
       if (protocol !== 'ORDERLY') throw new Error('invalid protocol id')
 
-      const nonceRes = await this.signAndSendRequest(
-        this.accountId,
-        this.orderlyKey,
-        `${this.baseUrl}/v1/withdraw_nonce`
-      )
+      const nonceRes = await this.signAndSendRequest('/v1/withdraw_nonce')
       const nonceJson = await nonceRes.json()
       const withdrawNonce = nonceJson.data.withdraw_nonce as string
 
@@ -311,7 +212,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
                   'Content-Type': 'application/json',
                   'orderly-timestamp': String(timestamp),
                   'orderly-account-id': this.accountId,
-                  'orderly-key': `ed25519:${encodeBase58(await getPublicKeyAsync(this.orderlyKey))}`,
+                  'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
                   'orderly-signature': this.base64EncodeURL(orderlySignature)
                 },
                 body
@@ -332,7 +233,57 @@ export default class OrderlyAdapter implements IAdapterV1 {
   }
 
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts | undefined): Promise<MarketInfo[]> {
-    throw new Error('Method not implemented.')
+    const res = await fetch(`${this.baseUrl}/v1/public/info`)
+    const marketInfos = (await res.json()).data.rows as API.Symbol[]
+    return marketInfos.map((marketInfo) => {
+      const [_, base, quote] = marketInfo.symbol.split('_') // symbols returned from API are always `PERP_<BASE>_<QUOTE>, so base token can be extrated like this
+
+      const market: Market = {
+        marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', marketInfo.symbol),
+        chain: orderly, // TODO executed off-chain. Settlement on-chain. Not needed?
+        indexToken: this._getPartialToken(quote), // TODO check
+        longCollateral: [ORDERLY_COLLATERAL_TOKEN],
+        shortCollateral: [ORDERLY_COLLATERAL_TOKEN],
+        supportedModes: {
+          ISOLATED: false,
+          CROSS: true
+        },
+        supportedOrderTypes: {
+          LIMIT: true,
+          MARKET: true,
+          STOP_LOSS: false,
+          TAKE_PROFIT: false,
+          STOP_LOSS_LIMIT: false,
+          TAKE_PROFIT_LIMIT: false
+        },
+        supportedOrderActions: {
+          CREATE: true,
+          UPDATE: true,
+          CANCEL: true
+        },
+        marketSymbol: base
+      }
+
+      const staticMetadata: GenericStaticMarketMetadata = {
+        maxLeverage: undefined, // TODO account setting. Is it ok to make optional?
+        minLeverage: undefined, // TODO account setting. Is it ok to make optional?
+        minInitialMargin: FixedNumber.fromString('1'), // TODO check
+        minPositionSize: FixedNumber.fromString(String(marketInfo.base_min)),
+        maxPrecision: 1, // TODO check
+        amountStep: FixedNumber.fromString(String(marketInfo.base_tick)),
+        priceStep: FixedNumber.fromString(String(marketInfo.quote_tick))
+      }
+
+      const protocol: Protocol = {
+        protocolId: 'ORDERLY'
+      }
+
+      return {
+        ...market,
+        ...staticMetadata,
+        ...protocol
+      }
+    })
   }
 
   getProtocolInfo(): ProtocolInfo {
@@ -371,8 +322,116 @@ export default class OrderlyAdapter implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async authenticateAgent(
+    agentParams: AgentParams[],
+    wallet: string,
+    opts?: ApiOpts | undefined
+  ): Promise<ActionParam[]> {
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    // privateKey is assumed to be received in the format `ed25519:<base58 encoded 32 bytes key>`
+    // some libraries (like tweetnacl) encode the private key including the seed, which makes it 64 bytes.
+    // A library that uses 32 bytes private keys is e.g. @noble/ed25519
+    const privateKey = agent.agentAddress
+    this.orderlyKey = base58.decode(privateKey.substring(8))
+    const orderlyKey = `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`
+
+    const regenerateKey = opts?.orderlyAuth?.regenerateKey ?? false
+    const keyExpirationInDays = opts?.orderlyAuth?.keyExpirationInDays ?? 365
+
+    const actions: ActionParam[] = []
+
+    const res = await fetch(`${this.baseUrl}/v1/get_account?address=${this.address}&broker_id=${this.brokerId}`)
+    const getAccount: { success: boolean } = await res.json()
+    const doesAccountExist = getAccount.success
+    if (!doesAccountExist) {
+      actions.push({
+        desc: 'Register new account at Orderly',
+        chainId: this.chainId,
+        heading: ORDERLY_REGISTER_H,
+        isUserAction: true,
+        fn: async (wallet: WalletClient, agentAddress?: string) => {
+          if (!wallet.account) return
+          const signature = await wallet.signTypedData({
+            account: wallet.account,
+            message: registerMessage,
+            primaryType: 'Registration',
+            types: OrderlyAdapter.MESSAGE_TYPES,
+            domain: this.getOffChainDomain(this.chainId)
+          })
+          return {
+            fetchParams: [
+              `${this.baseUrl}/v1/register_account`,
+              {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  message: registerMessage,
+                  signature,
+                  userAddress: wallet.account.address
+                })
+              }
+            ]
+          }
+        },
+        isEoaSigner: true,
+        isAgentRequired: false
+      } satisfies RequestSignerFnWithMetadata)
+    }
+
+    if (!regenerateKey && this.orderlyKey != null) {
+      return actions
+    }
+
+    const timestamp = Date.now()
+    const registerMessage = {
+      brokerId: this.brokerId,
+      chainId: String(this.chainId),
+      orderlyKey,
+      scope: 'read,trading',
+      timestamp,
+      expiration: timestamp + 1_000 * 60 * 60 * 24 * keyExpirationInDays
+    }
+
+    actions.push({
+      desc: 'Create new Orderly key',
+      chainId: this.chainId,
+      heading: ORDERLY_CREATE_KEY_H,
+      isUserAction: true,
+      fn: async (wallet: WalletClient, agentAddress?: string) => {
+        if (!wallet.account) return
+        const signature = await wallet.signTypedData({
+          account: wallet.account,
+          message: registerMessage,
+          primaryType: 'AddOrderlyKey',
+          types: OrderlyAdapter.MESSAGE_TYPES,
+          domain: this.getOffChainDomain(this.chainId)
+        })
+        return {
+          fetchParams: [
+            `${this.baseUrl}/v1/orderly_key`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                message: registerMessage,
+                signature,
+                userAddress: wallet.account.address
+              })
+            }
+          ]
+        }
+      },
+      isEoaSigner: true,
+      isAgentRequired: false
+    } satisfies RequestSignerFnWithMetadata)
+    return actions
   }
 
   closePosition(
@@ -494,8 +553,31 @@ export default class OrderlyAdapter implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts | undefined): Promise<AgentState[]> {
-    throw new Error('Method not implemented.')
+  async getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts | undefined): Promise<AgentState[]> {
+    if (agentParams.length !== 1) throw new Error('agent params should be single item')
+
+    const agent = agentParams[0]
+
+    if (agent.protocolId !== 'ORDERLY') throw new Error('invalid protocol id')
+    if (!this.orderlyKey) {
+      return [
+        {
+          agentAddress: agent.agentAddress,
+          isAuthenticated: false,
+          protocolId: 'ORDERLY'
+        }
+      ]
+    }
+    const res = await this.signAndSendRequest('/v1/client/key_info')
+    // checking `success` is enough, because otherwise the API authentation would have failed already
+    const success = (await res.json()).success
+    return [
+      {
+        agentAddress: agent.agentAddress,
+        isAuthenticated: success,
+        protocolId: 'ORDERLY'
+      }
+    ]
   }
 
   getOrderBooks(
@@ -511,18 +593,6 @@ export default class OrderlyAdapter implements IAdapterV1 {
     return keccak256(
       abicoder.encode(['address', 'bytes32'], [address, solidityPackedKeccak256(['string'], [brokerId])])
     )
-  }
-
-  private loadOrderlyKey(): Uint8Array | undefined {
-    if (!window.localStorage) return
-    const key = window.localStorage.getItem(`${ORDERLY_KEY_PREFIX_STORAGE}:${this.accountId}`)
-    if (!key) return
-    return base58.decode(key.substring(6))
-  }
-
-  private saveOrderlyKey(key: string) {
-    if (!window.localStorage) return
-    window.localStorage.setItem(`${ORDERLY_KEY_PREFIX_STORAGE}:${this.accountId}`, key)
   }
 
   private getBaseUrl(chainId: number): string {
@@ -584,31 +654,28 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
   }
 
-  private async signAndSendRequest(
-    orderlyAccountId: string,
-    privateKey: Uint8Array | string,
-    input: URL | string,
-    init?: RequestInit | undefined
-  ): Promise<Response> {
+  private async signAndSendRequest(path: string, init?: RequestInit | undefined): Promise<Response> {
+    if (!this.orderlyKey) {
+      throw new Error('Orderly key not initialized')
+    }
     const timestamp = Date.now()
     const encoder = new TextEncoder()
 
-    const url = new URL(input)
-    let message = `${String(timestamp)}${init?.method ?? 'GET'}${url.pathname}`
+    let message = `${String(timestamp)}${init?.method ?? 'GET'}${path}`
     if (init?.body) {
       message += init.body
     }
-    const orderlySignature = await signAsync(encoder.encode(message), privateKey)
+    const orderlySignature = await signAsync(encoder.encode(message), this.orderlyKey)
 
-    return fetch(input, {
+    return fetch(`${this.baseUrl}${path}`, {
       ...(init ?? {}),
       headers: {
         ...(init?.headers ?? {}),
         'Content-Type': init?.method !== 'GET' ? 'application/json' : 'application/x-www-form-urlencoded',
         'orderly-timestamp': String(timestamp),
-        'orderly-account-id': orderlyAccountId,
-        'orderly-key': `ed25519:${encodeBase58(await getPublicKeyAsync(privateKey))}`,
-        'orderly-signature': Buffer.from(orderlySignature).toString('base64url')
+        'orderly-account-id': this.accountId,
+        'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
+        'orderly-signature': this.base64EncodeURL(orderlySignature)
       }
     })
   }
@@ -624,5 +691,17 @@ export default class OrderlyAdapter implements IAdapterV1 {
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '')
+  }
+
+  private _getPartialToken(symbol: string): Token {
+    return {
+      symbol: symbol,
+      name: '',
+      decimals: 18,
+      address: {
+        [arbitrum.id]: undefined,
+        [optimism.id]: undefined
+      }
+    }
   }
 }

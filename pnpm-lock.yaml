@@ -52,6 +52,9 @@ dependencies:
     version: 8.16.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
 
 devDependencies:
+  '@orderly.network/types':
+    specifier: ^0.2.2
+    version: 0.2.2
   '@types/node':
     specifier: ^20.4.6
     version: 20.10.0
@@ -525,6 +528,10 @@ packages:
     resolution: {integrity: sha512-MVC8EAQp7MvEcm30KWENFjgR+Mkmf+D189XJTkFIlwohU5hcBbn1ZkKq7KVTi2Hme3PMGF390DaL52beVrIihQ==}
     engines: {node: '>= 16'}
     dev: false
+
+  /@orderly.network/types@0.2.2:
+    resolution: {integrity: sha512-6DUOJXgVvYoISSIbrS/l8S08lzny/ectjqaScgj3o5E7js4ofz/CN3vFBk5L1YSldgwWGrjQvCf8R9rzh4LlBw==}
+    dev: true
 
   /@pythnetwork/client@2.19.0(@solana/web3.js@1.87.6):
     resolution: {integrity: sha512-0VSQ0NqBOa5EtloXbOVYZ6Wpu8CLP3oaOKVTaUMSX/HXbB00S6G+xdwF7stxo6emgrAMopotx3icEVug5Lpomg==}

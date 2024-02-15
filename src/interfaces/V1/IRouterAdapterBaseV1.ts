@@ -22,11 +22,7 @@ export type ApiOpts = {
   bypassCache: boolean
   overrideStaleTime?: number
   aevoAuth?: AevoAuth
-}
-
-export type SetupOpts = {
-  protocolId: 'ORDERLY'
-  data: OrderlySetupOpts
+  orderlyAuth?: OrderlyAuth
 }
 
 /**
@@ -34,7 +30,7 @@ export type SetupOpts = {
  * @property regenerateKey by default a new Orderly key is generated if none exists. If this option is set to true a new key will be generated even if one exists
  * @property keyExpirationInDays amount in days when Orderly key will expire. Default = 365
  */
-export type OrderlySetupOpts = {
+export type OrderlyAuth = {
   regenerateKey?: boolean
   keyExpirationInDays?: number
 }
@@ -208,8 +204,8 @@ export type Market = {
  * @property priceStep The step for price.
  */
 export type GenericStaticMarketMetadata = {
-  maxLeverage: FixedNumber
-  minLeverage: FixedNumber
+  maxLeverage?: FixedNumber
+  minLeverage?: FixedNumber
   minInitialMargin: FixedNumber
   minPositionSize: FixedNumber
   maxPrecision: number
@@ -686,7 +682,7 @@ export interface IRouterAdapterBaseV1 {
    * Run the setup transactions (different for each route) - like plugin approvals / referral code setup etc.
    * @returns A promise that resolves to an array of action parameters for setup.
    */
-  setup(opts?: SetupOpts): Promise<ActionParam[]>
+  setup(): Promise<ActionParam[]>
 
   /**
    * Deposits assets into the protocol.
