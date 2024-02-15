@@ -1864,9 +1864,9 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   async _getRefCode(wallet: string, opts?: ApiOpts): Promise<string | null> {
     const refData = await this._getReferralData(wallet, opts)
-    const code = refData.referredBy.code
+    if (!refData || !refData.referredBy || refData.referredBy == null) return null
 
-    return code
+    return refData.referredBy.code
   }
 
   _convertModeTypeToMarketMode(marketModeType: MarkedModeType): MarketMode {
