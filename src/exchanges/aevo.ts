@@ -1056,7 +1056,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           : await aevoCacheGetOrderbook(asset, this.publicApi, sTimeOB, sTimeOB * CACHE_TIME_MULT, opts)
 
         traResult = traverseAevoBook(od.direction == 'LONG' ? ob.asks! : ob.bids!, orderSize, mp, takerFee)
-        console.log('TRAVERSE RESULT', traResult)
+        // console.log('TRAVERSE RESULT', traResult)
       }
 
       // next margin is always position / leverage
