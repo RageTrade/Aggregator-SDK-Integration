@@ -554,13 +554,45 @@ export default class OrderlyAdapter implements IAdapterV1 {
     return actions
   }
 
-  closePosition(
+  async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    const actions: ActionParam[] = []
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      const position = positionInfo[i]
+      const positionData = closePositionData[i]
+      if (positionData.type !== 'MARKET') {
+        throw new Error('Only market type for closing position is supported')
+      }
+
+      const { protocolMarketId: symbol } = decodeMarketId(position.marketId)
+      const apiCall: APICallParamsWithMetadata = {
+        apiArgs: [
+          `${this.baseUrl}/v1/order`,
+          await this.getRequestInit('/v1/order', {
+            method: 'POST',
+            body: JSON.stringify({
+              symbol,
+              order_type: 'MARKET',
+              reduce_only: true,
+              order_quantity: positionData.closeSize.isTokenAmount ? positionData.closeSize.amount : undefined,
+              order_amount: !positionData.closeSize.isTokenAmount ? positionData.closeSize.amount : undefined,
+              side: position.direction === 'LONG' ? 'SELL' : 'BUY'
+            })
+          })
+        ],
+        desc: 'Create order',
+        chainId: this.chainId,
+        heading: EMPTY_DESC,
+        isUserAction: false
+      }
+      actions.push(apiCall)
+    }
+    return actions
   }
 
   updatePositionMargin(
