@@ -135,12 +135,12 @@ import { traverseHLBook } from '../configs/hyperliquid/obTraversal'
 import { tokens } from '../common/tokens'
 import { EMPTY_DESC, HYPERLIQUID_DEPOSIT_H } from '../common/buttonHeadings'
 import {
-  HL_CANNOT_CHANGE_MODE,
+  CANNOT_CHANGE_MODE,
   SIZE_DENOMINATION_TOKEN,
   MARGIN_DENOMINATION_TOKEN,
-  HL_LEV_OUT_OF_BOUNDS,
-  HL_CANNOT_DEC_LEV,
-  HL_CANNOT_UPDATE_MARGIN_FOR_CROSS
+  LEV_OUT_OF_BOUNDS,
+  CANNOT_DEC_LEV,
+  CANNOT_UPDATE_MARGIN_FOR_CROSS
 } from '../configs/hyperliquid/hlErrors'
 import { arbitrum } from 'viem/chains'
 import { hlGetCachedOrderBook, hlGetCachedL2Book } from '../configs/hyperliquid/api/wsclient'
@@ -1410,7 +1410,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const epos = webData2.clearinghouseState.assetPositions.find((ap) => ap.position.coin == coin)
       const mode = od.mode
       if (epos && this._convertModeTypeToMarketMode(epos.position.leverage.type) !== mode)
-        throw new Error(HL_CANNOT_CHANGE_MODE)
+        throw new Error(CANNOT_CHANGE_MODE)
 
       const isCross = mode == 'CROSS'
       const isMarket = od.type == 'MARKET'
@@ -1446,7 +1446,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const lev = this._getReqLeverage(epos, od, trigPriceN, meta)
       const levFN = FixedNumber.fromString(lev.toString())
       const curLev = epos?.position.leverage.value || 0
-      if (lev < curLev) throw new Error(HL_CANNOT_DEC_LEV)
+      if (lev < curLev) throw new Error(CANNOT_DEC_LEV)
 
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
@@ -1709,7 +1709,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marginN = Number(margin._value)
 
       if (!validDenomination(marginDelta[i], true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
-      if (pos.mode == 'CROSS') throw new Error(HL_CANNOT_UPDATE_MARGIN_FOR_CROSS)
+      if (pos.mode == 'CROSS') throw new Error(CANNOT_UPDATE_MARGIN_FOR_CROSS)
 
       const nextMargin = addFN(posMargin, margin)
 
@@ -1925,7 +1925,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     const sizeDeltaNotional = orderSizeN * trigPrice
     const marginDeltaNotional = Number(od.marginDelta.amount._value)
 
-    if (marginDeltaNotional == 0) throw new Error(HL_LEV_OUT_OF_BOUNDS)
+    if (marginDeltaNotional == 0) throw new Error(LEV_OUT_OF_BOUNDS)
 
     // round towards closest int
     const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)

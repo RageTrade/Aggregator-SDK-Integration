@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, mulFN, addFN } from '../common/fixedNumber'
+import { FixedNumber, mulFN, addFN, divFN } from '../common/fixedNumber'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
@@ -59,7 +59,18 @@ import {
   cacheFetch,
   getStaleTime
 } from '../common/cache'
-import { AEVO_COLLATERAL_TOKEN, AEVO_TOKENS_MAP, aevo } from '../configs/aevo/config'
+import {
+  AEVO_COLLATERAL_TOKEN,
+  AEVO_DEFAULT_MAKER_FEE,
+  AEVO_DEFAULT_MAKER_FEE_PRE_LAUNCH,
+  AEVO_DEFAULT_TAKER_FEE,
+  AEVO_DEFAULT_TAKER_FEE_PRE_LAUNCH,
+  AEVO_FEE_MAP,
+  AEVO_NORMAL_MM,
+  AEVO_PRE_LAUNCH_MM,
+  AEVO_TOKENS_MAP,
+  aevo
+} from '../configs/aevo/config'
 import { encodeMarketId } from '../common/markets'
 import { ZERO_FN } from '../common/constants'
 import {
@@ -68,17 +79,27 @@ import {
   aevoInstrumentNameToAsset,
   to6Decimals,
   getReqdLeverage,
-  toNearestTick
+  toNearestTick,
+  getReqdLeverageFN
 } from '../configs/aevo/helper'
 import {
   aevoCacheGetAccount,
   aevoCacheGetAllMarkets,
   aevoCacheGetCoingeckoStats,
-  aevoCacheGetAllAssets
+  aevoCacheGetAllAssets,
+  aevoCacheGetOrderbook
 } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
-import { getPaginatedResponse, toAmountInfoFN } from '../common/helper'
 import { slippagePrice } from '../configs/hyperliquid/api/client'
+import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
+import {
+  CANNOT_CHANGE_MODE,
+  LEV_OUT_OF_BOUNDS,
+  MARGIN_DENOMINATION_USD,
+  SIZE_DENOMINATION_TOKEN
+} from '../configs/hyperliquid/hlErrors'
+import { TraverseResult } from '../common/types'
+import { traverseAevoBook } from '../configs/aevo/aevoObTraversal'
 import { AEVO_CREDENTIAL_MISSING_ERROR } from '../common/errors'
 
 type FunctionKeys<T> = {
@@ -91,7 +112,7 @@ type UrlParams = { [key: string]: string | number }
 
 export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
 
-class ExtendedAevoClient extends AevoClient {
+export class ExtendedAevoClient extends AevoClient {
   private headers: Record<string, string> & HeadersInit = {
     'Content-Type': 'application/json'
   }
@@ -954,13 +975,160 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getOpenTradePreview(
+  async getOpenTradePreview(
     wallet: string,
     orderData: CreateOrder[],
     existingPos: (PositionInfo | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OpenTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    // making strict false for autorouter compatibility
+    this._setCredentials(opts, false)
+
+    const isCredentialsSet = opts?.aevoAuth?.apiKey && opts?.aevoAuth?.secret
+    const previewsInfo: OpenTradePreviewInfo[] = []
+
+    const marketPricesPromise = this.getMarketPrices(
+      orderData.map((od) => od.marketId),
+      opts
+    )
+    const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
+    const acountDataPromise = isCredentialsSet
+      ? aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+      : Promise.resolve(undefined)
+
+    const [marketPrices, accountData] = await Promise.all([marketPricesPromise, acountDataPromise])
+
+    for (let i = 0; i < orderData.length; i++) {
+      const od = orderData[i]
+      const pos = existingPos[i]
+      const asset = aevoMarketIdToAsset(od.marketId)
+      const actPos = pos
+        ? (pos.metadata as NonNullable<
+            Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
+          >[0])
+        : undefined
+      const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
+      const mp = marketPrices[i]
+
+      if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
+      if (!validDenomination(od.marginDelta, false)) throw new Error(MARGIN_DENOMINATION_USD)
+
+      if (pos && pos.mode !== od.mode) throw new Error(CANNOT_CHANGE_MODE)
+
+      const isMarket = od.type == 'MARKET'
+      const orderSize = od.sizeDelta.amount
+      const trigPrice = isMarket ? mp : od.triggerData!.triggerPrice
+
+      const actPosSize = actPos ? FixedNumber.fromString(actPos.amount) : ZERO_FN
+      const actPosAvgEntryPrice = actPos ? FixedNumber.fromString(actPos.avg_entry_price) : ZERO_FN
+
+      const lev = FixedNumber.fromString(getReqdLeverageFN(orderSize, od.marginDelta.amount, trigPrice).toString())
+      const curLev = pos ? pos.leverage : ZERO_FN
+      if (pos && lev.lt(curLev)) throw new Error(LEV_OUT_OF_BOUNDS)
+
+      const nextSize = pos
+        ? pos.direction === od.direction
+          ? actPosSize.addFN(orderSize).abs()
+          : actPosSize.subFN(orderSize).abs()
+        : orderSize
+
+      // get default fees
+      const defaultTakerFee = isPreLaunch ? AEVO_DEFAULT_TAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_TAKER_FEE
+      const defaultMakerFee = isPreLaunch ? AEVO_DEFAULT_MAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_MAKER_FEE
+      let takerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].taker_fee || defaultTakerFee)
+      let makerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].maker_fee || defaultMakerFee)
+      // get fees from account data if available
+      if (accountData) {
+        const feeStruct = accountData.fee_structures?.find((f) => f.asset == asset && f.instrument_type == 'PERPETUAL')
+        if (feeStruct) {
+          takerFee = FixedNumber.fromString(feeStruct.taker_fee)
+          makerFee = FixedNumber.fromString(feeStruct.maker_fee)
+        }
+      }
+
+      // traverseOrderBook for market orders
+      let traResult: TraverseResult | undefined = undefined
+      if (isMarket) {
+        const cachedOB = getAevoWssOrderBook(asset)
+        const sTimeOB = getStaleTime(CACHE_SECOND * 5, opts)
+        const ob = cachedOB
+          ? cachedOB
+          : await aevoCacheGetOrderbook(asset, this.publicApi, sTimeOB, sTimeOB * CACHE_TIME_MULT, opts)
+
+        traResult = traverseAevoBook(od.direction == 'LONG' ? ob.asks! : ob.bids!, orderSize, mp, takerFee)
+        console.log('TRAVERSE RESULT', traResult)
+      }
+
+      // next margin is always position / leverage
+      const nextMargin = nextSize.mulFN(trigPrice).divFN(lev)
+
+      const nextEntryPrice = isMarket ? traResult!.avgExecPrice : trigPrice
+      let avgEntryPrice = nextEntryPrice
+      let nextDirection = od.direction
+      if (actPos && pos) {
+        if (pos.direction === od.direction) {
+          // average entry price
+          // posSize * posEntryPrice + orderSize * orderEntryPrice / (posSize + orderSize)
+          avgEntryPrice = actPosSize.mulFN(actPosAvgEntryPrice).addFN(orderSize.mulFN(nextEntryPrice)).divFN(nextSize)
+        } else {
+          if (actPosSize.gt(orderSize)) {
+            // partial close would result in previous entry price
+            avgEntryPrice = actPosAvgEntryPrice
+            // direction would be same as position
+            nextDirection = pos.direction
+          } else {
+            // direction would change and hence newer entry price would be the avgEntryprice
+            avgEntryPrice = nextEntryPrice
+          }
+        }
+      }
+
+      // if accountData is not set return liqPrice as 0 so that it is autorouter compatible
+      let liqPrice = ZERO_FN
+      if (accountData) {
+        const floatSide = FixedNumber.fromString(nextDirection == 'LONG' ? '1' : '-1')
+        const mmRatio = isPreLaunch ? AEVO_PRE_LAUNCH_MM : AEVO_NORMAL_MM
+        let cumMargin = ZERO_FN
+        for (const col of accountData.collaterals!) {
+          cumMargin = cumMargin.addFN(FixedNumber.fromString(col.margin_value))
+        }
+        const pnl = actPos ? FixedNumber.fromString(actPos.unrealized_pnl) : ZERO_FN
+        const accMM = FixedNumber.fromString(accountData.maintenance_margin)
+        const posMM = actPos ? actPosSize.mulFN(actPosAvgEntryPrice).mul(mmRatio) : ZERO_FN
+        const nextPosMM = nextSize.mulFN(avgEntryPrice).mul(mmRatio)
+
+        liqPrice = trigPrice.subFN(
+          cumMargin
+            .addFN(pnl) // add pnl
+            .subFN(accMM.subFN(posMM).add(nextPosMM)) // subtract adjusted MM
+            .divFN(nextSize) // divide by next size
+            .mulFN(floatSide) // adjust sign
+        )
+        liqPrice = liqPrice.lt(ZERO_FN) ? ZERO_FN : liqPrice
+        // console.log('Liq Price from AV: ', liqPrice)
+      }
+
+      const fee = isMarket ? traResult!.fees : orderSize.mulFN(trigPrice).mulFN(makerFee)
+      const priceImpact = isMarket ? traResult!.priceImpact : FixedNumber.fromString('0')
+
+      const preview = {
+        marketId: od.marketId,
+        collateral: od.collateral,
+        leverage: lev,
+        size: toAmountInfoFN(nextSize, true),
+        margin: toAmountInfoFN(nextMargin, false),
+        avgEntryPrice: avgEntryPrice,
+        liqudationPrice: liqPrice,
+        fee: fee,
+        priceImpact: priceImpact,
+        isError: false,
+        errMsg: ''
+      }
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
 
   getCloseTradePreview(

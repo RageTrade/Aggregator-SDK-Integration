@@ -372,7 +372,7 @@ async function testRefData() {
 }
 
 hl.init(w).then(() => {
-  getOpenTradePreview()
+  getAllPositions()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)

@@ -3,7 +3,7 @@ import { TraverseResult } from '../../common/types'
 import { AevoWssOrderBook } from './aevoWsClient'
 
 export function traverseAevoBook(
-  levels: AevoWssOrderBook['asks'],
+  levels: NonNullable<AevoWssOrderBook['asks']>,
   size: FixedNumber,
   marketPrice: FixedNumber,
   feeBps: FixedNumber

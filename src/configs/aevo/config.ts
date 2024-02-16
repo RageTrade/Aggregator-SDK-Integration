@@ -1,9 +1,16 @@
 import { Token } from '../../common/tokens'
 import { arbitrum } from 'viem/chains'
 import { AevoClient } from '../../../generated/aevo'
+import { FixedNumber } from '../../common/fixedNumber'
 
 export const aevo = arbitrum
-export const AEVO_TOKENS_MAP: Record<string, Token & { instrumentId: string }> = {}
+export const AEVO_TOKENS_MAP: Record<
+  string,
+  Token & {
+    instrumentId: string
+    isPreLaunch: boolean
+  }
+> = {}
 export const AEVO_COLLATERAL_TOKEN = {
   symbol: 'AEVO-USD',
   name: 'Aevo USD',
@@ -13,6 +20,14 @@ export const AEVO_COLLATERAL_TOKEN = {
     10: undefined
   }
 } as Token
+
+export const AEVO_DEFAULT_TAKER_FEE = '0.0008'
+export const AEVO_DEFAULT_MAKER_FEE = '0.0005'
+export const AEVO_DEFAULT_TAKER_FEE_PRE_LAUNCH = '0.0025'
+export const AEVO_DEFAULT_MAKER_FEE_PRE_LAUNCH = '-0.0015'
+
+export const AEVO_NORMAL_MM = FixedNumber.fromString('0.03') // 3%
+export const AEVO_PRE_LAUNCH_MM = FixedNumber.fromString('0.48') // 48%
 
 export const AEVO_FEE_MAP: Record<string, { taker_fee: string; maker_fee: string }> = {
   '10000SATS': {
@@ -273,7 +288,8 @@ export function aevoUpdateTokensMap(allMarkets: AllMarketsReturn) {
         42161: undefined,
         10: undefined
       },
-      instrumentId: m.instrument_id
+      instrumentId: m.instrument_id,
+      isPreLaunch: m.pre_launch ? true : false
     }
   })
 }

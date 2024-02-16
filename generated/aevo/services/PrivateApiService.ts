@@ -452,6 +452,7 @@ export class PrivateApiService {
             collateral_yield_bearing: collateral_yield_bearing_response;
             pending_withdrawals: pending_withdrawals_response;
             unrealized_pnl: unrealized_pnl_response;
+            margin_value: string;
         }>;
         api_keys?: Array<{
             name?: name_response;

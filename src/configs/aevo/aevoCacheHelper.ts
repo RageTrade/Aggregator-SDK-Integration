@@ -66,3 +66,19 @@ export async function aevoCacheGetAccount(
     opts
   })
 }
+
+export async function aevoCacheGetOrderbook(
+  asset: string,
+  publicApi: PublicApiService,
+  staleTime: number,
+  cacheTime: number,
+  opts?: ApiOpts
+) {
+  return await cacheFetch({
+    key: [AEVO_CACHE_PREFIX, 'orderbook', asset],
+    fn: () => publicApi.getOrderbook(`${asset}-PERP`),
+    staleTime: staleTime,
+    cacheTime: cacheTime,
+    opts
+  })
+}
