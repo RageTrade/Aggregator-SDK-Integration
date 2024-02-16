@@ -1,7 +1,7 @@
 import { getPublicKeyAsync, signAsync, utils } from '@noble/ed25519'
 import { Chain, WalletClient } from 'viem'
 import { FixedNumber } from '../common/fixedNumber'
-import { ActionParam, RequestSignerFnWithMetadata } from '../interfaces/IActionExecutor'
+import { APICallParamsWithMetadata, ActionParam, RequestSignerFnWithMetadata } from '../interfaces/IActionExecutor'
 import {
   AccountInfo,
   AgentParams,
@@ -45,7 +45,6 @@ import {
   ORDERLY_REGISTER_H,
   ORDERLY_WITHDRAW_H
 } from '../common/buttonHeadings'
-import { ORDERLY_KEY_PREFIX_STORAGE } from '../common/localStorage'
 import base58 from 'bs58'
 import { rpc } from '../common/provider'
 import { Vault__factory } from '../../typechain/orderly'
@@ -56,6 +55,7 @@ import { API } from '@orderly.network/types'
 import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { Token } from '../common/tokens'
+import { ZERO_FN } from '../common/constants'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -265,8 +265,9 @@ export default class OrderlyAdapter implements IAdapterV1 {
       }
 
       const staticMetadata: GenericStaticMarketMetadata = {
-        maxLeverage: undefined, // TODO account setting. Is it ok to make optional?
-        minLeverage: undefined, // TODO account setting. Is it ok to make optional?
+        // this is only for symbol. There's also max account leverage
+        maxLeverage: FixedNumber.fromString(String(1 / marketInfo.base_imr)),
+        minLeverage: FixedNumber.fromString('1'),
         minInitialMargin: FixedNumber.fromString('1'), // TODO check
         minPositionSize: FixedNumber.fromString(String(marketInfo.base_min)),
         maxPrecision: 1, // TODO check
@@ -336,20 +337,115 @@ export default class OrderlyAdapter implements IAdapterV1 {
     return marketInfo
   }
 
-  getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
-    throw new Error('Method not implemented.')
+  async getDynamicMarketMetadata(marketIds: string[], opts?: ApiOpts | undefined): Promise<DynamicMarketMetadata[]> {
+    const metadata: DynamicMarketMetadata[] = []
+
+    const res = await fetch(`${this.baseUrl}/v1/public/futures`)
+    const marketInfos = (await res.json()).data.rows as API.MarketInfo[]
+
+    marketIds.forEach((mId) => {
+      const { protocolMarketId } = decodeMarketId(mId)
+      const marketInfo = marketInfos.find(({ symbol }) => symbol === protocolMarketId)
+      if (marketInfo == null) return
+
+      const dynamicMetadata: DynamicMarketMetadata = {
+        oiLong: FixedNumber.fromString(marketInfo.open_interest), // TODO we don't have long/short breakdown here
+        oiShort: FixedNumber.fromString(marketInfo.open_interest), // TODO we don't have long/short breakdown here
+        availableLiquidityLong: ZERO_FN, // TODO necessary?
+        availableLiquidityShort: ZERO_FN, // TODO necessary?
+        longFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO how to get long/short
+        shortFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO how to get long/short
+        longBorrowRate: ZERO_FN, // TODO part of funding rate
+        shortBorrowRate: ZERO_FN // TODO part of funding rate
+      }
+
+      metadata.push(dynamicMetadata)
+    })
+
+    return metadata
   }
 
-  increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const actions: ActionParam[] = []
+
+    for (const createOrder of orderData) {
+      const { protocolMarketId: symbol } = decodeMarketId(createOrder.marketId)
+      const apiCall: APICallParamsWithMetadata = {
+        apiArgs: [
+          `${this.baseUrl}/v1/order`,
+          await this.getRequestInit('/v1/order', {
+            method: 'POST',
+            body: JSON.stringify({
+              symbol,
+              order_type: createOrder.type,
+              order_price: createOrder.triggerData?.triggerPrice,
+              order_quantity: createOrder.sizeDelta.isTokenAmount ? createOrder.sizeDelta.amount : undefined,
+              order_amount: !createOrder.sizeDelta.isTokenAmount ? createOrder.sizeDelta.amount : undefined,
+              side: createOrder.direction === 'LONG' ? 'BUY' : 'SELL'
+            })
+          })
+        ],
+        desc: 'Create order',
+        chainId: this.chainId,
+        heading: EMPTY_DESC,
+        isUserAction: false
+      }
+      actions.push(apiCall)
+    }
+    return actions
   }
 
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const actions: ActionParam[] = []
+
+    for (const updateOrder of orderData) {
+      const { protocolMarketId: symbol } = decodeMarketId(updateOrder.marketId)
+      const apiCall: APICallParamsWithMetadata = {
+        apiArgs: [
+          `${this.baseUrl}/v1/order`,
+          await this.getRequestInit('/v1/order', {
+            method: 'PUT',
+            body: JSON.stringify({
+              order_id: updateOrder.orderId,
+              symbol,
+              order_type: updateOrder.orderType,
+              order_price: updateOrder.triggerData?.triggerPrice,
+              order_quantity: updateOrder.sizeDelta.isTokenAmount ? updateOrder.sizeDelta.amount : undefined,
+              order_amount: !updateOrder.sizeDelta.isTokenAmount ? updateOrder.sizeDelta.amount : undefined,
+              side: updateOrder.direction === 'LONG' ? 'BUY' : 'SELL'
+            })
+          })
+        ],
+        desc: 'Update order',
+        chainId: this.chainId,
+        heading: EMPTY_DESC,
+        isUserAction: false
+      }
+      actions.push(apiCall)
+    }
+    return actions
   }
 
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const actions: ActionParam[] = []
+
+    for (const cancelOrder of orderData) {
+      const { protocolMarketId: symbol } = decodeMarketId(cancelOrder.marketId)
+      const apiCall: APICallParamsWithMetadata = {
+        apiArgs: [
+          `${this.baseUrl}/v1/order?order_id=${cancelOrder.orderId}&symbol=${symbol}`,
+          await this.getRequestInit('/v1/order', {
+            method: 'DELETE'
+          })
+        ],
+        desc: 'Cancel order',
+        chainId: this.chainId,
+        heading: EMPTY_DESC,
+        isUserAction: false
+      }
+      actions.push(apiCall)
+    }
+    return actions
   }
 
   async authenticateAgent(
@@ -684,7 +780,11 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
   }
 
-  private async signAndSendRequest(path: string, init?: RequestInit | undefined): Promise<Response> {
+  private async signAndSendRequest(path: string, init?: RequestInit): Promise<Response> {
+    return fetch(`${this.baseUrl}${path}`, await this.getRequestInit(path, init))
+  }
+
+  private async getRequestInit(path: string, init?: RequestInit): Promise<RequestInit> {
     if (!this.orderlyKey) {
       throw new Error('Orderly key not initialized')
     }
@@ -697,7 +797,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
     const orderlySignature = await signAsync(encoder.encode(message), this.orderlyKey)
 
-    return fetch(`${this.baseUrl}${path}`, {
+    return {
       ...(init ?? {}),
       headers: {
         ...(init?.headers ?? {}),
@@ -707,7 +807,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
         'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
         'orderly-signature': this.base64EncodeURL(orderlySignature)
       }
-    })
+    }
   }
 
   private base64EncodeURL(byteArray: Uint8Array) {
