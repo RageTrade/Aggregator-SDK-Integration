@@ -203,22 +203,20 @@ export default class OrderlyAdapter implements IAdapterV1 {
 
           const message = `${String(timestamp)}POST/v1/withdraw_request${body}`
           const orderlySignature = await signAsync(encoder.encode(message), this.orderlyKey)
-          return {
-            fetchParams: [
-              `${this.baseUrl}/v1/withdraw_request`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'orderly-timestamp': String(timestamp),
-                  'orderly-account-id': this.accountId,
-                  'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
-                  'orderly-signature': this.base64EncodeURL(orderlySignature)
-                },
-                body
-              }
-            ]
-          }
+          return [
+            `${this.baseUrl}/v1/withdraw_request`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'orderly-timestamp': String(timestamp),
+                'orderly-account-id': this.accountId,
+                'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
+                'orderly-signature': this.base64EncodeURL(orderlySignature)
+              },
+              body
+            }
+          ]
         },
         isEoaSigner: true,
         isAgentRequired: false
@@ -487,22 +485,20 @@ export default class OrderlyAdapter implements IAdapterV1 {
             types: OrderlyAdapter.MESSAGE_TYPES,
             domain: this.getOffChainDomain(this.chainId)
           })
-          return {
-            fetchParams: [
-              `${this.baseUrl}/v1/register_account`,
-              {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                  message: registerMessage,
-                  signature,
-                  userAddress: wallet.account.address
-                })
-              }
-            ]
-          }
+          return [
+            `${this.baseUrl}/v1/register_account`,
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                message: registerMessage,
+                signature,
+                userAddress: wallet.account.address
+              })
+            }
+          ]
         },
         isEoaSigner: true,
         isAgentRequired: false
@@ -537,22 +533,20 @@ export default class OrderlyAdapter implements IAdapterV1 {
           types: OrderlyAdapter.MESSAGE_TYPES,
           domain: this.getOffChainDomain(this.chainId)
         })
-        return {
-          fetchParams: [
-            `${this.baseUrl}/v1/orderly_key`,
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                message: registerMessage,
-                signature,
-                userAddress: wallet.account.address
-              })
-            }
-          ]
-        }
+        return [
+          `${this.baseUrl}/v1/orderly_key`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              message: registerMessage,
+              signature,
+              userAddress: wallet.account.address
+            })
+          }
+        ]
       },
       isEoaSigner: true,
       isAgentRequired: false
