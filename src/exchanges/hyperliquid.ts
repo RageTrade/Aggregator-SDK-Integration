@@ -1078,7 +1078,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const marginUsed = FixedNumber.fromString(position.marginUsed)
       const positionValue = FixedNumber.fromString(position.positionValue)
       const rawPnl = FixedNumber.fromString(position.unrealizedPnl)
-      const fundingFee = mulFN(FixedNumber.fromString(position.cumFunding.sinceOpen), FixedNumber.fromString('-1'))
+      const fundingFee = FixedNumber.fromString(position.cumFunding.sinceOpen)
       const aggregatePnl = subFN(rawPnl, fundingFee)
       const upnl: PnlData = {
         aggregatePnl: aggregatePnl,
