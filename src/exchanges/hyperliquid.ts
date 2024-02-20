@@ -1049,12 +1049,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return payload
   }
 
-  claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    return []
   }
 
-  getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
-    throw new Error('Method not implemented.')
+  async getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
+    return []
   }
 
   async getAllPositions(
@@ -1353,12 +1353,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return getPaginatedResponse(liquidations, pageOptions)
   }
 
-  getClaimHistory(
+  async getClaimHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<ClaimInfo>> {
-    throw new Error('Method not implemented.')
+    return getPaginatedResponse([], pageOptions)
   }
 
   async getOpenTradePreview(
@@ -1730,11 +1730,11 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
     return previewsInfo
   }
 
-  getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
-    throw new Error('Method not implemented.')
+  async getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
+    return FixedNumber.fromString('0', 30)
   }
-  getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
-    throw new Error('Method not implemented.')
+  async getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
+    return FixedNumber.fromString('0', 30)
   }
 
   async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
