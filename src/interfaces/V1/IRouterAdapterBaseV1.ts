@@ -58,7 +58,7 @@ export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 /**
  * Represents the protocol ID.
  */
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO' | 'PERENNIAL'
 
 /**
  * Represents the type of trade operation.
