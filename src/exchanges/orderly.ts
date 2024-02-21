@@ -56,7 +56,9 @@ import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { Token } from '../common/tokens'
 import { ZERO_FN } from '../common/constants'
-import { OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
+import { NonUSDCHolding, OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
+import { account, positions } from '@orderly.network/perp'
+import { createGetter } from '../configs/orderly/createGetter'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -794,8 +796,78 @@ export default class OrderlyAdapter implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
-    throw new Error('Method not implemented.')
+  async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
+    // TODO calculation of withdrawable amount is insanely difficult.
+    // I used our (unfortunately still closed source) perps SDK to do the calculations
+    let res = await this.signAndSendRequest('/v1/positions')
+    const info = (await res.json()).data as API.PositionInfo
+    const apiPositions = info.rows as API.Position[]
+    res = await this.signAndSendRequest('/v1/orders?status=NEW')
+    const orders = (await res.json()).data.rows as API.Order[]
+    res = await this.signAndSendRequest('/v1/client/info')
+    const accountInfo = (await res.json()).data as API.AccountInfo
+    res = await this.signAndSendRequest('/v1/client/holding')
+    const accountHolding = (await res.json()).data as API.Holding[]
+    res = await fetch(`${this.baseUrl}/v1/public/info`)
+    const symbolInfo = (await res.json()).data.rows as API.Symbol[]
+    res = await fetch(`${this.baseUrl}/v1/public/futures`)
+    const marketInfos = (await res.json()).data.rows as API.MarketInfo[]
+    const markPrices = Object.fromEntries(marketInfos.map((market) => [market.symbol, market.mark_price]))
+    res = await fetch(`${this.baseUrl}/v1/public/funding_rates`)
+    const rates = (await res.json()).data as API.FundingRate
+    const fundingRates = createGetter(rates)
+
+    const unsettledPnL = apiPositions.reduce((acc, position) => {
+      const unsettlementPnL = positions.unsettlementPnL({
+        positionQty: position.position_qty,
+        markPrice: markPrices[position.symbol] ?? 0,
+        costPosition: position.cost_position,
+        sumUnitaryFunding: fundingRates[position.symbol]?.('sum_unitary_funding', 0),
+        lastSumUnitaryFunding: position.last_sum_unitary_funding
+      })
+      return acc + unsettlementPnL
+    }, 0)
+
+    const totalCollateral = account.freeCollateral({
+      totalCollateral: account.totalCollateral({
+        USDCHolding: accountHolding.find((holding) => holding.token === 'USDC')?.holding ?? 0,
+        nonUSDCHolding: accountHolding
+          .filter(({ token }) => token !== 'USDC')
+          .map((holding) => ({
+            holding: holding.holding,
+            markPrice: markPrices[holding.token] ?? 0,
+            discount: 0
+          })),
+        unsettlementPnL: unsettledPnL
+      }),
+      totalInitialMarginWithOrders: account.totalInitialMarginWithOrders({
+        positions: apiPositions,
+        orders,
+        markPrices,
+        IMR_Factors: accountInfo.imr_factor,
+        maxLeverage: accountInfo.max_leverage,
+        symbolInfo: createGetter(symbolInfo)
+      })
+    })
+    const freeCollateral = totalCollateral.toDecimalPlaces(6).toNumber()
+    let withdrawable: number
+    if (unsettledPnL < 0) {
+      withdrawable = freeCollateral
+    } else {
+      withdrawable = freeCollateral - unsettledPnL
+    }
+
+    return [
+      {
+        protocolId: 'ORDERLY',
+        accountEquity: ZERO_FN, // TODO
+        totalMarginUsed: ZERO_FN, // TODO
+        maintainenceMargin: ZERO_FN, // TODO
+        withdrawable: FixedNumber.fromString(String(withdrawable)),
+        availableToTrade: FixedNumber.fromString(String(withdrawable)),
+        crossAccountLeverage: ZERO_FN // TODO
+      }
+    ]
   }
 
   getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {

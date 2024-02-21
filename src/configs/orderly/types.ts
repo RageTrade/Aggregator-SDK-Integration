@@ -19,3 +19,9 @@ export type OrderlyLiquidatedPosition = {
   symbol: string
   transfer_price: number
 }
+
+export type NonUSDCHolding = {
+  holding: number
+  markPrice: number
+  discount: number
+}
