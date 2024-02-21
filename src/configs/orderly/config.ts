@@ -1,6 +1,7 @@
 import { defineChain } from 'viem'
 import { Token } from '../../common/tokens'
 
+// TODO might not be needed. Users don't interact with our chain
 export const orderly = defineChain({
   id: 291,
   name: 'Orderly',

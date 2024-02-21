@@ -239,7 +239,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
       const market: Market = {
         marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', marketInfo.symbol),
         chain: orderly, // TODO executed off-chain. Settlement on-chain. Not needed?
-        indexToken: this._getPartialToken(quote), // TODO check
+        indexToken: ORDERLY_COLLATERAL_TOKEN,
         longCollateral: [ORDERLY_COLLATERAL_TOKEN],
         shortCollateral: [ORDERLY_COLLATERAL_TOKEN],
         supportedModes: {
@@ -262,13 +262,24 @@ export default class OrderlyAdapter implements IAdapterV1 {
         marketSymbol: base
       }
 
+      // TODO we also have max position size
+      let maxPositionSize
+      switch (base) {
+        case 'BTC':
+        case 'ETH':
+          maxPositionSize = FixedNumber.fromString(String(5_000_000))
+          break
+        default:
+          maxPositionSize = FixedNumber.fromString(String(2_000_000))
+      }
+
       const staticMetadata: GenericStaticMarketMetadata = {
         // this is only for symbol. There's also max account leverage
         maxLeverage: FixedNumber.fromString(String(1 / marketInfo.base_imr)),
         minLeverage: FixedNumber.fromString('1'),
-        minInitialMargin: FixedNumber.fromString('1'), // TODO check
-        minPositionSize: FixedNumber.fromString(String(marketInfo.base_min)),
-        maxPrecision: 1, // TODO check
+        minInitialMargin: FixedNumber.fromString(String(marketInfo.base_imr)),
+        minPositionSize: FixedNumber.fromString(String(marketInfo.base_min)), // TODO min position in base asset. `min_notional` is min position in quote asset
+        maxPrecision: marketInfo.base_tick, // TODO check 0.001 -> 3 ?
         amountStep: FixedNumber.fromString(String(marketInfo.base_tick)),
         priceStep: FixedNumber.fromString(String(marketInfo.quote_tick))
       }
@@ -297,12 +308,17 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
   }
 
-  getAvailableToTrade(
+  async getAvailableToTrade(
     wallet: string,
     params: AvailableToTradeParams<this['protocolId']>,
     opts?: ApiOpts | undefined
   ): Promise<AmountInfo> {
-    throw new Error('Method not implemented.')
+    const res = await this.signAndSendRequest('/v1/positions')
+    const info = (await res.json()).data as API.PositionInfo
+    return {
+      amount: FixedNumber.fromString(String(info.free_collateral)),
+      isTokenAmount: false
+    }
   }
 
   async getMarketPrices(marketIds: string[], opts?: ApiOpts | undefined): Promise<FixedNumber[]> {
@@ -351,8 +367,8 @@ export default class OrderlyAdapter implements IAdapterV1 {
         oiShort: FixedNumber.fromString(marketInfo.open_interest), // TODO we don't have long/short breakdown here
         availableLiquidityLong: ZERO_FN, // TODO necessary?
         availableLiquidityShort: ZERO_FN, // TODO necessary?
-        longFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO how to get long/short
-        shortFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO how to get long/short
+        longFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO long & short interest are the same
+        shortFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO long & short interest are the same
         longBorrowRate: ZERO_FN, // TODO part of funding rate
         shortBorrowRate: ZERO_FN // TODO part of funding rate
       }
@@ -585,7 +601,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
             })
           })
         ],
-        desc: 'Create order',
+        desc: 'Close position',
         chainId: this.chainId,
         heading: EMPTY_DESC,
         isUserAction: false
@@ -609,15 +625,50 @@ export default class OrderlyAdapter implements IAdapterV1 {
   }
 
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
+    // TODO this is basically free collateral
     throw new Error('Method not implemented.')
   }
 
-  getAllPositions(
+  async getAllPositions(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<PositionInfo>> {
-    throw new Error('Method not implemented.')
+    const res = await this.signAndSendRequest('/v1/positions')
+    const info = (await res.json()).data as API.PositionInfo
+    const positions = info.rows as API.Position[]
+
+    const accessibleMargin = await this.getAvailableToTrade(wallet, undefined as any)
+    const positionInfo: PositionInfo[] = positions.map((position) => {
+      return {
+        protocolId: 'ORDERLY',
+        marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', position.symbol),
+        posId: position.symbol, // TODO we don't have posId, but can only have one open position per symbol
+        size: { amount: FixedNumber.fromString(String(position.position_qty)), isTokenAmount: true },
+        margin: { amount: FixedNumber.fromString(String(info.margin_ratio)), isTokenAmount: false },
+        accessibleMargin,
+        avgEntryPrice: FixedNumber.fromString(String(position.average_open_price)),
+        cumulativeFunding: FixedNumber.fromString(''), // TODO /v1/funding_fee/history funding_fee
+        unrealizedPnl: {
+          aggregatePnl: FixedNumber.fromString(''), // TODO raw pnl - funding fee ?
+          rawPnl: FixedNumber.fromString(''), // TODO Position Qty * (Mark Price - Position Average Entry Price)
+          fundingFee: FixedNumber.fromString(''), // TODO /v1/funding_fee/history funding_fee
+          borrowFee: FixedNumber.fromString('') // TODO no borrow fee
+        },
+        liquidationPrice: FixedNumber.fromString(String(position.est_liq_price)),
+        leverage: FixedNumber.fromString(''), // TODO leverage is account wide
+        direction: position.position_qty > 0 ? 'LONG' : 'SHORT',
+        collateral: ORDERLY_COLLATERAL_TOKEN,
+        indexToken: ORDERLY_COLLATERAL_TOKEN,
+        mode: 'CROSS',
+        roe: FixedNumber.fromString(''), // TODO
+        metadata: undefined
+      } satisfies PositionInfo
+    })
+    return {
+      maxItemsCount: 1_000, // no pagination available
+      result: positionInfo
+    }
   }
 
   getAllOrders(
@@ -658,6 +709,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<ClaimInfo>> {
+    // TODO not applicable
     throw new Error('Method not implemented.')
   }
 
@@ -686,14 +738,17 @@ export default class OrderlyAdapter implements IAdapterV1 {
     existingPos: PositionInfo[],
     opts?: ApiOpts | undefined
   ): Promise<PreviewInfo[]> {
+    // TODO not applicable
     throw new Error('Method not implemented.')
   }
 
   getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
+    // TODO not applicable
     throw new Error('Method not implemented.')
   }
 
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
+    // TODO funding fee history
     throw new Error('Method not implemented.')
   }
 
@@ -847,17 +902,5 @@ export default class OrderlyAdapter implements IAdapterV1 {
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '')
-  }
-
-  private _getPartialToken(symbol: string): Token {
-    return {
-      symbol: symbol,
-      name: '',
-      decimals: 18,
-      address: {
-        [arbitrum.id]: undefined,
-        [optimism.id]: undefined
-      }
-    }
   }
 }
