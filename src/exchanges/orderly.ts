@@ -56,7 +56,7 @@ import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { Token } from '../common/tokens'
 import { ZERO_FN } from '../common/constants'
-import { OrderlyPaginationMeta } from '../configs/orderly/types'
+import { OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -677,7 +677,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<OrderInfo>> {
-    return this.fetchOrders(wallet, undefined, pageOptions, opts)
+    return this.fetchOpenOrders(wallet, undefined, pageOptions, opts)
   }
 
   async getAllOrdersForPosition(
@@ -688,7 +688,9 @@ export default class OrderlyAdapter implements IAdapterV1 {
   ): Promise<Record<string, PaginatedRes<OrderInfo>>> {
     return Object.fromEntries(
       (
-        await Promise.all(positionInfo.map((position) => this.fetchOrders(wallet, position.posId, pageOptions, opts)))
+        await Promise.all(
+          positionInfo.map((position) => this.fetchOpenOrders(wallet, position.posId, pageOptions, opts))
+        )
       ).map((orderInfo, index) => [positionInfo[index].posId, orderInfo])
     )
   }
@@ -698,15 +700,50 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
+    // TODO I am not sure what you refer to as historic trades. I think you mean closed positions?
+    // we don't have an endpoint for that.
     throw new Error('Method not implemented.')
   }
 
-  getLiquidationHistory(
+  async getLiquidationHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<LiquidationInfo>> {
-    throw new Error('Method not implemented.')
+    const res = await this.signAndSendRequest('/v1/liquidations')
+    const data = (await res.json()).data as any
+    const meta = data.meta as OrderlyPaginationMeta
+    const liquidations = data.rows as OrderlyLiquidationInfo[]
+
+    const liquidationInfo: LiquidationInfo[] = []
+    liquidations.forEach((liquidation) => {
+      liquidation.positions_by_perp.map((liquidatedPosition) => {
+        liquidationInfo.push({
+          marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', liquidatedPosition.symbol),
+          liquidationPrice: FixedNumber.fromString(String(liquidatedPosition.transfer_price)),
+          direction: liquidatedPosition.position_qty > 0 ? 'LONG' : 'SHORT',
+          sizeClosed: {
+            amount: FixedNumber.fromString(String(liquidatedPosition.position_qty)),
+            isTokenAmount: true
+          },
+          realizedPnl: ZERO_FN, // TODO
+          liquidationFees: FixedNumber.fromString(String(liquidatedPosition.abs_liquidator_fee)),
+          remainingCollateral: {
+            amount: ZERO_FN, // TODO
+            isTokenAmount: false
+          },
+          liqudationLeverage: ZERO_FN, // TODO
+          timestamp: liquidation.timestamp,
+          txHash: undefined,
+          collateral: ORDERLY_COLLATERAL_TOKEN
+        })
+      })
+    })
+
+    return {
+      maxItemsCount: meta.records_per_page, // TODO should this be current page size or max? Max is 500. Or is it max items that can be fetched? We don't send that
+      result: liquidationInfo
+    }
   }
 
   getClaimHistory(
@@ -909,26 +946,15 @@ export default class OrderlyAdapter implements IAdapterV1 {
       .replace(/=/g, '')
   }
 
-  private async fetchOrders(
+  private async fetchOpenOrders(
     wallet: string,
     symbol?: string,
     pageOptions?: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<OrderInfo>> {
-    let query = new URLSearchParams()
-    if (symbol != null) {
-      query.append('symbol', symbol)
-    }
-    if (pageOptions != null) {
-      const page = Math.trunc(pageOptions.skip / pageOptions.limit) + 1
-      query.append('page', String(page))
-      query.append('size', String(pageOptions.limit))
-    }
-    const queryParams = query.toString()
-    const res = await this.signAndSendRequest(`/v1/orders${queryParams ? `?${queryParams}` : ''}`)
-    const data = (await res.json()).data as any
-    const meta = data.meta as OrderlyPaginationMeta
-    const orders = data.rows as API.Order[]
+    // TODO assuming orders only means open orders. See https://orderly.network/docs/build-on-evm/evm-api/restful-api/private/get-orders
+    // remove this to fetch all historic orders.
+    const [meta, orders] = await this.fetchOrders(wallet, 'INCOMPLETE', symbol, pageOptions, opts)
 
     const orderInfo: OrderInfo[] = orders.map((order) => {
       let sizeDelta: AmountInfo
@@ -964,5 +990,30 @@ export default class OrderlyAdapter implements IAdapterV1 {
       maxItemsCount: meta.records_per_page, // TODO should this be current page size or max? Max is 500. Or is it max items that can be fetched? We don't send that
       result: orderInfo
     }
+  }
+
+  private async fetchOrders(
+    wallet: string,
+    status: 'COMPLETE' | 'INCOMPLETE',
+    symbol?: string,
+    pageOptions?: PageOptions | undefined,
+    opts?: ApiOpts | undefined
+  ): Promise<[OrderlyPaginationMeta, API.Order[]]> {
+    let query = new URLSearchParams()
+    query.append('status', status)
+    if (symbol != null) {
+      query.append('symbol', symbol)
+    }
+    if (pageOptions != null) {
+      const page = Math.trunc(pageOptions.skip / pageOptions.limit) + 1
+      query.append('page', String(page))
+      query.append('size', String(pageOptions.limit))
+    }
+    const queryParams = query.toString()
+    const res = await this.signAndSendRequest(`/v1/orders${queryParams ? `?${queryParams}` : ''}`)
+    const data = (await res.json()).data as any
+    const meta = data.meta as OrderlyPaginationMeta
+    const orders = data.rows as API.Order[]
+    return [meta, orders]
   }
 }
