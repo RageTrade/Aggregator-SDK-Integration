@@ -56,6 +56,7 @@ import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { Token } from '../common/tokens'
 import { ZERO_FN } from '../common/constants'
+import { OrderlyPaginationMeta } from '../configs/orderly/types'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -671,21 +672,25 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
   }
 
-  getAllOrders(
+  async getAllOrders(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<OrderInfo>> {
-    throw new Error('Method not implemented.')
+    return this.fetchOrders(wallet, undefined, pageOptions, opts)
   }
 
-  getAllOrdersForPosition(
+  async getAllOrdersForPosition(
     wallet: string,
     positionInfo: PositionInfo[],
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<Record<string, PaginatedRes<OrderInfo>>> {
-    throw new Error('Method not implemented.')
+    return Object.fromEntries(
+      (
+        await Promise.all(positionInfo.map((position) => this.fetchOrders(wallet, position.posId, pageOptions, opts)))
+      ).map((orderInfo, index) => [positionInfo[index].posId, orderInfo])
+    )
   }
 
   getTradesHistory(
@@ -902,5 +907,62 @@ export default class OrderlyAdapter implements IAdapterV1 {
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=/g, '')
+  }
+
+  private async fetchOrders(
+    wallet: string,
+    symbol?: string,
+    pageOptions?: PageOptions | undefined,
+    opts?: ApiOpts | undefined
+  ): Promise<PaginatedRes<OrderInfo>> {
+    let query = new URLSearchParams()
+    if (symbol != null) {
+      query.append('symbol', symbol)
+    }
+    if (pageOptions != null) {
+      const page = Math.trunc(pageOptions.skip / pageOptions.limit) + 1
+      query.append('page', String(page))
+      query.append('size', String(pageOptions.limit))
+    }
+    const queryParams = query.toString()
+    const res = await this.signAndSendRequest(`/v1/orders${queryParams ? `?${queryParams}` : ''}`)
+    const data = (await res.json()).data as any
+    const meta = data.meta as OrderlyPaginationMeta
+    const orders = data.rows as API.Order[]
+
+    const orderInfo: OrderInfo[] = orders.map((order) => {
+      let sizeDelta: AmountInfo
+      if (order.quantity != null) {
+        sizeDelta = {
+          amount: FixedNumber.fromString(String(order.quantity)),
+          isTokenAmount: true
+        }
+      } else {
+        sizeDelta = {
+          amount: FixedNumber.fromString(String(order.amount)),
+          isTokenAmount: false
+        }
+      }
+      return {
+        protocolId: 'ORDERLY',
+        marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', order.symbol),
+        direction: order.side === 'BUY' ? 'LONG' : 'SHORT',
+        orderId: String(order.order_id),
+        orderType: order.type as 'LIMIT' | 'MARKET',
+        sizeDelta,
+        marginDelta: {
+          amount: ZERO_FN,
+          isTokenAmount: false
+        },
+        mode: 'CROSS',
+        collateral: ORDERLY_COLLATERAL_TOKEN,
+        triggerData: undefined,
+        tif: undefined
+      } satisfies OrderInfo
+    })
+    return {
+      maxItemsCount: meta.records_per_page, // TODO should this be current page size or max? Max is 500. Or is it max items that can be fetched? We don't send that
+      result: orderInfo
+    }
   }
 }
