@@ -1,4 +1,4 @@
-import { getPublicKeyAsync, signAsync, utils } from '@noble/ed25519'
+import { getPublicKeyAsync, signAsync } from '@noble/ed25519'
 import { Chain, WalletClient } from 'viem'
 import { FixedNumber } from '../common/fixedNumber'
 import { APICallParamsWithMetadata, ActionParam, RequestSignerFnWithMetadata } from '../interfaces/IActionExecutor'
@@ -18,7 +18,6 @@ import {
   DynamicMarketMetadata,
   GenericStaticMarketMetadata,
   HistoricalTradeInfo,
-  IRouterAdapterBaseV1,
   IdleMarginInfo,
   LiquidationInfo,
   Market,
@@ -43,6 +42,7 @@ import {
   ORDERLY_CREATE_KEY_H,
   ORDERLY_DEPOSIT_H,
   ORDERLY_REGISTER_H,
+  ORDERLY_SETTLE_PNL_H,
   ORDERLY_WITHDRAW_H
 } from '../common/buttonHeadings'
 import base58 from 'bs58'
@@ -54,9 +54,8 @@ import { arbitrum, optimism } from 'viem/chains'
 import { API } from '@orderly.network/types'
 import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
-import { Token } from '../common/tokens'
 import { ZERO_FN } from '../common/constants'
-import { NonUSDCHolding, OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
+import { OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
 import { account, positions } from '@orderly.network/perp'
 import { createGetter } from '../configs/orderly/createGetter'
 
@@ -225,6 +224,72 @@ export default class OrderlyAdapter implements IAdapterV1 {
         isAgentRequired: false
       } satisfies RequestSignerFnWithMetadata)
     }
+
+    return actions
+  }
+
+  async settlePnl(): Promise<ActionParam[]> {
+    const actions: ActionParam[] = []
+    if (!this.orderlyKey) {
+      throw new Error('Orderly key not initialized')
+    }
+
+    const nonceRes = await this.signAndSendRequest('/v1/settle_nonce')
+    const nonceJson = await nonceRes.json()
+    const settleNonce = nonceJson.data.settle_nonce as string
+
+    const settlePnlMessage = {
+      brokerId: this.brokerId,
+      chainId: this.chainId,
+      timestamp: Date.now(),
+      settleNonce
+    }
+
+    actions.push({
+      desc: 'Settle PnL for Orderly',
+      chainId: this.chainId,
+      heading: ORDERLY_SETTLE_PNL_H,
+      isUserAction: true,
+      fn: async (wallet: WalletClient, agentAddress?: string) => {
+        if (!wallet.account || !this.orderlyKey) return
+        const signature = await wallet.signTypedData({
+          account: wallet.account,
+          message: settlePnlMessage,
+          primaryType: 'SettlePnl',
+          types: OrderlyAdapter.MESSAGE_TYPES,
+          domain: this.getOnChainDomain(this.chainId)
+        })
+
+        const timestamp = Date.now()
+        const encoder = new TextEncoder()
+
+        const body = JSON.stringify({
+          message: settlePnlMessage,
+          signature,
+          userAddress: wallet.account.address,
+          verifyingContract: this.getVerifyingAddress(this.chainId)
+        })
+
+        const message = `${String(timestamp)}POST/v1/settle_pnl${body}`
+        const orderlySignature = await signAsync(encoder.encode(message), this.orderlyKey)
+        return [
+          `${this.baseUrl}/v1/settle_pnl`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'orderly-timestamp': String(timestamp),
+              'orderly-account-id': this.accountId,
+              'orderly-key': `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`,
+              'orderly-signature': this.base64EncodeURL(orderlySignature)
+            },
+            body
+          }
+        ]
+      },
+      isEoaSigner: true,
+      isAgentRequired: false
+    } satisfies RequestSignerFnWithMetadata)
 
     return actions
   }
