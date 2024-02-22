@@ -30,7 +30,8 @@ import {
   AvailableToTradeParams,
   DepositWithdrawParams,
   AgentParams,
-  AgentState
+  AgentState,
+  IdleMarginInfo
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -43,6 +44,7 @@ import { ActionParam } from '../src/interfaces/IActionExecutor'
 import HyperliquidAdapterV1 from '../src/exchanges/hyperliquid'
 import { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
 import AevoAdapterV1 from '../src/exchanges/aevo'
+import { errorCatcher } from '../src/common/errors'
 
 export default class RouterV1 implements IRouterV1 {
   adapters: Record<string, IAdapterV1> = {}
@@ -61,26 +63,26 @@ export default class RouterV1 implements IRouterV1 {
   }
 
   async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
-    const promises: Promise<ActionParam[]>[] = []
+    const promises: Promise<ActionParam[] | undefined>[] = []
 
     params.forEach((param) => {
       const adapter = this.adapters[param.protocol]
-      promises.push(adapter.deposit([param]))
+      promises.push(errorCatcher(() => adapter.deposit([param])))
     })
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
 
   async withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
-    const promises: Promise<ActionParam[]>[] = []
+    const promises: Promise<ActionParam[] | undefined>[] = []
 
     params.forEach((param) => {
       const adapter = this.adapters[param.protocol]
-      promises.push(adapter.withdraw([param]))
+      promises.push(errorCatcher(() => adapter.withdraw([param])))
     })
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
 
@@ -114,14 +116,14 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<ClaimInfo>> {
-    const promises: Promise<PaginatedRes<ClaimInfo>>[] = []
+    const promises: Promise<PaginatedRes<ClaimInfo> | undefined>[] = []
     const result: ClaimInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getClaimHistory(wallet, undefined, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getClaimHistory(wallet, undefined, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PaginatedRes<ClaimInfo>[]
     out.forEach((res) => {
       result.push(...res.result)
     })
@@ -132,18 +134,18 @@ export default class RouterV1 implements IRouterV1 {
   async init(swAddr: string | undefined, opts?: ApiOpts): Promise<void> {
     const initPromises: Promise<void>[] = []
     for (const key in this.adapters) {
-      initPromises.push(this.adapters[key].init(swAddr, opts))
+      initPromises.push(errorCatcher(() => this.adapters[key].init(swAddr, opts)))
     }
     await Promise.all(initPromises)
     return Promise.resolve()
   }
 
   async setup(): Promise<ActionParam[]> {
-    const setupPromises: Promise<ActionParam[]>[] = []
+    const setupPromises: Promise<ActionParam[] | undefined>[] = []
     for (const key in this.adapters) {
-      setupPromises.push(this.adapters[key].setup())
+      setupPromises.push(errorCatcher(() => this.adapters[key].setup()))
     }
-    const out = await Promise.all(setupPromises)
+    const out = (await Promise.all(setupPromises)).filter((v) => !!v) as ActionParam[][]
 
     return out.flat()
   }
@@ -164,39 +166,39 @@ export default class RouterV1 implements IRouterV1 {
   }
 
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {
-    const marketInfoPromises: Promise<MarketInfo[]>[] = []
+    const marketInfoPromises: Promise<MarketInfo[] | undefined>[] = []
     for (const key in this.adapters) {
-      marketInfoPromises.push(this.adapters[key].supportedMarkets(chains, opts))
+      marketInfoPromises.push(errorCatcher(() => this.adapters[key].supportedMarkets(chains, opts)))
     }
 
-    const out = await Promise.all(marketInfoPromises)
+    const out = (await Promise.all(marketInfoPromises)).filter((v) => !!v) as MarketInfo[][]
     return out.flat()
   }
   async getMarketPrices(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<FixedNumber[]> {
-    const promises = []
+    const promises: Promise<FixedNumber[] | undefined>[] = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getMarketPrices([marketId], opts))
+      promises.push(errorCatcher(() => adapter.getMarketPrices([marketId], opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as FixedNumber[][]
     return out.flat()
   }
   async getMarketsInfo(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<MarketInfo[]> {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getMarketsInfo([marketId], opts))
+      promises.push(errorCatcher(() => adapter.getMarketsInfo([marketId], opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as MarketInfo[][]
     return out.flat()
   }
   async getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getMarketState(wallet, [marketId], opts))
+      promises.push(errorCatcher(() => adapter.getMarketState(wallet, [marketId], opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as MarketState[][]
     return out.flat()
   }
   async getAgentState(wallet: string, agentParams: AgentParams[], opts?: ApiOpts): Promise<AgentState[]> {
@@ -204,46 +206,46 @@ export default class RouterV1 implements IRouterV1 {
 
     for (const each of agentParams) {
       const adapter = this.adapters[each.protocolId]
-      promises.push(adapter.getAgentState(wallet, [each], opts))
+      promises.push(errorCatcher(() => adapter.getAgentState(wallet, [each], opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as AgentState[][]
     return out.flat()
   }
   async getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]> {
     const promises = []
     for (const marketId of marketIds) {
       const adapter = this._checkAndGetAdapter(marketId)
-      promises.push(adapter.getDynamicMarketMetadata([marketId], opts))
+      promises.push(errorCatcher(() => adapter.getDynamicMarketMetadata([marketId], opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as DynamicMarketMetadata[][]
     return out.flat()
   }
   async increasePosition(orderData: CreateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
-      promises.push(adapter.increasePosition([order], wallet, opts))
+      promises.push(errorCatcher(() => adapter.increasePosition([order], wallet, opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
-      promises.push(adapter.updateOrder([order], wallet, opts))
+      promises.push(errorCatcher(() => adapter.updateOrder([order], wallet, opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
     const promises = []
     for (const order of orderData) {
       const adapter = this._checkAndGetAdapter(order.marketId)
-      promises.push(adapter.cancelOrder([order], wallet, opts))
+      promises.push(errorCatcher(() => adapter.cancelOrder([order], wallet, opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async closePosition(
@@ -252,23 +254,23 @@ export default class RouterV1 implements IRouterV1 {
     wallet: string,
     opts?: ApiOpts
   ): Promise<ActionParam[]> {
-    const promises: Promise<ActionParam[]>[] = []
+    const promises: Promise<ActionParam[] | undefined>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
-      promises.push(adapter.closePosition([position], [closePositionData[index]], wallet, opts))
+      promises.push(errorCatcher(() => adapter.closePosition([position], [closePositionData[index]], wallet, opts)))
     })
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
-    const promises: Promise<ActionParam[]>[] = []
+    const promises: Promise<ActionParam[] | undefined>[] = []
 
     agentParams.forEach((agent, index) => {
       const adapter = this.adapters[agentParams[index].protocolId]
-      promises.push(adapter.authenticateAgent([agent], wallet, opts))
+      promises.push(errorCatcher(() => adapter.authenticateAgent([agent], wallet, opts)))
     })
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async updatePositionMargin(
@@ -277,45 +279,30 @@ export default class RouterV1 implements IRouterV1 {
     wallet: string,
     opts?: ApiOpts
   ): Promise<ActionParam[]> {
-    const promises: Promise<ActionParam[]>[] = []
+    const promises: Promise<ActionParam[] | undefined>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
-      promises.push(adapter.updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts))
+      promises.push(
+        errorCatcher(() => adapter.updatePositionMargin([position], [updatePositionMarginData[index]], wallet, opts))
+      )
     })
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
   async claimFunding(wallet: string, opts?: ApiOpts): Promise<ActionParam[]> {
-    const claimPromises: Promise<ActionParam[]>[] = []
+    const claimPromises: Promise<ActionParam[] | undefined>[] = []
     for (const key in this.adapters) {
-      claimPromises.push(this.adapters[key].claimFunding(wallet, opts))
+      claimPromises.push(errorCatcher(() => this.adapters[key].claimFunding(wallet, opts)))
     }
-    const out = await Promise.all(claimPromises)
+    const out = (await Promise.all(claimPromises)).filter((v) => !!v) as ActionParam[][]
     return out.flat()
   }
-  async getIdleMargins(
-    wallet: string,
-    opts?: ApiOpts
-  ): Promise<
-    Array<
-      CollateralData & {
-        marketId: Market['marketId']
-        amount: FixedNumber // Always token terms
-      }
-    >
-  > {
-    const promises: Promise<
-      Array<
-        CollateralData & {
-          marketId: Market['marketId']
-          amount: FixedNumber // Always token terms
-        }
-      >
-    >[] = []
+  async getIdleMargins(wallet: string, opts?: ApiOpts): Promise<Array<IdleMarginInfo>> {
+    const promises: Promise<Array<IdleMarginInfo> | undefined>[] = []
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getIdleMargins(wallet, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getIdleMargins(wallet, opts)))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as Array<IdleMarginInfo>[]
     return out.flat()
   }
   async getAllPositions(
@@ -323,14 +310,14 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<PositionInfo>> {
-    const promises: Promise<PaginatedRes<PositionInfo>>[] = []
+    const promises: Promise<PaginatedRes<PositionInfo> | undefined>[] = []
     const result: PositionInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAllPositions(wallet, undefined, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getAllPositions(wallet, undefined, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PaginatedRes<PositionInfo>[]
 
     out.forEach((res) => {
       result.push(...res.result)
@@ -343,14 +330,14 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<OrderInfo>> {
-    const promises: Promise<PaginatedRes<OrderInfo>>[] = []
+    const promises: Promise<PaginatedRes<OrderInfo> | undefined>[] = []
     const result: OrderInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAllOrders(wallet, undefined, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getAllOrders(wallet, undefined, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PaginatedRes<OrderInfo>[]
     out.forEach((res) => {
       result.push(...res.result)
     })
@@ -364,15 +351,18 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<Record<PositionData['posId'], PaginatedRes<OrderInfo>>> {
-    const promises: Promise<Record<PositionData['posId'], PaginatedRes<OrderInfo>>>[] = []
+    const promises: Promise<Record<PositionData['posId'], PaginatedRes<OrderInfo>> | undefined>[] = []
     const result: Record<PositionData['posId'], PaginatedRes<OrderInfo>> = {}
 
     for (const position of positionInfo) {
       const adapter = this._checkAndGetAdapter(position.marketId)
-      promises.push(adapter.getAllOrdersForPosition(wallet, [position], pageOptions, opts))
+      promises.push(errorCatcher(() => adapter.getAllOrdersForPosition(wallet, [position], pageOptions, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as Record<
+      PositionData['posId'],
+      PaginatedRes<OrderInfo>
+    >[]
     out.forEach((res) => {
       for (const key in res) {
         result[key] = res[key]
@@ -387,14 +377,14 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    const promises: Promise<PaginatedRes<HistoricalTradeInfo>>[] = []
+    const promises: Promise<PaginatedRes<HistoricalTradeInfo> | undefined>[] = []
     const result: HistoricalTradeInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getTradesHistory(wallet, undefined, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getTradesHistory(wallet, undefined, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PaginatedRes<HistoricalTradeInfo>[]
     out.forEach((res) => {
       result.push(...res.result)
     })
@@ -406,14 +396,14 @@ export default class RouterV1 implements IRouterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts
   ): Promise<PaginatedRes<LiquidationInfo>> {
-    const promises: Promise<PaginatedRes<LiquidationInfo>>[] = []
+    const promises: Promise<PaginatedRes<LiquidationInfo> | undefined>[] = []
     const result: LiquidationInfo[] = []
 
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getLiquidationHistory(wallet, undefined, opts))
+      promises.push(errorCatcher(() => this.adapters[key].getLiquidationHistory(wallet, undefined, opts)))
     }
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PaginatedRes<LiquidationInfo>[]
     out.forEach((res) => {
       result.push(...res.result)
     })
@@ -426,12 +416,12 @@ export default class RouterV1 implements IRouterV1 {
     existingPos: (PositionInfo | undefined)[],
     opts?: ApiOpts
   ): Promise<OpenTradePreviewInfo[]> {
-    const promises: Promise<OpenTradePreviewInfo[]>[] = []
+    const promises: Promise<OpenTradePreviewInfo[] | undefined>[] = []
     orderData.forEach((order, index) => {
       const adapter = this._checkAndGetAdapter(order.marketId)
-      promises.push(adapter.getOpenTradePreview(wallet, [order], [existingPos[index]], opts))
+      promises.push(errorCatcher(() => adapter.getOpenTradePreview(wallet, [order], [existingPos[index]], opts)))
     })
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as OpenTradePreviewInfo[][]
     return out.flat()
   }
   async getCloseTradePreview(
@@ -440,12 +430,14 @@ export default class RouterV1 implements IRouterV1 {
     closePositionData: ClosePositionData[],
     opts?: ApiOpts
   ): Promise<CloseTradePreviewInfo[]> {
-    const promises: Promise<CloseTradePreviewInfo[]>[] = []
+    const promises: Promise<CloseTradePreviewInfo[] | undefined>[] = []
     positionInfo.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
-      promises.push(adapter.getCloseTradePreview(wallet, [position], [closePositionData[index]], opts))
+      promises.push(
+        errorCatcher(() => adapter.getCloseTradePreview(wallet, [position], [closePositionData[index]], opts))
+      )
     })
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as CloseTradePreviewInfo[][]
     return out.flat()
   }
   async getUpdateMarginPreview(
@@ -455,42 +447,44 @@ export default class RouterV1 implements IRouterV1 {
     existingPos: PositionInfo[],
     opts?: ApiOpts
   ): Promise<PreviewInfo[]> {
-    const promises: Promise<PreviewInfo[]>[] = []
+    const promises: Promise<PreviewInfo[] | undefined>[] = []
 
     existingPos.forEach((position, index) => {
       const adapter = this._checkAndGetAdapter(position.marketId)
       promises.push(
-        adapter.getUpdateMarginPreview(wallet, [isDeposit[index]], [marginDelta[index]], [existingPos[index]], opts)
+        errorCatcher(() =>
+          adapter.getUpdateMarginPreview(wallet, [isDeposit[index]], [marginDelta[index]], [existingPos[index]], opts)
+        )
       )
     })
 
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as PreviewInfo[][]
     return out.flat()
   }
   async getTotalClaimableFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber> {
-    const fundingPromises: Promise<FixedNumber>[] = []
+    const fundingPromises: Promise<FixedNumber | undefined>[] = []
     for (const key in this.adapters) {
-      fundingPromises.push(this.adapters[key].getTotalClaimableFunding(wallet, opts))
+      fundingPromises.push(errorCatcher(() => this.adapters[key].getTotalClaimableFunding(wallet, opts)))
     }
-    const out = await Promise.all(fundingPromises)
+    const out = (await Promise.all(fundingPromises)).filter((v) => !!v) as FixedNumber[]
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
   }
 
   async getTotalAccuredFunding(wallet: string, opts?: ApiOpts): Promise<FixedNumber> {
-    const fundingPromises: Promise<FixedNumber>[] = []
+    const fundingPromises: Promise<FixedNumber | undefined>[] = []
     for (const key in this.adapters) {
-      fundingPromises.push(this.adapters[key].getTotalAccuredFunding(wallet, opts))
+      fundingPromises.push(errorCatcher(() => this.adapters[key].getTotalAccuredFunding(wallet, opts)))
     }
-    const out = await Promise.all(fundingPromises)
+    const out = (await Promise.all(fundingPromises)).filter((v) => !!v) as FixedNumber[]
     return out.reduce((acc, curr) => acc.add(curr), FixedNumber.fromValue(0, 30, 30))
   }
 
   async getAccountInfo(wallet: string, opts?: ApiOpts): Promise<AccountInfo[]> {
-    const promises: Promise<AccountInfo>[] = []
+    const promises: Promise<AccountInfo | undefined>[] = []
     for (const key in this.adapters) {
-      promises.push(this.adapters[key].getAccountInfo(wallet, opts).then((res) => res[0]))
+      promises.push(errorCatcher(() => this.adapters[key].getAccountInfo(wallet, opts).then((res) => res[0])))
     }
-    const out = await Promise.all(promises)
+    const out = (await Promise.all(promises)).filter((v) => !!v) as AccountInfo[]
 
     return out.filter((v) => v != undefined).flat()
   }
@@ -500,13 +494,13 @@ export default class RouterV1 implements IRouterV1 {
     sigFigs: (number | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OrderBook[]> {
-    const obPromises: Promise<OrderBook[]>[] = []
+    const obPromises: Promise<OrderBook[] | undefined>[] = []
     for (let i = 0; i < marketIds.length; i++) {
       const adapter = this._checkAndGetAdapter(marketIds[i])
-      obPromises.push(adapter.getOrderBooks([marketIds[i]], [sigFigs[i]], opts))
+      obPromises.push(errorCatcher(() => adapter.getOrderBooks([marketIds[i]], [sigFigs[i]], opts)))
     }
 
-    const out = await Promise.all(obPromises)
+    const out = (await Promise.all(obPromises)).filter((v) => !!v) as OrderBook[][]
     return out.flat()
   }
 }

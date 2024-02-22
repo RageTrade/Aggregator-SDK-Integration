@@ -79,6 +79,7 @@ import {
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { getPaginatedResponse, toAmountInfoFN } from '../common/helper'
 import { slippagePrice } from '../configs/hyperliquid/api/client'
+import { AEVO_CREDENTIAL_MISSING_ERROR } from '../common/errors'
 
 type FunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any) => any ? K : never
@@ -1036,7 +1037,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   _setCredentials(opts: ApiOpts | undefined, strict: boolean) {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
-    } else if (strict) throw new Error('missing aevo credentials')
+    } else if (strict) throw AEVO_CREDENTIAL_MISSING_ERROR
   }
 
   async _preWarmCache(opts?: ApiOpts) {
