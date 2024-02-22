@@ -43,3 +43,7 @@ export function isRequestSignerFn(param: ActionParam): param is RequestSignerFnW
 export function isUnsignedTxWithMetadata(param: ActionParam): param is UnsignedTransactionWithMetadata {
   return (param as UnsignedTransactionWithMetadata).tx !== undefined
 }
+
+export function isAPICallParams(param: ActionParam): param is UnsignedTransactionWithMetadata {
+  return (param as APICallParamsWithMetadata).apiArgs !== undefined
+}
