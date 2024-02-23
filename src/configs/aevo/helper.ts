@@ -1,5 +1,8 @@
-import { FixedNumber, abs, bipsDiff } from '../../common/fixedNumber'
+import { FixedNumber, abs, bipsDiff, addFN, mulFN, divFN, subFN } from '../../common/fixedNumber'
+import { countSignificantDigits, precisionFromNumber } from '../../common/helper'
+import { OBData, OBLevel } from '../../interfaces/V1/IRouterAdapterBaseV1'
 import { LEV_OUT_OF_BOUNDS } from '../hyperliquid/hlErrors'
+import { AevoWssOrderBook } from './aevoWsClient'
 export function aevoMarketIdToAsset(marketId: string): string {
   return marketId.split('-')[2]
 }
@@ -56,4 +59,69 @@ export function getReqdLeverageFN(sizeDelta: FixedNumber, marginDelta: FixedNumb
   if (md <= 0) throw new Error(LEV_OUT_OF_BOUNDS)
 
   return Math.round((sd * px) / md)
+}
+
+export function aevoMapLevelsToObLevels(levels: NonNullable<AevoWssOrderBook['asks']>): OBLevel[] {
+  const obLevels: OBLevel[] = []
+  let totalSz = FixedNumber.fromString('0')
+  let totalSzUsd = FixedNumber.fromString('0')
+  for (const level of levels) {
+    const price = FixedNumber.fromString(level[0])
+    const sizeToken = FixedNumber.fromString(level[1])
+    const sizeUsd = price.mulFN(sizeToken)
+    totalSz = totalSz.addFN(sizeToken)
+    totalSzUsd = totalSzUsd.addFN(sizeUsd)
+    obLevels.push({
+      price: FixedNumber.fromString(level[0]),
+      sizeToken: FixedNumber.fromString(level[1]),
+      sizeUsd: sizeUsd,
+      totalSizeToken: totalSz,
+      totalSizeUsd: totalSzUsd
+    })
+  }
+
+  return obLevels
+}
+
+export function aevoMapAevoObToObData(ob: AevoWssOrderBook): OBData {
+  const bids = ob.bids ? aevoMapLevelsToObLevels(ob.bids) : []
+  const asks = ob.asks ? aevoMapLevelsToObLevels(ob.asks) : []
+
+  const spread = asks[0].price.subFN(bids[0].price)
+  const spreadPercent = spread.divFN(asks[0].price).mulFN(FixedNumber.fromString('100'))
+
+  const obData: OBData = {
+    actualPrecision: _calcActualPrecision(bids, asks),
+    bids: bids,
+    asks: asks,
+    spread: spread,
+    spreadPercent: spreadPercent
+  }
+
+  return obData
+}
+
+function _calcActualPrecision(bids: OBLevel[], asks: OBLevel[]): FixedNumber {
+  let mostPrecisePrice = 0
+  let maxSigFigs = 0
+
+  for (const level of bids) {
+    const price = Number(level.price.toString())
+    const sigFigs = countSignificantDigits(price)
+    if (sigFigs > maxSigFigs) {
+      maxSigFigs = sigFigs
+      mostPrecisePrice = price
+    }
+  }
+
+  for (const level of asks) {
+    const price = Number(level.price.toString())
+    const sigFigs = countSignificantDigits(price)
+    if (sigFigs > maxSigFigs) {
+      maxSigFigs = sigFigs
+      mostPrecisePrice = price
+    }
+  }
+
+  return FixedNumber.fromString(precisionFromNumber(mostPrecisePrice).toString())
 }

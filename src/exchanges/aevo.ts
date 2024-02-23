@@ -1,5 +1,5 @@
 import { Chain } from 'viem'
-import { FixedNumber, mulFN, addFN, divFN } from '../common/fixedNumber'
+import { FixedNumber, mulFN, addFN, divFN, subFN } from '../common/fixedNumber'
 import { ActionParam } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
@@ -37,7 +37,8 @@ import {
   PnlData,
   TradeData,
   OrderType,
-  TriggerData
+  TriggerData,
+  OBData
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import { OpenAPI, time_in_force } from '../../generated/aevo'
@@ -80,7 +81,8 @@ import {
   to6Decimals,
   getReqdLeverage,
   toNearestTick,
-  getReqdLeverageFN
+  getReqdLeverageFN,
+  aevoMapAevoObToObData
 } from '../configs/aevo/helper'
 import {
   aevoCacheGetAccount,
@@ -111,6 +113,11 @@ type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
 type UrlParams = { [key: string]: string | number }
 
 export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
+
+type ActualPosition = NonNullable<
+  Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
+>[0]
+type AccountData = Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>
 
 export class ExtendedAevoClient extends AevoClient {
   private headers: Record<string, string> & HeadersInit = {
@@ -628,11 +635,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         // long liquidity is the total available asks (sell orders) in the book
         const longLiquidity = asks.reduce((acc, ask) => {
           return addFN(acc, mulFN(FixedNumber.fromString(ask[0]), FixedNumber.fromString(ask[1])))
-        }, FixedNumber.fromString('0'))
+        }, ZERO_FN)
         // short liquidity is the total available bids (buy orders) in the book
         const shortLiquidity = bids.reduce((acc, bid) => {
           return addFN(acc, mulFN(FixedNumber.fromString(bid[0]), FixedNumber.fromString(bid[1])))
-        }, FixedNumber.fromString('0'))
+        }, ZERO_FN)
 
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
@@ -1002,11 +1009,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const od = orderData[i]
       const pos = existingPos[i]
       const asset = aevoMarketIdToAsset(od.marketId)
-      const actPos = pos
-        ? (pos.metadata as NonNullable<
-            Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
-          >[0])
-        : undefined
+      const actPos = pos ? (pos.metadata as ActualPosition) : undefined
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
 
@@ -1032,19 +1035,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           : actPosSize.subFN(orderSize).abs()
         : orderSize
 
-      // get default fees
-      const defaultTakerFee = isPreLaunch ? AEVO_DEFAULT_TAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_TAKER_FEE
-      const defaultMakerFee = isPreLaunch ? AEVO_DEFAULT_MAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_MAKER_FEE
-      let takerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].taker_fee || defaultTakerFee)
-      let makerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].maker_fee || defaultMakerFee)
-      // get fees from account data if available
-      if (accountData) {
-        const feeStruct = accountData.fee_structures?.find((f) => f.asset == asset && f.instrument_type == 'PERPETUAL')
-        if (feeStruct) {
-          takerFee = FixedNumber.fromString(feeStruct.taker_fee)
-          makerFee = FixedNumber.fromString(feeStruct.maker_fee)
-        }
-      }
+      // get fees for the user
+      const { takerFee, makerFee } = this._getFee(isPreLaunch, asset, accountData)
 
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
@@ -1092,14 +1084,14 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         for (const col of accountData.collaterals!) {
           cumMargin = cumMargin.addFN(FixedNumber.fromString(col.margin_value))
         }
-        const pnl = actPos ? FixedNumber.fromString(actPos.unrealized_pnl) : ZERO_FN
+        const posPnl = actPos ? FixedNumber.fromString(actPos.unrealized_pnl) : ZERO_FN
         const accMM = FixedNumber.fromString(accountData.maintenance_margin)
         const posMM = actPos ? actPosSize.mulFN(actPosAvgEntryPrice).mul(mmRatio) : ZERO_FN
         const nextPosMM = nextSize.mulFN(avgEntryPrice).mul(mmRatio)
 
         liqPrice = trigPrice.subFN(
           cumMargin
-            .addFN(pnl) // add pnl
+            .addFN(posPnl) // add pnl
             .subFN(accMM.subFN(posMM).add(nextPosMM)) // subtract adjusted MM
             .divFN(nextSize) // divide by next size
             .mulFN(floatSide) // adjust sign
@@ -1109,7 +1101,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       }
 
       const fee = isMarket ? traResult!.fees : orderSize.mulFN(trigPrice).mulFN(makerFee)
-      const priceImpact = isMarket ? traResult!.priceImpact : FixedNumber.fromString('0')
+      const priceImpact = isMarket ? traResult!.priceImpact : ZERO_FN
 
       const preview = {
         marketId: od.marketId,
@@ -1131,14 +1123,130 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return previewsInfo
   }
 
-  getCloseTradePreview(
+  async getCloseTradePreview(
     wallet: string,
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     opts?: ApiOpts | undefined
   ): Promise<CloseTradePreviewInfo[]> {
-    throw new Error('Method not implemented.')
+    const previewsInfo: CloseTradePreviewInfo[] = []
+
+    this._setCredentials(opts, true)
+
+    const marketPricesPromise = this.getMarketPrices(
+      positionInfo.map((pos) => pos.marketId),
+      opts
+    )
+    const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
+    const acountDataPromise = aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+
+    const [marketPrices, accountData] = await Promise.all([marketPricesPromise, acountDataPromise])
+
+    for (let i = 0; i < positionInfo.length; i++) {
+      const pos = positionInfo[i]
+      const cpd = closePositionData[i]
+      const asset = aevoMarketIdToAsset(pos.marketId)
+      const actPos = pos.metadata as ActualPosition
+      const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
+      const mp = marketPrices[i]
+      const closeSize = cpd.closeSize.amount
+      const posSize = pos.size.amount
+      const isMarket = cpd.type == 'MARKET'
+      const isSpTlLimit = cpd.type == 'STOP_LOSS_LIMIT' || cpd.type == 'TAKE_PROFIT_LIMIT'
+      const trigPrice = isMarket
+        ? mp
+        : isSpTlLimit
+        ? cpd.triggerData!.triggerLimitPrice!
+        : cpd.triggerData!.triggerPrice
+      const ml = pos.leverage
+      const isCross = pos.mode == 'CROSS'
+
+      if (!validDenomination(cpd.closeSize, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
+
+      // get fees for the user
+      const { takerFee, makerFee } = this._getFee(isPreLaunch, asset, accountData)
+
+      // traverseOrderBook for market orders in opposite direction to position
+      let traResult: TraverseResult | undefined = undefined
+      if (isMarket) {
+        const cachedOB = getAevoWssOrderBook(asset)
+        const sTimeOB = getStaleTime(CACHE_SECOND * 5, opts)
+        const ob = cachedOB
+          ? cachedOB
+          : await aevoCacheGetOrderbook(asset, this.publicApi, sTimeOB, sTimeOB * CACHE_TIME_MULT, opts)
+
+        traResult = !closeSize.isZero()
+          ? traverseAevoBook(pos.direction == 'LONG' ? ob.bids! : ob.asks!, closeSize, mp, takerFee)
+          : {
+              avgExecPrice: mp,
+              fees: ZERO_FN,
+              priceImpact: ZERO_FN,
+              remainingSize: ZERO_FN
+            }
+      }
+
+      // fee for tp/sl order is calculated basis the trigger price (ignoring the slippage accurred)
+      let fee = isMarket
+        ? traResult!.fees
+        : isSpTlLimit
+        ? closeSize.mulFN(trigPrice).mulFN(makerFee)
+        : closeSize.mulFN(trigPrice).mulFN(takerFee)
+
+      const remainingSize = posSize.subFN(closeSize)
+      const marginReqByPos = remainingSize.mulFN(trigPrice).divFN(ml)
+      // const proportionalAccessibleMargin = remainingSize.divFN(posSize).mulFN(pos.accessibleMargin.amount)
+      // const proportionalUpnl = remainingSize.divFN(posSize).mulFN(pos.unrealizedPnl.rawPnl)
+      // const remainingMargin = marginReqByPos.addFN(proportionalAccessibleMargin).addFN(proportionalUpnl)
+      // const freedMargin = pos.margin.amount.subFN(remainingMargin)
+      const pnl = closeSize.mulFN(trigPrice.subFN(pos.avgEntryPrice))
+      // const receiveMargin = isCross ? ZERO_FN : freedMargin.addFN(pnl)
+
+      let liqPrice = ZERO_FN
+      if (accountData) {
+        const floatSide = FixedNumber.fromString(pos.direction == 'LONG' ? '1' : '-1')
+        const mmRatio = isPreLaunch ? AEVO_PRE_LAUNCH_MM : AEVO_NORMAL_MM
+        let cumMargin = ZERO_FN
+        for (const col of accountData.collaterals!) {
+          cumMargin = cumMargin.addFN(FixedNumber.fromString(col.margin_value))
+        }
+        const accMM = FixedNumber.fromString(accountData.maintenance_margin)
+        const posMM = actPos ? posSize.mulFN(pos.avgEntryPrice).mul(mmRatio) : ZERO_FN
+        const nextPosMM = remainingSize.mulFN(pos.avgEntryPrice).mul(mmRatio)
+
+        liqPrice = trigPrice.subFN(
+          cumMargin
+            .addFN(pnl) // add closed pnl at trig price
+            .subFN(accMM.subFN(posMM).add(nextPosMM)) // subtract adjusted MM
+            .divFN(remainingSize) // divide by next size
+            .mulFN(floatSide) // adjust sign
+        )
+        liqPrice = liqPrice.lt(ZERO_FN) ? ZERO_FN : liqPrice
+        // console.log('Liq Price from AV: ', liqPrice)
+      }
+
+      const preview: CloseTradePreviewInfo = {
+        marketId: pos.marketId,
+        collateral: pos.collateral,
+        leverage: remainingSize.isZero() ? ZERO_FN : ml,
+        size: toAmountInfoFN(remainingSize, true),
+        margin: /* isCross ?  */ toAmountInfoFN(marginReqByPos, true) /* : toAmountInfoFN(remainingMargin, true) */,
+        avgEntryPrice: pos.avgEntryPrice,
+        liqudationPrice: liqPrice,
+        fee: fee,
+        // receiveMargin: receiveMargin.gt(ZERO_FN) ? toAmountInfoFN(receiveMargin, true) : toAmountInfoFN(ZERO_FN, true),
+        receiveMargin: toAmountInfoFN(ZERO_FN, true),
+        isError: false,
+        errMsg: ''
+      }
+      // console.log(preview)
+
+      previewsInfo.push(preview)
+    }
+
+    return previewsInfo
   }
+
+  // Only possible in isolated positions
   getUpdateMarginPreview(
     wallet: string,
     isDeposit: boolean[],
@@ -1148,6 +1256,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   ): Promise<PreviewInfo[]> {
     throw new Error('Method not implemented.')
   }
+
   getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
     throw new Error('Method not implemented.')
   }
@@ -1191,12 +1300,35 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  getOrderBooks(
+  async getOrderBooks(
     marketIds: string[],
-    precision: (number | undefined)[],
+    precision: (number | undefined)[], // not supported in aevo as of now
     opts?: ApiOpts | undefined
   ): Promise<OrderBook[]> {
-    throw new Error('Method not implemented.')
+    const orderBooks: OrderBook[] = []
+
+    for (let i = 0; i < marketIds.length; i++) {
+      const mId = marketIds[i]
+      const asset = aevoMarketIdToAsset(mId)
+      const defPre = 1 // Hardcode to 1 aevo only supports 1 precision
+
+      const precisionOBData: Record<number, OBData> = {}
+      const actualPrecisionsMap: Record<number, FixedNumber> = {}
+
+      let aevoOb = getAevoWssOrderBook(asset)
+      aevoOb = aevoOb ? aevoOb : await this.publicApi.getOrderbook(`${asset}-PERP`)
+      const obData = aevoMapAevoObToObData(aevoOb)
+      precisionOBData[defPre] = obData // only 1 precision allowed in aevo
+      actualPrecisionsMap[defPre] = obData.actualPrecision
+
+      orderBooks.push({
+        marketId: mId,
+        precisionOBData: defPre ? { [defPre]: precisionOBData[defPre] } : precisionOBData,
+        actualPrecisionsMap: actualPrecisionsMap
+      })
+    }
+
+    return orderBooks
   }
 
   /// Internal helper functions ///
@@ -1216,6 +1348,34 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
       await aevoCacheGetAccount(this.privateApi, 0, 0, opts)
+    }
+  }
+
+  _getFee(
+    isPreLaunch: boolean,
+    asset: string,
+    accountData: AccountData | undefined
+  ): {
+    takerFee: FixedNumber
+    makerFee: FixedNumber
+  } {
+    // get default fees
+    const defaultTakerFee = isPreLaunch ? AEVO_DEFAULT_TAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_TAKER_FEE
+    const defaultMakerFee = isPreLaunch ? AEVO_DEFAULT_MAKER_FEE_PRE_LAUNCH : AEVO_DEFAULT_MAKER_FEE
+    let takerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].taker_fee || defaultTakerFee)
+    let makerFee = FixedNumber.fromString(AEVO_FEE_MAP[asset].maker_fee || defaultMakerFee)
+    // get fees from account data if available
+    if (accountData) {
+      const feeStruct = accountData.fee_structures?.find((f) => f.asset == asset && f.instrument_type == 'PERPETUAL')
+      if (feeStruct) {
+        takerFee = FixedNumber.fromString(feeStruct.taker_fee)
+        makerFee = FixedNumber.fromString(feeStruct.maker_fee)
+      }
+    }
+
+    return {
+      takerFee,
+      makerFee
     }
   }
 }

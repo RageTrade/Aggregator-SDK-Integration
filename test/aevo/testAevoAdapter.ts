@@ -1,6 +1,6 @@
 import { config } from 'dotenv'
 import AevoAdapterV1 from '../../src/exchanges/aevo'
-import { ApiOpts, CreateOrder } from '../../src/interfaces/V1/IRouterAdapterBaseV1'
+import { ApiOpts, CreateOrder, ClosePositionData } from '../../src/interfaces/V1/IRouterAdapterBaseV1'
 import { parseUnits } from 'ethers/lib/utils'
 import { toAmountInfoFN } from '../../src/common/helper'
 import { HL_COLLATERAL_TOKEN } from '../../src/configs/hyperliquid/api/client'
@@ -14,6 +14,7 @@ const aa = new AevoAdapterV1()
 
 const btcMarketId = '42161-AEVO-BTC'
 const ethMarketId = '42161-AEVO-ETH'
+const pepeMarketId = '42161-AEVO-1000PEPE'
 
 config()
 
@@ -113,9 +114,76 @@ async function getOpenTradePreview() {
   console.dir(openTradePreview, { depth: 4 })
 }
 
+async function getCloseTradePreview() {
+  // testing with btc long position open
+  const positions = (await aa.getAllPositions(w, undefined, aevoPrivateOpts)).result
+  const btcPosition = positions.filter((p) => p.marketId === btcMarketId)[0]
+
+  const crossMarketCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'MARKET',
+    triggerData: undefined,
+    outputCollateral: undefined
+  }
+  console.dir(await aa.getCloseTradePreview(w, [btcPosition], [crossMarketCOD], aevoPrivateOpts), { depth: 4 })
+
+  const crossTPCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('100000'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await aa.getCloseTradePreview(w, [btcPosition], [crossTPCOD], aevoPrivateOpts), { depth: 4 })
+
+  const crossSLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('45000'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: undefined
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await aa.getCloseTradePreview(w, [btcPosition], [crossSLCOD], aevoPrivateOpts), { depth: 4 })
+
+  const crossTPLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'TAKE_PROFIT_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('8000'),
+      triggerAboveThreshold: false,
+      triggerLimitPrice: FixedNumber.fromString('10000')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await aa.getCloseTradePreview(w, [btcPosition], [crossTPLCOD], aevoPrivateOpts), { depth: 4 })
+
+  const crossSLLCOD: ClosePositionData = {
+    closeSize: toAmountInfoFN(divFN(btcPosition.size.amount, FixedNumber.fromString('2')), true),
+    type: 'STOP_LOSS_LIMIT',
+    triggerData: {
+      triggerPrice: FixedNumber.fromString('40000'),
+      triggerAboveThreshold: true,
+      triggerLimitPrice: FixedNumber.fromString('45000')
+    },
+    outputCollateral: undefined
+  }
+  console.dir(await aa.getCloseTradePreview(w, [btcPosition], [crossSLLCOD], aevoPrivateOpts), { depth: 4 })
+}
+
+async function getOrderbook() {
+  const orderbook = await aa.getOrderBooks([pepeMarketId], [undefined])
+  console.dir(orderbook, { depth: 6 })
+}
+
 aa.init(undefined).then(() => {
   delay(2500).then(() => {
-    getOpenTradePreview()
+    getOrderbook()
       .then(() => process.exit(0))
       .catch((error) => {
         console.error(error)
