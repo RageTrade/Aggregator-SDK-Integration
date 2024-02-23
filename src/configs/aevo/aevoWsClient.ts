@@ -68,13 +68,17 @@ export async function openAevoWssConnection() {
   ws.onerror = function error() {
     // console.log(`Aevo wss connection error`)
     isConnectionOpen = false
-    clearInterval(intervalId)
+    try {
+      clearInterval(intervalId)
+    } catch (_) {}
   }
 
   ws.onclose = function close() {
     // console.log(`Aevo wss connection closed`)
     isConnectionOpen = false
-    clearInterval(intervalId)
+    try {
+      clearInterval(intervalId)
+    } catch (_) {}
   }
 }
 

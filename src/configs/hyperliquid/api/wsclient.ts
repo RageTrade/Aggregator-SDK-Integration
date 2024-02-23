@@ -53,7 +53,9 @@ export function hlUnsubscribeOrderBook(marketId: string, precision: number | und
     const wsKey = coin + '-' + precision
     if (connectionMap[wsKey]) {
       connectionMap[wsKey]?.ws?.close()
-      clearInterval(connectionMap[wsKey].intervalId)
+      try {
+        clearInterval(connectionMap[wsKey].intervalId)
+      } catch (_) {}
       connectionMap[wsKey].isOpen = false
       // console.log(`HL wss connection closed for ${coin} with precision: ${precision}`)
     }
@@ -62,7 +64,9 @@ export function hlUnsubscribeOrderBook(marketId: string, precision: number | und
       const wsKey = coin + '-' + i
       if (connectionMap[wsKey]) {
         connectionMap[wsKey]?.ws?.close()
-        clearInterval(connectionMap[wsKey].intervalId)
+        try {
+          clearInterval(connectionMap[wsKey].intervalId)
+        } catch (_) {}
         connectionMap[wsKey].isOpen = false
         // console.log(`HL wss connection closed for ${coin} with precision: ${i}`)
       }
@@ -80,7 +84,11 @@ function makeWebSocket(coin: string, precision: number) {
   // close the previous connection just in case
   if (prevWsData && prevWsData.ws) prevWsData.ws.close()
   // clear the previous interval just in case
-  if (prevWsData && prevWsData.intervalId) clearInterval(prevWsData.intervalId)
+  if (prevWsData && prevWsData.intervalId) {
+    try {
+      clearInterval(prevWsData.intervalId)
+    } catch (_) {}
+  }
 
   // create a new connection
   const ws = new WebSocket(HL_WSS_URL)
