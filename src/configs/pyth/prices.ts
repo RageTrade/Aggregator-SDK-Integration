@@ -358,7 +358,7 @@ export function isHermesStreaming(): boolean {
 }
 
 export function getTokenPrice(token: string) {
-  if (token === 'sUSD') return UnitPrice
+  if (['sUSD', 'HL-USD', 'AEVO-USD'].includes(token)) return UnitPrice
 
   if (token === 'sETH') token = 'ETH'
   if (token === 'sBTC') token = 'BTC'
