@@ -1011,8 +1011,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const asset = aevoMarketIdToAsset(od.marketId)
       const actPos = pos
         ? (pos.metadata as NonNullable<
-          Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
-        >[0])
+            Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
+          >[0])
         : undefined
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
