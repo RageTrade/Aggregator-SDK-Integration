@@ -1341,9 +1341,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   _setCredentials(opts: ApiOpts | undefined, strict: boolean) {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
-    } else if (strict) throw AEVO_CREDENTIAL_MISSING_ERROR
+    }
 
-    if (!this.aevoClient.headers['AEVO-KEY'] || !this.aevoClient.headers['AEVO-SECRET']) {
+    if (strict && (!this.aevoClient.headers['AEVO-KEY'] || !this.aevoClient.headers['AEVO-SECRET'])) {
       throw new Error('headers not set')
     }
   }
