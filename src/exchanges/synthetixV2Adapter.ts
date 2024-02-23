@@ -32,7 +32,8 @@ import {
   AvailableToTradeParams,
   DepositWithdrawParams,
   AgentParams,
-  AgentState
+  AgentState,
+  AuthParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import KwentaSDK from '@kwenta/sdk'
@@ -84,6 +85,10 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
     await this.sdk.setProvider(opProvider)
     await this._preWarmCache(wallet)
     return Promise.resolve()
+  }
+
+  setCredentials(auth: AuthParams<this['protocolId']>): void {
+    throw new Error('Method not implemented.')
   }
 
   async setup(): Promise<ActionParam[]> {

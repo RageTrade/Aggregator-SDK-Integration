@@ -43,7 +43,8 @@ import {
   AgentState,
   TradeDirection,
   TimeInForce,
-  PnlData
+  PnlData,
+  AuthParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import {
   CACHE_DAY,
@@ -159,6 +160,10 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
   async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
     await this._preWarmCache(wallet)
+  }
+
+  setCredentials(auth: AuthParams<this['protocolId']>): void {
+    throw new Error('Method not implemented.')
   }
 
   setup(): Promise<ActionParam[]> {

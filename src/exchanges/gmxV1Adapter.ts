@@ -43,6 +43,7 @@ import {
   AgentState,
   AmountInfo,
   ApiOpts,
+  AuthParams,
   AvailableToTradeParams,
   CancelOrder,
   ClaimInfo,
@@ -128,6 +129,10 @@ export default class GmxV1Adapter implements IAdapterV1 {
   async init(wallet: string | undefined, opts?: ApiOpts | undefined): Promise<void> {
     await this._preWarmCache(wallet)
     return Promise.resolve()
+  }
+
+  setCredentials(auth: AuthParams<this['protocolId']>): void {
+    throw new Error('Method not implemented.')
   }
 
   async setup(): Promise<ActionParam[]> {

@@ -38,7 +38,9 @@ import {
   TradeData,
   OrderType,
   TriggerData,
-  OBData
+  OBData,
+  AevoAuth,
+  AuthParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import { OpenAPI, time_in_force } from '../../generated/aevo'
@@ -270,6 +272,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   async setup(): Promise<ActionParam[]> {
     await openAevoWssConnection()
     return Promise.resolve([])
+  }
+
+  setCredentials(auth: AuthParams<this['protocolId']>): void {
+    this._setCredentials({ bypassCache: false, aevoAuth: auth }, true)
   }
 
   async _approveIfNeeded(

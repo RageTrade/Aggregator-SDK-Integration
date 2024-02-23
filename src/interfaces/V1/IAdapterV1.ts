@@ -1,5 +1,12 @@
 import { SupportedChains, Token } from '../../common/tokens'
-import { AmountInfo, ApiOpts, AvailableToTradeParams, IRouterAdapterBaseV1, ProtocolId } from './IRouterAdapterBaseV1'
+import {
+  AmountInfo,
+  ApiOpts,
+  AuthParams,
+  AvailableToTradeParams,
+  IRouterAdapterBaseV1,
+  ProtocolId
+} from './IRouterAdapterBaseV1'
 
 export type DepositData = Record<SupportedChains, Token[]>
 
@@ -24,4 +31,6 @@ export interface IAdapterV1 extends IRouterAdapterBaseV1 {
     params: AvailableToTradeParams<this['protocolId']>,
     opts?: ApiOpts
   ): Promise<AmountInfo>
+
+  setCredentials(auth: AuthParams<this['protocolId']>): void
 }

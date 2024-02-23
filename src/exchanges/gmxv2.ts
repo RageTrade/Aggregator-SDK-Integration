@@ -191,6 +191,10 @@ export default class GmxV2Service implements IAdapterV1 {
     return Promise.resolve()
   }
 
+  setCredentials(): void {
+    throw new Error('Method not implemented.')
+  }
+
   async setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }

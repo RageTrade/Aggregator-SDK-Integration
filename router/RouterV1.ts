@@ -31,7 +31,9 @@ import {
   DepositWithdrawParams,
   AgentParams,
   AgentState,
-  IdleMarginInfo
+  IdleMarginInfo,
+  AevoAuth,
+  AuthParams
 } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { IRouterV1 } from '../src/interfaces/V1/IRouterV1'
 import { protocols } from '../src/common/protocols'
@@ -60,6 +62,10 @@ export default class RouterV1 implements IRouterV1 {
     this.adapters[protocols.GMXV2.symbol] = new GMXV2Service()
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
     this.adapters[protocols.AEVO.symbol] = new AevoAdapterV1()
+  }
+
+  setCredentials<T extends ProtocolId>(protocol: T, credentials: AuthParams<T>) {
+    this.adapters[protocol].setCredentials(credentials)
   }
 
   async deposit(params: DepositWithdrawParams[]): Promise<ActionParam[]> {

@@ -116,6 +116,7 @@ export type AvailableToTradeParams<T extends ProtocolId> = T extends 'GMXV1' | '
     }
   : never
 
+export type AuthParams<T extends ProtocolId> = T extends 'AEVO' ? AevoAuth : undefined
 /**
  * Represents the parameters required for depositing or withdrawing assets.
  * @property amount The amount to deposit or withdraw.
