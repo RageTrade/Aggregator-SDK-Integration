@@ -120,7 +120,7 @@ type ActualPosition = NonNullable<
 type AccountData = Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>
 
 export class ExtendedAevoClient extends AevoClient {
-  private headers: Record<string, string> & HeadersInit = {
+  headers: Record<string, string> & HeadersInit = {
     'Content-Type': 'application/json'
   }
 
@@ -1009,7 +1009,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const od = orderData[i]
       const pos = existingPos[i]
       const asset = aevoMarketIdToAsset(od.marketId)
-      const actPos = pos ? (pos.metadata as ActualPosition) : undefined
+      const actPos = pos
+        ? (pos.metadata as NonNullable<
+          Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
+        >[0])
+        : undefined
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
 
@@ -1338,6 +1342,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     if (opts && opts.aevoAuth) {
       this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
     } else if (strict) throw AEVO_CREDENTIAL_MISSING_ERROR
+
+    if (!this.aevoClient.headers['AEVO-KEY'] || !this.aevoClient.headers['AEVO-SECRET']) {
+      throw new Error('headers not set')
+    }
   }
 
   async _preWarmCache(opts?: ApiOpts) {
