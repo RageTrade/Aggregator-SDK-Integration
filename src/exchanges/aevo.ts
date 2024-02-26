@@ -603,7 +603,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         const oiToken = FixedNumber.fromString(t!.open_interest)
         const iPrice = FixedNumber.fromString(t!.index_price)
         const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
-        const fundingRate = FixedNumber.fromString(t!.funding_rate)
+        const fundingRate = t!.funding_rate ? FixedNumber.fromString(t!.funding_rate) : ZERO_FN
 
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
@@ -628,10 +628,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         const liqData = assetLiquidityMap[i]
 
         if (cgStat) {
-          const oiToken = FixedNumber.fromString(cgStat.open_interest!)
-          const iPrice = FixedNumber.fromString(cgStat.index_price!)
+          const oiToken = cgStat.open_interest ? FixedNumber.fromString(cgStat.open_interest) : ZERO_FN
+          const iPrice = cgStat.index_price ? FixedNumber.fromString(cgStat.index_price) : ZERO_FN
           const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
-          const fundingRate = FixedNumber.fromString(cgStat.funding_rate!)
+          const fundingRate = cgStat.funding_rate ? FixedNumber.fromString(cgStat.funding_rate) : ZERO_FN
 
           dynamicMarketMetadata.push({
             oiLong: oiUsd,
