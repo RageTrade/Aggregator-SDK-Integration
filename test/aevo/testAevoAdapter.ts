@@ -49,7 +49,7 @@ async function getDynamicMarketMetadata() {
   // const metadata1 = await aa.getDynamicMarketMetadata([btcMarketId /* , ethMarketId */])
   // console.dir(metadata1, { depth: 4 })
   // await delay(2500)
-  const metadata = await aa.getDynamicMarketMetadata([btcMarketId /* , ethMarketId */])
+  const metadata = await aa.getDynamicMarketMetadata([btcMarketId, ethMarketId, pepeMarketId])
   console.dir(metadata, { depth: 4 })
 }
 
@@ -183,7 +183,7 @@ async function getOrderbook() {
 
 aa.init(undefined).then(() => {
   delay(2500).then(() => {
-    getOrderbook()
+    getDynamicMarketMetadata()
       .then(() => process.exit(0))
       .catch((error) => {
         console.error(error)

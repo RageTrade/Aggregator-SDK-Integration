@@ -594,73 +594,58 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     const cachedTickers = assets.map((a) => getAevoWssTicker(a))
     // count liquidity till LIQUIDITY_SLIPPAGE in bps
     const LIQUIDITY_SLIPPAGE = '100'
+    const assetLiquidityMap = await Promise.all(assets.map((a) => this._getAvailableLiquidity(a, LIQUIDITY_SLIPPAGE)))
 
-    // TODO - turn on when funding rate from cache is resolved
-    // if (!cachedTickers.includes(undefined)) {
-    //   // return from cache
-    //   cachedTickers.forEach((t) => {
-    //     const oiToken = FixedNumber.fromString(t!.open_interest)
-    //     const iPrice = FixedNumber.fromString(t!.index_price)
-    //     const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
-    //     const fundingRate = FixedNumber.fromString(t!.funding_rate)
-
-    //     dynamicMarketMetadata.push({
-    //       oiLong: oiUsd,
-    //       oiShort: oiUsd,
-    //       availableLiquidityLong: ZERO_FN, // TODO - availableLiquidity from OB
-    //       availableLiquidityShort: ZERO_FN, // TODO - availableLiquidity from OB
-    //       longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
-    //       shortFundingRate: fundingRate,
-    //       longBorrowRate: ZERO_FN,
-    //       shortBorrowRate: ZERO_FN
-    //     })
-    //   })
-    // } else {
-    // get from CoingeckoStats Api
-    const sTimeCS = getStaleTime(CACHE_SECOND * 10, opts)
-    const cgStats = await aevoCacheGetCoingeckoStats(this.publicApi, sTimeCS, sTimeCS * CACHE_TIME_MULT, opts)
-
-    for (let i = 0; i < marketIds.length; i++) {
-      const mId = marketIds[i]
-      const asset = aevoMarketIdToAsset(mId)
-      const cgStat = cgStats.find((cg) => cg.base_currency === asset)
-
-      if (cgStat) {
-        const oiToken = FixedNumber.fromString(cgStat.open_interest!)
-        const iPrice = FixedNumber.fromString(cgStat.index_price!)
+    if (!cachedTickers.includes(undefined)) {
+      // return from cache
+      cachedTickers.forEach((t, index) => {
+        const liqData = assetLiquidityMap[index]
+        const oiToken = FixedNumber.fromString(t!.open_interest)
+        const iPrice = FixedNumber.fromString(t!.index_price)
         const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
-        const fundingRate = FixedNumber.fromString(cgStat.funding_rate!)
-
-        const cachedOB = getAevoWssOrderBook(asset)
-        const ob = cachedOB ? cachedOB : await this.publicApi.getOrderbook(`${asset}-PERP`)
-
-        let bids = ob.bids!
-        let asks = ob.asks!
-
-        bids = bids.slice(0, aevoIndexBasisSlippage(bids, LIQUIDITY_SLIPPAGE))
-        asks = asks.slice(0, aevoIndexBasisSlippage(asks, LIQUIDITY_SLIPPAGE))
-
-        // long liquidity is the total available asks (sell orders) in the book
-        const longLiquidity = asks.reduce((acc, ask) => {
-          return addFN(acc, mulFN(FixedNumber.fromString(ask[0]), FixedNumber.fromString(ask[1])))
-        }, ZERO_FN)
-        // short liquidity is the total available bids (buy orders) in the book
-        const shortLiquidity = bids.reduce((acc, bid) => {
-          return addFN(acc, mulFN(FixedNumber.fromString(bid[0]), FixedNumber.fromString(bid[1])))
-        }, ZERO_FN)
+        const fundingRate = FixedNumber.fromString(t!.funding_rate)
 
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
           oiShort: oiUsd,
-          availableLiquidityLong: longLiquidity,
-          availableLiquidityShort: shortLiquidity,
+          availableLiquidityLong: liqData.longLiquidity,
+          availableLiquidityShort: liqData.shortLiquidity,
           longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
           shortFundingRate: fundingRate,
           longBorrowRate: ZERO_FN,
           shortBorrowRate: ZERO_FN
         })
-      } else {
-        throw new Error(`No stats found for asset ${asset}`)
+      })
+    } else {
+      // get from CoingeckoStats Api
+      const sTimeCS = getStaleTime(CACHE_SECOND * 10, opts)
+      const cgStats = await aevoCacheGetCoingeckoStats(this.publicApi, sTimeCS, sTimeCS * CACHE_TIME_MULT, opts)
+
+      for (let i = 0; i < marketIds.length; i++) {
+        const mId = marketIds[i]
+        const asset = aevoMarketIdToAsset(mId)
+        const cgStat = cgStats.find((cg) => cg.base_currency === asset)
+        const liqData = assetLiquidityMap[i]
+
+        if (cgStat) {
+          const oiToken = FixedNumber.fromString(cgStat.open_interest!)
+          const iPrice = FixedNumber.fromString(cgStat.index_price!)
+          const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
+          const fundingRate = FixedNumber.fromString(cgStat.funding_rate!)
+
+          dynamicMarketMetadata.push({
+            oiLong: oiUsd,
+            oiShort: oiUsd,
+            availableLiquidityLong: liqData.longLiquidity,
+            availableLiquidityShort: liqData.shortLiquidity,
+            longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
+            shortFundingRate: fundingRate,
+            longBorrowRate: ZERO_FN,
+            shortBorrowRate: ZERO_FN
+          })
+        } else {
+          throw new Error(`No stats found for asset ${asset}`)
+        }
       }
     }
 
@@ -1501,5 +1486,30 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       takerFee,
       makerFee
     }
+  }
+
+  async _getAvailableLiquidity(
+    asset: string,
+    liqSlippage: string
+  ): Promise<{ longLiquidity: FixedNumber; shortLiquidity: FixedNumber }> {
+    const cachedOB = getAevoWssOrderBook(asset)
+    const ob = cachedOB ? cachedOB : await this.publicApi.getOrderbook(`${asset}-PERP`)
+
+    let bids = ob.bids!
+    let asks = ob.asks!
+
+    bids = bids.slice(0, aevoIndexBasisSlippage(bids, liqSlippage))
+    asks = asks.slice(0, aevoIndexBasisSlippage(asks, liqSlippage))
+
+    // long liquidity is the total available asks (sell orders) in the book
+    const longLiquidity = asks.reduce((acc, ask) => {
+      return addFN(acc, mulFN(FixedNumber.fromString(ask[0]), FixedNumber.fromString(ask[1])))
+    }, ZERO_FN)
+    // short liquidity is the total available bids (buy orders) in the book
+    const shortLiquidity = bids.reduce((acc, bid) => {
+      return addFN(acc, mulFN(FixedNumber.fromString(bid[0]), FixedNumber.fromString(bid[1])))
+    }, ZERO_FN)
+
+    return { longLiquidity, shortLiquidity }
   }
 }
