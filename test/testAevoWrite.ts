@@ -6,7 +6,7 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { tokens } from '../src/common/tokens'
 import AevoAdapterV1 from '../src/exchanges/aevo'
 import { FixedNumber } from '../src/common/fixedNumber'
-import { CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { AEVO_COLLATERAL_TOKEN, aevo as aevoChain } from '../src/configs/aevo/config'
 
 const p1 = generatePrivateKey()
@@ -179,8 +179,73 @@ async function testIncreaseOrder() {
   await execute(wallet, agentWallet, executionPayload)
 }
 
+async function testClosePosition() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const positionData = (await aevo.getAllPositions(wallet.account.address, undefined, opts)).result.find(
+    (m) => m.indexToken.symbol === 'ETH'
+  )!
+  console.dir(positionData, { depth: 6 })
+
+  const orderData: ClosePositionData[] = [
+    {
+      closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('3001.00000001'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
+        // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
+      },
+      // type: 'STOP_LOSS',
+      // type: 'TAKE_PROFIT',
+      // type: 'STOP_LOSS_LIMIT',
+      type: 'TAKE_PROFIT_LIMIT',
+      outputCollateral: AEVO_COLLATERAL_TOKEN
+    },
+    {
+      closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('3002.00000001'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
+        // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
+      },
+      // type: 'STOP_LOSS',
+      // type: 'TAKE_PROFIT',
+      // type: 'STOP_LOSS_LIMIT',
+      type: 'TAKE_PROFIT_LIMIT',
+      outputCollateral: AEVO_COLLATERAL_TOKEN
+    },
+    {
+      closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('3003.00000001'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
+        // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
+      },
+      // type: 'STOP_LOSS',
+      // type: 'TAKE_PROFIT',
+      // type: 'STOP_LOSS_LIMIT',
+      type: 'TAKE_PROFIT_LIMIT',
+      outputCollateral: AEVO_COLLATERAL_TOKEN
+    }
+  ]
+
+  const executionPayload = await aevo.closePosition(
+    [positionData, positionData, positionData],
+    orderData,
+    wallet.account.address
+  )
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(wallet, agentWallet, executionPayload)
+}
+
 // testDeposit()
 // testRegister()
 // testGetAgentState()
 // testAuthenticateAgent()
-testIncreaseOrder()
+// testIncreaseOrder()
+testClosePosition()
