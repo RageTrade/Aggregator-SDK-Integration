@@ -146,6 +146,7 @@ import {
 import { arbitrum } from 'viem/chains'
 import { hlGetCachedOrderBook, hlGetCachedL2Book } from '../configs/hyperliquid/api/wsclient'
 import { TraverseResult } from '../common/types'
+import { ZERO_FN } from '../common/constants'
 
 export default class HyperliquidAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'HL'
@@ -248,6 +249,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
           minPositionSize: FixedNumber.fromValue(this.minPositionUsd.toString(), 30, 30),
+          minPositionSizeToken: ZERO_FN,
           maxPrecision: 4,
           amountStep: undefined,
           priceStep: undefined

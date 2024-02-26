@@ -189,7 +189,8 @@ export type Market = {
  * @property maxLeverage The maximum leverage.
  * @property minLeverage The minimum leverage.
  * @property minInitialMargin The minimum initial margin.
- * @property minPositionSize The minimum position size.
+ * @property minPositionSize The minimum position size in usd
+ * @property minPositionSizeToken The minimum position size in token
  * @property maxPrecision The maximum precision. Used for OrderBook exchanges, for non orderbook exchanges, this is defaulted to 1
  * @property amountStep The step for amount.
  * @property priceStep The step for price.
@@ -199,6 +200,7 @@ export type GenericStaticMarketMetadata = {
   minLeverage: FixedNumber
   minInitialMargin: FixedNumber
   minPositionSize: FixedNumber
+  minPositionSizeToken: FixedNumber
   maxPrecision: number
   amountStep: FixedNumber | undefined
   priceStep: FixedNumber | undefined

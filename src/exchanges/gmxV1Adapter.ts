@@ -1,7 +1,7 @@
 import { BigNumber, UnsignedTransaction, ethers } from 'ethers'
 import { getAddress, parseUnits } from 'ethers-v6'
 import { CACHE_SECOND, CACHE_TIME_MULT, GMXV1_CACHE_PREFIX, cacheFetch, getStaleTime } from '../../src/common/cache'
-import { ZERO } from '../../src/common/constants'
+import { ZERO, ZERO_FN } from '../../src/common/constants'
 import { FixedNumber } from '../../src/common/fixedNumber'
 import {
   applySlippage,
@@ -350,6 +350,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
           minLeverage: FixedNumber.fromValue('11000', 4, 4),
           minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
           minPositionSize: FixedNumber.fromValue(MIN_ORDER_USD.toString(), 30, 30),
+          minPositionSizeToken: ZERO_FN,
           maxPrecision: 1,
           amountStep: undefined,
           priceStep: undefined

@@ -90,7 +90,7 @@ import {
 import { usePositionsConstants } from '../configs/gmxv2/positions/usePositionsConstants'
 import { getTradeFees } from '../configs/gmxv2/trade/utils/common'
 import { TokensData } from '../configs/gmxv2/tokens/types'
-import { ZERO } from '../common/constants'
+import { ZERO, ZERO_FN } from '../common/constants'
 import {
   getDecreasePositionAmounts,
   getNextPositionValuesForDecreaseTrade
@@ -315,6 +315,7 @@ export default class GmxV2Service implements IAdapterV1 {
             minLeverage: FixedNumber.fromValue('11000', 4, 4),
             minInitialMargin: FixedNumber.fromValue(this.minCollateralUsd.toString(), 30, 30),
             minPositionSize: FixedNumber.fromValue('0', 30, 30),
+            minPositionSizeToken: ZERO_FN,
             maxPrecision: 1,
             amountStep: undefined,
             priceStep: undefined

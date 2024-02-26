@@ -42,7 +42,7 @@ import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { Token, Maybe } from '../common/tokens'
 import { FuturesMarket, FuturesMarketAsset, FuturesMarketKey } from '@kwenta/sdk/dist/types'
 import { parseUnits } from 'ethers/lib/utils'
-import { ZERO } from '../common/constants'
+import { ZERO, ZERO_FN } from '../common/constants'
 import {
   CACHE_DAY,
   CACHE_SECOND,
@@ -156,6 +156,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
           minLeverage: FixedNumber.fromValue(parseUnits('1', D18).toString(), D18, D18),
           minInitialMargin: FixedNumber.fromValue(parseUnits('50', D18).toString(), D18, D18),
           minPositionSize: FixedNumber.fromValue(ZERO.toString(), D18, D18),
+          minPositionSizeToken: ZERO_FN,
           maxPrecision: 1,
           amountStep: undefined,
           priceStep: undefined

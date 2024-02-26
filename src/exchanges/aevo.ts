@@ -531,6 +531,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           minLeverage: FixedNumber.fromString('1'),
           minInitialMargin: FixedNumber.fromString('1'),
           minPositionSize: FixedNumber.fromString(m.min_order_value),
+          minPositionSizeToken: FixedNumber.fromString(m.amount_step),
           maxPrecision: 1,
           amountStep: FixedNumber.fromString(m.amount_step),
           priceStep: FixedNumber.fromString(m.price_step)
