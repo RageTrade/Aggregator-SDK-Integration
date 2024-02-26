@@ -99,6 +99,7 @@ import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../comm
 import {
   CANNOT_CHANGE_MODE,
   LEV_OUT_OF_BOUNDS,
+  MARGIN_DENOMINATION_TOKEN,
   MARGIN_DENOMINATION_USD,
   SIZE_DENOMINATION_TOKEN
 } from '../configs/hyperliquid/hlErrors'
@@ -1024,7 +1025,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const mp = marketPrices[i]
 
       if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
-      if (!validDenomination(od.marginDelta, false)) throw new Error(MARGIN_DENOMINATION_USD)
+      if (!validDenomination(od.marginDelta, true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
 
       if (pos && pos.mode !== od.mode) throw new Error(CANNOT_CHANGE_MODE)
 
