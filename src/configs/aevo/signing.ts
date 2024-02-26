@@ -150,7 +150,7 @@ export function updateAevoLeverage(
   return {
     chainId: 1,
     apiArgs: params,
-    isUserAction: true,
+    isUserAction: false,
     desc: EMPTY_DESC,
     heading: AEVO_UPDATE_LEVERAGE_H
   }
