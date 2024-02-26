@@ -64,7 +64,7 @@ export function populateTrigger(
       }
     }
 
-    return { orderData, limitPrice: triggerPrice }
+    return { orderData, limitPrice: triggerLimitPrice }
   } else {
     const orderData: ModifyRequest['order']['order_type'] = {
       trigger: {

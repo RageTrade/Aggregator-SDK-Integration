@@ -833,27 +833,17 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
       if (!closeData.triggerData.triggerLimitPrice) {
         closeData.triggerData.triggerLimitPrice = FixedNumber.fromString(
-          to6Decimals(
-            toNearestTick(
-              slippagePrice(
-                closeData.type === 'TAKE_PROFIT' || closeData.type === 'TAKE_PROFIT_LIMIT' ? isBuy : !isBuy,
-                slippage,
-                Number(closeData.triggerData.triggerPrice._value)
-              ),
-              Number(marketInfo.priceStep)
-            )
-          ).toString()
+          slippagePrice(isBuy, slippage, Number(closeData.triggerData.triggerPrice._value)).toString()
         )
       }
 
-      let { orderData, limitPrice: triggerLimitPrice } = populateTrigger(
-        isBuy,
-        price,
-        closeData.type,
-        closeData.triggerData
+      closeData.triggerData.triggerLimitPrice = closeData.triggerData.triggerLimitPrice.mulFN(
+        FixedNumber.fromValue(10n ** 6n)
       )
 
-      triggerLimitPrice = to6Decimals(toNearestTick(triggerLimitPrice, Number(marketInfo.priceStep)))
+      let { orderData, limitPrice } = populateTrigger(isBuy, price, closeData.type, closeData.triggerData)
+
+      const triggerLimitPrice = toNearestTick(limitPrice, Number(marketInfo.priceStep))
       const triggerPrice = to6Decimals(
         toNearestTick(Number(closeData.triggerData.triggerPrice._value), Number(marketInfo.priceStep))
       )
@@ -870,10 +860,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         signature: '', // will be filled internally
         timestamp: '', // will be filled internally
         post_only: false,
-        reduce_only: true,
-        stop: orderData.trigger.tpsl == 'tp' ? stop.TAKE_PROFIT : stop.STOP_LOSS,
+        stop: orderData.trigger.tpsl === 'tp' ? stop.TAKE_PROFIT : stop.STOP_LOSS,
         trigger: triggerPrice.toString(),
-        close_position: true,
         time_in_force: closeData.tif
           ? closeData.tif === 'GTC'
             ? time_in_force.GTC
