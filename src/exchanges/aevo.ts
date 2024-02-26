@@ -43,7 +43,7 @@ import {
   AuthParams
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
-import { OpenAPI, time_in_force } from '../../generated/aevo'
+import { OpenAPI, stop, time_in_force } from '../../generated/aevo'
 import { aevoAddresses } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
@@ -106,6 +106,7 @@ import {
 import { TraverseResult } from '../common/types'
 import { traverseAevoBook } from '../configs/aevo/aevoObTraversal'
 import { AEVO_CREDENTIAL_MISSING_ERROR } from '../common/errors'
+import { populateTrigger } from '../configs/hyperliquid/helper'
 
 type FunctionKeys<T> = {
   [K in keyof T]: T[K] extends (...args: any) => any ? K : never
@@ -758,14 +759,134 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  closePosition(
+  async closePosition(
     positionInfo: PositionInfo[],
     closePositionData: ClosePositionData[],
     wallet: string,
     opts?: ApiOpts | undefined
   ): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+    const payload: ActionParam[] = []
+
+    // this assumes agent is created on f/e
+    this._setCredentials(opts, true)
+
+    if (positionInfo.length !== closePositionData.length) throw new Error('length mismatch')
+
+    for (let i = 0; i < positionInfo.length; ++i) {
+      const closeData = closePositionData[i]
+      const positionInfoData = positionInfo[i]
+
+      if (closeData.outputCollateral && closeData.outputCollateral.symbol !== AEVO_COLLATERAL_TOKEN.symbol)
+        throw new Error('token not supported')
+
+      // ensure size delta is in token terms
+      if (!closeData.closeSize.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // reject AL)
+      if (closeData.tif === 'ALO') throw new Error('ALO not supported')
+
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([positionInfoData.marketId], opts))[0]
+
+      const coin = marketInfo.indexToken.symbol
+      const asset = AEVO_TOKENS_MAP[coin]
+
+      let sizeDelta = Number(closeData.closeSize.amount._value)
+      sizeDelta = toNearestTick(sizeDelta, Number(marketInfo.amountStep))
+
+      const price = Number((await this.getMarketPrices([marketInfo.marketId], opts))[0]._value)
+
+      const isBuy = positionInfoData.direction === 'SHORT'
+
+      // close position doesn't take custom slippage in interface
+      const slippage = 0.01
+
+      if (closeData.type == 'MARKET') {
+        const limitPrice = to6Decimals(
+          toNearestTick(slippagePrice(isBuy, slippage, price), Number(marketInfo.priceStep))
+        )
+
+        const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]> = {
+          instrument: Number(asset.instrumentId),
+          maker: wallet,
+          is_buy: isBuy,
+          amount: to6Decimals(sizeDelta).toString(),
+          limit_price: limitPrice.toString(),
+          salt: '', // will be filled internally
+          signature: '', // will be filled internally
+          timestamp: '', // will be filled internally
+          post_only: false,
+          reduce_only: false,
+          time_in_force: closeData.tif
+            ? closeData.tif === 'GTC'
+              ? time_in_force.GTC
+              : time_in_force.IOC
+            : time_in_force.GTC
+        }
+
+        payload.push(signCreateOrder(this, request))
+
+        continue
+      }
+
+      if (!closeData.triggerData) throw new Error('trigger data required')
+
+      if (!closeData.triggerData.triggerLimitPrice) {
+        closeData.triggerData.triggerLimitPrice = FixedNumber.fromString(
+          to6Decimals(
+            toNearestTick(
+              slippagePrice(
+                closeData.type === 'TAKE_PROFIT' || closeData.type === 'TAKE_PROFIT_LIMIT' ? isBuy : !isBuy,
+                slippage,
+                Number(closeData.triggerData.triggerPrice._value)
+              ),
+              Number(marketInfo.priceStep)
+            )
+          ).toString()
+        )
+      }
+
+      let { orderData, limitPrice: triggerLimitPrice } = populateTrigger(
+        isBuy,
+        price,
+        closeData.type,
+        closeData.triggerData
+      )
+
+      triggerLimitPrice = to6Decimals(toNearestTick(triggerLimitPrice, Number(marketInfo.priceStep)))
+      const triggerPrice = to6Decimals(
+        toNearestTick(Number(closeData.triggerData.triggerPrice._value), Number(marketInfo.priceStep))
+      )
+
+      if (!orderData || !orderData.trigger) throw new Error('error in computing order data')
+
+      const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]> = {
+        instrument: Number(asset.instrumentId),
+        maker: wallet,
+        is_buy: isBuy,
+        amount: to6Decimals(sizeDelta).toString(),
+        limit_price: triggerLimitPrice.toString(),
+        salt: '', // will be filled internally
+        signature: '', // will be filled internally
+        timestamp: '', // will be filled internally
+        post_only: false,
+        reduce_only: true,
+        stop: orderData.trigger.tpsl == 'tp' ? stop.TAKE_PROFIT : stop.STOP_LOSS,
+        trigger: triggerPrice.toString(),
+        close_position: true,
+        time_in_force: closeData.tif
+          ? closeData.tif === 'GTC'
+            ? time_in_force.GTC
+            : time_in_force.IOC
+          : time_in_force.GTC
+      }
+
+      payload.push(signCreateOrder(this, request))
+    }
+
+    return payload
   }
+
   updatePositionMargin(
     positionInfo: PositionInfo[],
     updatePositionMarginData: UpdatePositionMarginData[],
