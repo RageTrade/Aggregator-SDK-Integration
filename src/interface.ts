@@ -243,6 +243,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
@@ -251,6 +252,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
@@ -259,6 +261,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
@@ -267,6 +270,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
@@ -275,6 +279,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
   | {
       tx: UnsignedTransaction
@@ -283,6 +288,7 @@ export type UnsignedTxWithMetadata =
       ethRequired?: BigNumber
       heading: string
       desc: string
+      chainId: number
     }
 
 export type PaginatedRes<T> = {

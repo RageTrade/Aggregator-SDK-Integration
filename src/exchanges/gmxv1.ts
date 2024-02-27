@@ -219,7 +219,8 @@ export default class GmxV1Service implements IExchange {
       type: 'GMX_V1',
       data: undefined,
       heading: GMXV1_ENABLE_ORDERBOOK_H,
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     }
   }
 
@@ -233,7 +234,8 @@ export default class GmxV1Service implements IExchange {
       type: 'GMX_V1',
       data: undefined,
       heading: GMXV1_ENABLE_POSITION_ROUTER_H,
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     }
   }
 
@@ -328,7 +330,8 @@ export default class GmxV1Service implements IExchange {
         type: 'GMX_V1',
         data: undefined,
         heading: GMX_SET_REFERRAL_CODE_H,
-        desc: EMPTY_DESC
+        desc: EMPTY_DESC,
+        chainId: ARBITRUM
       })
     }
 
@@ -363,7 +366,8 @@ export default class GmxV1Service implements IExchange {
         type: 'ERC20_APPROVAL',
         data: { chainId: ARBITRUM, spender: router, token: tokenAddress },
         heading: getApproveTokenHeading(getToken(ARBITRUM, tokenAddress).symbol),
-        desc: EMPTY_DESC
+        desc: EMPTY_DESC,
+        chainId: ARBITRUM
       }
     }
   }
@@ -575,7 +579,8 @@ export default class GmxV1Service implements IExchange {
         wallet
       ),
       heading: getIncreasePositionHeading('GMXV1', order.direction, market.asset ? market.asset : ''),
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     })
 
     return txs
@@ -621,7 +626,8 @@ export default class GmxV1Service implements IExchange {
       type: 'GMX_V1',
       data: undefined,
       heading: UPDATE_ORDER_H,
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     })
 
     return txs
@@ -655,7 +661,8 @@ export default class GmxV1Service implements IExchange {
       type: 'GMX_V1',
       data: undefined,
       heading: CANCEL_ORDER_H,
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     })
 
     return txs
@@ -1000,7 +1007,8 @@ export default class GmxV1Service implements IExchange {
       data: undefined,
       ethRequired: await this.getEthRequired(provider, extraEthReq, this.MARKET_EXEC_FEE, wallet),
       heading: isDeposit ? UPDATE_DEPOSIT_H : UPDATE_WITHDRAW_H,
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: ARBITRUM
     })
 
     return txs
@@ -1080,7 +1088,8 @@ export default class GmxV1Service implements IExchange {
           getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol,
           'MARKET'
         ),
-        desc: EMPTY_DESC
+        desc: EMPTY_DESC,
+        chainId: ARBITRUM
       })
     } else {
       const orderBook = OrderBook__factory.connect(getContract(ARBITRUM, 'OrderBook')!, provider)
@@ -1115,7 +1124,8 @@ export default class GmxV1Service implements IExchange {
           getToken(ARBITRUM, this.getIndexTokenAddressFromPositionKey(position.indexOrIdentifier)).symbol,
           isTp ? 'TAKE_PROFIT' : 'STOP_LOSS'
         ),
-        desc: EMPTY_DESC
+        desc: EMPTY_DESC,
+        chainId: ARBITRUM
       })
     }
 

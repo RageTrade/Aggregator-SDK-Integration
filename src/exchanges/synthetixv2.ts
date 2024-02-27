@@ -65,6 +65,7 @@ import {
 } from '../common/buttonHeadings'
 
 const opProvider = rpc[10]
+const OPTIMISM = 10
 
 export default class SynthetixV2Service implements IExchange {
   private opChainId = 10
@@ -275,7 +276,8 @@ export default class SynthetixV2Service implements IExchange {
               order.direction,
               this._getTokenSymbol(market.asset!)
             ),
-      desc: EMPTY_DESC
+      desc: EMPTY_DESC,
+      chainId: OPTIMISM
     })
 
     return txs
@@ -305,7 +307,8 @@ export default class SynthetixV2Service implements IExchange {
         type: 'SNX_V2',
         data: undefined,
         heading: CANCEL_ORDER_H,
-        desc: EMPTY_DESC
+        desc: EMPTY_DESC,
+        chainId: OPTIMISM
       }
     ]
   }
