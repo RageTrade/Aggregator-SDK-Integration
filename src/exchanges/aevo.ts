@@ -1308,7 +1308,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       // const receiveMargin = isCross ? ZERO_FN : freedMargin.addFN(pnl)
 
       let liqPrice = ZERO_FN
-      if (accountData) {
+      if (accountData && remainingSize.gt(ZERO_FN)) {
         const floatSide = FixedNumber.fromString(pos.direction == 'LONG' ? '1' : '-1')
         const mmRatio = isPreLaunch ? AEVO_PRE_LAUNCH_MM : AEVO_NORMAL_MM
         let cumMargin = ZERO_FN
