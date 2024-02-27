@@ -318,7 +318,7 @@ export function roundedSize(size: number, szDecimals: number): number {
   }
 
   const multiplier = Math.pow(10, szDecimals)
-  const result = Math.round(size * multiplier) / multiplier
+  const result = Math.floor(size * multiplier) / multiplier
 
   return result
 }

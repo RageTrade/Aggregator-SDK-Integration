@@ -684,16 +684,22 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       // calculate leverage using sizeDelta and marginDelta
       let sizeDelta = Number(each.sizeDelta.amount._value)
-      sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
 
       const sizeDeltaNotional = each.type == 'MARKET' ? sizeDelta * price : sizeDelta * limitPrice
-
-      const marginDeltaNotional = Number(each.marginDelta.amount._value)
+      let marginDeltaNotional = Number(each.marginDelta.amount._value)
 
       // round towards closest int
       const currentLeverage = Number(marketState.leverage._value)
       const currentMode = marketState.marketMode
       const reqdLeverage = Math.round(sizeDeltaNotional / marginDeltaNotional)
+
+      if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
+        throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
+
+      if (reqdLeverage !== currentLeverage) payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
+
+      sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
+      marginDeltaNotional = sizeDelta / reqdLeverage
 
       const hlParams: AvailableToTradeParams<'HL'> = {
         mode: each.mode,
