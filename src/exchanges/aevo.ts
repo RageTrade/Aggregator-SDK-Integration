@@ -1452,13 +1452,15 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
   async _preWarmCache(opts?: ApiOpts) {
     await aevoCacheGetAllMarkets(this.publicApi, 0, 0, opts)
-    await aevoCacheGetCoingeckoStats(this.publicApi, 0, 0, opts)
-    await aevoCacheGetAllAssets(this.publicApi, 0, 0, opts)
 
-    if (opts && opts.aevoAuth) {
-      this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
-      await aevoCacheGetAccount(this.privateApi, 0, 0, opts)
-    }
+    // dev - removed below because low cache stale time anyways
+    // await aevoCacheGetCoingeckoStats(this.publicApi, 0, 0, opts)
+    // await aevoCacheGetAllAssets(this.publicApi, 0, 0, opts)
+
+    // if (opts && opts.aevoAuth) {
+    //   this.aevoClient.setCredentials(opts.aevoAuth.apiKey, opts.aevoAuth.secret)
+    //   await aevoCacheGetAccount(this.privateApi, 0, 0, opts)
+    // }
   }
 
   _getFee(
