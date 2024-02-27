@@ -6,8 +6,8 @@ import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { tokens } from '../src/common/tokens'
 import AevoAdapterV1 from '../src/exchanges/aevo'
 import { FixedNumber } from '../src/common/fixedNumber'
-import { ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 import { AEVO_COLLATERAL_TOKEN, aevo as aevoChain } from '../src/configs/aevo/config'
+import { CancelOrder, ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 
 const p1 = generatePrivateKey()
 const p2 = generatePrivateKey()
@@ -192,7 +192,7 @@ async function testClosePosition() {
     {
       closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
       triggerData: {
-        triggerPrice: FixedNumber.fromString('3001.00000001'),
+        triggerPrice: FixedNumber.fromString('3007.00000001'),
         triggerAboveThreshold: true,
         triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
         // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
@@ -206,7 +206,7 @@ async function testClosePosition() {
     {
       closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
       triggerData: {
-        triggerPrice: FixedNumber.fromString('3002.00000001'),
+        triggerPrice: FixedNumber.fromString('3008.00000001'),
         triggerAboveThreshold: true,
         triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
         // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
@@ -220,7 +220,7 @@ async function testClosePosition() {
     {
       closeSize: { amount: FixedNumber.fromString('0.02'), isTokenAmount: true },
       triggerData: {
-        triggerPrice: FixedNumber.fromString('3003.00000001'),
+        triggerPrice: FixedNumber.fromString('3009.00000001'),
         triggerAboveThreshold: true,
         triggerLimitPrice: FixedNumber.fromString('2999.0000000001')
         // triggerLimitPrice: FixedNumber.fromString('2200.00000001'),
@@ -243,9 +243,27 @@ async function testClosePosition() {
   await execute(wallet, agentWallet, executionPayload)
 }
 
+async function testCancelOrder() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const allOrders = (await aevo.getAllOrders(wallet.account.address, undefined)).result
+  console.dir(allOrders, { depth: 4 })
+
+  const orderData: CancelOrder[] = allOrders.map((o) => {
+    return { marketId: o.marketId, orderId: o.orderId, type: o.orderType }
+  })
+
+  const executionPayload = await aevo.cancelOrder(orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(wallet, agentWallet, executionPayload)
+}
+
 // testDeposit()
 // testRegister()
 // testGetAgentState()
 // testAuthenticateAgent()
 // testIncreaseOrder()
-testClosePosition()
+// testClosePosition()
+testCancelOrder()
