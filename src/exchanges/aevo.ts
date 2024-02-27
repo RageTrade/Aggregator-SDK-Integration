@@ -1,6 +1,6 @@
-import { Chain } from 'viem'
+import { Chain, WalletClient } from 'viem'
 import { FixedNumber, mulFN, addFN, divFN, subFN } from '../common/fixedNumber'
-import { ActionParam } from '../interfaces/IActionExecutor'
+import { ActionParam, RequestSignerFn } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
   ProtocolId,
@@ -50,7 +50,7 @@ import { rpc } from '../common/provider'
 import { SupportedChains, Token, tokens } from '../common/tokens'
 import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
-import { AEVO_DEPOSIT_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
+import { AEVO_DEPOSIT_H, CANCEL_ORDER_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
 import { signCreateOrder, signRegisterAgent, signRegisterWallet, updateAevoLeverage } from '../configs/aevo/signing'
 import { AevoClient } from '../../generated/aevo'
 import {
@@ -167,13 +167,14 @@ export class ExtendedAevoClient extends AevoClient {
 
   private parseNestedPath(name: string, params?: UrlParams): string {
     // splitting camel case method name to url
-    const pathSegments = name.split(/(?=[A-Z])/).map((segment) => segment.toLowerCase())
+    const pathSegments = name
+      .split(/(?=[A-Z])/)
+      .map((segment) => segment.toLowerCase())
+      .slice(0, 3)
     let url = ''
 
     for (const segment of pathSegments) {
-      if (segment === 'delete' || segment === 'put') {
-        url += '/'
-      } else if (segment !== 'get' && segment !== 'post') {
+      if (segment !== 'get' && segment !== 'post' && segment !== 'delete' && segment !== 'put') {
         url += `/${segment}`
       }
     }
@@ -181,7 +182,7 @@ export class ExtendedAevoClient extends AevoClient {
     // to handle cases like DELETE /order/:id
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
-        url = url.replace(key, String(value))
+        url = url.replace(`/${key}s/${key}`, `/${key}s/${value}`)
       })
     }
 
@@ -199,7 +200,13 @@ export class ExtendedAevoClient extends AevoClient {
     let { method, url } = this._getUrlAndMethod(name, urlParams)
     url = OpenAPI.BASE + url
 
-    const body = JSON.stringify(args)
+    let body
+
+    if (typeof args === 'object') {
+      body = JSON.stringify(args)
+    } else {
+      body = undefined
+    }
 
     const params: Parameters<typeof fetch> = [
       url,
@@ -741,8 +748,29 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     throw new Error('Method not implemented.')
   }
 
-  cancelOrder(orderData: CancelOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async cancelOrder(orderData: CancelOrder[], _: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    this._setCredentials(opts, true)
+
+    for (const each of orderData) {
+      const cancel: NonNullable<Parameters<AevoAdapterV1['privateApi']['deleteOrdersOrderId']>[0]> = each.orderId
+
+      const fn: RequestSignerFn = async (_: WalletClient) =>
+        this.aevoClient.transform('deleteOrdersOrderId', each.orderId, { order: cancel })
+
+      payload.push({
+        fn: fn,
+        chainId: 1,
+        isEoaSigner: false,
+        isUserAction: true,
+        isAgentRequired: false,
+        desc: EMPTY_DESC,
+        heading: CANCEL_ORDER_H
+      })
+    }
+
+    return payload
   }
 
   async closePosition(
