@@ -45,6 +45,14 @@ export function toNearestTick(input: number, tickSize: number): number {
   return Math.round(input / tickSize) * tickSize
 }
 
+export function toLowerTick(input: number, tickSize: number): number {
+  if (tickSize <= 0) {
+    throw new Error('Tick size must be greater than zero')
+  }
+
+  return Math.floor(input / tickSize) * tickSize
+}
+
 export function getReqdLeverage(sizeDelta: number, marginDelta: number, price: number) {
   if (marginDelta <= 0) throw new Error(LEV_OUT_OF_BOUNDS)
 

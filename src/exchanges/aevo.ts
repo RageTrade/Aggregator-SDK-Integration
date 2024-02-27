@@ -90,7 +90,8 @@ import {
   getReqdLeverage,
   toNearestTick,
   getReqdLeverageFN,
-  aevoMapAevoObToObData
+  aevoMapAevoObToObData,
+  toLowerTick
 } from '../configs/aevo/helper'
 import {
   aevoCacheGetAccount,
@@ -535,7 +536,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
             UPDATE: true,
             CANCEL: true
           },
-          marketSymbol: m.underlying_asset
+          marketSymbol: m.underlying_asset,
+          metadata: m
         }
 
         const staticMetadata: GenericStaticMarketMetadata = {
@@ -708,10 +710,13 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       }
 
       // calculate leverage using sizeDelta and marginDelta
-      const sizeDelta = toNearestTick(Number(each.sizeDelta.amount._value), Number(marketInfo.amountStep))
-      const marginDelta = Number(each.marginDelta.amount._value)
+      const marginDeltaOrig = Number(each.marginDelta.amount._value)
+      const reqdLeverage = getReqdLeverage(Number(each.sizeDelta.amount._value), marginDeltaOrig, limitPriceN)
 
-      const reqdLeverage = getReqdLeverage(sizeDelta, marginDelta, limitPriceN)
+      // floor sizeDelta as per the tick size
+      const sizeDelta = toLowerTick(Number(each.sizeDelta.amount._value), Number(marketInfo.amountStep))
+      // calculate marginDelta as per the new sizeDelta
+      const marginDelta = (sizeDelta * limitPriceN) / reqdLeverage
 
       const aevoParams: AvailableToTradeParams<'AEVO'> = undefined
 
@@ -912,7 +917,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const asset = AEVO_TOKENS_MAP[coin]
 
       let sizeDelta = Number(closeData.closeSize.amount._value)
-      sizeDelta = toNearestTick(sizeDelta, Number(marketInfo.amountStep))
+      sizeDelta = toLowerTick(sizeDelta, Number(marketInfo.amountStep))
 
       const price = Number((await this.getMarketPrices([marketInfo.marketId], opts))[0]._value)
 
@@ -1240,8 +1245,16 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     const acountDataPromise = isCredentialsSet
       ? aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
       : Promise.resolve(undefined)
+    const marketsInfoPromise = this.getMarketsInfo(
+      orderData.map((od) => od.marketId),
+      opts
+    )
 
-    const [marketPrices, accountData] = await Promise.all([marketPricesPromise, acountDataPromise])
+    const [marketPrices, accountData, marketsInfo] = await Promise.all([
+      marketPricesPromise,
+      acountDataPromise,
+      marketsInfoPromise
+    ])
 
     for (let i = 0; i < orderData.length; i++) {
       const od = orderData[i]
@@ -1254,6 +1267,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         : undefined
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
+      const marketInfo = marketsInfo[i]
 
       if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
       if (!validDenomination(od.marginDelta, true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
@@ -1261,13 +1275,21 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       if (pos && pos.mode !== od.mode) throw new Error(CANNOT_CHANGE_MODE)
 
       const isMarket = od.type == 'MARKET'
-      const orderSize = od.sizeDelta.amount
-      const trigPrice = isMarket ? mp : od.triggerData!.triggerPrice
+      // floor sizeDelta as per the tick size
+      const sizeDeltaRounded = toLowerTick(Number(od.sizeDelta.amount._value), Number(marketInfo.amountStep))
+      const orderSize = FixedNumber.fromString(sizeDeltaRounded.toString())
+
+      // round trig price to nearest tick
+      const trigPriceOrig = isMarket ? mp : od.triggerData!.triggerPrice
+      const trigPriceRounded = toNearestTick(Number(trigPriceOrig._value), Number(marketInfo.priceStep))
+      const trigPrice = FixedNumber.fromString(trigPriceRounded.toString())
 
       const actPosSize = actPos ? FixedNumber.fromString(actPos.amount) : ZERO_FN
       const actPosAvgEntryPrice = actPos ? FixedNumber.fromString(actPos.avg_entry_price) : ZERO_FN
 
-      const lev = FixedNumber.fromString(getReqdLeverageFN(orderSize, od.marginDelta.amount, trigPrice).toString())
+      const lev = FixedNumber.fromString(
+        getReqdLeverageFN(od.sizeDelta.amount, od.marginDelta.amount, trigPrice).toString()
+      )
       const curLev = pos ? pos.leverage : ZERO_FN
       if (pos && lev.lt(curLev)) throw new Error(LEV_OUT_OF_BOUNDS)
 
@@ -1381,8 +1403,16 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     )
     const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
     const acountDataPromise = aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+    const marketsInfoPromise = this.getMarketsInfo(
+      positionInfo.map((pos) => pos.marketId),
+      opts
+    )
 
-    const [marketPrices, accountData] = await Promise.all([marketPricesPromise, acountDataPromise])
+    const [marketPrices, accountData, marketsInfo] = await Promise.all([
+      marketPricesPromise,
+      acountDataPromise,
+      marketsInfoPromise
+    ])
 
     for (let i = 0; i < positionInfo.length; i++) {
       const pos = positionInfo[i]
@@ -1391,15 +1421,19 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const actPos = pos.metadata as ActualPosition
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
-      const closeSize = cpd.closeSize.amount
+      const marketInfo = marketsInfo[i]
+      const closeSizeRounded = toLowerTick(Number(cpd.closeSize.amount._value), Number(marketInfo.amountStep))
+      const closeSize = FixedNumber.fromString(closeSizeRounded.toString())
       const posSize = pos.size.amount
       const isMarket = cpd.type == 'MARKET'
       const isSpTlLimit = cpd.type == 'STOP_LOSS_LIMIT' || cpd.type == 'TAKE_PROFIT_LIMIT'
-      const trigPrice = isMarket
+      const trigPriceOrig = isMarket
         ? mp
         : isSpTlLimit
         ? cpd.triggerData!.triggerLimitPrice!
         : cpd.triggerData!.triggerPrice
+      const trigPriceRounded = toNearestTick(Number(trigPriceOrig._value), Number(marketInfo.priceStep))
+      const trigPrice = FixedNumber.fromString(trigPriceRounded.toString())
       const ml = pos.leverage
       const isCross = pos.mode == 'CROSS'
 
@@ -1466,6 +1500,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         // console.log('Liq Price from AV: ', liqPrice)
       }
 
+      const isError = closeSize.isZero()
+
       const preview: CloseTradePreviewInfo = {
         marketId: pos.marketId,
         collateral: pos.collateral,
@@ -1477,8 +1513,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         fee: fee,
         // receiveMargin: receiveMargin.gt(ZERO_FN) ? toAmountInfoFN(receiveMargin, true) : toAmountInfoFN(ZERO_FN, true),
         receiveMargin: toAmountInfoFN(ZERO_FN, true),
-        isError: false,
-        errMsg: ''
+        isError: isError,
+        errMsg: isError ? '(Rounded) Close size is zero' : ''
       }
       // console.log(preview)
 
@@ -1538,8 +1574,30 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     ])
   }
 
-  getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
-    throw new Error('Method not implemented.')
+  async getMarketState(wallet: string, marketIds: string[], opts?: ApiOpts | undefined): Promise<MarketState[]> {
+    this._setCredentials(opts, true)
+    const marketStates: MarketState[] = []
+
+    const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
+    const acccountData = await aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount, opts)
+    const leverages = acccountData.leverages
+
+    if (!leverages) throw new Error('leverages not found')
+
+    for (let i = 0; i < marketIds.length; i++) {
+      const mId = marketIds[i]
+      const asset = aevoMarketIdToAsset(mId)
+      const lev = leverages.find((l) => l.instrument_id == AEVO_TOKENS_MAP[asset].instrumentId)
+
+      if (!lev) throw new Error('leverage not found')
+
+      const marketState: MarketState = {
+        marketMode: lev.margin_type,
+        leverage: FixedNumber.fromString(lev.leverage)
+      }
+    }
+
+    return marketStates
   }
 
   async getOrderBooks(
