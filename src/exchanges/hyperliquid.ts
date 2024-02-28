@@ -699,7 +699,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage !== currentLeverage) payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
 
       sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
-      marginDeltaNotional = sizeDelta / reqdLeverage
+      const sizeDeltaNotionalRounded = each.type == 'MARKET' ? sizeDelta * price : sizeDelta * limitPrice
+      marginDeltaNotional = sizeDeltaNotionalRounded / reqdLeverage
 
       const hlParams: AvailableToTradeParams<'HL'> = {
         mode: each.mode,
