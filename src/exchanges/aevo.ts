@@ -51,7 +51,13 @@ import { SupportedChains, Token, tokens } from '../common/tokens'
 import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
 import { AEVO_DEPOSIT_H, CANCEL_ORDER_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
-import { signCreateOrder, signRegisterAgent, signRegisterWallet, updateAevoLeverage } from '../configs/aevo/signing'
+import {
+  signCreateOrder,
+  signRegisterAgent,
+  signRegisterWallet,
+  signUpdateeOrder,
+  updateAevoLeverage
+} from '../configs/aevo/signing'
 import { AevoClient } from '../../generated/aevo'
 import {
   AEVO_CACHE_PREFIX,
@@ -94,7 +100,7 @@ import {
   aevoCacheGetOrderbook
 } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
-import { slippagePrice } from '../configs/hyperliquid/api/client'
+import { cmpSide, slippagePrice } from '../configs/hyperliquid/api/client'
 import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
 import {
   CANNOT_CHANGE_MODE,
@@ -189,9 +195,9 @@ export class ExtendedAevoClient extends AevoClient {
   }
 
   // helper to infer types since we can't use generated client because fetch needs to be seperate
-  public transform<T extends AllowedMethods>(
+  public transform<T extends AllowedMethods, K extends 0 | 1>(
     name: T,
-    args: Parameters<AevoClient['privateApi'][T]>[0],
+    args: Parameters<AevoClient['privateApi'][T]>[K],
     urlParams?: UrlParams
   ) {
     if (!args) throw new Error('request body not passed')
@@ -743,8 +749,109 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return payload
   }
 
-  updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async updateOrder(orderData: UpdateOrder[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    this._setCredentials(opts, true)
+
+    // cannot update:
+    // - market
+    // - side
+    // - mode (whatever is in set on account time of exeuction)
+    // - leverage / margin (whatever is in set on account time of exeuction)
+    // can update:
+    // - size delta
+    // - trigger data
+
+    for (const each of orderData) {
+      // ensure size delta is in token terms
+      if (!each.sizeDelta.isTokenAmount) throw new Error('size delta required in token terms')
+
+      // ensure trigger data is present
+      if (!each.triggerData) throw new Error('trigger data required but not present')
+
+      // get market info
+      const marketInfo = (await this.getMarketsInfo([each.marketId], opts))[0]
+
+      // retrive original order
+      const order = await this.aevoClient.privateApi.getOrdersOrderId(each.orderId)
+
+      // throw if options order or filled
+      if (Number(order.filled) !== 0) throw new Error('cannot edit filled order')
+      if (order.avg_price && Number(order.avg_price) !== 0) throw new Error('cannot edit filled order')
+
+      if (order.strike || order.expiry || order.option_type) throw new Error('options not supported')
+
+      const asset = aevoInstrumentNameToAsset(order.instrument_name)
+
+      if (!order) throw new Error('no open order for given identifier')
+
+      if (asset !== marketInfo.indexToken.symbol) throw new Error('cannot update market on exisiting order')
+
+      if (!cmpSide(order.side === 'buy' ? 'B' : 'A', each.direction))
+        throw new Error('cannot update direction on exisiting order')
+
+      const isBuy = order.side === 'buy'
+      const price = Number((await this.getMarketPrices([each.marketId], opts))[0]._value)
+
+      if (!each.marginDelta.amount.eq(FixedNumber.fromString('0'))) {
+        throw new Error('invalid margin delta')
+      }
+
+      // calculate leverage using sizeDelta and marginDelta
+      let sizeDelta = Number(each.sizeDelta.amount._value)
+      sizeDelta = to6Decimals(toNearestTick(sizeDelta, Number(marketInfo.amountStep)))
+
+      let tif = each.tif ? (each.tif === 'GTC' ? time_in_force.GTC : time_in_force.IOC) : time_in_force.GTC
+
+      let tpsl = undefined
+      let limitPriceAdjusted = undefined
+      let triggerPriceAsjusted = undefined
+
+      if (each.triggerData.triggerLimitPrice) {
+        // covers following handling:
+        // - stop limit and stop market (and therefore TP / SL market & limit)
+        const { orderData, limitPrice } = populateTrigger(isBuy, price, each.orderType, each.triggerData)
+
+        if (!orderData || !orderData.trigger) throw new Error('trigger expected but not found')
+
+        tpsl = orderData.trigger.tpsl
+        limitPriceAdjusted = to6Decimals(toNearestTick(limitPrice, Number(marketInfo.priceStep)))
+        triggerPriceAsjusted = to6Decimals(toNearestTick(orderData.trigger.triggerPx, Number(marketInfo.priceStep)))
+      } else {
+        // covers following handling:
+        // - basic limit order which executes at specified price
+        limitPriceAdjusted = to6Decimals(
+          toNearestTick(
+            slippagePrice(isBuy, 0.01, Number(each.triggerData.triggerPrice._value)),
+            Number(marketInfo.priceStep)
+          )
+        )
+        triggerPriceAsjusted = to6Decimals(
+          toNearestTick(Number(each.triggerData.triggerPrice._value), Number(marketInfo.priceStep))
+        )
+      }
+
+      const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrdersOrderId']>[1]> = {
+        instrument: Number(order.instrument_id),
+        maker: wallet,
+        is_buy: isBuy,
+        amount: sizeDelta.toString(),
+        limit_price: limitPriceAdjusted.toString(),
+        salt: '', // will be filled internally
+        signature: '', // will be filled internally
+        timestamp: '', // will be filled internally
+        post_only: false,
+        reduce_only: order.reduce_only,
+        time_in_force: tif,
+        stop: tpsl ? (tpsl === 'tp' ? stop.TAKE_PROFIT : stop.STOP_LOSS) : (order.stop as stop | undefined),
+        trigger: triggerPriceAsjusted.toString()
+      }
+
+      payload.push(signUpdateeOrder(this, each.orderId, request))
+    }
+
+    return payload
   }
 
   async cancelOrder(orderData: CancelOrder[], _: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
@@ -896,9 +1003,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   ): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   claimFunding(wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     throw new Error('Method not implemented.')
   }
+
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
     throw new Error('Method not implemented.')
   }

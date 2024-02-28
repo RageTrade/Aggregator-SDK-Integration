@@ -1,7 +1,13 @@
 import { WalletClient, getAddress, maxUint256 } from 'viem'
 import AevoAdapterV1, { AEVO_REF_CODE } from '../../exchanges/aevo'
 import { APICallParamsWithMetadata, RequestSignerFnWithMetadata } from '../../interfaces/IActionExecutor'
-import { AEVO_REGISTER_H, AEVO_SET_REF_H, AEVO_UPDATE_LEVERAGE_H, EMPTY_DESC } from '../../common/buttonHeadings'
+import {
+  AEVO_REGISTER_H,
+  AEVO_SET_REF_H,
+  AEVO_UPDATE_LEVERAGE_H,
+  EMPTY_DESC,
+  UPDATE_ORDER_H
+} from '../../common/buttonHeadings'
 
 const AEVO_EIP712_DOMAIN = {
   name: 'Aevo Mainnet',
@@ -93,6 +99,53 @@ export function signRegisterWallet(instance: AevoAdapterV1): RequestSignerFnWith
     isAgentRequired: true,
     desc: EMPTY_DESC,
     heading: AEVO_SET_REF_H
+  }
+}
+
+type K = 1
+type T = 'postOrdersOrderId'
+
+export function signUpdateeOrder(
+  instance: AevoAdapterV1,
+  orderId: string,
+  updatedOrder: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrdersOrderId']>[1]>
+): RequestSignerFnWithMetadata {
+  return {
+    fn: async (wallet: WalletClient) => {
+      const timestamp = Math.floor(new Date().getTime() / 1000)
+      // to avoid leading zeros
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
+
+      const signableOrder = {
+        maker: getAddress(updatedOrder.maker),
+        isBuy: updatedOrder.is_buy,
+        limitPrice: BigInt(Math.round(Number(updatedOrder.limit_price))),
+        amount: BigInt(Math.round(Number(updatedOrder.amount))),
+        salt: salt,
+        instrument: BigInt(updatedOrder.instrument),
+        timestamp: BigInt(timestamp)
+      } as const
+
+      const sig = await wallet.signTypedData({
+        account: wallet.account!,
+        domain: AEVO_EIP712_DOMAIN,
+        types: ORDER_TYPE,
+        primaryType: 'Order',
+        message: signableOrder
+      })
+
+      updatedOrder.signature = sig
+      updatedOrder.salt = signableOrder.salt.toString()
+      updatedOrder.timestamp = signableOrder.timestamp.toString()
+
+      return instance.aevoClient.transform<T, K>('postOrdersOrderId', updatedOrder, { order: orderId })
+    },
+    chainId: 1,
+    isEoaSigner: false,
+    isUserAction: true,
+    isAgentRequired: true,
+    desc: EMPTY_DESC,
+    heading: UPDATE_ORDER_H
   }
 }
 
