@@ -57,7 +57,7 @@ import {
   signCreateOrder,
   signRegisterAgent,
   signRegisterWallet,
-  signUpdateeOrder,
+  signUpdateOrder,
   updateAevoLeverage
 } from '../configs/aevo/signing'
 import { AevoClient } from '../../generated/aevo'
@@ -859,7 +859,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         trigger: triggerPriceAsjusted.toString()
       }
 
-      payload.push(signUpdateeOrder(this, each.orderId, request))
+      payload.push(signUpdateOrder(this, each.orderId, request))
     }
 
     return payload

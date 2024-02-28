@@ -105,7 +105,7 @@ export function signRegisterWallet(instance: AevoAdapterV1): RequestSignerFnWith
 type K = 1
 type T = 'postOrdersOrderId'
 
-export function signUpdateeOrder(
+export function signUpdateOrder(
   instance: AevoAdapterV1,
   orderId: string,
   updatedOrder: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrdersOrderId']>[1]>
