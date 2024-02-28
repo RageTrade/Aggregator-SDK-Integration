@@ -141,7 +141,12 @@ import {
   MARGIN_DENOMINATION_TOKEN,
   LEV_OUT_OF_BOUNDS,
   CANNOT_DEC_LEV,
-  CANNOT_UPDATE_MARGIN_FOR_CROSS
+  CANNOT_UPDATE_MARGIN_FOR_CROSS,
+  PRICE_IMPACT_TOO_HIGH,
+  CLOSE_SIZE_ZERO,
+  openPreErrRes,
+  closePreErrRes,
+  preErrRes
 } from '../configs/hyperliquid/hlErrors'
 import { arbitrum } from 'viem/chains'
 import { hlGetCachedOrderBook, hlGetCachedL2Book } from '../configs/hyperliquid/api/wsclient'
@@ -1417,8 +1422,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const coin = m.indexToken.symbol
       const epos = webData2.clearinghouseState.assetPositions.find((ap) => ap.position.coin == coin)
       const mode = od.mode
-      if (epos && this._convertModeTypeToMarketMode(epos.position.leverage.type) !== mode)
-        throw new Error(CANNOT_CHANGE_MODE)
+      let isError = false
+      let errMsg = ''
+
+      if (epos && this._convertModeTypeToMarketMode(epos.position.leverage.type) !== mode) {
+        isError = true
+        errMsg = CANNOT_CHANGE_MODE
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, HL_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(CANNOT_CHANGE_MODE)
+      }
 
       const isCross = mode == 'CROSS'
       const isMarket = od.type == 'MARKET'
@@ -1455,7 +1468,13 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const lev = this._getReqLeverage(epos, od, trigPriceN, meta)
       const levFN = FixedNumber.fromString(lev.toString())
       const curLev = epos?.position.leverage.value || 0
-      if (lev < curLev) throw new Error(CANNOT_DEC_LEV)
+      if (lev < curLev) {
+        isError = true
+        errMsg = CANNOT_DEC_LEV
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, HL_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(CANNOT_DEC_LEV)
+      }
 
       // traverseOrderBook for market orders
       let traResult: TraverseResult | undefined = undefined
@@ -1529,7 +1548,12 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
 
       const priceImpact = isMarket ? traResult!.priceImpact : FixedNumber.fromString('0')
 
-      const isError = traResult ? (traResult.priceImpact.eq(FixedNumber.fromString('100')) ? true : false) : false
+      if (traResult && traResult.priceImpact.eq(FixedNumber.fromString('100'))) {
+        isError = true
+        errMsg = PRICE_IMPACT_TOO_HIGH
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, HL_COLLATERAL_TOKEN, errMsg))
+        continue
+      }
 
       const preview = {
         marketId: od.marketId,
@@ -1542,7 +1566,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         fee: fee,
         priceImpact: priceImpact,
         isError: isError,
-        errMsg: isError ? 'Price impact is too high' : ''
+        errMsg: errMsg
       }
       // console.log(preview)
 
@@ -1599,8 +1623,16 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         ? cpd.triggerData!.triggerLimitPrice!
         : cpd.triggerData!.triggerPrice
       const trigPrice = FixedNumber.fromString(roundedPrice(Number(trigPriceOrig._value)).toString())
+      let isError = false
+      let errMsg = ''
 
       if (!validDenomination(cpd.closeSize, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
+      if (closeSize.isZero()) {
+        isError = true
+        errMsg = CLOSE_SIZE_ZERO
+        previewsInfo.push(closePreErrRes(pos.marketId, true, true, HL_COLLATERAL_TOKEN, errMsg))
+        continue
+      }
 
       // traverseOrderBook for market orders in opposite direction to position
       let traResult: TraverseResult | undefined = undefined
@@ -1671,8 +1703,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         receiveMargin: receiveMargin.gt(FixedNumber.fromString('0'))
           ? toAmountInfoFN(receiveMargin, true)
           : toAmountInfoFN(FixedNumber.fromString('0'), true),
-        isError: false,
-        errMsg: ''
+        isError: isError,
+        errMsg: errMsg
       }
       // console.log(preview)
 
@@ -1716,9 +1748,17 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       const mp = FixedNumber.fromString(mid, 30)
       const margin = isAddMargin ? marginDelta[i].amount : mulFN(marginDelta[i].amount, FixedNumber.fromString('-1'))
       const marginN = Number(margin._value)
+      let isError = false
+      let errMsg = ''
 
       if (!validDenomination(marginDelta[i], true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
-      if (pos.mode == 'CROSS') throw new Error(CANNOT_UPDATE_MARGIN_FOR_CROSS)
+      if (pos.mode == 'CROSS') {
+        isError = true
+        errMsg = CANNOT_UPDATE_MARGIN_FOR_CROSS
+        previewsInfo.push(preErrRes(pos.marketId, true, true, HL_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(CANNOT_UPDATE_MARGIN_FOR_CROSS)
+      }
 
       const nextMargin = addFN(posMargin, margin)
 
@@ -1744,8 +1784,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         avgEntryPrice: pos.avgEntryPrice,
         liqudationPrice: liqPrice == null ? FixedNumber.fromString('0') : FixedNumber.fromString(liqPrice.toString()),
         fee: FixedNumber.fromString('0'),
-        isError: false,
-        errMsg: ''
+        isError: isError,
+        errMsg: errMsg
       }
       // console.log(preview)
 

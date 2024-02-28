@@ -105,10 +105,13 @@ import { cmpSide, slippagePrice } from '../configs/hyperliquid/api/client'
 import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
 import {
   CANNOT_CHANGE_MODE,
+  CLOSE_SIZE_ZERO,
   LEV_OUT_OF_BOUNDS,
   MARGIN_DENOMINATION_TOKEN,
   MARGIN_DENOMINATION_USD,
-  SIZE_DENOMINATION_TOKEN
+  SIZE_DENOMINATION_TOKEN,
+  closePreErrRes,
+  openPreErrRes
 } from '../configs/hyperliquid/hlErrors'
 import { TraverseResult } from '../common/types'
 import { traverseAevoBook } from '../configs/aevo/aevoObTraversal'
@@ -1268,16 +1271,32 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const isPreLaunch = AEVO_TOKENS_MAP[asset].isPreLaunch
       const mp = marketPrices[i]
       const marketInfo = marketsInfo[i]
+      let isError = false
+      let errMsg = ''
 
       if (!validDenomination(od.sizeDelta, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
       if (!validDenomination(od.marginDelta, true)) throw new Error(MARGIN_DENOMINATION_TOKEN)
 
-      if (pos && pos.mode !== od.mode) throw new Error(CANNOT_CHANGE_MODE)
+      if (pos && pos.mode !== od.mode) {
+        isError = true
+        errMsg = CANNOT_CHANGE_MODE
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, AEVO_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(CANNOT_CHANGE_MODE)
+      }
 
       const isMarket = od.type == 'MARKET'
       // floor sizeDelta as per the tick size
       const sizeDeltaRounded = toLowerTick(Number(od.sizeDelta.amount._value), Number(marketInfo.amountStep))
       const orderSize = FixedNumber.fromString(sizeDeltaRounded.toString())
+
+      if (sizeDeltaRounded === 0) {
+        isError = true
+        errMsg = '(Rounded) Pos size cannot be zero'
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, AEVO_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(SIZE_ZERO)
+      }
 
       // round trig price to nearest tick
       const trigPriceOrig = isMarket ? mp : od.triggerData!.triggerPrice
@@ -1291,7 +1310,13 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         getReqdLeverageFN(od.sizeDelta.amount, od.marginDelta.amount, trigPrice).toString()
       )
       const curLev = pos ? pos.leverage : ZERO_FN
-      if (pos && lev.lt(curLev)) throw new Error(LEV_OUT_OF_BOUNDS)
+      if (pos && lev.lt(curLev)) {
+        isError = true
+        errMsg = LEV_OUT_OF_BOUNDS
+        previewsInfo.push(openPreErrRes(od.marketId, true, true, AEVO_COLLATERAL_TOKEN, errMsg))
+        continue
+        // throw new Error(LEV_OUT_OF_BOUNDS)
+      }
 
       const nextSize = pos
         ? pos.direction === od.direction
@@ -1377,8 +1402,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         liqudationPrice: liqPrice,
         fee: fee,
         priceImpact: priceImpact,
-        isError: false,
-        errMsg: ''
+        isError: isError,
+        errMsg: errMsg
       }
 
       previewsInfo.push(preview)
@@ -1436,8 +1461,15 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const trigPrice = FixedNumber.fromString(trigPriceRounded.toString())
       const ml = pos.leverage
       const isCross = pos.mode == 'CROSS'
-
+      let isError = false
+      let errMsg = ''
       if (!validDenomination(cpd.closeSize, true)) throw new Error(SIZE_DENOMINATION_TOKEN)
+      if (closeSize.isZero()) {
+        isError = true
+        errMsg = CLOSE_SIZE_ZERO
+        previewsInfo.push(closePreErrRes(pos.marketId, true, true, AEVO_COLLATERAL_TOKEN, errMsg))
+        continue
+      }
 
       // get fees for the user
       const { takerFee, makerFee } = this._getFee(isPreLaunch, asset, accountData)
@@ -1500,8 +1532,6 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         // console.log('Liq Price from AV: ', liqPrice)
       }
 
-      const isError = closeSize.isZero()
-
       const preview: CloseTradePreviewInfo = {
         marketId: pos.marketId,
         collateral: pos.collateral,
@@ -1514,7 +1544,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         // receiveMargin: receiveMargin.gt(ZERO_FN) ? toAmountInfoFN(receiveMargin, true) : toAmountInfoFN(ZERO_FN, true),
         receiveMargin: toAmountInfoFN(ZERO_FN, true),
         isError: isError,
-        errMsg: isError ? '(Rounded) Close size is zero' : ''
+        errMsg: errMsg
       }
       // console.log(preview)
 
