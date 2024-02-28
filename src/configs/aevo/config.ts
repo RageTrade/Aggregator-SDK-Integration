@@ -283,7 +283,7 @@ export function aevoUpdateTokensMap(allMarkets: AllMarketsReturn) {
     AEVO_TOKENS_MAP[m.underlying_asset] = {
       symbol: m.underlying_asset,
       name: m.underlying_asset,
-      decimals: _decimalsIn(m.amount_step),
+      decimals: 18,
       address: {
         42161: undefined,
         10: undefined
