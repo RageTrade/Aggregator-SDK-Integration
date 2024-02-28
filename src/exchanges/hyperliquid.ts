@@ -1447,7 +1447,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
           : eposSizeN - orderSizeN
         : orderSizeN
       nextSizeN = nextSizeN < 0 ? nextSizeN * -1 : nextSizeN
-      const nextSize = FixedNumber.fromString(nextSizeN.toString())
+      // TODO - makeshift solution, need to find proper solution
+      const nextSize = FixedNumber.fromStringWithTruncate(nextSizeN.toString())
 
       // round towards closest int
       // const lev = Math.round(sizeDeltaNotional / marginDeltaNotional)
