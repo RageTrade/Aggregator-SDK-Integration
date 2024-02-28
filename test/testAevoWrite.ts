@@ -7,7 +7,7 @@ import { tokens } from '../src/common/tokens'
 import AevoAdapterV1 from '../src/exchanges/aevo'
 import { FixedNumber } from '../src/common/fixedNumber'
 import { AEVO_COLLATERAL_TOKEN, aevo as aevoChain } from '../src/configs/aevo/config'
-import { CancelOrder, ClosePositionData, CreateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { CancelOrder, ClosePositionData, CreateOrder, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
 
 const p1 = generatePrivateKey()
 const p2 = generatePrivateKey()
@@ -152,6 +152,7 @@ async function testAuthenticateAgent() {
 
 async function testIncreaseOrder() {
   const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
 
   const market = (await aevo.supportedMarkets([aevoChain])).find((m) => m.indexToken.symbol === 'BTC')!
 
@@ -260,10 +261,58 @@ async function testCancelOrder() {
   await execute(wallet, agentWallet, executionPayload)
 }
 
+async function testUpdateOrder() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const market = (await aevo.supportedMarkets([aevoChain])).find((m) => m.indexToken.symbol === 'ETH')!
+
+  // '0x03faddbc72a102dff7ab5609264fefe4f46355c512d7c19060e2f21ccaa6411e',
+  // '0xebe092323608f0a13c063b86bd46e91130716bfb76fe50d0dac1480bf01b0fde',
+  // '0xb84afb97c9b37dc1267ac51e92a6834c475118f7a2a2a1f4893aaa2f7388e38c',
+
+  const orderData: UpdateOrder[] = [
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.011000000000000000'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('2400.00000001'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: FixedNumber.fromString('2500')
+      },
+      mode: 'ISOLATED',
+      orderId: '0xebe092323608f0a13c063b86bd46e91130716bfb76fe50d0dac1480bf01b0fde',
+      orderType: 'TAKE_PROFIT_LIMIT'
+    },
+    {
+      marketId: market.marketId,
+      direction: 'LONG',
+      sizeDelta: { amount: FixedNumber.fromString('0.010000000000000001'), isTokenAmount: true },
+      marginDelta: { amount: FixedNumber.fromString('0'), isTokenAmount: true },
+      triggerData: {
+        triggerPrice: FixedNumber.fromString('3500.00000001'),
+        triggerAboveThreshold: true,
+        triggerLimitPrice: FixedNumber.fromString('3600')
+      },
+      mode: 'ISOLATED',
+      orderId: '0xb84afb97c9b37dc1267ac51e92a6834c475118f7a2a2a1f4893aaa2f7388e38c',
+      orderType: 'STOP_LOSS_LIMIT'
+    }
+  ]
+
+  const executionPayload = await aevo.updateOrder(orderData, wallet.account.address)
+  console.dir(executionPayload, { depth: 4 })
+
+  await execute(wallet, agentWallet, executionPayload)
+}
+
 // testDeposit()
 // testRegister()
 // testGetAgentState()
 // testAuthenticateAgent()
 // testIncreaseOrder()
 // testClosePosition()
-testCancelOrder()
+// testCancelOrder()
+testUpdateOrder()
