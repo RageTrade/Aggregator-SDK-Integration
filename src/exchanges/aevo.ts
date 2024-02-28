@@ -609,12 +609,12 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     const cachedTickers = assets.map((a) => getAevoWssTicker(a))
     // count liquidity till LIQUIDITY_SLIPPAGE in bps
     const LIQUIDITY_SLIPPAGE = '100'
-    // const assetLiquidityMap = await Promise.all(assets.map((a) => this._getAvailableLiquidity(a, LIQUIDITY_SLIPPAGE)))
+    const assetLiquidityMap = await Promise.all(assets.map((a) => this._getAvailableLiquidity(a, LIQUIDITY_SLIPPAGE)))
 
     if (!cachedTickers.includes(undefined)) {
       // return from cache
       cachedTickers.forEach((t, index) => {
-        // const liqData = assetLiquidityMap[index]
+        const liqData = assetLiquidityMap[index]
         const oiToken = FixedNumber.fromString(t!.open_interest)
         const iPrice = FixedNumber.fromString(t!.index_price)
         const oiUsd = oiToken.mulFN(iPrice).divFN(FixedNumber.fromString('2'))
@@ -623,8 +623,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
           oiShort: oiUsd,
-          availableLiquidityLong: ZERO_FN,
-          availableLiquidityShort: ZERO_FN,
+          availableLiquidityLong: liqData.longLiquidity,
+          availableLiquidityShort: liqData.shortLiquidity,
           longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
           shortFundingRate: fundingRate,
           longBorrowRate: ZERO_FN,
@@ -640,7 +640,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         const mId = marketIds[i]
         const asset = aevoMarketIdToAsset(mId)
         const cgStat = cgStats.find((cg) => cg.base_currency === asset)
-        // const liqData = assetLiquidityMap[i]
+        const liqData = assetLiquidityMap[i]
 
         if (cgStat) {
           const oiToken = cgStat.open_interest ? FixedNumber.fromString(cgStat.open_interest) : ZERO_FN
@@ -651,8 +651,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           dynamicMarketMetadata.push({
             oiLong: oiUsd,
             oiShort: oiUsd,
-            availableLiquidityLong: ZERO_FN,
-            availableLiquidityShort: ZERO_FN,
+            availableLiquidityLong: liqData.longLiquidity,
+            availableLiquidityShort: liqData.shortLiquidity,
             longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
             shortFundingRate: fundingRate,
             longBorrowRate: ZERO_FN,
