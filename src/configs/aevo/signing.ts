@@ -5,6 +5,7 @@ import {
   AEVO_REGISTER_H,
   AEVO_SET_REF_H,
   AEVO_UPDATE_LEVERAGE_H,
+  AEVO_WITHDRAW_H,
   EMPTY_DESC,
   UPDATE_ORDER_H
 } from '../../common/buttonHeadings'
@@ -35,6 +36,16 @@ const ORDER_TYPE = {
     { name: 'salt', type: 'uint256' },
     { name: 'instrument', type: 'uint256' },
     { name: 'timestamp', type: 'uint256' }
+  ]
+} as const
+
+const WITHDRAW_TYPE = {
+  Withdraw: [
+    { name: 'collateral', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'salt', type: 'uint256' },
+    { name: 'data', type: 'bytes32' }
   ]
 } as const
 
@@ -143,7 +154,7 @@ export function signUpdateOrder(
     chainId: 1,
     isEoaSigner: false,
     isUserAction: true,
-    isAgentRequired: true,
+    isAgentRequired: false,
     desc: EMPTY_DESC,
     heading: UPDATE_ORDER_H
   }
@@ -188,7 +199,7 @@ export function signCreateOrder(
     chainId: 1,
     isEoaSigner: false,
     isUserAction: true,
-    isAgentRequired: true,
+    isAgentRequired: false,
     desc: EMPTY_DESC,
     heading: AEVO_REGISTER_H
   }
@@ -206,5 +217,63 @@ export function updateAevoLeverage(
     isUserAction: false,
     desc: EMPTY_DESC,
     heading: AEVO_UPDATE_LEVERAGE_H
+  }
+}
+
+export function signWithdraw(
+  instance: AevoAdapterV1,
+  amount: bigint,
+  to: `0x${string}`,
+  data: `0x${string}`,
+  collateral: `0x${string}`,
+  recipient?: `0x${string}`,
+  socket_fees?: `0x${string}`,
+  socket_msg_gas_limit?: bigint,
+  socket_connector?: `0x${string}`
+): RequestSignerFnWithMetadata {
+  return {
+    fn: async (wallet: WalletClient) => {
+      // to avoid leading zeros
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
+
+      const message = {
+        to,
+        data,
+        salt,
+        amount,
+        collateral
+      }
+
+      const sig = await wallet.signTypedData({
+        account: wallet.account!,
+        domain: AEVO_EIP712_DOMAIN,
+        types: WITHDRAW_TYPE,
+        primaryType: 'Withdraw',
+        message
+      })
+
+      const saltStr = message.salt.toString()
+      const amountStr = message.amount.toString()
+
+      const payload: Parameters<(typeof instance.privateApi)['postWithdraw']>[0] = {
+        ...message,
+        salt: saltStr,
+        amount: amountStr,
+        signature: sig,
+        account: message.to,
+        recipient,
+        socket_fees,
+        socket_connector,
+        socket_msg_gas_limit: socket_msg_gas_limit?.toString()
+      }
+
+      return instance.aevoClient.transform('postWithdraw', payload, undefined)
+    },
+    chainId: 1,
+    isEoaSigner: true,
+    isUserAction: true,
+    isAgentRequired: false,
+    desc: EMPTY_DESC,
+    heading: AEVO_WITHDRAW_H
   }
 }
