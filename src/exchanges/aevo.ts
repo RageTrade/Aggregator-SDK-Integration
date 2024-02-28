@@ -40,7 +40,9 @@ import {
   TriggerData,
   OBData,
   AevoAuth,
-  AuthParams
+  AuthParams,
+  TradeDirection,
+  TradeOperationType
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import { OpenAPI, stop, time_in_force } from '../../generated/aevo'
@@ -98,7 +100,8 @@ import {
   aevoCacheGetAllMarkets,
   aevoCacheGetCoingeckoStats,
   aevoCacheGetAllAssets,
-  aevoCacheGetOrderbook
+  aevoCacheGetOrderbook,
+  aevoCacheGetTradeHistory
 } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { cmpSide, slippagePrice } from '../configs/hyperliquid/api/client'
@@ -1206,20 +1209,94 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return ordersForPosition
   }
 
-  getTradesHistory(
+  async getTradesHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    throw new Error('Method not implemented.')
+    this._setCredentials(opts, true)
+    const trades: HistoricalTradeInfo[] = []
+
+    const historyData = (await aevoCacheGetTradeHistory(this.privateApi, 0, 0, opts)).trade_history
+
+    if (historyData) {
+      const tradesHistory = historyData.filter((hd) => hd.trade_type == 'trade')
+      for (const th of tradesHistory) {
+        const asset = th.asset
+        const marketId = encodeMarketId(aevo.id.toString(), this.protocolId, asset)
+        const direction = th.side == 'buy' ? 'LONG' : 'SHORT'
+        const size = FixedNumber.fromString(th.amount)
+        const isClose = th.is_closing ? true : false
+        const tradeData: TradeData = {
+          marketId: marketId,
+          direction: direction,
+          sizeDelta: toAmountInfoFN(size, true),
+          marginDelta: toAmountInfoFN(ZERO_FN, true) // marginDelta is not available in trade history
+        }
+
+        const tradeInfo: HistoricalTradeInfo = {
+          ...tradeData,
+          collateral: AEVO_COLLATERAL_TOKEN,
+          timestamp: Math.floor(Number(th.created_timestamp) / 1000000000), // nano to seconds
+          indexPrice: FixedNumber.fromString(th.price!),
+          collateralPrice: FixedNumber.fromString('1'),
+          realizedPnl: th.pnl && isClose ? FixedNumber.fromString(th.pnl) : ZERO_FN,
+          keeperFeesPaid: FixedNumber.fromString('0'),
+          positionFee: FixedNumber.fromString(th.fees),
+          operationType: this._getOperationType(isClose, direction),
+          txHash: '' // txHash is not available in trade history
+        }
+
+        trades.push(tradeInfo)
+      }
+    }
+
+    return getPaginatedResponse(trades, pageOptions)
   }
-  getLiquidationHistory(
+
+  async getLiquidationHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<LiquidationInfo>> {
-    throw new Error('Method not implemented.')
+    this._setCredentials(opts, true)
+    const liquidations: LiquidationInfo[] = []
+
+    const historyDataPromise = aevoCacheGetTradeHistory(this.privateApi, 0, 0, opts).then((v) => v.trade_history)
+    const supportedMarketsPromise = this.supportedMarkets(this.supportedChains(), opts)
+
+    const [historyData, supportedMarkets] = await Promise.all([historyDataPromise, supportedMarketsPromise])
+
+    if (historyData) {
+      const liquidationHistory = historyData.filter((hd) => hd.trade_type == 'liquidation')
+      for (const lh of liquidationHistory) {
+        const asset = lh.asset
+        const marketId = encodeMarketId(aevo.id.toString(), this.protocolId, asset)
+        const market = supportedMarkets.find((m) => m.marketId === marketId)
+        const direction = lh.side == 'buy' ? 'LONG' : 'SHORT'
+        const liqFee = lh.liquidation_fee ? FixedNumber.fromString(lh.liquidation_fee) : ZERO_FN
+        const tradeFee = FixedNumber.fromString(lh.fees)
+        const totalFees = liqFee.addFN(tradeFee)
+
+        liquidations.push({
+          collateral: AEVO_COLLATERAL_TOKEN,
+          marketId: marketId,
+          liquidationPrice: lh.price ? FixedNumber.fromString(lh.price) : ZERO_FN,
+          direction: direction,
+          sizeClosed: toAmountInfoFN(FixedNumber.fromString(lh.amount), true),
+          realizedPnl: lh.pnl ? FixedNumber.fromString(lh.pnl) : ZERO_FN,
+          liquidationFees: totalFees, // liq fees + closing fee
+          remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true), // TODO: no remainingCollateral for fills because Aevo doesn't provide margin info
+          liqudationLeverage: market?.maxLeverage || ZERO_FN,
+          timestamp: Math.floor(Number(lh.created_timestamp) / 1000000000), // nano to seconds
+          txHash: '' // txHash is not available in trade history
+        })
+      }
+    }
+
+    return getPaginatedResponse(liquidations, pageOptions)
   }
+
   getClaimHistory(
     wallet: string,
     pageOptions: PageOptions | undefined,
@@ -1738,5 +1815,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     }, ZERO_FN)
 
     return { longLiquidity, shortLiquidity }
+  }
+
+  _getOperationType(isClose: boolean, direction: TradeDirection): TradeOperationType {
+    return direction == 'LONG' ? (isClose ? 'Close Short' : 'Open Long') : isClose ? 'Close Long' : 'Open Short'
   }
 }

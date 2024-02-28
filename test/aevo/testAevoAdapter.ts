@@ -181,9 +181,19 @@ async function getOrderbook() {
   console.dir(orderbook, { depth: 6 })
 }
 
+async function getTradesHistory() {
+  const trades = await aa.getTradesHistory(w, undefined, aevoPrivateOpts)
+  console.dir(trades, { depth: 6 })
+}
+
+async function getLiquidationHistory() {
+  const liquidations = await aa.getLiquidationHistory(w, undefined, aevoPrivateOpts)
+  console.dir(liquidations, { depth: 6 })
+}
+
 aa.init(undefined).then(() => {
-  delay(2500).then(() => {
-    getDynamicMarketMetadata()
+  delay(10).then(() => {
+    getLiquidationHistory()
       .then(() => process.exit(0))
       .catch((error) => {
         console.error(error)

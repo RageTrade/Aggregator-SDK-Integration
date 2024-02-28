@@ -52,6 +52,22 @@ export async function aevoCacheGetCoingeckoStats(
   })
 }
 
+export async function aevoCacheGetOrderbook(
+  asset: string,
+  publicApi: PublicApiService,
+  staleTime: number,
+  cacheTime: number,
+  opts?: ApiOpts
+) {
+  return await cacheFetch({
+    key: [AEVO_CACHE_PREFIX, 'orderbook', asset],
+    fn: () => publicApi.getOrderbook(`${asset}-PERP`),
+    staleTime: staleTime,
+    cacheTime: cacheTime,
+    opts
+  })
+}
+
 export async function aevoCacheGetAccount(
   privateApi: PrivateApiService,
   staleTime: number,
@@ -67,18 +83,55 @@ export async function aevoCacheGetAccount(
   })
 }
 
-export async function aevoCacheGetOrderbook(
-  asset: string,
-  publicApi: PublicApiService,
+type TradeHistoryReturnType = Awaited<ReturnType<PrivateApiService['getTradeHistory']>>
+
+export async function aevoCacheGetTradeHistory(
+  privateApi: PrivateApiService,
   staleTime: number,
   cacheTime: number,
   opts?: ApiOpts
-) {
-  return await cacheFetch({
-    key: [AEVO_CACHE_PREFIX, 'orderbook', asset],
-    fn: () => publicApi.getOrderbook(`${asset}-PERP`),
-    staleTime: staleTime,
-    cacheTime: cacheTime,
-    opts
-  })
+): Promise<TradeHistoryReturnType> {
+  const limitStep = 1000
+  let offset = 0
+  let tradeHistory: NonNullable<TradeHistoryReturnType['trade_history']> = []
+  let totalCount = 0
+
+  // since the max limit is 1000 repeateadly fetch the trade history until no more history is returned
+  do {
+    const tradeHistoryPart = await cacheFetch({
+      key: [AEVO_CACHE_PREFIX, 'tradesHistory', offset],
+      fn: () =>
+        privateApi.getTradeHistory(
+          0,
+          undefined,
+          undefined,
+          ['trade', 'liquidation'],
+          'PERPETUAL',
+          undefined,
+          limitStep,
+          false,
+          offset,
+          'created_timestamp',
+          'DESC'
+        ),
+      staleTime: staleTime,
+      cacheTime: cacheTime,
+      opts
+    })
+
+    if (tradeHistoryPart.trade_history && tradeHistoryPart.trade_history.length === limitStep) {
+      tradeHistory = tradeHistory.concat(tradeHistoryPart.trade_history)
+      offset += limitStep
+      totalCount += limitStep
+    } else {
+      tradeHistory = tradeHistory.concat(tradeHistoryPart.trade_history || [])
+      totalCount += tradeHistoryPart.trade_history?.length || 0
+      break
+    }
+  } while (true)
+
+  return {
+    trade_history: tradeHistory,
+    count: String(totalCount)
+  }
 }
