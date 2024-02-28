@@ -40,6 +40,7 @@ export async function traverseHLBook(
   let avgPriceAcc = FixedNumber.fromValue(0)
   let remainingSize = size
   let feesAcc = FixedNumber.fromValue(0)
+  let isBreak = false
   for (let i = l2Books.length - 1; i >= 0; i--) {
     // levels[0] is buy side, levels[1] is sell side
     const levels = l2Books[i].levels[direction === 'LONG' ? 1 : 0]
@@ -64,10 +65,12 @@ export async function traverseHLBook(
         avgPriceAcc = addFN(avgPriceAcc, mulFN(levelPrice, remainingSize))
         feesAcc = addFN(feesAcc, mulFN(mulFN(remainingSize, levelPrice), FixedNumber.fromString(HL_TAKER_FEE_BPS)))
         remainingSize = FixedNumber.fromValue(0)
-        break
         // console.log('satisfied at nSigFigs = ', i + 2)
+        isBreak = true
+        break
       }
     }
+    if (isBreak) break
   }
 
   const avgExecPrice = avgPriceAcc.divFN(size.subFN(remainingSize))

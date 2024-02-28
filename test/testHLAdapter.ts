@@ -92,8 +92,8 @@ async function getLiquidationHistory() {
 
 async function getOpenTradePreview() {
   const btcPrice = (await hl.getMarketPrices([btcMarketId], undefined))[0]
-  const marginAmount = FixedNumber.fromValue(parseUnits('4', 18).toString(), 18)
-  const lev = FixedNumber.fromString('5')
+  const marginAmount = FixedNumber.fromValue(parseUnits('1', 18).toString(), 18)
+  const lev = FixedNumber.fromString('29')
   const sizeUsd = mulFN(marginAmount, lev)
   console.log('sizeUsd:', sizeUsd)
   const size = divFN(sizeUsd, btcPrice)
@@ -372,7 +372,7 @@ async function testRefData() {
 }
 
 hl.init(w).then(() => {
-  getAllPositions()
+  getOpenTradePreview()
     .then(() => process.exit(0))
     .catch((error) => {
       console.error(error)
