@@ -22,6 +22,15 @@ export type ApiOpts = {
   bypassCache: boolean
   overrideStaleTime?: number
   aevoAuth?: AevoAuth
+  orderlyAuth?: OrderlyAuth
+}
+
+/**
+ * Represents the options for Orderly setup.
+ * @property keyExpirationInDays amount in days when Orderly key will expire. Default = 365
+ */
+export type OrderlyAuth = {
+  keyExpirationInDays?: number
 }
 
 /**
@@ -57,7 +66,7 @@ export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 /**
  * Represents the protocol ID.
  */
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO'
+export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO' | 'ORDERLY'
 
 /**
  * Represents the type of trade operation.
