@@ -1084,9 +1084,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     const [accountData, accumulatedFundings] = await Promise.all([accountDataPromise, accumulatedFundingsPromise])
 
     const leverages = accountData.leverages!
+    const perpPositions = accountData.positions!.filter((p) => p.instrument_type === 'PERPETUAL')
 
-    for (let i = 0; i < accountData.positions!.length; i++) {
-      const pos = accountData.positions![i]
+    for (let i = 0; i < perpPositions.length; i++) {
+      const pos = perpPositions[i]
       const marketId = encodeMarketId(aevo.id.toString(), this.protocolId, pos.asset)
       const posSize = FixedNumber.fromString(pos.amount)
       const posNtl = posSize.mulFN(FixedNumber.fromString(pos.mark_price))
