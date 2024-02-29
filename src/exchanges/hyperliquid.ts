@@ -701,8 +701,6 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
       if (reqdLeverage > Number(marketInfo.maxLeverage._value) || reqdLeverage < Number(marketInfo.minLeverage))
         throw new Error(`calculated leverage ${reqdLeverage} is out of bounds`)
 
-      if (reqdLeverage !== currentLeverage) payload.push(updateLeverage(reqdLeverage, coin, mode === 'CROSS', meta))
-
       sizeDelta = roundedSize(sizeDelta, meta.universe.find((u) => u.name === coin)!.szDecimals)
       const sizeDeltaNotionalRounded = each.type == 'MARKET' ? sizeDelta * price : sizeDelta * limitPrice
       marginDeltaNotional = sizeDeltaNotionalRounded / reqdLeverage

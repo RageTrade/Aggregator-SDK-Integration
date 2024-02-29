@@ -500,7 +500,6 @@ export default class AevoAdapterV1 implements IAdapterV1 {
   // registers with given agent, eoa sign required
   // if agent wallet is lost from local storage, generate only signing_key
   // if api keys are lost, then generate only api keys
-  // TODO: check
   authenticateAgent(agentParams: AgentParams[], wallet: string, opts?: ApiOpts | undefined): Promise<ActionParam[]> {
     if (agentParams.length !== 1) throw new Error('agent params should be single item')
 
@@ -748,7 +747,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const coin = marketInfo.indexToken.symbol
       const asset = AEVO_TOKENS_MAP[coin]
 
-      // TODO: handle mode specific stuff when isolated is added,
+      // TODO: handle mode specific stuff when isolated is added
+      // TODO: allow changing margin mode when implementing isolated
       const mode = each.mode
 
       const isBuy = each.direction === 'LONG'
@@ -786,14 +786,18 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           ._value
       )
 
-      // TODO: add check that reqdLeverage > currentLeverage if there is open position (after market state is added)
-      // TODO: change margin mode when implementing isolated
+      const marketState = (await this.getMarketState(wallet, [each.marketId], opts))[0]
+      const currentMode = marketState.marketMode
+      if (mode !== 'CROSS' || currentMode !== 'CROSS') throw new Error('only cross mode is supported')
+
+      const currentLeverage = Number(marketState.leverage._value)
 
       if (availableToTrade < marginDelta) throw new Error('not enough available margin')
 
       if (each.tif === 'ALO') throw new Error('ALO not supported')
 
-      payload.push(updateAevoLeverage(this, { instrument: Number(asset.instrumentId), leverage: reqdLeverage }))
+      if (reqdLeverage !== currentLeverage || mode !== currentMode)
+        payload.push(updateAevoLeverage(this, { instrument: Number(asset.instrumentId), leverage: reqdLeverage }))
 
       const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]> = {
         instrument: Number(asset.instrumentId),
@@ -970,7 +974,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       // ensure size delta is in token terms
       if (!closeData.closeSize.isTokenAmount) throw new Error('size delta required in token terms')
 
-      // reject AL)
+      // reject ALO
       if (closeData.tif === 'ALO') throw new Error('ALO not supported')
 
       // get market info
