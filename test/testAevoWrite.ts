@@ -15,7 +15,7 @@ const p2 = generatePrivateKey()
 const wallet = createWalletClient({
   account: privateKeyToAccount(p1),
   transport: http(),
-  chain: optimism
+  chain: arbitrum
 })
 
 const agentWallet = createWalletClient({
@@ -308,6 +308,31 @@ async function testUpdateOrder() {
   await execute(wallet, agentWallet, executionPayload)
 }
 
+async function testWithdraw() {
+  const executionPayload = await aevo.withdraw([
+    {
+      protocol: 'AEVO',
+      chainId: wallet.chain.id,
+      token: tokens.USDC,
+      amount: FixedNumber.fromString('0.00001').toFormat(6),
+      wallet: wallet.account.address
+    }
+  ])
+
+  await execute(wallet, agentWallet, executionPayload)
+}
+
+async function pending() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const data = await aevo.privateApi.getTransactionHistory()
+  console.dir(
+    data.transaction_history?.map((d) => d.tx_status),
+    { depth: 6 }
+  )
+}
+
 // testDeposit()
 // testRegister()
 // testGetAgentState()
@@ -315,4 +340,6 @@ async function testUpdateOrder() {
 // testIncreaseOrder()
 // testClosePosition()
 // testCancelOrder()
-testUpdateOrder()
+// testUpdateOrder()
+// testWithdraw()
+pending()
