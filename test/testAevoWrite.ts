@@ -8,6 +8,7 @@ import AevoAdapterV1 from '../src/exchanges/aevo'
 import { FixedNumber } from '../src/common/fixedNumber'
 import { AEVO_COLLATERAL_TOKEN, aevo as aevoChain } from '../src/configs/aevo/config'
 import { CancelOrder, ClosePositionData, CreateOrder, UpdateOrder } from '../src/interfaces/V1/IRouterAdapterBaseV1'
+import { earnAevoUSD, redeemAevoUSD } from '../src/configs/aevo/signing'
 
 const p1 = generatePrivateKey()
 const p2 = generatePrivateKey()
@@ -333,6 +334,22 @@ async function pending() {
   )
 }
 
+async function earn() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const executionPayload = await earnAevoUSD(aevo, 420n)
+  await execute(wallet, agentWallet, [executionPayload])
+}
+
+async function redeem() {
+  const opts = await testAuthenticateAgent()
+  await aevo.init(wallet.account.address, opts)
+
+  const executionPayload = await redeemAevoUSD(aevo, 421n)
+  await execute(wallet, agentWallet, [executionPayload])
+}
+
 // testDeposit()
 // testRegister()
 // testGetAgentState()
@@ -342,4 +359,6 @@ async function pending() {
 // testCancelOrder()
 // testUpdateOrder()
 // testWithdraw()
-pending()
+// pending()
+// earn()
+// redeem()
