@@ -226,8 +226,7 @@ export function signWithdraw(
   to: `0x${string}`,
   data: `0x${string}`,
   collateral: `0x${string}`,
-  recipient?: `0x${string}`,
-  socket_fees?: `0x${string}`,
+  socket_fees?: bigint,
   socket_msg_gas_limit?: bigint,
   socket_connector?: `0x${string}`
 ): RequestSignerFnWithMetadata {
@@ -254,6 +253,8 @@ export function signWithdraw(
 
       const saltStr = message.salt.toString()
       const amountStr = message.amount.toString()
+      const socketFeesStr = socket_fees?.toString() || '0'
+      const gasLimitStr = socket_msg_gas_limit?.toString() || '0'
 
       const payload: Parameters<(typeof instance.privateApi)['postWithdraw']>[0] = {
         ...message,
@@ -261,10 +262,10 @@ export function signWithdraw(
         amount: amountStr,
         signature: sig,
         account: message.to,
-        recipient,
-        socket_fees,
+        recipient: message.to,
+        socket_fees: socketFeesStr,
         socket_connector,
-        socket_msg_gas_limit: socket_msg_gas_limit?.toString()
+        socket_msg_gas_limit: gasLimitStr
       }
 
       return instance.aevoClient.transform('postWithdraw', payload, undefined)
