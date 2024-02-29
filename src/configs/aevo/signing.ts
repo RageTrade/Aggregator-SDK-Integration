@@ -4,6 +4,7 @@ import { APICallParamsWithMetadata, RequestSignerFnWithMetadata } from '../../in
 import {
   AEVO_EARN,
   AEVO_ENABLE_TRADING_H,
+  AEVO_REDEEM,
   AEVO_REGISTER_H,
   AEVO_SET_REF_H,
   AEVO_UPDATE_LEVERAGE_H,
@@ -368,6 +369,6 @@ export async function redeemAevoUSD(instance: AevoAdapterV1, amount: bigint) {
     isUserAction: true,
     isAgentRequired: false,
     desc: EMPTY_DESC,
-    heading: AEVO_EARN
+    heading: AEVO_REDEEM
   }
 }
