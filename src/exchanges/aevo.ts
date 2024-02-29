@@ -52,7 +52,14 @@ import { rpc } from '../common/provider'
 import { SupportedChains, Token, tokens } from '../common/tokens'
 import { IERC20, IERC20__factory } from '../../typechain/gmx-v1'
 import { BigNumber, ethers } from 'ethers'
-import { AEVO_DEPOSIT_H, CANCEL_ORDER_H, EMPTY_DESC, getApproveTokenHeading } from '../common/buttonHeadings'
+import {
+  AEVO_DEPOSIT_H,
+  CANCEL_ORDER_H,
+  EMPTY_DESC,
+  getApproveTokenHeading,
+  getClosePositionHeading,
+  getIncreasePositionHeading
+} from '../common/buttonHeadings'
 import {
   signCreateOrder,
   signRegisterAgent,
@@ -802,7 +809,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         time_in_force: each.tif ? (each.tif === 'GTC' ? time_in_force.GTC : time_in_force.IOC) : time_in_force.GTC
       }
 
-      payload.push(signCreateOrder(this, request))
+      const heading = getIncreasePositionHeading('AEVO', each.direction, marketInfo.marketSymbol)
+
+      payload.push(signCreateOrder(this, request, heading))
     }
 
     return payload
@@ -1003,7 +1012,9 @@ export default class AevoAdapterV1 implements IAdapterV1 {
             : time_in_force.GTC
         }
 
-        payload.push(signCreateOrder(this, request))
+        const heading = getClosePositionHeading('AEVO', marketInfo.marketSymbol, closeData.type)
+
+        payload.push(signCreateOrder(this, request, heading))
 
         continue
       }
@@ -1029,6 +1040,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
       if (!orderData || !orderData.trigger) throw new Error('error in computing order data')
 
+      const heading = getClosePositionHeading('AEVO', marketInfo.marketSymbol, closeData.type)
+
       const request: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]> = {
         instrument: Number(asset.instrumentId),
         maker: wallet,
@@ -1048,7 +1061,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           : time_in_force.GTC
       }
 
-      payload.push(signCreateOrder(this, request))
+      payload.push(signCreateOrder(this, request, heading))
     }
 
     return payload

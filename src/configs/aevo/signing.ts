@@ -5,8 +5,6 @@ import {
   AEVO_EARN,
   AEVO_ENABLE_TRADING_H,
   AEVO_REDEEM,
-  AEVO_REGISTER_H,
-  AEVO_SET_REF_H,
   AEVO_UPDATE_LEVERAGE_H,
   AEVO_WITHDRAW_H,
   EMPTY_DESC,
@@ -84,7 +82,7 @@ export function signRegisterAgent(instance: AevoAdapterV1, userAddress: `0x${str
     isUserAction: false,
     isAgentRequired: false,
     desc: EMPTY_DESC,
-    heading: AEVO_REGISTER_H
+    heading: AEVO_ENABLE_TRADING_H
   }
 }
 
@@ -122,7 +120,7 @@ export function signRegisterWallet(instance: AevoAdapterV1): RequestSignerFnWith
     isUserAction: true,
     isAgentRequired: true,
     desc: EMPTY_DESC,
-    heading: AEVO_SET_REF_H
+    heading: AEVO_ENABLE_TRADING_H
   }
 }
 
@@ -175,7 +173,8 @@ export function signUpdateOrder(
 
 export function signCreateOrder(
   instance: AevoAdapterV1,
-  order: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]>
+  order: NonNullable<Parameters<AevoAdapterV1['privateApi']['postOrders']>[0]>,
+  heading: string
 ): RequestSignerFnWithMetadata {
   return {
     fn: async (wallet: WalletClient) => {
@@ -214,7 +213,7 @@ export function signCreateOrder(
     isUserAction: true,
     isAgentRequired: false,
     desc: EMPTY_DESC,
-    heading: AEVO_REGISTER_H
+    heading: heading
   }
 }
 
