@@ -50,3 +50,14 @@ export const aevoAddresses = {
     l2WithdrawProxy: `0x${string}`
   }
 >
+
+export const withdrawGasLimits = {
+  10: 500000,
+  42161: 2000000
+} as const
+
+export const l2Addresses = {
+  'USDC.e': '0x643aaB1618c600229785A5E06E4b2d13946F7a1A',
+  USDC: '0x643aaB1618c600229785A5E06E4b2d13946F7a1A',
+  WETH: '0xB9D571c1EC576300f01ddfA5A082D9c571E45e36'
+} as Record<string, `0x${string}`>
