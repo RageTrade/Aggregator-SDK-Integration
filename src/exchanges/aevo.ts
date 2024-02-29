@@ -92,7 +92,7 @@ import {
   aevoCacheGetCoingeckoStats,
   aevoCacheGetAllAssets,
   aevoCacheGetOrderbook
-} from '../configs/aevo/aevoCacheHelper'g
+} from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { slippagePrice } from '../configs/hyperliquid/api/client'
 import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
