@@ -1,5 +1,5 @@
 import { Chain, WalletClient, getAddress } from 'viem'
-import { FixedNumber, mulFN, addFN, divFN, subFN } from '../common/fixedNumber'
+import { FixedNumber, mulFN, addFN } from '../common/fixedNumber'
 import { ActionParam, RequestSignerFn } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import {
@@ -39,7 +39,6 @@ import {
   OrderType,
   TriggerData,
   OBData,
-  AevoAuth,
   AuthParams,
   TradeDirection,
   TradeOperationType
@@ -107,7 +106,6 @@ import {
   aevoCacheGetAccount,
   aevoCacheGetAllMarkets,
   aevoCacheGetCoingeckoStats,
-  aevoCacheGetAllAssets,
   aevoCacheGetOrderbook,
   aevoCacheGetTradeHistory
 } from '../configs/aevo/aevoCacheHelper'
@@ -119,7 +117,6 @@ import {
   CLOSE_SIZE_ZERO,
   LEV_OUT_OF_BOUNDS,
   MARGIN_DENOMINATION_TOKEN,
-  MARGIN_DENOMINATION_USD,
   SIZE_DENOMINATION_TOKEN,
   closePreErrRes,
   openPreErrRes
@@ -136,7 +133,7 @@ type AllowedMethods = FunctionKeys<AevoClient['privateApi']>
 
 type UrlParams = { [key: string]: string | number }
 
-export const AEVO_REF_CODE = 'Bitter-Skitter-Lubin'
+export const AEVO_REF_CODE = 'RAGETRADE'
 
 type ActualPosition = NonNullable<
   Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['positions']
@@ -754,6 +751,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const isBuy = each.direction === 'LONG'
       const slippage = each.slippage ? each.slippage / 100 : 0.01
 
+      // cached unless opts has bypass cache
       const price = Number((await this.getMarketPrices([each.marketId], opts))[0]._value)
 
       let limitPrice = 0
@@ -864,6 +862,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         throw new Error('cannot update direction on exisiting order')
 
       const isBuy = order.side === 'buy'
+      // cached unless opts has bypass cache
       const price = Number((await this.getMarketPrices([each.marketId], opts))[0]._value)
 
       if (!each.marginDelta.amount.eq(FixedNumber.fromString('0'))) {
