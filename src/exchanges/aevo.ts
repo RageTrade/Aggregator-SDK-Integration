@@ -516,9 +516,11 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const isNativeETH = each.token.symbol === tokens.ETH.symbol
 
       const connector = aevoAddresses[each.chainId].withdrawalConnector[isNativeETH ? 'WETH' : each.token.symbol]
+      const withdrawProxy = aevoAddresses[each.chainId].l2WithdrawProxy
 
-      const address = l2Addresses[isNativeETH ? 'WETH' : each.token.symbol]
-      if (!address || !connector || address === ethers.constants.AddressZero)
+      const collateralAddress = l2Addresses[isNativeETH ? 'WETH' : each.token.symbol]
+
+      if (!collateralAddress || !connector || !withdrawProxy || collateralAddress === ethers.constants.AddressZero)
         throw new Error('token address not found / not withdrawable')
 
       const msgGasLimit = withdrawGasLimits[each.chainId]
@@ -537,9 +539,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         signWithdraw(
           this,
           amount,
+          getAddress(withdrawProxy),
           getAddress(each.wallet),
           withdrawMessage,
-          getAddress(address),
+          getAddress(collateralAddress),
           fees.toBigInt(),
           BigInt(msgGasLimit),
           getAddress(connector)

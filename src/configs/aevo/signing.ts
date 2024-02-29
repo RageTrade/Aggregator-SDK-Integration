@@ -224,6 +224,7 @@ export function signWithdraw(
   instance: AevoAdapterV1,
   amount: bigint,
   to: `0x${string}`,
+  account: `0x${string}`,
   data: `0x${string}`,
   collateral: `0x${string}`,
   socket_fees?: bigint,
@@ -257,12 +258,12 @@ export function signWithdraw(
       const gasLimitStr = socket_msg_gas_limit?.toString() || '0'
 
       const payload: Parameters<(typeof instance.privateApi)['postWithdraw']>[0] = {
-        ...message,
+        to: message.to,
+        collateral: message.collateral,
         salt: saltStr,
         amount: amountStr,
         signature: sig,
-        account: message.to,
-        recipient: message.to,
+        account,
         socket_fees: socketFeesStr,
         socket_connector,
         socket_msg_gas_limit: gasLimitStr
