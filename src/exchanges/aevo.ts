@@ -92,7 +92,7 @@ import {
   aevoCacheGetCoingeckoStats,
   aevoCacheGetAllAssets,
   aevoCacheGetOrderbook
-} from '../configs/aevo/aevoCacheHelper'
+} from '../configs/aevo/aevoCacheHelper'g
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
 import { slippagePrice } from '../configs/hyperliquid/api/client'
 import { getPaginatedResponse, toAmountInfoFN, validDenomination } from '../common/helper'
@@ -105,7 +105,6 @@ import {
 } from '../configs/hyperliquid/hlErrors'
 import { TraverseResult } from '../common/types'
 import { traverseAevoBook } from '../configs/aevo/aevoObTraversal'
-import { AEVO_CREDENTIAL_MISSING_ERROR } from '../common/errors'
 import { populateTrigger } from '../configs/hyperliquid/helper'
 
 type FunctionKeys<T> = {
