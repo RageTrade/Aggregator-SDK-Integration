@@ -1,4 +1,4 @@
-import { Chain, WalletClient } from 'viem'
+import { Chain, WalletClient, getAddress } from 'viem'
 import { FixedNumber, mulFN, addFN, divFN, subFN } from '../common/fixedNumber'
 import { ActionParam, RequestSignerFn } from '../interfaces/IActionExecutor'
 import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
@@ -46,7 +46,7 @@ import {
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
 import { OpenAPI, stop, time_in_force } from '../../generated/aevo'
-import { aevoAddresses } from '../configs/aevo/addresses'
+import { aevoAddresses, l2Addresses, withdrawGasLimits } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
 import { SupportedChains, Token, tokens } from '../common/tokens'
@@ -58,6 +58,7 @@ import {
   signRegisterAgent,
   signRegisterWallet,
   signUpdateOrder,
+  signWithdraw,
   updateAevoLeverage
 } from '../configs/aevo/signing'
 import { AevoClient } from '../../generated/aevo'
@@ -233,6 +234,8 @@ export class ExtendedAevoClient extends AevoClient {
   }
 }
 
+export const AEVO_L2_CHAIN_ID = 2999
+
 export default class AevoAdapterV1 implements IAdapterV1 {
   protocolId: ProtocolId = 'AEVO'
 
@@ -329,10 +332,12 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     }
   }
 
-  async _getExtraBridgeFee(chainId: Chain['id'], connector: string) {
-    const key = [AEVO_CACHE_PREFIX, 'getExtraBridgeFee', chainId, connector]
+  async _getExtraBridgeFee(srcChain: Chain['id'], dstChain: Chain['id'], connector: string, gasLimit?: number) {
+    const key = [AEVO_CACHE_PREFIX, 'getExtraBridgeFee', srcChain, dstChain, connector]
 
-    const url = `https://prod.dlapi.socket.tech/estimate-min-fees?srcPlug=${connector}&srcChainSlug=${chainId}&dstChainSlug=2999&msgGasLimit=${AevoAdapterV1.AEVO_GAS_LIMIT_WITH_BUFFER}&dstValue=1`
+    if (!gasLimit) gasLimit = AevoAdapterV1.AEVO_GAS_LIMIT_WITH_BUFFER
+
+    const url = `https://prod.dlapi.socket.tech/estimate-min-fees?srcPlug=${connector}&srcChainSlug=${srcChain}&dstChainSlug=${dstChain}&msgGasLimit=${gasLimit}&dstValue=1`
 
     return cacheFetch({
       key,
@@ -351,7 +356,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
 
       // get gas price
       const connector = aevoAddresses[each.chainId].connector[isNativeETH ? 'WETH' : each.token.symbol]
-      const additional = BigNumber.from(await this._getExtraBridgeFee(each.chainId, connector))
+      const additional = BigNumber.from(await this._getExtraBridgeFee(each.chainId, AEVO_L2_CHAIN_ID, connector))
 
       const amount = each.amount.toFormat(each.token.decimals).value
 
@@ -501,8 +506,48 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     return this._register(wallet as `0x${string}`)
   }
 
-  withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
-    throw new Error('Method not implemented.')
+  async withdraw(params: DepositWithdrawParams[]): Promise<ActionParam[]> {
+    const payload: ActionParam[] = []
+
+    for (const each of params) {
+      if (each.protocol !== 'AEVO') throw new Error('invalid protocol id')
+
+      // check if token is eth or not
+      const isNativeETH = each.token.symbol === tokens.ETH.symbol
+
+      const connector = aevoAddresses[each.chainId].withdrawalConnector[isNativeETH ? 'WETH' : each.token.symbol]
+
+      const address = l2Addresses[isNativeETH ? 'WETH' : each.token.symbol]
+      if (!address || !connector || address === ethers.constants.AddressZero)
+        throw new Error('token address not found / not withdrawable')
+
+      const msgGasLimit = withdrawGasLimits[each.chainId]
+      const fees = BigNumber.from(await this._getExtraBridgeFee(AEVO_L2_CHAIN_ID, each.chainId, connector, msgGasLimit))
+
+      const amount = each.amount.toFormat(each.token.decimals).value
+
+      const encodedSocketData = ethers.utils.defaultAbiCoder.encode(
+        ['uint256', 'uint256', 'address'],
+        [fees, msgGasLimit, connector]
+      )
+
+      const withdrawMessage = ethers.utils.keccak256(encodedSocketData) as `0x${string}`
+
+      payload.push(
+        signWithdraw(
+          this,
+          amount,
+          getAddress(each.wallet),
+          withdrawMessage,
+          getAddress(address),
+          fees.toBigInt(),
+          BigInt(msgGasLimit),
+          getAddress(connector)
+        )
+      )
+    }
+
+    return payload
   }
 
   supportedChains(opts?: ApiOpts | undefined): Chain[] {
