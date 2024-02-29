@@ -435,6 +435,7 @@ async function synService() {
   // logObject("Supported Networks: ", supportedNetworks[0]);
 
   const supportedMarkets = await ss.supportedMarkets(supportedNetworks[0])
+  console.log(supportedMarkets.map((m) => m.asset))
   // const pepeMarket = supportedMarkets.find(
   //     (m) => m.indexOrIdentifier === FuturesMarketKey.sPEPEPERP
   //   )!;
@@ -631,28 +632,28 @@ async function synService() {
 
   const ethMarket = supportedMarkets.find((m) => m.indexOrIdentifier === FuturesMarketKey.sETHPERP)!
 
-  for (let i = 0; i < 1; i++) {
-    const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
-    // await delay(100)
-    // console.time('getTradePreview')
-    const tradePreview = await getTradePreview(
-      '0x2f88a09ed4174750a464576FE49E586F90A34820',
-      ss,
-      sizeDelta,
-      '40000',
-      direction,
-      // ethers.utils.parseUnits('2109', 18),
-      marketPrice,
-      ethMarket
-      // { bypassCache: true, overrideStaleTime: undefined }
-    )
-    // console.timeEnd('getTradePreview')
-    console.log('\n')
-    // console.dir({ tradePreview }, { depth: 4 })
-    logObject('Trade Preview: ', tradePreview)
-    console.log('fee: ', formatAmount(tradePreview.fee, 18))
-    // logObject('PriceImpact: ', tradePreview.priceImpact)
-  }
+  // for (let i = 0; i < 1; i++) {
+  //   const marketPrice = BigNumber.from((await ss.getMarketPrice(ethMarket))!.value)
+  //   // await delay(100)
+  //   // console.time('getTradePreview')
+  //   const tradePreview = await getTradePreview(
+  //     '0x2f88a09ed4174750a464576FE49E586F90A34820',
+  //     ss,
+  //     sizeDelta,
+  //     '40000',
+  //     direction,
+  //     // ethers.utils.parseUnits('2109', 18),
+  //     marketPrice,
+  //     ethMarket
+  //     // { bypassCache: true, overrideStaleTime: undefined }
+  //   )
+  //   // console.timeEnd('getTradePreview')
+  //   console.log('\n')
+  //   // console.dir({ tradePreview }, { depth: 4 })
+  //   logObject('Trade Preview: ', tradePreview)
+  //   console.log('fee: ', formatAmount(tradePreview.fee, 18))
+  //   // logObject('PriceImpact: ', tradePreview.priceImpact)
+  // }
 
   // if (tradePreview.status == 0) {
   //   const triggerPrice = direction.includes("SHORT")
@@ -1320,7 +1321,7 @@ async function testPrice() {
 
 // startStreaming()
 
-gmxService()
+synService()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error(error)
