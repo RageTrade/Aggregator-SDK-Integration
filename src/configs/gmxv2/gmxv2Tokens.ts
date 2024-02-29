@@ -96,6 +96,54 @@ const tokens = [
     address: '0xDA10009cBd5D07dd0CeCc66161FC93D7c9000da1',
     decimals: 18,
     priceDecimals: 12
+  },
+  {
+    name: 'Wrapped BNB (LayerZero)',
+    symbol: 'BNB',
+    assetSymbol: 'WBNB (LayerZero)',
+    address: '0xa9004A5421372E1D83fB1f85b0fc986c912f91f3',
+    decimals: 18,
+    imageUrl: 'https://assets.coingecko.com/coins/images/825/standard/bnb-icon2_2x.png?1696501970',
+    coingeckoUrl: 'https://www.coingecko.com/en/coins/bnb',
+    coingeckoSymbol: 'BNB',
+    metamaskSymbol: 'WBNB',
+    explorerUrl: 'https://arbiscan.io/token/0xa9004A5421372E1D83fB1f85b0fc986c912f91f3',
+    priceDecimals: 12
+  },
+  {
+    name: 'Cosmos',
+    symbol: 'ATOM',
+    assetSymbol: 'ATOM',
+    address: '0x7D7F1765aCbaF847b9A1f7137FE8Ed4931FbfEbA',
+    decimals: 6,
+    imageUrl: 'https://assets.coingecko.com/coins/images/1481/standard/cosmos_hub.png?1696502525',
+    coingeckoUrl: 'https://www.coingecko.com/en/coins/cosmos-hub',
+    coingeckoSymbol: 'ATOM',
+    isSynthetic: true,
+    priceDecimals: 24
+  },
+  {
+    name: 'Near',
+    symbol: 'NEAR',
+    assetSymbol: 'NEAR',
+    address: '0x1FF7F3EFBb9481Cbd7db4F932cBCD4467144237C',
+    decimals: 24,
+    imageUrl: 'https://assets.coingecko.com/coins/images/10365/standard/near.jpg?1696510367',
+    coingeckoUrl: 'https://www.coingecko.com/en/coins/near',
+    coingeckoSymbol: 'NEAR',
+    isSynthetic: true,
+    priceDecimals: 6
+  },
+  {
+    name: 'Aave',
+    symbol: 'AAVE',
+    assetSymbol: 'AAVE',
+    address: '0xba5DdD1f9d7F570dc94a51479a000E3BCE967196',
+    decimals: 18,
+    imageUrl: 'https://assets.coingecko.com/coins/images/12645/standard/AAVE.png?1696512452',
+    coingeckoUrl: 'https://www.coingecko.com/en/coins/aave',
+    coingeckoSymbol: 'AAVE',
+    priceDecimals: 12
   }
 ]
 
