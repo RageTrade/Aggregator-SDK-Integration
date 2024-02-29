@@ -453,6 +453,7 @@ export class PrivateApiService {
             pending_withdrawals: pending_withdrawals_response;
             unrealized_pnl: unrealized_pnl_response;
             margin_value: string;
+            withdrawable_balance: string;
         }>;
         api_keys?: Array<{
             name?: name_response;
