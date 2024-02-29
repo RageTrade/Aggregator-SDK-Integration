@@ -61,3 +61,6 @@ export const l2Addresses = {
   USDC: '0x643aaB1618c600229785A5E06E4b2d13946F7a1A',
   WETH: '0xB9D571c1EC576300f01ddfA5A082D9c571E45e36'
 } as Record<string, `0x${string}`>
+
+// https://explorer.aevo.xyz/address/0xceB3d89ed0fBF2acEBFf36E2FB23DACb79BaF9e7
+export const AE_USD: `0x${string}` = '0xceB3d89ed0fBF2acEBFf36E2FB23DACb79BaF9e7'

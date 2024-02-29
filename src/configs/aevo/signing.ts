@@ -2,6 +2,8 @@ import { WalletClient, getAddress, maxUint256 } from 'viem'
 import AevoAdapterV1, { AEVO_REF_CODE } from '../../exchanges/aevo'
 import { APICallParamsWithMetadata, RequestSignerFnWithMetadata } from '../../interfaces/IActionExecutor'
 import {
+  AEVO_EARN,
+  AEVO_ENABLE_TRADING_H,
   AEVO_REGISTER_H,
   AEVO_SET_REF_H,
   AEVO_UPDATE_LEVERAGE_H,
@@ -9,6 +11,7 @@ import {
   EMPTY_DESC,
   UPDATE_ORDER_H
 } from '../../common/buttonHeadings'
+import { AE_USD, l2Addresses } from './addresses'
 
 const AEVO_EIP712_DOMAIN = {
   name: 'Aevo Mainnet',
@@ -46,6 +49,15 @@ const WITHDRAW_TYPE = {
     { name: 'amount', type: 'uint256' },
     { name: 'salt', type: 'uint256' },
     { name: 'data', type: 'bytes32' }
+  ]
+} as const
+
+const TRANSFER_TYPE = {
+  Transfer: [
+    { name: 'collateral', type: 'address' },
+    { name: 'to', type: 'address' },
+    { name: 'amount', type: 'uint256' },
+    { name: 'salt', type: 'uint256' }
   ]
 } as const
 
@@ -277,5 +289,85 @@ export function signWithdraw(
     isAgentRequired: false,
     desc: EMPTY_DESC,
     heading: AEVO_WITHDRAW_H
+  }
+}
+
+export async function earnAevoUSD(instance: AevoAdapterV1, amount: bigint) {
+  return {
+    fn: async (wallet: WalletClient) => {
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
+
+      const message = {
+        to: AE_USD,
+        salt: salt,
+        amount: amount,
+        collateral: l2Addresses['USDC']
+      }
+
+      const sig = await wallet.signTypedData({
+        account: wallet.account!,
+        domain: AEVO_EIP712_DOMAIN,
+        types: TRANSFER_TYPE,
+        primaryType: 'Transfer',
+        message
+      })
+
+      const payload: Parameters<(typeof instance.privateApi)['postTransfer']>[0] = {
+        ...message,
+        salt: salt.toString(),
+        amount: amount.toString(),
+        label: 'YV_DEPOSIT',
+        signature: sig,
+        account: wallet.account!.address
+      }
+
+      return instance.aevoClient.transform('postTransfer', payload, undefined)
+    },
+    chainId: 1,
+    isEoaSigner: true,
+    isUserAction: true,
+    isAgentRequired: false,
+    desc: EMPTY_DESC,
+    heading: AEVO_EARN
+  }
+}
+
+export async function redeemAevoUSD(instance: AevoAdapterV1, amount: bigint) {
+  return {
+    fn: async (wallet: WalletClient) => {
+      const salt = BigInt(Math.floor(100000000 + Math.random() * 900000000))
+
+      const message = {
+        to: AE_USD,
+        salt: salt,
+        amount: amount,
+        collateral: AE_USD
+      }
+
+      const sig = await wallet.signTypedData({
+        account: wallet.account!,
+        domain: AEVO_EIP712_DOMAIN,
+        types: TRANSFER_TYPE,
+        primaryType: 'Transfer',
+        message
+      })
+
+      const payload: Parameters<(typeof instance.privateApi)['postTransfer']>[0] = {
+        ...message,
+        salt: salt.toString(),
+        amount: amount.toString(),
+        label: 'YV_WITHDRAW',
+        signature: sig,
+        account: wallet.account!.address
+      }
+
+      return instance.aevoClient.transform('postTransfer', payload, undefined)
+    },
+    chainId: 1,
+    isEoaSigner: true,
+    isUserAction: true,
+    isAgentRequired: false,
+    desc: EMPTY_DESC,
+    heading: AEVO_EARN
   }
 }
