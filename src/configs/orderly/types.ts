@@ -25,3 +25,18 @@ export type NonUSDCHolding = {
   markPrice: number
   discount: number
 }
+
+export type FundingFeeHistory = {
+  funding_fee: number
+  symbol: string
+}
+
+export type OrderbookData = {
+  asks: OrderbookEntry[]
+  bids: OrderbookEntry[]
+}
+
+export type OrderbookEntry = {
+  price: number
+  quantity: number
+}

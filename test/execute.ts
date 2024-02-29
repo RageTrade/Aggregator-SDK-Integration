@@ -26,13 +26,16 @@ export async function execute(wallet: WalletClient, agentWallet: WalletClient, e
       continue
     }
 
-    if (!isRequestSignerFn(payload)) continue
-
-    // is submitting
-    const fetchPayload = await payload.fn(
-      payload.isEoaSigner ? wallet : agentWallet,
-      payload.isAgentRequired ? agentWallet.account!.address : undefined
-    )
+    let fetchPayload
+    if (isRequestSignerFn(payload)) {
+      // is submitting
+      fetchPayload = await payload.fn(
+        payload.isEoaSigner ? wallet : agentWallet,
+        payload.isAgentRequired ? agentWallet.account!.address : undefined
+      )
+    } else if (payload.apiArgs != null) {
+      fetchPayload = payload.apiArgs
+    }
 
     if (!fetchPayload) continue
 

@@ -27,11 +27,9 @@ export type ApiOpts = {
 
 /**
  * Represents the options for Orderly setup.
- * @property regenerateKey by default a new Orderly key is generated if none exists. If this option is set to true a new key will be generated even if one exists
  * @property keyExpirationInDays amount in days when Orderly key will expire. Default = 365
  */
 export type OrderlyAuth = {
-  regenerateKey?: boolean
   keyExpirationInDays?: number
 }
 

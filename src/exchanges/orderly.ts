@@ -23,6 +23,7 @@ import {
   Market,
   MarketInfo,
   MarketState,
+  OBData,
   OpenTradePreviewInfo,
   OrderBook,
   OrderInfo,
@@ -39,6 +40,7 @@ import { IAdapterV1, ProtocolInfo } from '../interfaces/V1/IAdapterV1'
 import { AbiCoder, keccak256, solidityPackedKeccak256 } from 'ethers-v6'
 import {
   EMPTY_DESC,
+  ORDERLY_APPROVE_H,
   ORDERLY_CREATE_KEY_H,
   ORDERLY_DEPOSIT_H,
   ORDERLY_REGISTER_H,
@@ -47,7 +49,7 @@ import {
 } from '../common/buttonHeadings'
 import base58 from 'bs58'
 import { rpc } from '../common/provider'
-import { Vault__factory } from '../../typechain/orderly'
+import { NativeUSDC__factory, Vault__factory } from '../../typechain/orderly'
 import { VaultTypes } from '../../typechain/orderly/Vault'
 import { BigNumber } from 'ethers'
 import { arbitrum, optimism } from 'viem/chains'
@@ -55,9 +57,12 @@ import { API } from '@orderly.network/types'
 import { decodeMarketId, encodeMarketId } from '../common/markets'
 import { ORDERLY_COLLATERAL_TOKEN, orderly } from '../configs/orderly/config'
 import { ZERO_FN } from '../common/constants'
-import { OrderlyLiquidationInfo, OrderlyPaginationMeta } from '../configs/orderly/types'
-import { account, positions } from '@orderly.network/perp'
-import { createGetter } from '../configs/orderly/createGetter'
+import {
+  FundingFeeHistory,
+  OrderbookData,
+  OrderlyLiquidationInfo,
+  OrderlyPaginationMeta
+} from '../configs/orderly/types'
 
 export default class OrderlyAdapter implements IAdapterV1 {
   protocolId: ProtocolId = 'ORDERLY'
@@ -122,9 +127,25 @@ export default class OrderlyAdapter implements IAdapterV1 {
       if (protocol !== 'ORDERLY') throw new Error('invalid protocol id')
 
       const provider = rpc[this.chainId]
+      const tokenAmount = amount.toFormat(6).value
 
       const vaultAddress = this.getVaultAddress(this.chainId)
       const vaultContract = Vault__factory.connect(vaultAddress, provider)
+
+      const usdcAddress = this.getUsdcAddress(this.chainId)
+      const usdcContract = NativeUSDC__factory.connect(usdcAddress, provider)
+      const allowance = await usdcContract.allowance(wallet, vaultAddress)
+      if (allowance.lt(tokenAmount)) {
+        const tx = await usdcContract.populateTransaction.approve(vaultAddress, tokenAmount)
+        txs.push({
+          tx,
+          desc: EMPTY_DESC,
+          chainId: this.chainId,
+          isUserAction: true,
+          isAgentRequired: false,
+          heading: ORDERLY_APPROVE_H
+        })
+      }
 
       const encoder = new TextEncoder()
       const depositInput = {
@@ -132,7 +153,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
         brokerHash: keccak256(encoder.encode(this.brokerId)),
         // if other tokens than USDC need to be supported, we also need decimal metadata for formatting of that token
         tokenHash: keccak256(encoder.encode('USDC')),
-        tokenAmount: amount.toFormat(6).value
+        tokenAmount
       } satisfies VaultTypes.VaultDepositFEStruct
 
       // get wei deposit fee for `deposit` call
@@ -147,7 +168,6 @@ export default class OrderlyAdapter implements IAdapterV1 {
         isUserAction: true,
         isAgentRequired: false,
         heading: ORDERLY_DEPOSIT_H,
-        // TODO is this the same as `value` on `deposit` call?
         ethRequired: BigNumber.from(depositFee)
       })
     }
@@ -168,12 +188,16 @@ export default class OrderlyAdapter implements IAdapterV1 {
       const nonceJson = await nonceRes.json()
       const withdrawNonce = nonceJson.data.withdraw_nonce as string
 
+      const tokenAmount = amount.toFormat(6).value
+      if (tokenAmount <= 2_500_000n) {
+        throw new Error('Orderly: withdraw amount must be greater than 2.5USDC')
+      }
       const withdrawMessage = {
         brokerId: this.brokerId,
         chainId: this.chainId,
         receiver: wallet,
         token: 'USDC',
-        amount: amount.toFormat(6).value,
+        amount: tokenAmount.toString(),
         timestamp: Date.now(),
         withdrawNonce
       }
@@ -306,7 +330,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
 
       const market: Market = {
         marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', marketInfo.symbol),
-        chain: orderly, // TODO executed off-chain. Settlement on-chain. Not needed?
+        chain: orderly,
         indexToken: ORDERLY_COLLATERAL_TOKEN,
         longCollateral: [ORDERLY_COLLATERAL_TOKEN],
         shortCollateral: [ORDERLY_COLLATERAL_TOKEN],
@@ -330,7 +354,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
         marketSymbol: base
       }
 
-      // TODO we also have max position size
+      // TODO we also have max position size in notional
       let maxPositionSize
       switch (base) {
         case 'BTC':
@@ -346,8 +370,8 @@ export default class OrderlyAdapter implements IAdapterV1 {
         maxLeverage: FixedNumber.fromString(String(1 / marketInfo.base_imr)),
         minLeverage: FixedNumber.fromString('1'),
         minInitialMargin: FixedNumber.fromString(String(marketInfo.base_imr)),
-        minPositionSize: FixedNumber.fromString(String(marketInfo.base_min)), // TODO min position in base asset. `min_notional` is min position in quote asset
-        maxPrecision: marketInfo.base_tick, // TODO check 0.001 -> 3 ?
+        minPositionSize: FixedNumber.fromString(String(marketInfo.quote_min)), // TODO min position in base asset. `min_notional` is min position in quote asset
+        maxPrecision: marketInfo.base_tick, // TODO check 0.001 -> 3 ? Used to display orderbook in USD
         amountStep: FixedNumber.fromString(String(marketInfo.base_tick)),
         priceStep: FixedNumber.fromString(String(marketInfo.quote_tick))
       }
@@ -367,12 +391,12 @@ export default class OrderlyAdapter implements IAdapterV1 {
   getProtocolInfo(): ProtocolInfo {
     return {
       hasAgent: true,
-      hasAccount: true, // TODO check
+      hasAccount: true,
       hasOrderbook: true,
-      sizeDeltaInToken: true, // TODO check
+      sizeDeltaInToken: false,
       explicitFundingClaim: false,
-      collateralDeltaInToken: false, // TODO check
-      collateralUsesLimitPricing: false // TODO check
+      collateralDeltaInToken: false,
+      collateralUsesLimitPricing: false
     }
   }
 
@@ -431,14 +455,16 @@ export default class OrderlyAdapter implements IAdapterV1 {
       if (marketInfo == null) return
 
       const dynamicMetadata: DynamicMarketMetadata = {
-        oiLong: FixedNumber.fromString(marketInfo.open_interest), // TODO we don't have long/short breakdown here
-        oiShort: FixedNumber.fromString(marketInfo.open_interest), // TODO we don't have long/short breakdown here
-        availableLiquidityLong: ZERO_FN, // TODO necessary?
-        availableLiquidityShort: ZERO_FN, // TODO necessary?
-        longFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO long & short interest are the same
-        shortFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate)), // TODO long & short interest are the same
-        longBorrowRate: ZERO_FN, // TODO part of funding rate
-        shortBorrowRate: ZERO_FN // TODO part of funding rate
+        oiLong: FixedNumber.fromString(String(marketInfo.open_interest), 30),
+        oiShort: FixedNumber.fromString(String(marketInfo.open_interest), 30),
+        availableLiquidityLong: ZERO_FN, // TODO +-2% of orderbook
+        availableLiquidityShort: ZERO_FN,
+        longFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate), 30),
+        shortFundingRate: FixedNumber.fromString(String(marketInfo.last_funding_rate), 30).mulFN(
+          FixedNumber.fromValue(-1n)
+        ),
+        longBorrowRate: ZERO_FN,
+        shortBorrowRate: ZERO_FN
       }
 
       metadata.push(dynamicMetadata)
@@ -460,9 +486,13 @@ export default class OrderlyAdapter implements IAdapterV1 {
             body: JSON.stringify({
               symbol,
               order_type: createOrder.type,
-              order_price: createOrder.triggerData?.triggerPrice,
-              order_quantity: createOrder.sizeDelta.isTokenAmount ? createOrder.sizeDelta.amount : undefined,
-              order_amount: !createOrder.sizeDelta.isTokenAmount ? createOrder.sizeDelta.amount : undefined,
+              order_price: createOrder.triggerData?.triggerPrice.toUnsafeFloat(),
+              order_quantity: createOrder.sizeDelta.isTokenAmount
+                ? createOrder.sizeDelta.amount.toUnsafeFloat()
+                : undefined,
+              order_amount: !createOrder.sizeDelta.isTokenAmount
+                ? createOrder.sizeDelta.amount.toUnsafeFloat()
+                : undefined,
               side: createOrder.direction === 'LONG' ? 'BUY' : 'SELL'
             })
           })
@@ -491,9 +521,13 @@ export default class OrderlyAdapter implements IAdapterV1 {
               order_id: updateOrder.orderId,
               symbol,
               order_type: updateOrder.orderType,
-              order_price: updateOrder.triggerData?.triggerPrice,
-              order_quantity: updateOrder.sizeDelta.isTokenAmount ? updateOrder.sizeDelta.amount : undefined,
-              order_amount: !updateOrder.sizeDelta.isTokenAmount ? updateOrder.sizeDelta.amount : undefined,
+              order_price: updateOrder.triggerData?.triggerPrice.toUnsafeFloat(),
+              order_quantity: updateOrder.sizeDelta.isTokenAmount
+                ? updateOrder.sizeDelta.amount.toUnsafeFloat()
+                : undefined,
+              order_amount: !updateOrder.sizeDelta.isTokenAmount
+                ? updateOrder.sizeDelta.amount.toUnsafeFloat()
+                : undefined,
               side: updateOrder.direction === 'LONG' ? 'BUY' : 'SELL'
             })
           })
@@ -539,19 +573,9 @@ export default class OrderlyAdapter implements IAdapterV1 {
 
     const agent = agentParams[0]
 
-    // privateKey is assumed to be received in the format `ed25519:<base58 encoded 32 bytes key>`
-    // some libraries (like tweetnacl) encode the private key including the seed, which makes it 64 bytes.
-    // A library that uses 32 bytes private keys is e.g. @noble/ed25519
-    const privateKey = agent.agentAddress
-    this.orderlyKey = base58.decode(privateKey.substring(8))
-    const orderlyKey = `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`
-
-    const regenerateKey = opts?.orderlyAuth?.regenerateKey ?? false
-    const keyExpirationInDays = opts?.orderlyAuth?.keyExpirationInDays ?? 365
-
     const actions: ActionParam[] = []
 
-    const res = await fetch(`${this.baseUrl}/v1/get_account?address=${this.address}&broker_id=${this.brokerId}`)
+    let res = await fetch(`${this.baseUrl}/v1/get_account?address=${this.address}&broker_id=${this.brokerId}`)
     const getAccount: { success: boolean } = await res.json()
     const doesAccountExist = getAccount.success
     if (!doesAccountExist) {
@@ -589,9 +613,21 @@ export default class OrderlyAdapter implements IAdapterV1 {
       } satisfies RequestSignerFnWithMetadata)
     }
 
-    if (!regenerateKey && this.orderlyKey != null) {
+    // privateKey is assumed to be received in the format `ed25519:<base58 encoded 32 bytes key>`
+    // some libraries (like tweetnacl) encode the private key including the seed, which makes it 64 bytes.
+    // A library that uses 32 bytes private keys is e.g. @noble/ed25519
+    const privateKey = agent.agentAddress
+    this.orderlyKey = base58.decode(privateKey.substring(8))
+    const orderlyKey = `ed25519:${base58.encode(await getPublicKeyAsync(this.orderlyKey))}`
+
+    res = await this.signAndSendRequest('/v1/client/key_info')
+    const response = await res.json()
+
+    if (response.success) {
       return actions
     }
+
+    const keyExpirationInDays = opts?.orderlyAuth?.keyExpirationInDays ?? 365
 
     const timestamp = Date.now()
     const registerMessage = {
@@ -663,8 +699,12 @@ export default class OrderlyAdapter implements IAdapterV1 {
               symbol,
               order_type: 'MARKET',
               reduce_only: true,
-              order_quantity: positionData.closeSize.isTokenAmount ? positionData.closeSize.amount : undefined,
-              order_amount: !positionData.closeSize.isTokenAmount ? positionData.closeSize.amount : undefined,
+              order_quantity: positionData.closeSize.isTokenAmount
+                ? positionData.closeSize.amount.toUnsafeFloat()
+                : undefined,
+              order_amount: !positionData.closeSize.isTokenAmount
+                ? positionData.closeSize.amount.toUnsafeFloat()
+                : undefined,
               side: position.direction === 'LONG' ? 'SELL' : 'BUY'
             })
           })
@@ -693,7 +733,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
   }
 
   getIdleMargins(wallet: string, opts?: ApiOpts | undefined): Promise<IdleMarginInfo[]> {
-    // TODO this is basically free collateral
+    // this is basically free collateral
     throw new Error('Method not implemented.')
   }
 
@@ -702,39 +742,53 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<PositionInfo>> {
-    const res = await this.signAndSendRequest('/v1/positions')
+    let res = await this.signAndSendRequest('/v1/positions')
     const info = (await res.json()).data as API.PositionInfo
     const positions = info.rows as API.Position[]
+    res = await this.signAndSendRequest('/v1/client/info')
+    const accountInfo = (await res.json()).data as API.AccountInfo
+    res = await this.signAndSendRequest('/v1/funding_fee/history')
+    const fundingFees = (await res.json()).data.rows as FundingFeeHistory[]
 
     const accessibleMargin = await this.getAvailableToTrade(wallet, undefined as any)
-    const positionInfo: PositionInfo[] = positions.map((position) => {
-      return {
-        protocolId: 'ORDERLY',
-        marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', position.symbol),
-        posId: position.symbol, // TODO we don't have posId, but can only have one open position per symbol
-        size: { amount: FixedNumber.fromString(String(position.position_qty)), isTokenAmount: true },
-        margin: { amount: FixedNumber.fromString(String(info.margin_ratio)), isTokenAmount: false },
-        accessibleMargin,
-        avgEntryPrice: FixedNumber.fromString(String(position.average_open_price)),
-        cumulativeFunding: FixedNumber.fromString(''), // TODO /v1/funding_fee/history funding_fee
-        unrealizedPnl: {
-          aggregatePnl: FixedNumber.fromString(''), // TODO raw pnl - funding fee ?
-          rawPnl: FixedNumber.fromString(''), // TODO Position Qty * (Mark Price - Position Average Entry Price)
-          fundingFee: FixedNumber.fromString(''), // TODO /v1/funding_fee/history funding_fee
-          borrowFee: FixedNumber.fromString('') // TODO no borrow fee
-        },
-        liquidationPrice: FixedNumber.fromString(String(position.est_liq_price)),
-        leverage: FixedNumber.fromString(''), // TODO leverage is account wide
-        direction: position.position_qty > 0 ? 'LONG' : 'SHORT',
-        collateral: ORDERLY_COLLATERAL_TOKEN,
-        indexToken: ORDERLY_COLLATERAL_TOKEN,
-        mode: 'CROSS',
-        roe: FixedNumber.fromString(''), // TODO
-        metadata: undefined
-      } satisfies PositionInfo
-    })
+    const positionInfo: PositionInfo[] = positions
+      .filter((position) => {
+        // positions returned from API might have 0 quantity, because they have
+        // already been closed, but PnL is unsettled
+        return position.position_qty > 0
+      })
+      .map((position) => {
+        const posId = `${position.symbol}-${wallet}`
+        const fundingFee = fundingFees.find(({ symbol }) => symbol === position.symbol)
+        const rawPnL = position.position_qty * (position.mark_price - position.average_open_price)
+
+        return {
+          protocolId: 'ORDERLY',
+          marketId: encodeMarketId(orderly.id.toString(), 'ORDERLY', position.symbol),
+          posId,
+          size: { amount: FixedNumber.fromString(String(position.position_qty)), isTokenAmount: true },
+          margin: { amount: FixedNumber.fromString(String(info.margin_ratio)), isTokenAmount: false },
+          accessibleMargin,
+          avgEntryPrice: FixedNumber.fromString(String(position.average_open_price)),
+          cumulativeFunding: fundingFee ? FixedNumber.fromString(String(fundingFee.funding_fee)) : ZERO_FN,
+          unrealizedPnl: {
+            aggregatePnl: fundingFee ? FixedNumber.fromString(String(rawPnL - fundingFee.funding_fee)) : ZERO_FN,
+            rawPnl: FixedNumber.fromString(String(rawPnL)),
+            fundingFee: fundingFee ? FixedNumber.fromString(String(fundingFee.funding_fee)) : ZERO_FN,
+            borrowFee: ZERO_FN
+          },
+          liquidationPrice: FixedNumber.fromString(String(position.est_liq_price)),
+          leverage: FixedNumber.fromString(String(accountInfo.max_leverage)),
+          direction: position.position_qty > 0 ? 'LONG' : 'SHORT',
+          collateral: ORDERLY_COLLATERAL_TOKEN,
+          indexToken: ORDERLY_COLLATERAL_TOKEN,
+          mode: 'CROSS',
+          roe: FixedNumber.fromString(String(rawPnL / (position.position_qty * accountInfo.max_leverage))),
+          metadata: position
+        } satisfies PositionInfo
+      })
     return {
-      maxItemsCount: 1_000, // no pagination available
+      maxItemsCount: positions.length, // no pagination available
       result: positionInfo
     }
   }
@@ -767,8 +821,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<HistoricalTradeInfo>> {
-    // TODO I am not sure what you refer to as historic trades. I think you mean closed positions?
-    // we don't have an endpoint for that.
+    // TODO /v1/trades
     throw new Error('Method not implemented.')
   }
 
@@ -799,7 +852,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
             amount: ZERO_FN, // TODO
             isTokenAmount: false
           },
-          liqudationLeverage: ZERO_FN, // TODO
+          liqudationLeverage: ZERO_FN, // TODO based on maintenance margin
           timestamp: liquidation.timestamp,
           txHash: undefined,
           collateral: ORDERLY_COLLATERAL_TOKEN
@@ -808,7 +861,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     })
 
     return {
-      maxItemsCount: meta.records_per_page, // TODO should this be current page size or max? Max is 500. Or is it max items that can be fetched? We don't send that
+      maxItemsCount: liquidations.length,
       result: liquidationInfo
     }
   }
@@ -818,7 +871,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<ClaimInfo>> {
-    // TODO not applicable
+    // not applicable
     throw new Error('Method not implemented.')
   }
 
@@ -828,6 +881,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     existingPos: (PositionInfo | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OpenTradePreviewInfo[]> {
+    // TODO
     throw new Error('Method not implemented.')
   }
 
@@ -837,6 +891,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     closePositionData: ClosePositionData[],
     opts?: ApiOpts | undefined
   ): Promise<CloseTradePreviewInfo[]> {
+    // TODO
     throw new Error('Method not implemented.')
   }
 
@@ -847,90 +902,50 @@ export default class OrderlyAdapter implements IAdapterV1 {
     existingPos: PositionInfo[],
     opts?: ApiOpts | undefined
   ): Promise<PreviewInfo[]> {
-    // TODO not applicable
+    // not applicable
     throw new Error('Method not implemented.')
   }
 
   getTotalClaimableFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
-    // TODO not applicable
+    // not applicable
     throw new Error('Method not implemented.')
   }
 
   getTotalAccuredFunding(wallet: string, opts?: ApiOpts | undefined): Promise<FixedNumber> {
-    // TODO funding fee history
+    // funding fee history
     throw new Error('Method not implemented.')
   }
 
   async getAccountInfo(wallet: string, opts?: ApiOpts | undefined): Promise<AccountInfo[]> {
-    // TODO calculation of withdrawable amount is insanely difficult.
-    // I used our (unfortunately still closed source) perps SDK to do the calculations
     let res = await this.signAndSendRequest('/v1/positions')
     const info = (await res.json()).data as API.PositionInfo
-    const apiPositions = info.rows as API.Position[]
-    res = await this.signAndSendRequest('/v1/orders?status=NEW')
-    const orders = (await res.json()).data.rows as API.Order[]
+    const positions = info.rows as API.Position[]
     res = await this.signAndSendRequest('/v1/client/info')
     const accountInfo = (await res.json()).data as API.AccountInfo
     res = await this.signAndSendRequest('/v1/client/holding')
-    const accountHolding = (await res.json()).data as API.Holding[]
-    res = await fetch(`${this.baseUrl}/v1/public/info`)
-    const symbolInfo = (await res.json()).data.rows as API.Symbol[]
-    res = await fetch(`${this.baseUrl}/v1/public/futures`)
-    const marketInfos = (await res.json()).data.rows as API.MarketInfo[]
-    const markPrices = Object.fromEntries(marketInfos.map((market) => [market.symbol, market.mark_price]))
-    res = await fetch(`${this.baseUrl}/v1/public/funding_rates`)
-    const rates = (await res.json()).data as API.FundingRate
-    const fundingRates = createGetter(rates)
+    const holdings = (await res.json()).data.holding as API.Holding[]
 
-    const unsettledPnL = apiPositions.reduce((acc, position) => {
-      const unsettlementPnL = positions.unsettlementPnL({
-        positionQty: position.position_qty,
-        markPrice: markPrices[position.symbol] ?? 0,
-        costPosition: position.cost_position,
-        sumUnitaryFunding: fundingRates[position.symbol]?.('sum_unitary_funding', 0),
-        lastSumUnitaryFunding: position.last_sum_unitary_funding
-      })
-      return acc + unsettlementPnL
+    const accountBalance = holdings.find((holding) => holding.token === 'USDC')?.holding ?? 0
+    const unsettledPnL = positions.reduce((acc, position) => {
+      return acc + position.unsettled_pnl
     }, 0)
 
-    const totalCollateral = account.freeCollateral({
-      totalCollateral: account.totalCollateral({
-        USDCHolding: accountHolding.find((holding) => holding.token === 'USDC')?.holding ?? 0,
-        nonUSDCHolding: accountHolding
-          .filter(({ token }) => token !== 'USDC')
-          .map((holding) => ({
-            holding: holding.holding,
-            markPrice: markPrices[holding.token] ?? 0,
-            discount: 0
-          })),
-        unsettlementPnL: unsettledPnL
-      }),
-      totalInitialMarginWithOrders: account.totalInitialMarginWithOrders({
-        positions: apiPositions,
-        orders,
-        markPrices,
-        IMR_Factors: accountInfo.imr_factor,
-        maxLeverage: accountInfo.max_leverage,
-        symbolInfo: createGetter(symbolInfo)
-      })
-    })
-    const freeCollateral = totalCollateral.toDecimalPlaces(6).toNumber()
     let withdrawable: number
     if (unsettledPnL < 0) {
-      withdrawable = freeCollateral
+      withdrawable = info.free_collateral
     } else {
-      withdrawable = freeCollateral - unsettledPnL
+      withdrawable = info.free_collateral + Math.min(0, unsettledPnL)
     }
 
     return [
       {
         protocolId: 'ORDERLY',
-        accountEquity: ZERO_FN, // TODO
-        totalMarginUsed: ZERO_FN, // TODO
-        maintainenceMargin: ZERO_FN, // TODO
+        accountEquity: FixedNumber.fromString(String(accountBalance + unsettledPnL)),
+        totalMarginUsed: ZERO_FN, // TODO position notional / account max leverage
+        maintainenceMargin: ZERO_FN, // TODO BTC/ETH 2.75%, alts 5%
         withdrawable: FixedNumber.fromString(String(withdrawable)),
         availableToTrade: FixedNumber.fromString(String(withdrawable)),
-        crossAccountLeverage: ZERO_FN // TODO
+        crossAccountLeverage: FixedNumber.fromString(String(accountInfo.max_leverage))
       }
     ]
   }
@@ -966,12 +981,56 @@ export default class OrderlyAdapter implements IAdapterV1 {
     ]
   }
 
-  getOrderBooks(
+  async getOrderBooks(
     marketIds: string[],
     precision: (number | undefined)[],
     opts?: ApiOpts | undefined
   ): Promise<OrderBook[]> {
-    throw new Error('Method not implemented.')
+    const orderBooks: OrderBook[] = []
+    for (const marketId of marketIds) {
+      const { protocolMarketId } = decodeMarketId(marketId)
+      const res = await this.signAndSendRequest(`/v1/orderbook/${protocolMarketId}`)
+      const precisionOBData: Record<number, OBData> = {}
+      const obData = (await res.json()).data as OrderbookData
+      let totalSizeAsksToken = 0
+      let totalSizeAsksUsd = 0
+      let totalSizeBidsToken = 0
+      let totalSizeBidsUsd = 0
+      // TODO we only send one precision via API. Need to aggregate in the frontend
+      precisionOBData[1] = {
+        actualPrecision: ZERO_FN, // TODO
+        spread: ZERO_FN, // TODO
+        spreadPercent: ZERO_FN, // TODO
+        asks: obData.asks.map((ask) => {
+          totalSizeAsksToken += ask.quantity
+          totalSizeAsksUsd += ask.quantity * ask.price
+          return {
+            price: FixedNumber.fromString(String(ask.price)),
+            sizeToken: FixedNumber.fromString(String(ask.quantity)),
+            sizeUsd: FixedNumber.fromString(String(ask.quantity * ask.price)),
+            totalSizeToken: FixedNumber.fromString(String(totalSizeAsksToken)),
+            totalSizeUsd: FixedNumber.fromString(String(totalSizeAsksUsd))
+          }
+        }),
+        bids: obData.asks.map((bid) => {
+          totalSizeBidsToken += bid.quantity
+          totalSizeBidsUsd += bid.quantity * bid.price
+          return {
+            price: FixedNumber.fromString(String(bid.price)),
+            sizeToken: FixedNumber.fromString(String(bid.quantity)),
+            sizeUsd: FixedNumber.fromString(String(bid.quantity * bid.price)),
+            totalSizeToken: FixedNumber.fromString(String(totalSizeBidsToken)),
+            totalSizeUsd: FixedNumber.fromString(String(totalSizeBidsUsd))
+          }
+        })
+      }
+      orderBooks.push({
+        marketId,
+        actualPrecisionsMap: {}, // TODO
+        precisionOBData
+      })
+    }
+    return orderBooks
   }
 
   private getAccountId(address: string, brokerId: string) {
@@ -1040,7 +1099,22 @@ export default class OrderlyAdapter implements IAdapterV1 {
     }
   }
 
-  private async signAndSendRequest(path: string, init?: RequestInit): Promise<Response> {
+  private getUsdcAddress(chainId: number): string {
+    switch (chainId) {
+      case 10:
+        return '0x0b2c639c533813f4aa9d7837caf62653d097ff85'
+      case 42161:
+        return '0xaf88d065e77c8cC2239327C5EDb3A432268e5831'
+      case 421614:
+        return '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d'
+      case 11155420:
+        return '0x5fd84259d66Cd46123540766Be93DFE6D43130D7'
+      default:
+        throw new Error('chain ID unsupported')
+    }
+  }
+
+  public async signAndSendRequest(path: string, init?: RequestInit): Promise<Response> {
     return fetch(`${this.baseUrl}${path}`, await this.getRequestInit(path, init))
   }
 
@@ -1089,7 +1163,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
     pageOptions?: PageOptions | undefined,
     opts?: ApiOpts | undefined
   ): Promise<PaginatedRes<OrderInfo>> {
-    // TODO assuming orders only means open orders. See https://orderly.network/docs/build-on-evm/evm-api/restful-api/private/get-orders
+    // assuming orders only means open orders. See https://orderly.network/docs/build-on-evm/evm-api/restful-api/private/get-orders
     // remove this to fetch all historic orders.
     const [meta, orders] = await this.fetchOrders(wallet, 'INCOMPLETE', symbol, pageOptions, opts)
 
@@ -1124,7 +1198,7 @@ export default class OrderlyAdapter implements IAdapterV1 {
       } satisfies OrderInfo
     })
     return {
-      maxItemsCount: meta.records_per_page, // TODO should this be current page size or max? Max is 500. Or is it max items that can be fetched? We don't send that
+      maxItemsCount: orders.length,
       result: orderInfo
     }
   }

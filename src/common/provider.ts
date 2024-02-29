@@ -6,5 +6,6 @@ export const rpc: Record<number, providers.StaticJsonRpcProvider> = {
   ),
   42161: new providers.StaticJsonRpcProvider(
     'https://arbitrum.blockpi.network/v1/rpc/3fccabab81b09aeff58df1caaea8f27c70346335'
-  )
+  ),
+  421614: new providers.StaticJsonRpcProvider('https://arbitrum-sepolia.publicnode.com')
 }
