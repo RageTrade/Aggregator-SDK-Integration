@@ -1767,6 +1767,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         marketMode: lev.margin_type,
         leverage: FixedNumber.fromString(lev.leverage)
       }
+      marketStates.push(marketState)
     }
 
     return marketStates
