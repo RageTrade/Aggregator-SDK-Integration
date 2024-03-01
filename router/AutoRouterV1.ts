@@ -19,9 +19,10 @@ import {
   MarketWithPreview,
   RouteData,
   TokenWithPrice,
-  getBestFundingReduceCallback,
+  getBestFundingSortCallback,
   getBestPriceReduceCallback,
-  getMinFeeReduceCallback
+  getBestPriceSortCallback,
+  getMinFeeSortCallback
 } from './Route'
 import { IAdapterV1 } from '../src/interfaces/V1/IAdapterV1'
 import { FixedNumber, divFN, mulFN } from '../src/common/fixedNumber'
@@ -228,38 +229,52 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     const dynamicMetadataPromise = this._getDynamicMarketMetadata(eligibleMarkets, opts)
     const tradePreviewsPromise = this._getTradePreview(eligibleMarkets, routeData, opts)
 
-    const fundingReduceCB = getBestFundingReduceCallback(routeData.direction)
-    const avgEntryPriceReduceCB = getBestPriceReduceCallback(routeData.direction)
-    const minFeeReduceCB = getMinFeeReduceCallback()
+    const fundingReduceCB = getBestFundingSortCallback(routeData.direction)
+    const avgEntryPriceReduceCB = getBestPriceSortCallback(routeData.direction)
+    const minFeeReduceCB = getMinFeeSortCallback()
 
     const dynamicMetadata = await dynamicMetadataPromise
-    const bestFundingMarket = dynamicMetadata.length > 0 ? dynamicMetadata.reduce(fundingReduceCB) : undefined
+    const bestFundingMarket = dynamicMetadata.toSorted(fundingReduceCB).map(m => {
+      return {
+        market: m.market,
+        collateralToken: undefined
+      }
+    })
+
     if (bestFundingMarket) {
       marketTags.push({
-        market: bestFundingMarket.market,
-        collateralToken: undefined,
+        sortedMarkets: bestFundingMarket,
         tagDesc: 'Best Funding',
         tagColor: '#FF00FF'
       })
     }
 
     const tradePreviews = await tradePreviewsPromise
-    // console.dir({ tps: tradePreviews.map((tp) => tp.preview) }, { depth: 4 })
-    const bestAvgEntryPriceMarket = tradePreviews.length > 0 ? tradePreviews.reduce(avgEntryPriceReduceCB) : undefined
+    const bestAvgEntryPriceMarket = tradePreviews.toSorted(avgEntryPriceReduceCB).map(m => {
+      return {
+        market: m.market,
+        collateralToken: undefined
+      }
+    })
+
     if (bestAvgEntryPriceMarket) {
       marketTags.push({
-        market: bestAvgEntryPriceMarket.market,
-        collateralToken: undefined,
+        sortedMarkets: bestAvgEntryPriceMarket,
         tagDesc: 'Best Price',
         tagColor: '#38bdf8'
       })
     }
 
-    const bestMinFeeMarket = tradePreviews.length > 0 ? tradePreviews.reduce(minFeeReduceCB) : undefined
+    const bestMinFeeMarket = tradePreviews.toSorted(minFeeReduceCB).map(m => {
+      return {
+        market: m.market,
+        collateralToken: undefined
+      }
+    })
+
     if (bestMinFeeMarket) {
       marketTags.push({
-        market: bestMinFeeMarket.market,
-        collateralToken: bestMinFeeMarket.collateralToken,
+        sortedMarkets: bestAvgEntryPriceMarket,
         tagDesc: 'Lowest Fee',
         tagColor: '#0CAC6C'
       })
@@ -267,10 +282,15 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
 
     eligibleMarkets
       .filter((m) => m.protocolId == 'GMXV2')
+      .map(m => {
+        return {
+          market: m,
+          collateralToken: undefined
+        }
+      })
       .forEach((m) => {
         marketTags.push({
-          market: m,
-          collateralToken: undefined,
+          sortedMarkets: [m],
           tagDesc: 'Fee Rebates',
           tagColor: '#FBBE24'
         })
@@ -286,8 +306,8 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
       routeData.direction
     )
     const routes = await this._getTradePreview(eligibleMarkets, routeData, opts)
-    // console.log({ routes })
     const reduceCallback = getBestPriceReduceCallback(routeData.direction)
+
     let bestRoute = routes.reduce(reduceCallback)
     return bestRoute.preview
   }

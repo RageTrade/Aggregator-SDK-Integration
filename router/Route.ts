@@ -27,10 +27,12 @@ export type RouteData = {
 }
 
 export type MarketTag = {
-  market: MarketInfo
-  collateralToken: Token | undefined
   tagDesc: string
   tagColor: string
+  sortedMarkets: {
+    market: MarketInfo
+    collateralToken: Token | undefined
+  }[]
 }
 
 export type MarketWithMetadata = {
@@ -44,23 +46,59 @@ export type MarketWithPreview = {
   preview: OpenTradePreviewInfo
 }
 
-export function getBestFundingReduceCallback(tradeDirection: TradeDirection) {
+export function getBestFundingSortCallback(tradeDirection: TradeDirection) {
   if (tradeDirection == 'LONG')
-    return (prev: MarketWithMetadata, curr: MarketWithMetadata) =>
-      prev &&
-      addFN(prev.metadata.longFundingRate, prev.metadata.longBorrowRate).gt(
+    return (prev: MarketWithMetadata, curr: MarketWithMetadata) => {
+
+      const eq = prev && addFN(prev.metadata.longFundingRate, prev.metadata.longBorrowRate).eq(
         addFN(curr.metadata.longFundingRate, curr.metadata.longBorrowRate)
       )
-        ? prev
-        : curr
-  else
-    return (prev: MarketWithMetadata, curr: MarketWithMetadata) =>
-      prev &&
-      addFN(prev.metadata.shortFundingRate, prev.metadata.shortBorrowRate).gt(
-        addFN(curr.metadata.shortFundingRate, curr.metadata.shortBorrowRate)
+
+      if (eq) return 0
+
+      const gt = prev && addFN(prev.metadata.longFundingRate, prev.metadata.longBorrowRate).gt(
+        addFN(curr.metadata.longFundingRate, curr.metadata.longBorrowRate)
       )
-        ? prev
-        : curr
+
+      return gt ? 1 : -1
+    }
+
+  else
+    return (prev: MarketWithMetadata, curr: MarketWithMetadata) => {
+      const eq = prev &&
+        addFN(prev.metadata.shortFundingRate, prev.metadata.shortBorrowRate).gt(
+          addFN(curr.metadata.shortFundingRate, curr.metadata.shortBorrowRate)
+        )
+
+      if (eq) return 0
+
+      const gt = prev &&
+        addFN(prev.metadata.shortFundingRate, prev.metadata.shortBorrowRate).gt(
+          addFN(curr.metadata.shortFundingRate, curr.metadata.shortBorrowRate)
+        )
+
+      return gt ? 1 : -1
+    }
+}
+
+export function getBestPriceSortCallback(tradeDirection: TradeDirection) {
+  if (tradeDirection == 'LONG')
+    return (prev: MarketWithPreview, curr: MarketWithPreview) => {
+      const eq = prev && prev.preview.avgEntryPrice.eq(curr.preview.avgEntryPrice)
+
+      if (eq) return 0
+
+      const lt = prev && prev.preview.avgEntryPrice.lt(curr.preview.avgEntryPrice)
+      return lt ? 1 : -1
+    }
+  else
+    return (prev: MarketWithPreview, curr: MarketWithPreview) => {
+      const eq = prev && prev.preview.avgEntryPrice.eq(curr.preview.avgEntryPrice)
+      if (eq) return 0
+
+      const gt = prev && prev.preview.avgEntryPrice.gt(curr.preview.avgEntryPrice)
+      return gt ? 1 : -1
+    }
 }
 
 export function getBestPriceReduceCallback(tradeDirection: TradeDirection) {
@@ -72,7 +110,12 @@ export function getBestPriceReduceCallback(tradeDirection: TradeDirection) {
       prev && prev.preview.avgEntryPrice.gt(curr.preview.avgEntryPrice) ? prev : curr
 }
 
-export function getMinFeeReduceCallback() {
-  return (prev: MarketWithPreview, curr: MarketWithPreview) =>
-    prev && prev.preview.fee.lt(curr.preview.fee) ? prev : curr
+export function getMinFeeSortCallback() {
+  return (prev: MarketWithPreview, curr: MarketWithPreview) => {
+    const eq = prev && prev.preview.fee.eq(curr.preview.fee)
+    if (eq) return 0
+
+    const lt = prev && prev.preview.fee.lt(curr.preview.fee)
+    return lt ? 1 : -1
+  }
 }
