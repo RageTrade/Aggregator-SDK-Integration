@@ -253,7 +253,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     const bestAvgEntryPriceMarket = tradePreviews.toSorted(avgEntryPriceReduceCB).map(m => {
       return {
         market: m.market,
-        collateralToken: undefined
+        collateralToken: m.collateralToken
       }
     })
 
@@ -268,7 +268,7 @@ export default class AutoRouterV1 extends ConsolidatedRouterV1 {
     const bestMinFeeMarket = tradePreviews.toSorted(minFeeReduceCB).map(m => {
       return {
         market: m.market,
-        collateralToken: undefined
+        collateralToken: m.collateralToken
       }
     })
 
