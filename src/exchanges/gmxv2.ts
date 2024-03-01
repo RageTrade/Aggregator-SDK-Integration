@@ -1203,7 +1203,7 @@ export default class GmxV2Service implements IAdapterV1 {
       const marketId = encodeMarketId(arbitrum.id.toString(), 'GMXV2', ethers.utils.getAddress(trade.marketAddress))
       const marketInfo = cachedMarkets[marketId]
       const indexToken = getGmxV2TokenByAddress(marketInfo.market.indexToken)
-      const initialCollateralToken = getGmxV2TokenByAddress(trade.initialCollateralTokenAddress)
+      const initialCollateralToken = getGmxV2TokenByAddress(trade.feeInfoCollateralTokenAddress)
       // if (trade.pnlUsd === null) trade.pnlUsd = '0'
       // if (trade.positionFeeAmount === null) trade.positionFeeAmount = '0'
 
@@ -1345,6 +1345,7 @@ export default class GmxV2Service implements IAdapterV1 {
         rawTrade.executedTxn.timestamp,
         rawTrade.executionFee
       )
+      rawTrade.feeInfoCollateralTokenAddress = this._checkNull(feeInfo.collateralTokenAddress)
       rawTrade.collateralTokenPriceMin = this._checkNull(feeInfo.collateralTokenPriceMin)
       rawTrade.collateralTokenPriceMax = this._checkNull(feeInfo.collateralTokenPriceMax)
       rawTrade.initialCollateralDeltaAmountTradeAction = this._checkNull(tradeAction.initialCollateralDeltaAmount)
@@ -1371,6 +1372,7 @@ export default class GmxV2Service implements IAdapterV1 {
             positionFeeAmount
             fundingFeeAmount
             borrowingFeeAmount
+            collateralTokenAddress
             collateralTokenPriceMin
             collateralTokenPriceMax
           }
