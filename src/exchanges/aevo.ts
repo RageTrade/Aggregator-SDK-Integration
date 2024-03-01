@@ -1379,7 +1379,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     // making strict false for autorouter compatibility
     this._setCredentials(opts, false)
 
-    const isCredentialsSet = opts?.aevoAuth?.apiKey && opts?.aevoAuth?.secret
+    const isCredentialsSet = this.aevoClient.headers['AEVO-KEY'] && this.aevoClient.headers['AEVO-SECRET']
     const previewsInfo: OpenTradePreviewInfo[] = []
 
     const marketPricesPromise = this.getMarketPrices(
