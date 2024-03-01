@@ -72,6 +72,8 @@ function _getProtocolString(protocolId: ProtocolId) {
       return 'SNXv2'
     case 'HL':
       return 'Hyperliquid'
+    case 'AEVO':
+      return 'Aevo'
     default:
       return ''
   }
