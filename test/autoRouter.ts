@@ -44,12 +44,14 @@ async function testBestRoute() {
   const tags = await router.getMarketTags(routeData, undefined, undefined, undefined)
 
   tags.forEach((tag) => {
-    console.log({
-      marketId: tag.market.marketId,
-      token: tag.collateralToken,
-      tagDesc: tag.tagDesc,
-      tagColor: tag.tagColor
-    })
+    console.dir(
+      {
+        sortedMarkets: tag.sortedMarkets,
+        tagDesc: tag.tagDesc,
+        tagColor: tag.tagColor
+      },
+      { depth: 6 }
+    )
   })
 
   // console.time('getMarketTags-2')
