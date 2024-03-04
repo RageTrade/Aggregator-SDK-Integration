@@ -808,6 +808,36 @@ export const MARKETS: Record<FuturesMarketKey, FuturesMarketConfig> = {
       mainnet: '0x3af6a3098c56f58ff47cc46dee4a5b1910e5c157f7f0b665952445867470d61f',
       testnet: '0x51fa95fac7bb8a4790f5733e8b2040937e88e6d8ea8fe172cea56b204b059bc2'
     }
+  },
+  [FuturesMarketKey.sPENDLEPERP]: {
+    key: FuturesMarketKey.sPENDLEPERP,
+    asset: FuturesMarketAsset.PENDLE,
+    supports: 'both',
+    version: 2,
+    pythIds: {
+      mainnet: '0x9a4df90b25497f66b1afb012467e316e801ca3d839456db028892fe8c70c8016',
+      testnet: '0xfeb3d7674a40ec01d9f0b0d7aa996b816066f02c3d5550b4e3354410502fce9e'
+    }
+  },
+  [FuturesMarketKey.sJUPPERP]: {
+    key: FuturesMarketKey.sJUPPERP,
+    asset: FuturesMarketAsset.JUP,
+    supports: 'both',
+    version: 2,
+    pythIds: {
+      mainnet: '0x0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996',
+      testnet: '0xe92860f24d56f9ba9894658202633062744556e98fb3e924b4a2694d82f05737'
+    }
+  },
+  [FuturesMarketKey.sCVXPERP]: {
+    key: FuturesMarketKey.sCVXPERP,
+    asset: FuturesMarketAsset.CVX,
+    supports: 'both',
+    version: 2,
+    pythIds: {
+      mainnet: '0x6aac625e125ada0d2a6b98316493256ca733a5808cd34ccef79b0e28c64d1e76',
+      testnet: '0x4193915dc8d03bc15603ec3c0ca9c5e3eff6726c2a2cf262e30be121c2b9a206'
+    }
   }
 }
 
