@@ -192,14 +192,12 @@ async function getLiquidationHistory() {
 }
 
 aa.init(undefined).then(() => {
-  delay(10).then(() => {
-    getLiquidationHistory()
-      .then(() => process.exit(0))
-      .catch((error) => {
-        console.error(error)
-        process.exit(1)
-      })
-  })
+  getAccountInfo()
+    .then(() => process.exit(0))
+    .catch((error) => {
+      console.error(error)
+      process.exit(1)
+    })
 })
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))

@@ -135,3 +135,30 @@ export async function aevoCacheGetTradeHistory(
     count: String(totalCount)
   }
 }
+
+type TransactionHistoryReturnType = Awaited<ReturnType<PrivateApiService['getTransactionHistory']>>
+
+export async function aevoCacheGetPendingWithdraw(
+  privateApi: PrivateApiService,
+  staleTime: number,
+  cacheTime: number,
+  opts?: ApiOpts
+): Promise<TransactionHistoryReturnType> {
+  return await cacheFetch({
+    key: [AEVO_CACHE_PREFIX, 'pendingwithdraw'],
+    fn: () =>
+      privateApi.getTransactionHistory(
+        undefined,
+        undefined,
+        'withdraw',
+        'initiated',
+        1000,
+        0,
+        'initiated_timestamp',
+        'DESC'
+      ),
+    staleTime: staleTime,
+    cacheTime: cacheTime,
+    opts
+  })
+}

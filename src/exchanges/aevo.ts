@@ -44,7 +44,7 @@ import {
   TradeOperationType
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
-import { OpenAPI, stop, time_in_force } from '../../generated/aevo'
+import { OpenAPI, collateral_asset_response, stop, time_in_force } from '../../generated/aevo'
 import { aevoAddresses, l2Addresses, withdrawGasLimits } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
@@ -107,6 +107,7 @@ import {
   aevoCacheGetAllMarkets,
   aevoCacheGetCoingeckoStats,
   aevoCacheGetOrderbook,
+  aevoCacheGetPendingWithdraw,
   aevoCacheGetTradeHistory
 } from '../configs/aevo/aevoCacheHelper'
 import { openAevoWssConnection, getAevoWssTicker, getAevoWssOrderBook } from '../configs/aevo/aevoWsClient'
@@ -1718,7 +1719,17 @@ export default class AevoAdapterV1 implements IAdapterV1 {
     this._setCredentials(opts, true)
 
     const sTimeAccount = getStaleTime(CACHE_SECOND * 3, opts)
-    const accountInfo = await aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+    const accountInfoPromise = aevoCacheGetAccount(this.privateApi, sTimeAccount, sTimeAccount * CACHE_TIME_MULT, opts)
+
+    const sTimePW = getStaleTime(CACHE_SECOND * 3, opts)
+    const pendingWithdrawsPromise = aevoCacheGetPendingWithdraw(
+      this.privateApi,
+      sTimePW,
+      sTimePW * CACHE_TIME_MULT,
+      opts
+    )
+
+    const [accountInfo, pendingWithdraws] = await Promise.all([accountInfoPromise, pendingWithdrawsPromise])
 
     const maintainenceMarginUsed = FixedNumber.fromString(accountInfo.maintenance_margin)
     const initialMarginUsed = FixedNumber.fromString(accountInfo.initial_margin)
@@ -1730,6 +1741,42 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       .divFN(equity)
       .mulFN(FixedNumber.fromString('100'))
 
+    // get pending withdraws map
+    const pendingWithdrawsMap: Record<string, FixedNumber> = {}
+    if (pendingWithdraws.transaction_history) {
+      for (const pw of pendingWithdraws.transaction_history) {
+        // TODO @dev - Can add logic to invalidate pending withdraw basis initiated time and current time
+        const asset = pw.collateral_name!
+        const assetDecimals = pw.decimals!
+        const base = FixedNumber.fromValue(BigNumber.from(10).pow(assetDecimals).toString())
+        const amount = FixedNumber.fromString(pw.amount!).divFN(base)
+        pendingWithdrawsMap[asset] = pendingWithdrawsMap[asset] ? pendingWithdrawsMap[asset].addFN(amount) : amount
+      }
+    }
+
+    // update collaterals with pending withdraws
+    let collaterals = accountInfo.collaterals || []
+    for (const asset of Object.keys(pendingWithdrawsMap)) {
+      const pws = pendingWithdrawsMap[asset]
+      let collateral = collaterals.find((c) => c.collateral_asset == asset)
+      if (collateral) {
+        collateral.pending_withdrawals = pws.toString()
+      } else {
+        const collateralAsset = asset as collateral_asset_response
+        collaterals.push({
+          pending_withdrawals: pws.toString(),
+          collateral_asset: collateralAsset,
+          collateral_value: '0',
+          balance: '0',
+          available_balance: '0',
+          collateral_yield_bearing: collateralAsset == collateral_asset_response.AE_USD,
+          unrealized_pnl: '0',
+          margin_value: '0',
+          withdrawable_balance: '0'
+        })
+      }
+    }
+
     return Promise.resolve([
       {
         protocolId: this.protocolId,
@@ -1740,7 +1787,10 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           maintainenceMarginUsed: maintainenceMarginUsed,
           equityBalance: equity,
           availableBalance: availableBalance,
-          storedCollateral: accountInfo.collaterals
+          storedCollateral: collaterals.map((c) => {
+            c.pending_withdrawals = c.pending_withdrawals || '0'
+            return c
+          })
         }
       }
     ])

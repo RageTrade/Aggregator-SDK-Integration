@@ -1680,6 +1680,8 @@ export class PrivateApiService {
             side?: side_response;
             fees?: fees_response;
             price?: price_response;
+            collateral_name?: string,
+            decimals?: number,
         }>;
     }> {
         return this.httpRequest.request({
