@@ -1173,7 +1173,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const asset = aevoInstrumentNameToAsset(od.instrument_name)
 
       let orderType: OrderType
-      const isStopOrder = od.stop === undefined
+      const isStopOrder = od.stop !== undefined
 
       if (od.stop) {
         // can be TP / SL / TPL / SLL
@@ -1182,7 +1182,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           orderType = od.stop
         } else {
           // can be TPL / SLL
-          orderType = od.stop == stop_response.TAKE_PROFIT ? 'TAKE_PROFIT_LIMIT' : 'STOP_LOSS_LIMIT'
+          orderType = od.stop === stop_response.TAKE_PROFIT ? 'TAKE_PROFIT_LIMIT' : 'STOP_LOSS_LIMIT'
         }
       } else {
         orderType = 'LIMIT'
