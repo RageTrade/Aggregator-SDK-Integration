@@ -1173,7 +1173,6 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const asset = aevoInstrumentNameToAsset(od.instrument_name)
 
       let orderType: OrderType
-      const isStopOrder = od.stop !== undefined
 
       if (od.stop) {
         // can be TP / SL / TPL / SLL
@@ -1188,8 +1187,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         orderType = 'LIMIT'
       }
 
-      // for consistency with hyperliquid order direction of close position is same as position direction
-      const direction = isStopOrder ? (od.side == 'buy' ? 'SHORT' : 'LONG') : od.side == 'buy' ? 'LONG' : 'SHORT'
+      const direction = od.side == 'buy' ? 'LONG' : 'SHORT'
       const orderAmount = FixedNumber.fromString(od.amount)
       const sizeDelta = pos && od.close_position ? FixedNumber.fromString(pos.amount) : orderAmount
 
