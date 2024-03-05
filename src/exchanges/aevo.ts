@@ -44,7 +44,7 @@ import {
   TradeOperationType
 } from '../interfaces/V1/IRouterAdapterBaseV1'
 import { optimism, arbitrum } from 'viem/chains'
-import { OpenAPI, collateral_asset_response, stop, time_in_force } from '../../generated/aevo'
+import { OpenAPI, collateral_asset_response, stop, stop_response, time_in_force } from '../../generated/aevo'
 import { aevoAddresses, l2Addresses, withdrawGasLimits } from '../configs/aevo/addresses'
 import { L1SocketDepositHelper, L1SocketDepositHelper__factory } from '../../typechain/aevo'
 import { rpc } from '../common/provider'
@@ -1173,17 +1173,21 @@ export default class AevoAdapterV1 implements IAdapterV1 {
       const asset = aevoInstrumentNameToAsset(od.instrument_name)
 
       let orderType: OrderType
-      if (od.order_type == 'limit') {
-        if (od.stop) {
-          orderType = od.stop == 'STOP_LOSS' ? 'STOP_LOSS_LIMIT' : 'TAKE_PROFIT_LIMIT'
+      const isStopOrder = od.stop === undefined
+
+      if (od.stop) {
+        // can be TP / SL / TPL / SLL
+        if (od.reduce_only) {
+          // can be TP / SL
+          orderType = od.stop
         } else {
-          orderType = 'LIMIT'
+          // can be TPL / SLL
+          orderType = od.stop == stop_response.TAKE_PROFIT ? 'TAKE_PROFIT_LIMIT' : 'STOP_LOSS_LIMIT'
         }
       } else {
-        orderType = od.stop!
+        orderType = 'LIMIT'
       }
 
-      const isStopOrder = orderType != 'LIMIT'
       // for consistency with hyperliquid order direction of close position is same as position direction
       const direction = isStopOrder ? (od.side == 'buy' ? 'SHORT' : 'LONG') : od.side == 'buy' ? 'LONG' : 'SHORT'
       const orderAmount = FixedNumber.fromString(od.amount)
