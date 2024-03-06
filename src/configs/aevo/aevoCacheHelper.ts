@@ -152,7 +152,7 @@ export async function aevoCacheGetPendingWithdraw(
         undefined,
         'withdraw',
         'initiated',
-        1000,
+        50,
         0,
         'initiated_timestamp',
         'DESC'
