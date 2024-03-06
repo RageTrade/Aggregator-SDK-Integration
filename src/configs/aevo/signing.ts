@@ -80,7 +80,7 @@ export function signRegisterAgent(instance: AevoAdapterV1, userAddress: `0x${str
     chainId: 1,
     isEoaSigner: false,
     isUserAction: false,
-    isAgentRequired: false,
+    isAgentRequired: true,
     desc: EMPTY_DESC,
     heading: AEVO_ENABLE_TRADING_H
   }
