@@ -543,6 +543,7 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         dynamicMarketMetadata.push({
           oiLong: oracleOi,
           oiShort: oracleOi,
+          isOiBifurcated: false,
           availableLiquidityLong: longLiquidity,
           availableLiquidityShort: shortLiquidity,
           longFundingRate: mulFN(FixedNumber.fromString(assetCtx.funding), FixedNumber.fromString('-1')),

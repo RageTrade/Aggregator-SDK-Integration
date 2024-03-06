@@ -439,6 +439,7 @@ export default class GmxV1Adapter implements IAdapterV1 {
       const dynamicMetadata: DynamicMarketMetadata = {
         oiLong: FixedNumber.fromValue(longTokenInfo.guaranteedUsd!.toString(), 30, 30),
         oiShort: FixedNumber.fromValue(longTokenInfo.globalShortSize!.toString(), 30, 30),
+        isOiBifurcated: true,
         availableLiquidityLong: FixedNumber.fromValue(longTokenInfo.maxAvailableLong!.toString(), 30, 30),
         availableLiquidityShort: FixedNumber.fromValue(shortTokenInfo.maxAvailableShort!.toString(), 30, 30),
         longFundingRate: FixedNumber.fromValue(ZERO.toString(), 6, 30),

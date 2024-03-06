@@ -681,6 +681,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
         dynamicMarketMetadata.push({
           oiLong: oiUsd,
           oiShort: oiUsd,
+          isOiBifurcated: false,
           availableLiquidityLong: liqData.longLiquidity,
           availableLiquidityShort: liqData.shortLiquidity,
           longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),
@@ -709,6 +710,7 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           dynamicMarketMetadata.push({
             oiLong: oiUsd,
             oiShort: oiUsd,
+            isOiBifurcated: false,
             availableLiquidityLong: liqData.longLiquidity,
             availableLiquidityShort: liqData.shortLiquidity,
             longFundingRate: fundingRate.mulFN(FixedNumber.fromString('-1')),

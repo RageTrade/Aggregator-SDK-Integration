@@ -438,6 +438,7 @@ export default class GmxV2Service implements IAdapterV1 {
       metadata.push({
         oiLong: FixedNumber.fromString(formatUnits(longOI, 30), 'fixed128x30'),
         oiShort: FixedNumber.fromString(formatUnits(shortOI, 30), 'fixed128x30'),
+        isOiBifurcated: true,
         availableLiquidityLong: FixedNumber.fromString(formatUnits(availLiqLong, 30), 'fixed128x30'),
         availableLiquidityShort: FixedNumber.fromString(formatUnits(availLiqShort, 30), 'fixed128x30'),
         longFundingRate: FixedNumber.fromString(formatUnits(fundingRateLong, 30), 'fixed128x30'),

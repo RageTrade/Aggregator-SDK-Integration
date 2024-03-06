@@ -233,6 +233,7 @@ export type StaticMarketMetadata =
  * Represents dynamic market metadata.
  * @property oiLong Open interest for long positions.
  * @property oiShort Open interest for short positions.
+ * @property isOiBifurcated Indicates whether open interest is bifurcated across longs and shorts
  * @property availableLiquidityLong Available liquidity for long positions.
  * @property availableLiquidityShort Available liquidity for short positions.
  * @property longFundingRate Long funding rate.
@@ -243,6 +244,7 @@ export type StaticMarketMetadata =
 export type DynamicMarketMetadata = {
   oiLong: FixedNumber
   oiShort: FixedNumber
+  isOiBifurcated: boolean
   availableLiquidityLong: FixedNumber
   availableLiquidityShort: FixedNumber
   longFundingRate: FixedNumber

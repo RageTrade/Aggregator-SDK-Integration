@@ -246,6 +246,7 @@ export default class SynthetixV2Adapter implements IAdapterV1 {
       const dynamicMetadata: DynamicMarketMetadata = {
         oiLong: FixedNumber.fromValue(futureMarket.openInterest.long.toBN().toString(), D18, D18),
         oiShort: FixedNumber.fromValue(futureMarket.openInterest.short.toBN().toString(), D18, D18),
+        isOiBifurcated: true,
         availableLiquidityLong: FixedNumber.fromValue(
           futureMarket.marketLimitUsd.sub(futureMarket.openInterest.longUSD).toBN().toString(),
           D18,
