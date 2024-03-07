@@ -1563,7 +1563,7 @@ export class PrivateApiService {
      * @throws ApiError
      */
     public getTradeHistory(
-        startTime: number,
+        startTime?: number,
         asset?: string,
         endTime?: number,
         tradeTypes?: Array<'trade' | 'liquidation' | 'settlement' | 'funding'>,

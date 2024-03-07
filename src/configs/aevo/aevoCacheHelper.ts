@@ -91,7 +91,7 @@ export async function aevoCacheGetTradeHistory(
   cacheTime: number,
   opts?: ApiOpts
 ): Promise<TradeHistoryReturnType> {
-  const limitStep = 1000
+  const limitStep = 50
   let offset = 0
   let tradeHistory: NonNullable<TradeHistoryReturnType['trade_history']> = []
   let totalCount = 0
@@ -102,7 +102,7 @@ export async function aevoCacheGetTradeHistory(
       key: [AEVO_CACHE_PREFIX, 'tradesHistory', offset],
       fn: () =>
         privateApi.getTradeHistory(
-          0,
+          undefined, // defaults to now - 30 days
           undefined,
           undefined,
           ['trade', 'liquidation'],
