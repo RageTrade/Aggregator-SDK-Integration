@@ -698,7 +698,8 @@ export const MarketAssetByKey: Record<FuturesMarketKey, FuturesMarketAsset> = {
   [FuturesMarketKey.sSTETHETHPERP]: FuturesMarketAsset.STETHETH,
   [FuturesMarketKey.sPENDLEPERP]: FuturesMarketAsset.PENDLE,
   [FuturesMarketKey.sJUPPERP]: FuturesMarketAsset.JUP,
-  [FuturesMarketKey.sCVXPERP]: FuturesMarketAsset.CVX
+  [FuturesMarketKey.sCVXPERP]: FuturesMarketAsset.CVX,
+  [FuturesMarketKey.sSTRKPERP]: FuturesMarketAsset.STRK
 } as const
 
 export const MarketKeyByAsset: Record<FuturesMarketAsset, FuturesMarketKey> = {
@@ -778,7 +779,8 @@ export const MarketKeyByAsset: Record<FuturesMarketAsset, FuturesMarketKey> = {
   [FuturesMarketAsset.STETHETH]: FuturesMarketKey.sSTETHETHPERP,
   [FuturesMarketAsset.PENDLE]: FuturesMarketKey.sPENDLEPERP,
   [FuturesMarketAsset.JUP]: FuturesMarketKey.sJUPPERP,
-  [FuturesMarketAsset.CVX]: FuturesMarketKey.sCVXPERP
+  [FuturesMarketAsset.CVX]: FuturesMarketKey.sCVXPERP,
+  [FuturesMarketAsset.STRK]: FuturesMarketKey.sSTRKPERP
 } as const
 
 export const AssetDisplayByAsset: Record<FuturesMarketAsset, string> = {
@@ -858,7 +860,8 @@ export const AssetDisplayByAsset: Record<FuturesMarketAsset, string> = {
   [FuturesMarketAsset.STETHETH]: 'Lido stETH/ETH Ratio',
   [FuturesMarketAsset.PENDLE]: 'Pendle',
   [FuturesMarketAsset.JUP]: 'Jupiter',
-  [FuturesMarketAsset.CVX]: 'Convex Finance'
+  [FuturesMarketAsset.CVX]: 'Convex Finance',
+  [FuturesMarketAsset.STRK]: 'Starkware'
 } as const
 
 export const marketOverrides: Partial<Record<FuturesMarketKey, Record<string, any>>> = {}

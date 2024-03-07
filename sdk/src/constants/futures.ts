@@ -838,6 +838,16 @@ export const MARKETS: Record<FuturesMarketKey, FuturesMarketConfig> = {
       mainnet: '0x6aac625e125ada0d2a6b98316493256ca733a5808cd34ccef79b0e28c64d1e76',
       testnet: '0x4193915dc8d03bc15603ec3c0ca9c5e3eff6726c2a2cf262e30be121c2b9a206'
     }
+  },
+  [FuturesMarketKey.sSTRKPERP]: {
+    key: FuturesMarketKey.sSTRKPERP,
+    asset: FuturesMarketAsset.STRK,
+    supports: 'both',
+    version: 2,
+    pythIds: {
+      mainnet: '0x6a182399ff70ccf3e06024898942028204125a819e519a335ffa4579e66cd870',
+      testnet: '0xf43ec4cc582241061daceec80cbbdeb0ffae4f5d9870c96a63b08d76aa8bea5e'
+    }
   }
 }
 

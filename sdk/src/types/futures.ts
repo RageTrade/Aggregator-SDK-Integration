@@ -146,7 +146,8 @@ export enum FuturesMarketKey {
   sSTETHETHPERP = 'sSTETHETHPERP',
   sPENDLEPERP = 'sPENDLEPERP',
   sJUPPERP = 'sJUPPERP',
-  sCVXPERP = 'sCVXPERP'
+  sCVXPERP = 'sCVXPERP',
+  sSTRKPERP = 'sSTRKPERP'
 }
 
 export enum FuturesMarketAsset {
@@ -226,7 +227,8 @@ export enum FuturesMarketAsset {
   STETHETH = 'STETHETH',
   PENDLE = 'PENDLE',
   JUP = 'JUP',
-  CVX = 'CVX'
+  CVX = 'CVX',
+  STRK = 'STRK'
 }
 
 export interface FuturesMarketConfig {
