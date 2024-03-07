@@ -431,6 +431,7 @@ export type PositionInfo = PositionData & {
  * @property positionFee The position fee of the trade.
  * @property operationType The operation type of the trade.
  * @property txHash The transaction hash of the trade.
+ * @property id The ID of the trade.
  */
 export type HistoricalTradeInfo = TradeData &
   CollateralData & {
@@ -442,6 +443,7 @@ export type HistoricalTradeInfo = TradeData &
     positionFee: FixedNumber
     operationType: TradeOperationType
     txHash: string
+    id: string
   }
 
 /**
@@ -451,6 +453,7 @@ export type HistoricalTradeInfo = TradeData &
  * @property liqudationLeverage The liquidation leverage.
  * @property timestamp The timestamp.
  * @property txHash The transaction hash. Currently undefined for snx
+ * @property id The ID of the liquidation.
  */
 export type LiquidationInfo = CollateralData & {
   marketId: Market['marketId']
@@ -463,6 +466,7 @@ export type LiquidationInfo = CollateralData & {
   liqudationLeverage: FixedNumber
   timestamp: number
   txHash: string | undefined
+  id: string
 }
 
 /**

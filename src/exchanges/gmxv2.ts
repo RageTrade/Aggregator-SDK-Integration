@@ -1224,7 +1224,8 @@ export default class GmxV2Service implements IAdapterV1 {
         keeperFeesPaid: FixedNumber.fromValue(trade.keeperFeeUsd, 30, 30), // USD
         positionFee: FixedNumber.fromValue(positionFeeUsd, 30, 30), // USD
         operationType: this._getOperationType(parseInt(trade.orderType), trade.isLong),
-        txHash: trade.executedTxn.hash
+        txHash: trade.executedTxn.hash,
+        id: trade.executedTxn.hash
       } as HistoricalTradeInfo)
     })
 
@@ -1493,7 +1494,8 @@ export default class GmxV2Service implements IAdapterV1 {
         realizedPnl: FixedNumber.fromValue(trade.pnlUsd as string, 30, 30), // USD
         liquidationFees: FixedNumber.fromValue(liquidationFeeUsd, 30, 30), // USD
         liqudationLeverage: FixedNumber.fromValue('500000', 4, 4), //50x
-        txHash: trade.executedTxn.hash
+        txHash: trade.executedTxn.hash,
+        id: trade.executedTxn.hash
       } as LiquidationInfo)
     })
 

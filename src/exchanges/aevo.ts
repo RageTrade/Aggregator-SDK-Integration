@@ -1314,7 +1314,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           keeperFeesPaid: FixedNumber.fromString('0'),
           positionFee: FixedNumber.fromString(th.fees),
           operationType: this._getOperationType(isClose, direction),
-          txHash: '' // txHash is not available in trade history
+          txHash: '', // txHash is not available in trade history
+          id: th.trade_id
         }
 
         trades.push(tradeInfo)
@@ -1359,7 +1360,8 @@ export default class AevoAdapterV1 implements IAdapterV1 {
           remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true), // TODO: no remainingCollateral for fills because Aevo doesn't provide margin info
           liqudationLeverage: market?.maxLeverage || ZERO_FN,
           timestamp: Math.floor(Number(lh.created_timestamp) / 1000000000), // nano to seconds
-          txHash: '' // txHash is not available in trade history
+          txHash: '', // txHash is not available in trade history
+          id: lh.trade_id
         })
       }
     }

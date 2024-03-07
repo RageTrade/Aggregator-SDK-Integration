@@ -1363,7 +1363,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
             keeperFeesPaid: FixedNumber.fromValue('0', 30, 30),
             positionFee: FixedNumber.fromValue(BigNumber.from(incTrade.fee).toString(), 30, 30),
             operationType: incTrade.isLong ? 'Open Long' : 'Open Short',
-            txHash: txHash
+            txHash: txHash,
+            id: txHash
           })
         }
       }
@@ -1404,7 +1405,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
             keeperFeesPaid: FixedNumber.fromValue('0', 30, 30),
             positionFee: FixedNumber.fromValue(BigNumber.from(decTrade.fee).toString(), 30, 30),
             operationType: decTrade.isLong ? 'Close Long' : 'Close Short',
-            txHash: txHash
+            txHash: txHash,
+            id: txHash
           })
         }
       }
@@ -1525,7 +1527,8 @@ export default class GmxV1Adapter implements IAdapterV1 {
         realizedPnl: FixedNumber.fromValue(BigNumber.from(each.collateral).mul(-1).toString(), 30, 30),
         liquidationFees: FixedNumber.fromValue(BigNumber.from(LIQUIDATION_FEE_USD).toString(), 30, 30), // USD
         liqudationLeverage: FixedNumber.fromValue('1000000', 4, 4), //100x
-        txHash: each.id.split(':')[2]
+        txHash: each.id.split(':')[2],
+        id: each.id.split(':')[2]
       })
     }
 

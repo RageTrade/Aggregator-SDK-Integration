@@ -1333,7 +1333,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         keeperFeesPaid: FixedNumber.fromString('0'),
         positionFee: FixedNumber.fromString(uf.fee),
         operationType: uf.dir as TradeOperationType,
-        txHash: uf.hash
+        txHash: uf.hash,
+        id: uf.tid.toString()
       })
     }
 
@@ -1374,7 +1375,8 @@ export default class HyperliquidAdapterV1 implements IAdapterV1 {
         remainingCollateral: toAmountInfoFN(FixedNumber.fromString('0'), true), // TODO: no remainingCollateral for fills because HL doesn't provide margin info
         liqudationLeverage: marketMaxLevMap[marketId],
         timestamp: Math.floor(uf.time / 1000),
-        txHash: uf.hash
+        txHash: uf.hash,
+        id: uf.tid.toString()
       })
     }
 
