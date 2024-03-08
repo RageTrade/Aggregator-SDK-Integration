@@ -131,6 +131,15 @@ export const tokens = {
       [arbitrum.id]: '0x2bcC6D6CdBbDC0a4071e48bb3B969b06B3330c07',
       [optimism.id]: '0xba1Cf949c382A32a09A17B2AdF3587fc7fA664f1'
     }
+  },
+  AVAX: {
+    name: 'Wrapped AVAX (Wormhole)',
+    symbol: 'AVAX',
+    decimals: 18,
+    address: {
+      [arbitrum.id]: '0x565609fAF65B92F7be02468acF86f8979423e514',
+      [optimism.id]: '0x565609fAF65B92F7be02468acF86f8979423e514'
+    }
   }
 } as const satisfies Record<string, Token>
 
