@@ -155,7 +155,7 @@ const tokens = [
     coingeckoUrl: 'https://www.coingecko.com/en/coins/avalanche',
     coingeckoSymbol: 'AVAX',
     explorerSymbol: 'WAVAX',
-    priceDecimals: 18
+    priceDecimals: 12
   }
 ]
 
