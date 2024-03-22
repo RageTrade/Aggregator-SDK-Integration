@@ -173,6 +173,10 @@ export default class PerennialAdapter implements IAdapterV1 {
     }
   }
 
+  setCredentials(): void {
+    throw new Error('Method not implemented.')
+  }
+
   setup(): Promise<ActionParam[]> {
     return Promise.resolve([])
   }
@@ -497,7 +501,8 @@ export default class PerennialAdapter implements IAdapterV1 {
         liqudationLeverage: FixedNumber.fromString('100'), // TODO: Calculate leverage at time of liquidation
         liquidationPrice: FixedNumber.fromValue(liquidationTx.priceWithImpact, 6),
         txHash: liquidationTx.transactionHash,
-        collateral: tokens['USDC.e']
+        collateral: tokens['USDC.e'],
+        id: liquidationTx.transactionHash
       })
     }
     return {
@@ -630,6 +635,7 @@ export default class PerennialAdapter implements IAdapterV1 {
         priceStep: FixedNumber.fromString('0.01'),
         minPositionSize: FixedNumber.fromString('0.01'),
         maxPrecision: 6,
+        minPositionSizeToken: FixedNumber.fromString('0.01'),
         ...protocol
       }
 
@@ -1094,7 +1100,11 @@ export default class PerennialAdapter implements IAdapterV1 {
       sizeDeltaInToken: false,
       explicitFundingClaim: false,
       collateralDeltaInToken: false,
-      collateralUsesLimitPricing: false
+      collateralUsesLimitPricing: false,
+      depositData: {
+        10: [],
+        42161: [tokens['USDC.e']]
+      }
     }
     return info
   }
@@ -1161,7 +1171,8 @@ export default class PerennialAdapter implements IAdapterV1 {
         longFundingRate: FixedNumber.fromValue(longRate.hourlyFunding, 6),
         shortFundingRate: FixedNumber.fromValue(shortRate.hourlyFunding, 6),
         longBorrowRate: FixedNumber.fromString('0'), // TODO: figure out borrow rate
-        shortBorrowRate: FixedNumber.fromString('0')
+        shortBorrowRate: FixedNumber.fromString('0'),
+        isOiBifurcated: false
       })
     }
     return metadata
@@ -1205,7 +1216,8 @@ export default class PerennialAdapter implements IAdapterV1 {
         marketId: encodeMarketId(arbitrum.id.toString(), 'PERENNIAL', position.asset),
         direction: (position.side === PositionSideV2.long ? 'LONG' : 'SHORT') as TradeDirection,
         sizeDelta: toAmountInfo(BigNumber.from(Big6Math.toFloatString(position.startSize)), 6, true),
-        marginDelta: toAmountInfo(BigNumber.from(Big6Math.toFloatString(position.startCollateral)), 6, false)
+        marginDelta: toAmountInfo(BigNumber.from(Big6Math.toFloatString(position.startCollateral)), 6, false),
+        id: position.startTransactionHash
       }
     })
     return getPaginatedResponse(trades, pageOptions)
