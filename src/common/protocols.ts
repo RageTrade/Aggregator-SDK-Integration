@@ -26,5 +26,9 @@ export const protocols = {
   AEVO: {
     symbol: 'AEVO',
     supportedChains: [arbitrum, optimism]
+  },
+  PERENNIAL: {
+    symbol: 'PERENNIAL',
+    supportedChains: [arbitrum]
   }
 }

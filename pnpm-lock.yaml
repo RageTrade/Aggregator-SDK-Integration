@@ -17,6 +17,9 @@ dependencies:
   '@kwenta/sdk':
     specifier: ./sdk
     version: link:sdk
+  '@perennial/sdk':
+    specifier: 0.0.1-beta2
+    version: 0.0.1-beta2(typescript@5.3.2)
   '@pythnetwork/client':
     specifier: ^2.19.0
     version: 2.19.0(@solana/web3.js@1.87.6)
@@ -41,6 +44,9 @@ dependencies:
   viem:
     specifier: 1.5.4
     version: 1.5.4(typescript@5.3.2)
+  viem-v2.8.18:
+    specifier: npm:viem@2.8.18
+    version: /viem@2.8.18(typescript@5.3.2)
   ws:
     specifier: ^8.16.0
     version: 8.16.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
@@ -516,6 +522,54 @@ packages:
     engines: {node: '>= 16'}
     dev: false
 
+  /@perennial/price-service-client@1.8.2-fork2:
+    resolution: {integrity: sha512-EIJhD26pUQ2MHBpK6f77/QvVCGWXjRU+28wZ1rZ2uqhkEfWrEThkulT58gb3K6YBb8WhQDz3A/eV6gytVoiLYw==}
+    dependencies:
+      '@perennial/price-service-sdk': 1.4.1-fork2
+      '@types/ws': 8.5.10
+      axios: 1.6.2
+      axios-retry: 3.9.1
+      isomorphic-ws: 4.0.1(ws@8.16.0)
+      ts-log: 2.2.5
+      ws: 8.16.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
+    dev: false
+
+  /@perennial/price-service-sdk@1.4.1-fork2:
+    resolution: {integrity: sha512-/9jDzHMtDUTNd7ao4NNp8jk3HWsPT55gg1HuIZvq+uIL04K93OX+bTEJaqeA2BV52qgLWV/nFVl59IhDyKo9fg==}
+    dev: false
+
+  /@perennial/pyth-evm-js@1.32.0-fork4:
+    resolution: {integrity: sha512-nlaQa0DBwghJd9lrx2BgJEehrjyw7OLuY6IGpl4vO/7iFLTyHYvisPGX95d6jZb4Z5voXytoCFBKrPQcuAEkHA==}
+    dependencies:
+      '@perennial/price-service-client': 1.8.2-fork2
+      buffer: 6.0.3
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - utf-8-validate
+    dev: false
+
+  /@perennial/sdk@0.0.1-beta2(typescript@5.3.2):
+    resolution: {integrity: sha512-vyo70dI9mHBD0itOJzUbJkdQLPnKRuGecY0XUc3CcPLIMUF+Z6WgdYDUr736Ewi+xyglZa061sm7LS/hVDy32A==}
+    dependencies:
+      '@perennial/pyth-evm-js': 1.32.0-fork4
+      date-fns: 2.30.0
+      graphql: 16.8.1
+      graphql-request: 6.1.0(graphql@16.8.1)
+      viem: 2.8.18(typescript@5.3.2)
+    transitivePeerDependencies:
+      - bufferutil
+      - debug
+      - encoding
+      - typescript
+      - utf-8-validate
+      - zod
+    dev: false
+
   /@pythnetwork/client@2.19.0(@solana/web3.js@1.87.6):
     resolution: {integrity: sha512-0VSQ0NqBOa5EtloXbOVYZ6Wpu8CLP3oaOKVTaUMSX/HXbB00S6G+xdwF7stxo6emgrAMopotx3icEVug5Lpomg==}
     peerDependencies:
@@ -563,8 +617,23 @@ packages:
       '@scure/base': 1.1.3
     dev: false
 
+  /@scure/bip32@1.3.2:
+    resolution: {integrity: sha512-N1ZhksgwD3OBlwTv3R6KFEcPojl/W4ElJOeCZdi+vuI5QmTFwLq3OFf2zd2ROpKvxFdgZ6hUpb0dx9bVNEwYCA==}
+    dependencies:
+      '@noble/curves': 1.2.0
+      '@noble/hashes': 1.3.2
+      '@scure/base': 1.1.3
+    dev: false
+
   /@scure/bip39@1.2.0:
     resolution: {integrity: sha512-SX/uKq52cuxm4YFXWFaVByaSHJh2w3BnokVSeUJVCv6K7WulT9u2BuNRBhuFl8vAuYnzx9bEu9WgpcNYTrYieg==}
+    dependencies:
+      '@noble/hashes': 1.3.2
+      '@scure/base': 1.1.3
+    dev: false
+
+  /@scure/bip39@1.2.1:
+    resolution: {integrity: sha512-Z3/Fsz1yr904dduJD0NpiyRHhRYHdcnyh73FZWiV+/qhWi83wNJ3NWolYqCEN+ZWsUz2TWwajJggcRE9r1zUYg==}
     dependencies:
       '@noble/hashes': 1.3.2
       '@scure/base': 1.1.3
@@ -736,6 +805,20 @@ packages:
       typescript: 5.3.2
     dev: false
 
+  /abitype@1.0.0(typescript@5.3.2):
+    resolution: {integrity: sha512-NMeMah//6bJ56H5XRj8QCV4AwuW6hB6zqz2LnhhLdcWVQOsXki6/Pn3APeqxCma62nXIcmZWdu1DlHWS74umVQ==}
+    peerDependencies:
+      typescript: '>=5.0.4'
+      zod: ^3 >=3.22.0
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+      zod:
+        optional: true
+    dependencies:
+      typescript: 5.3.2
+    dev: false
+
   /acorn-walk@8.3.0:
     resolution: {integrity: sha512-FS7hV565M5l1R08MXqo8odwMTB02C2UqzB17RVgu9EyuYFBqJZ3/ZY97sQD5FewVu1UyDFc1yztUDrAwT0EypA==}
     engines: {node: '>=0.4.0'}
@@ -898,6 +981,13 @@ packages:
     engines: {node: '>=8'}
     dev: false
 
+  /date-fns@2.30.0:
+    resolution: {integrity: sha512-fnULvOpxnC5/Vg3NCiWelDsLiUc9bRwAPs/+LfTLNvetFCtCTN+yQz15C/fs4AwX1R9K5GLtLfn8QW+dWisaAw==}
+    engines: {node: '>=0.11'}
+    dependencies:
+      '@babel/runtime': 7.23.5
+    dev: false
+
   /delay@5.0.0:
     resolution: {integrity: sha512-ReEBKkIfe4ya47wlPYf/gu5ib6yUG0/Aez0JQZQz94kiWtRQvZIQbTiehsnwHvLSWJnQdhVeqYue7Id1dKr0qw==}
     engines: {node: '>=10'}
@@ -1042,6 +1132,18 @@ packages:
       mime-types: 2.1.35
     dev: false
 
+  /graphql-request@6.1.0(graphql@16.8.1):
+    resolution: {integrity: sha512-p+XPfS4q7aIpKVcgmnZKhMNqhltk20hfXtkaIkTfjjmiKMJ5xrt5c743cL03y/K7y1rg3WrIC49xGiEQ4mxdNw==}
+    peerDependencies:
+      graphql: 14 - 16
+    dependencies:
+      '@graphql-typed-document-node/core': 3.2.0(graphql@16.8.1)
+      cross-fetch: 3.1.8
+      graphql: 16.8.1
+    transitivePeerDependencies:
+      - encoding
+    dev: false
+
   /graphql-tag@2.12.6(graphql@16.8.1):
     resolution: {integrity: sha512-FdSNcu2QQcWnM2VNvSCCDCVS5PpPqpzgFT8+GXzqJuoDd0CBncxCY278u4mhRO7tMgo2JjgJA5aZ+nWSQ/Z+xg==}
     engines: {node: '>=10'}
@@ -1127,6 +1229,14 @@ packages:
       ws: '*'
     dependencies:
       ws: 8.16.0(bufferutil@4.0.8)(utf-8-validate@5.0.10)
+    dev: false
+
+  /isows@1.0.3(ws@8.13.0):
+    resolution: {integrity: sha512-2cKei4vlmg2cxEjm3wVSqn8pcoRF/LX/wpifuuNquFO4SQmPwarClT+SUCA2lt+l581tTeZIPIZuIDo2jWN1fg==}
+    peerDependencies:
+      ws: '*'
+    dependencies:
+      ws: 8.13.0
     dev: false
 
   /jayson@4.1.0:
@@ -1439,6 +1549,29 @@ packages:
       - zod
     dev: false
 
+  /viem@2.8.18(typescript@5.3.2):
+    resolution: {integrity: sha512-Kq3kwkKziJ8rQeLkmdbSLheHDnA+tx2EdLKLmQ3N4FVtjKYjBP9tPL1r+fI6KltVUM1TDOhIHOdslDSp57VMMg==}
+    peerDependencies:
+      typescript: '>=5.0.4'
+    peerDependenciesMeta:
+      typescript:
+        optional: true
+    dependencies:
+      '@adraffy/ens-normalize': 1.10.0
+      '@noble/curves': 1.2.0
+      '@noble/hashes': 1.3.2
+      '@scure/bip32': 1.3.2
+      '@scure/bip39': 1.2.1
+      abitype: 1.0.0(typescript@5.3.2)
+      isows: 1.0.3(ws@8.13.0)
+      typescript: 5.3.2
+      ws: 8.13.0
+    transitivePeerDependencies:
+      - bufferutil
+      - utf-8-validate
+      - zod
+    dev: false
+
   /webidl-conversions@3.0.1:
     resolution: {integrity: sha512-2JAn3z8AR6rjK8Sm8orRC0h/bcl/DqL7tRPdGZ4I1CjdF+EaMLmYxBHyXuKL849eucPFhvBoxMsflfOb8kxaeQ==}
     dev: false
@@ -1478,6 +1611,19 @@ packages:
 
   /ws@8.12.0:
     resolution: {integrity: sha512-kU62emKIdKVeEIOIKVegvqpXMSTAMLJozpHZaJNDYqBjzlSYXQGviYwN1osDLJ9av68qHd4a2oSjd7yD4pacig==}
+    engines: {node: '>=10.0.0'}
+    peerDependencies:
+      bufferutil: ^4.0.1
+      utf-8-validate: '>=5.0.2'
+    peerDependenciesMeta:
+      bufferutil:
+        optional: true
+      utf-8-validate:
+        optional: true
+    dev: false
+
+  /ws@8.13.0:
+    resolution: {integrity: sha512-x9vcZYTrFPC7aSIbj7sRCYo7L/Xb8Iy+pW0ng0wt2vCJv7M9HOMy0UoN3rr+IFC7hb7vXoqS+P9ktyLLLhO+LA==}
     engines: {node: '>=10.0.0'}
     peerDependencies:
       bufferutil: ^4.0.1
