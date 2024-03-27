@@ -28,7 +28,7 @@
     "viem": "1.5.4",
     "viem-v2.8.18": "npm:viem@2.8.18",
     "ws": "^8.16.0",
-    "@perennial/sdk": "0.0.1-beta2"
+    "@perennial/sdk": "0.0.1-beta3"
   },
   "version": "1.0.0",
   "license": "MIT"
