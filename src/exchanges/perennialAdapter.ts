@@ -592,7 +592,7 @@ export default class PerennialAdapter implements IAdapterV1 {
     const protocol: Protocol = {
       protocolId: 'PERENNIAL'
     }
-    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({})
+    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({ address: zeroAddress })
     if (!marketSnapshots) {
       return {}
     }
@@ -1120,7 +1120,7 @@ export default class PerennialAdapter implements IAdapterV1 {
   }
 
   async getMarketPrices(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<FixedNumber[]> {
-    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({})
+    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({ address: zeroAddress })
     if (!marketSnapshots) {
       return []
     }
@@ -1149,7 +1149,7 @@ export default class PerennialAdapter implements IAdapterV1 {
 
   async getDynamicMarketMetadata(marketIds: Market['marketId'][], opts?: ApiOpts): Promise<DynamicMarketMetadata[]> {
     const metadata: DynamicMarketMetadata[] = []
-    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({})
+    const marketSnapshots = await this.sdk.markets.read.marketSnapshots({ address: zeroAddress })
     if (!marketSnapshots) throw new Error('No market data')
 
     for (const mId of marketIds) {
