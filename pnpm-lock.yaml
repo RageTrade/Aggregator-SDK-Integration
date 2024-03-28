@@ -18,8 +18,8 @@ dependencies:
     specifier: ./sdk
     version: link:sdk
   '@perennial/sdk':
-    specifier: 0.0.1-beta2
-    version: 0.0.1-beta2(typescript@5.3.2)
+    specifier: 0.0.1-beta4
+    version: 0.0.1-beta4(typescript@5.3.2)
   '@pythnetwork/client':
     specifier: ^2.19.0
     version: 2.19.0(@solana/web3.js@1.87.6)
@@ -553,8 +553,8 @@ packages:
       - utf-8-validate
     dev: false
 
-  /@perennial/sdk@0.0.1-beta2(typescript@5.3.2):
-    resolution: {integrity: sha512-vyo70dI9mHBD0itOJzUbJkdQLPnKRuGecY0XUc3CcPLIMUF+Z6WgdYDUr736Ewi+xyglZa061sm7LS/hVDy32A==}
+  /@perennial/sdk@0.0.1-beta4(typescript@5.3.2):
+    resolution: {integrity: sha512-nOptiMS9VlI4CfnbBZnlHzlFHF7jG7OyQAaLoEXvVPth4+mNCT6Q0S+Xb5x9mqgNJhfUy+FTIqTtqQDDPkoZlQ==}
     dependencies:
       '@perennial/pyth-evm-js': 1.32.0-fork4
       date-fns: 2.30.0
