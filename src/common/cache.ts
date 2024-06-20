@@ -14,6 +14,7 @@ export const GMXV1_CACHE_PREFIX = 'gmxv1'
 export const SYNV2_CACHE_PREFIX = 'synv2'
 export const HL_CACHE_PREFIX = 'hl'
 export const AEVO_CACHE_PREFIX = 'aevo'
+export const ORDERLY_CACHE_PREFIX = 'orderly'
 
 const queryClient = new QueryClient({
   defaultOptions: {
