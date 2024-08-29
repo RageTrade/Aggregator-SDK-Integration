@@ -38,5 +38,9 @@ export const protocols = {
   SYNFUTURES: {
     symbol: 'SYNFUTURES',
     supportedChains: [arbitrum]
+  },
+  REYA: {
+    symbol: 'REYA',
+    supportedChains: [arbitrum, optimism]
   }
 } as const

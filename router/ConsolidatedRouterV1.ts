@@ -8,9 +8,11 @@ import { decodeMarketId } from '../src/common/markets'
 import { protocols } from '../src/common/protocols'
 import { aevo } from '../src/configs/aevo/config'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
+import { reya } from '../src/configs/reya/config'
 import { AevoAdapterV1 } from '../src/exchanges/aevo'
 import { GmxV2Service } from '../src/exchanges/gmxv2'
 import { HyperliquidAdapterV1 } from '../src/exchanges/hyperliquid'
+import { ReyaAdapterV1 } from '../src/exchanges/reya'
 import type { ActionParam } from '../src/interfaces/IActionExecutor'
 import type { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
 import type {
@@ -63,6 +65,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.GMXV2.symbol] = new GmxV2Service()
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
     this.adapters[protocols.AEVO.symbol] = new AevoAdapterV1()
+    this.adapters[protocols.REYA.symbol] = new ReyaAdapterV1()
   }
 
   async setCredentials<T extends ProtocolId>(protocol: T, credentials: AuthParams<T>): Promise<void> {
@@ -161,7 +164,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
   }
 
   supportedChains(opts?: ApiOpts): Chain[] {
-    return [arbitrum, optimism, hyperliquid, aevo]
+    return [arbitrum, optimism, hyperliquid, aevo, reya]
   }
 
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {

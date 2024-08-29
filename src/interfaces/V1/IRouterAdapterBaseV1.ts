@@ -71,7 +71,16 @@ export type OrderAction = 'CREATE' | 'UPDATE' | 'CANCEL'
 /**
  * Represents the protocol ID.
  */
-export type ProtocolId = 'GMXV1' | 'SYNTHETIX_V2' | 'GMXV2' | 'HL' | 'AEVO' | 'DYDXV4' | 'SYNFUTURES' | 'PERENNIAL'
+export type ProtocolId =
+  | 'GMXV1'
+  | 'SYNTHETIX_V2'
+  | 'GMXV2'
+  | 'HL'
+  | 'AEVO'
+  | 'DYDXV4'
+  | 'SYNFUTURES'
+  | 'PERENNIAL'
+  | 'REYA'
 
 /**
  * Represents the type of trade operation.
@@ -612,7 +621,9 @@ type StoredCollateralData<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2' | 
     ? Awaited<ReturnType<(typeof AevoClient)['prototype']['privateApi']['getAccount']>>['collaterals']
     : T extends 'SYNFUTURES'
       ? Array<{ token: Token; amount: FixedNumber }>
-      : never
+      : T extends 'REYA'
+        ? Array<{ token: string; amount: FixedNumber }>
+        : never
 
 /**
  * Represents account information per protocol.
@@ -666,7 +677,13 @@ export type AccountInfoData<T extends ProtocolId> = T extends 'GMXV1' | 'GMXV2' 
                   withdrawable: FixedNumber
                 }[]
               }
-            : never
+            : T extends 'REYA'
+              ? {
+                  accountEquity: FixedNumber // The equity of the account.
+                  availableToTrade: FixedNumber // The amount available for trading.
+                  storedCollateral: StoredCollateralData<'REYA'>
+                }
+              : never
 
 /**
  * Represents account information.

@@ -9,6 +9,7 @@ import { protocols } from '../src/common/protocols'
 import { AevoAdapterV1 } from '../src/exchanges/aevo'
 import { GmxV2Service } from '../src/exchanges/gmxv2'
 import { HyperliquidAdapterV1 } from '../src/exchanges/hyperliquid'
+import { ReyaAdapterV1 } from '../src/exchanges/reya'
 import type { ActionParam } from '../src/interfaces/IActionExecutor'
 import type { IAdapterV1, ProtocolInfo } from '../src/interfaces/V1/IAdapterV1'
 import type {
@@ -61,6 +62,7 @@ export default class RouterV1 implements IRouterV1 {
     this.adapters[protocols.GMXV2.symbol] = new GmxV2Service()
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
     this.adapters[protocols.AEVO.symbol] = new AevoAdapterV1()
+    this.adapters[protocols.REYA.symbol] = new ReyaAdapterV1()
   }
 
   clearCredentials<T extends ProtocolId>(protocol: T) {

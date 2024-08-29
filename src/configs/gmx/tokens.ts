@@ -2728,10 +2728,10 @@ export const getTradePreviewInternal = async (
 
   const liquidationPrice = getLiquidationPrice({
     isLong: order.direction == 'LONG',
-    size: existingPosition ? existingPosition.size.add(toUsdMax || 0) : toUsdMax ?? BigNumber.from(0),
+    size: existingPosition ? existingPosition.size.add(toUsdMax || 0) : (toUsdMax ?? BigNumber.from(0)),
     collateral: existingPosition
       ? existingPosition.collateralAfterFee!.add(fromUsdMinAfterFees)
-      : fromUsdMinAfterFees ?? BigNumber.from(0),
+      : (fromUsdMinAfterFees ?? BigNumber.from(0)),
     averagePrice: nextAveragePrice ?? BigNumber.from(0)
   })
 
@@ -2898,10 +2898,10 @@ export const getTradePreviewInternalV1 = async (
 
   const liquidationPrice = getLiquidationPrice({
     isLong: orderData.direction == 'LONG',
-    size: existingPos ? internalPos.size.add(toUsdMax || 0) : toUsdMax ?? BigNumber.from(0),
+    size: existingPos ? internalPos.size.add(toUsdMax || 0) : (toUsdMax ?? BigNumber.from(0)),
     collateral: existingPos
       ? internalPos.collateralAfterFee!.add(fromUsdMinAfterFees)
-      : fromUsdMinAfterFees ?? BigNumber.from(0),
+      : (fromUsdMinAfterFees ?? BigNumber.from(0)),
     averagePrice: nextAveragePrice ?? BigNumber.from(0)
   })
 
