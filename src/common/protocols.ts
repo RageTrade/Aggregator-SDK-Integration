@@ -36,5 +36,9 @@ export const protocols: Record<string, Protocol> = {
   ORDERLY: {
     symbol: 'ORDERLY',
     supportedChains: [arbitrum]
+  },
+  REYA: {
+    symbol: 'REYA',
+    supportedChains: [arbitrum, optimism]
   }
 } as const

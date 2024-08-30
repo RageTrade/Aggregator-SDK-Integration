@@ -13,10 +13,12 @@ import { subscribeAevoCandles, unSubscribeAevoCandles } from '../src/configs/aev
 import { aevo } from '../src/configs/aevo/config'
 import { subscribeHLCandles, unSubscribeHLCandles } from '../src/configs/hyperliquid'
 import { hyperliquid } from '../src/configs/hyperliquid/api/config'
+import { reya } from '../src/configs/reya/config'
 import { AevoAdapterV1 } from '../src/exchanges/aevo'
 import { GmxV2Service } from '../src/exchanges/gmxv2'
 import { HyperliquidAdapterV1 } from '../src/exchanges/hyperliquid'
 import { PerennialAdapter } from '../src/exchanges/perennialAdapter'
+import { ReyaAdapterV1 } from '../src/exchanges/reya'
 import type { ActionParam } from '../src/interfaces/IActionExecutor'
 import type { GetBarsParams, IAdapterV1, ProtocolInfo, TVBar } from '../src/interfaces/V1/IAdapterV1'
 import type {
@@ -71,6 +73,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
     this.adapters[protocols.HYPERLIQUID.symbol] = new HyperliquidAdapterV1()
     this.adapters[protocols.AEVO.symbol] = new AevoAdapterV1()
     this.adapters[protocols.PERENNIAL.symbol] = new PerennialAdapter(perennialSdk)
+    this.adapters[protocols.REYA.symbol] = new ReyaAdapterV1()
   }
 
   async setCredentials<T extends ProtocolId>(protocol: T, credentials: AuthParams<T>): Promise<void> {
@@ -169,7 +172,7 @@ export default class ConsolidatedRouterV1 implements IRouterV1 {
   }
 
   supportedChains(opts?: ApiOpts): Chain[] {
-    return [arbitrum, optimism, hyperliquid, aevo]
+    return [arbitrum, optimism, hyperliquid, aevo, reya]
   }
 
   async supportedMarkets(chains: Chain[] | undefined, opts?: ApiOpts): Promise<MarketInfo[]> {

@@ -90,6 +90,8 @@ function _getProtocolString(protocolId: ProtocolId) {
       return 'Perennial'
     case 'ORDERLY':
       return 'Orderly'
+    case 'REYA':
+      return 'Reya'
     default:
       return ''
   }
@@ -130,3 +132,8 @@ export const PERENNIAL_DEPOSIT = 'Perennial: Deposit'
 export const PERENNIAL_WITHDRAW = 'Perennial: Withdraw'
 export const PERENNIAL_UPDATE_MARGIN = 'Update Margin'
 export const PERENNIAL_APPROVE_MARKET = 'Enable Perennial: Approve Market'
+
+// Reya
+export const REYA_DEPOSIT = 'Reya: Deposit'
+export const REYA_WITHDRAW = 'Reya: Withdraw'
+export const REYA_TRADE = 'Reya: Trade'

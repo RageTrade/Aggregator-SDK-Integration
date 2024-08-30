@@ -14,6 +14,7 @@ import { subscribeHLCandles, unSubscribeHLCandles } from '../src/configs/hyperli
 import { AevoAdapterV1 } from '../src/exchanges/aevo'
 import { GmxV2Service } from '../src/exchanges/gmxv2'
 import { HyperliquidAdapterV1 } from '../src/exchanges/hyperliquid'
+import { ReyaAdapterV1 } from '../src/exchanges/reya'
 import type { ActionParam } from '../src/interfaces/IActionExecutor'
 import type { GetBarsParams, IAdapterV1, ProtocolInfo, TVBar } from '../src/interfaces/V1/IAdapterV1'
 import type {
@@ -70,6 +71,7 @@ export default class RouterV1 implements IRouterV1 {
     // this.adapters[protocols.SYNFUTURES.symbol] = new SynFuturesAdapterV1()
     // this.adapters[protocols.PERENNIAL.symbol] = new PerennialAdapter(perennialSdk)
     // this.adapters[protocols.ORDERLY.symbol] = new OrderlyAdapterV1()
+    this.adapters[protocols.REYA.symbol] = new ReyaAdapterV1()
   }
 
   clearCredentials<T extends ProtocolId>(protocol: T) {
