@@ -1692,7 +1692,7 @@ export class PerennialAdapter implements IAdapterV1 {
 
     Object.values(marketsOracles).map((oracle) => {
       this.sdk.publicClient.watchContractEvent({
-        address: oracle.address,
+        address: oracle.oracleAddress,
         abi: KeeperOracleAbi,
         eventName: 'OracleProviderVersionFulfilled',
         pollingInterval: CACHE_SECOND * 10, // poll every 10 seconds
