@@ -18,6 +18,7 @@ import {
   PositionSide,
   TriggerComparison
 } from '@perennial/sdk'
+import type { SupportedMarketMapping } from '@perennial/sdk/dist/constants'
 import { BigNumber } from 'ethers'
 import type { Address, Chain } from 'viem'
 import { getAddress, parseUnits, zeroAddress } from 'viem'
@@ -313,7 +314,9 @@ export class PerennialAdapter implements IAdapterV1 {
         errMsg = 'Order would exceed max leverage'
       }
 
-      const finalTradeFee = tradeFee.tradeFee.total
+      const settlementFees = await this._cachedSettlementFees({ address: account, opts })
+      const settlementFee = settlementFees?.[protocolMarketId as SupportedAsset].totalCost ?? 0n
+      const finalTradeFee = tradeFee.tradeFee.total + settlementFee
 
       tradePreviews.push({
         marketId: newOrder.marketId,
@@ -377,7 +380,10 @@ export class PerennialAdapter implements IAdapterV1 {
       if (newLeverage > Big6Math.fromFloatString(maxLeverage.toString())) {
         errMsg = 'New position would exceed max leverage.'
       }
-      const finalTradeFee = tradeFee.tradeFee.total
+
+      const settlementFees = await this._cachedSettlementFees({ address: account, opts })
+      const settlementFee = settlementFees?.[protocolMarketId as SupportedAsset].totalCost ?? 0n
+      const finalTradeFee = tradeFee.tradeFee.total + settlementFee
 
       tradePreviews.push({
         marketId: ragePosition.marketId,
@@ -1639,6 +1645,28 @@ export class PerennialAdapter implements IAdapterV1 {
         //@ts-expect-error later
         const marketSnapshots = await this.sdk.markets.read.marketSnapshots({ address, chainId: arbitrum.id })
         return marketSnapshots
+      },
+      staleTime: sTime,
+      cacheTime: sTime * CACHE_TIME_MULT,
+      opts
+    })
+    return res
+  }
+
+  async _cachedSettlementFees({ address, opts }: { address: Address; opts?: ApiOpts }): Promise<
+    | SupportedMarketMapping<{
+        commitmentCost: bigint
+        settlementCost: bigint
+        totalCost: bigint
+      }>
+    | undefined
+  > {
+    const sTime = getStaleTime(10 * CACHE_SECOND, opts)
+    const res = await cacheFetch({
+      key: [PERENNIAL_CACHE_PREFIX, address, 'settlementFees'],
+      fn: async () => {
+        const settlementFees = await this.sdk.markets.read.settlementFees()
+        return settlementFees
       },
       staleTime: sTime,
       cacheTime: sTime * CACHE_TIME_MULT,

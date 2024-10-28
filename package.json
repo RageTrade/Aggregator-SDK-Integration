@@ -99,7 +99,7 @@
     "@ethersproject/bytes": "^5.7.0",
     "@ethersproject/providers": "^5.7.2",
     "@msgpack/msgpack": "3.0.0-beta2",
-    "@perennial/sdk": "0.0.3-alpha.8",
+    "@perennial/sdk": "0.0.3-beta.1",
     "@pythnetwork/client": "^2.21.0",
     "@pythnetwork/price-service-client": "^1.9.0",
     "@synfutures/oyster-sdk": "0.1.11",

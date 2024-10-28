@@ -27,8 +27,8 @@ dependencies:
     specifier: 3.0.0-beta2
     version: 3.0.0-beta2
   '@perennial/sdk':
-    specifier: 0.0.3-alpha.8
-    version: 0.0.3-alpha.8(typescript@5.5.4)(zod@3.23.8)
+    specifier: 0.0.3-beta.1
+    version: 0.0.3-beta.1(typescript@5.5.4)(zod@3.23.8)
   '@pythnetwork/client':
     specifier: ^2.21.0
     version: 2.21.1(@solana/web3.js@1.95.1)
@@ -947,8 +947,8 @@ packages:
       - debug
     dev: false
 
-  /@perennial/sdk@0.0.3-alpha.8(typescript@5.5.4)(zod@3.23.8):
-    resolution: {integrity: sha512-kfcSVJZSXHi2J0AoLbz2FYlS21EcPzmUB5BnCeRkx+YT1JhleKxegBhWBOn/w7dYXClIYRiwD3H43B1mi9S2DQ==}
+  /@perennial/sdk@0.0.3-beta.1(typescript@5.5.4)(zod@3.23.8):
+    resolution: {integrity: sha512-joegHkRGnZ9WrjuaoIcqTkYiWUDzXZgP/tPK5VMf4dPV++wToAQShJFu7dMmfTWVWbFzLHprs9dxXyftQycp7w==}
     dependencies:
       '@microsoft/tsdoc': 0.14.2
       '@pythnetwork/hermes-client': 1.0.4(axios@1.7.2)
